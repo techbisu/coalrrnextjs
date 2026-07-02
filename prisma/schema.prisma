@@ -1,8 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// COALRR - Coal Land Acquisition, Rehabilitation & Resettlement Platform
+// Prisma Schema adapted from PostgreSQL spec to SQLite
+// Money/area stored as TEXT (Decimal) — NEVER floats (per spec §2.1.2)
 
 generator client {
   provider = "prisma-client-js"
@@ -13,20 +11,358 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ═══════════════════════════════════════════════════════════════
+// AUTH — Users for both ECL Internal Portal & Public Citizen Portal
+// ═══════════════════════════════════════════════════════════════
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  portal          String   // "ecl" | "public"
+  role            String   // ECL: unit_office | area_office | gm_planning | gm_finance | director | cmd | board | citizen
+  email           String?  @unique
+  mobile          String?  @unique
+  aadhaarHash     String?  @unique
+  name            String
+  passwordHash    String?
+  designation     String?
+  collieryCode    String?
+  plotId          String?
+  verifiedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  sessions        AuthSession[]
 }
 
-model Post {
+model AuthSession {
+  id              String   @id @default(cuid())
+  token           String   @unique
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE 1 — Project Master & GIS (locked baseline)
+// ═══════════════════════════════════════════════════════════════
+model MstProject {
+  id                      String   @id @default(cuid())
+  name                    String
+  collieryCode            String
+  totalLandLimitAcres     Decimal // NUMERIC(10,4) — acreage threshold
+  totalBudgetCeiling      Decimal // NUMERIC(15,2) — INR paise precision
+  totalEmploymentQuota    Int
+  boundary                String  // JSON: simplified PostGIS MultiPolygon
+  statutoryClearances     String? // JSONB: DGMS/Forest/Env clearances
+  lockedAt                DateTime? // NULL = editable, NOT NULL = sealed baseline
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  landSchedules           LandSchedule[]
+  payrolls                CompensationPayroll[]
+  rnrPayrolls             RnrAssetPayroll[]
+  employmentApplications  EmploymentApplication[]
+  ledgerEntries           FormDLedgerEntry[]
+}
+
+model MstMouza {
   id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+  name      String
+  district  String
+  state     String
+  plots     MstPlot[]
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+}
+
+model MstPlot {
+  id                     String   @id @default(cuid())
+  mouzaId                String
+  plotNumber             String
+  khataNumber            String?
+  landType               String   // forest | got_patta | tenancy | debottar
+  areaAcres              Decimal // NUMERIC(10,4)
+  geometry               String? // JSON: Polygon coords (simplified PostGIS)
+  exhaustedAreaForJobs   Decimal @default("0.0000") // denormalized, trigger-maintained
+  remainingJobQuota      Int      @default(0)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  mouza                  MstMouza         @relation(fields: [mouzaId], references: [id])
+  landScheduleItems      LandScheduleItem[]
+  formIClaims            FormIClaim[]
+  pafCensusRecords       PafCensusRecord[]
+  ledgerEntries          FormDLedgerEntry[]
+
+  @@unique([mouzaId, plotNumber])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE 2 — Land Acquisition & Checklists
+// ═══════════════════════════════════════════════════════════════
+model LandSchedule {
+  id                String   @id @default(cuid())
+  projectId         String
+  scheduleCode      String
+  acquisitionMode   String   // cba_act | direct_purchase | rfctlarr | patta
+  state             String   @default("Drafting")
+  modeSpecificChecklist String?
+  meta               String?
+  proposalTitle     String?
+  description       String?
+  proposedBy        String?
+  proposedByRole    String?
+  areaOffice        String?
+  collieryCode      String?
+  adjacentColliery  String?
+  totalAreaAcres    Decimal  @default("0.0000")
+  annexureA         String?
+  annexureB         String?
+  annexureC         String?
+  notificationDate  DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  project           MstProject          @relation(fields: [projectId], references: [id])
+  items             LandScheduleItem[]
+}
+
+model LandScheduleItem {
+  id            String   @id @default(cuid())
+  scheduleId    String
+  plotId        String
+  annexureTag   String?  // A | B | C
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  schedule      LandSchedule @relation(fields: [scheduleId], references: [id])
+  plot          MstPlot      @relation(fields: [plotId], references: [id])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE 3 — Public Portal Form-I Claim (landowner registry)
+// ═══════════════════════════════════════════════════════════════
+model FormIClaim {
+  id                          String   @id @default(cuid())
+  claimCode                   String   // e.g. FORM1-2026-0001
+  plotId                      String
+  citizenIdHash               String   // SHA-256 of Aadhaar (never raw)
+  claimantName                String
+  ownShareAcres               Decimal // NUMERIC(10,4)
+  optedMonetaryInLieuOfEmployment Boolean @default(false)
+  bankAccountNumber           String?
+  bankIfsc                    String?
+  state                       String   @default("Drafting")
+  submittedAt                 DateTime?
+  transparencyWindowEndsAt    DateTime? // submittedAt + 21 days
+  meta                        String?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  plot                        MstPlot    @relation(fields: [plotId], references: [id])
+  nomineePoolContributions    NomineePoolContribution[]
+
+  @@unique([citizenIdHash, plotId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE 4 — Land Compensation Payroll (Form 1A/1B)
+// ═══════════════════════════════════════════════════════════════
+model CompensationPayroll {
+  id                  String   @id @default(cuid())
+  projectId           String
+  payrollCode         String   // e.g. PR-2026-0412
+  multiplicationFactor Decimal @default("1.0000") // NUMERIC(6,4)
+  state               String   @default("Drafting")
+  landownerCount      Int      @default(0)
+  totalAward          Decimal @default("0.00")
+  meta                String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  project             MstProject              @relation(fields: [projectId], references: [id])
+  lines               CompensationPayrollLine[]
+}
+
+model CompensationPayrollLine {
+  id                String   @id @default(cuid())
+  payrollId         String
+  landownerName     String
+  plotReference     String
+  landValue         Decimal // NUMERIC(15,2)
+  assetValue        Decimal
+  solatiumAmount    Decimal @default("0.00")
+  escalationAmount  Decimal @default("0.00")
+  totalAward        Decimal @default("0.00")
+  yearsSinceNotification Int  @default(0)
+  formulaSnapshot   String  // JSONB: audit trail of calculator + inputs
+  createdAt         DateTime @default(now())
+
+  payroll           CompensationPayroll @relation(fields: [payrollId], references: [id])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE 6 — PAF Census (simplified)
+// ═══════════════════════════════════════════════════════════════
+model PafCensusRecord {
+  id                    String   @id @default(cuid())
+  pafId                 String   // printed ID card number
+  claimantName          String
+  categoryOfEntitlement String   // homestead | shop | agricultural | etc.
+  scStObcCategory       String?
+  plotId                String?
+  photoIdentityCardDoc  String?
+  createdAt             DateTime @default(now())
+
+  plot                  MstPlot?  @relation(fields: [plotId], references: [id])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE 7 — R&R Asset Payroll (homestead/cattle shed/allowances)
+// ═══════════════════════════════════════════════════════════════
+model RnrAssetPayroll {
+  id          String   @id @default(cuid())
+  projectId   String
+  payrollCode String
+  state       String   @default("Drafting")
+  totalValue  Decimal @default("0.00")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     MstProject            @relation(fields: [projectId], references: [id])
+  lines       RnrAssetPayrollLine[]
+}
+
+model RnrAssetPayrollLine {
+  id              String   @id @default(cuid())
+  payrollId       String
+  beneficiaryName String
+  entitlementType String   // homestead | shifting_allowance | cattle_shed | subsistence_grant
+  valuationAmount Decimal
+  pwdRateReference String?
+  formulaSnapshot String 
+  createdAt       DateTime @default(now())
+
+  payroll         RnrAssetPayroll @relation(fields: [payrollId], references: [id])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE 8 — Immutable Payment Ledger (Form-D, hash-chained)
+// ═══════════════════════════════════════════════════════════════
+model FormDLedgerEntry {
+  id                String   @id @default(cuid())
+  projectId         String
+  plotId            String
+  amountLand        Decimal
+  amountRnr         Decimal
+  payeeType         String   // individual | legal_tribunal
+  payeeName         String
+  rtgsUtrReference  String?
+  rowHash           String?  // SHA-256 chain (NULL until countersigned)
+  previousHash      String?
+  paidAt            DateTime @default(now())
+  state             String   @default("pending") // pending | approved
+  createdAt         DateTime @default(now())
+
+  project           MstProject @relation(fields: [projectId], references: [id])
+  plot              MstPlot    @relation(fields: [plotId], references: [id])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE 9 — Nominee Package Deal (2.00-acre pooling gate)
+// ═══════════════════════════════════════════════════════════════
+model NomineePool {
+  id                  String   @id @default(cuid())
+  nomineeAadhaarHash  String   @unique
+  nomineeName         String
+  pooledAcreage       Decimal @default("0.0000")
+  applyButtonUnlocked Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  contributions       NomineePoolContribution[]
+  employmentApplications EmploymentApplication[]
+}
+
+model NomineePoolContribution {
+  id            String   @id @default(cuid())
+  poolId        String
+  formIClaimId  String
+  shareAcres    Decimal
+  createdAt     DateTime @default(now())
+
+  pool          NomineePool @relation(fields: [poolId], references: [id])
+  formIClaim    FormIClaim  @relation(fields: [formIClaimId], references: [id])
+
+  @@unique([poolId, formIClaimId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE 10 — Employment Verification (Form-V/VI/IX/X/XI)
+// ═══════════════════════════════════════════════════════════════
+model EmploymentApplication {
+  id                  String   @id @default(cuid())
+  applicationCode     String
+  projectId           String
+  nomineePoolId       String
+  formIxBalanceAcres  Decimal // point-in-time snapshot (frozen at approval)
+  formXBalanceJobs    Int      // point-in-time snapshot
+  state               String   @default("Drafting")
+  exceptionFlags      String? // JSONB: female_nominee_counseling etc.
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  project             MstProject   @relation(fields: [projectId], references: [id])
+  nomineePool         NomineePool  @relation(fields: [nomineePoolId], references: [id])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GENERIC — Workflow Review Tasks (parallel approval fan-out)
+// ═══════════════════════════════════════════════════════════════
+model WorkflowReviewTask {
+  id              String   @id @default(cuid())
+  reviewableType  String   // CompensationPayroll | FormIClaim | LandSchedule | EmploymentApplication
+  reviewableId    String
+  role            String   // gm_planning | gm_finance | gm_safety | director | cmd
+  status          String   @default("pending") // pending | approved | rejected
+  decidedBy       String?
+  decidedAt       DateTime?
+  comment         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  // Polymorphic — no hard FK (reviewableId points to one of several tables).
+  // Backed by application-level integrity (see WorkflowEngine).
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GENERIC — Document Vault (polymorphic)
+// ═══════════════════════════════════════════════════════════════
+model Document {
+  id                String   @id @default(cuid())
+  vaultableType     String   // LandSchedule | FormIClaim | CompensationPayroll | EmploymentApplication
+  vaultableId       String
+  checklistItemKey  String
+  fileName          String
+  storagePath       String
+  mimeType          String
+  fileSizeKb        Int
+  virusScanStatus   String   @default("clean") // clean | scanning | infected
+  uploadedBy        String
+  createdAt         DateTime @default(now())
+  // Polymorphic — no hard FK
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GENERIC — Grievances (21-day transparency window objections)
+// ═══════════════════════════════════════════════════════════════
+model Grievance {
+  id            String   @id @default(cuid())
+  grievanceCode String
+  relatedType   String   // FormIClaim | EmploymentApplication
+  relatedId     String
+  complainantName String
+  description   String
+  slaDueAt      DateTime
+  resolution    String?  // NULL=open | dismissed | disputed
+  resolvedAt    DateTime?
+  createdAt     DateTime @default(now())
+  // Polymorphic — no hard FK
 }

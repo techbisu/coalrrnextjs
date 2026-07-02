@@ -6,12 +6,10 @@ import type { NextRequest } from 'next/server'
 
 export async function GET(req: NextRequest) {
   try {
-    const sp = req.nextUrl.searchParams
-    const where: Record<string, unknown> = {}
-    if (sp.get('categoryOfEntitlement')) where.categoryOfEntitlement = sp.get('categoryOfEntitlement')!
-    if (sp.get('scStObcCategory')) where.scStObcCategory = sp.get('scStObcCategory')!
-
     const records = await db.pafCensusRecord.findMany({
+      include: { plot: { include: { mouza: true } } },
+      orderBy: { createdAt: 'desc' },
+    })
       where,
       include: { plot: { include: { mouza: true } } },
       orderBy: { createdAt: 'desc' },
