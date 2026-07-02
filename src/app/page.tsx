@@ -17,26 +17,37 @@ import {
 import { cn } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 
-function lazyView(path: string) {
-  const Comp = React.lazy(() => import(path))
-  return function LazyView(props: Record<string, unknown>) {
-    return <Comp {...props} />
-  }
+// Helper: next/dynamic for named exports (views use named exports, not default)
+function nd(loader: () => Promise<Record<string, unknown>>, name: string) {
+  return dynamic(() => loader().then(m => ({ default: m[name] })), { ssr: false })
 }
 
+const DashboardView = nd(() => import('@/components/coalrr/views/DashboardView'), 'DashboardView')
+const ProjectMasterView = nd(() => import('@/components/coalrr/views/ProjectMasterView'), 'ProjectMasterView')
+const AcquisitionView = nd(() => import('@/components/coalrr/views/AcquisitionView'), 'AcquisitionView')
+const FormIWizardView = nd(() => import('@/components/coalrr/views/FormIWizardView'), 'FormIWizardView')
+const PayrollBuilderView = nd(() => import('@/components/coalrr/views/PayrollBuilderView'), 'PayrollBuilderView')
+const PaymentLedgerView = nd(() => import('@/components/coalrr/views/PaymentLedgerView'), 'PaymentLedgerView')
+const NominationView = nd(() => import('@/components/coalrr/views/NominationView'), 'NominationView')
+const EmploymentView = nd(() => import('@/components/coalrr/views/EmploymentView'), 'EmploymentView')
+const EmploymentWizardView = nd(() => import('@/components/coalrr/views/EmploymentWizardView'), 'EmploymentWizardView')
+const PafCensusView = nd(() => import('@/components/coalrr/views/PafCensusView'), 'PafCensusView')
+const RnrAssetView = nd(() => import('@/components/coalrr/views/RnrAssetView'), 'RnrAssetView')
+const WorkflowInboxView = nd(() => import('@/components/coalrr/views/WorkflowInboxView'), 'WorkflowInboxView')
+
 const VIEW_MAP: Record<string, React.ComponentType> = {
-  'dashboard': lazyView('@/components/coalrr/views/DashboardView'),
-  'project-master': lazyView('@/components/coalrr/views/ProjectMasterView'),
-  'acquisition': lazyView('@/components/coalrr/views/AcquisitionView'),
-  'form-i-wizard': lazyView('@/components/coalrr/views/FormIWizardView'),
-  'payroll-builder': lazyView('@/components/coalrr/views/PayrollBuilderView'),
-  'payment-ledger': lazyView('@/components/coalrr/views/PaymentLedgerView'),
-  'nomination': lazyView('@/components/coalrr/views/NominationView'),
-  'employment': lazyView('@/components/coalrr/views/EmploymentView'),
-  'employment-wizard': lazyView('@/components/coalrr/views/EmploymentWizardView'),
-  'paf-census': lazyView('@/components/coalrr/views/PafCensusView'),
-  'rnr-asset': lazyView('@/components/coalrr/views/RnrAssetView'),
-  'workflow-inbox': lazyView('@/components/coalrr/views/WorkflowInboxView'),
+  'dashboard': DashboardView,
+  'project-master': ProjectMasterView,
+  'acquisition': AcquisitionView,
+  'form-i-wizard': FormIWizardView,
+  'payroll-builder': PayrollBuilderView,
+  'payment-ledger': PaymentLedgerView,
+  'nomination': NominationView,
+  'employment': EmploymentView,
+  'employment-wizard': EmploymentWizardView,
+  'paf-census': PafCensusView,
+  'rnr-asset': RnrAssetView,
+  'workflow-inbox': WorkflowInboxView,
 }
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {

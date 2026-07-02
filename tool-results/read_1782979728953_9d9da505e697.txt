@@ -1,0 +1,1273 @@
+     1→'use client'
+     2→
+     3→import * as React from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import { SectionCard, StateBadge, StatusTimeline, DocumentUploader } from '@/components/coalrr'
+     6→import type { TimelineNode } from '@/components/coalrr'
+     7→import { useCoalrr, formatNumber, timeAgo } from '@/components/coalrr/store'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Label } from '@/components/ui/label'
+    11→import { Badge } from '@/components/ui/badge'
+    12→import { Progress } from '@/components/ui/progress'
+    13→import { Alert, AlertDescription } from '@/components/ui/alert'
+    14→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    15→import { Checkbox } from '@/components/ui/checkbox'
+    16→import { Separator } from '@/components/ui/separator'
+    17→import { toast } from 'sonner'
+    18→import {
+    19→  Briefcase, CheckCircle2, Clock, AlertCircle, Loader2, ArrowLeft, ArrowRight,
+    20→  ShieldCheck, Upload, Users, FileText,
+    21→} from 'lucide-react'
+    22→
+    23→// ─── Types ───────────────────────────────────────────────────────────────────
+    24→
+    25→interface NomineePool {
+    26→  id: string
+    27→  projectName: string
+    28→  nomineeName: string
+    29→  pooledAcreage: string
+    30→  threshold: string
+    31→  hasCrossedThreshold: boolean
+    32→  remainingToThreshold: string
+    33→  contributionCount: number
+    34→  exceptionFlags: string | null
+    35→  state: string
+    36→}
+    37→
+    38→interface EmploymentApplication {
+    39→  id: string
+    40→  applicationCode: string
+    41→  poolId: string
+    42→  projectName: string
+    43→  nomineeName: string
+    44→  state: string
+    45→  bioData: string | null
+    46→  selfDeclarationConfirmed: boolean
+    47→  submittedAt: string | null
+    48→  transparencyWindowEndsAt: string | null
+    49→  hqApprovedAt: string | null
+    50→  createdAt: string
+    51→  updatedAt: string
+    52→}
+    53→
+    54→interface BioDataForm {
+    55→  fullName: string
+    56→  dateOfBirth: string
+    57→  gender: string
+    58→  education: string
+    59→  aadhaarNumber: string
+    60→  address: string
+    61→  mobileNumber: string
+    62→}
+    63→
+    64→// ─── API helpers ─────────────────────────────────────────────────────────────
+    65→
+    66→async function fetchPools(): Promise<NomineePool[]> {
+    67→  const r = await fetch('/api/nominee-pools')
+    68→  if (!r.ok) throw new Error('Failed to load nominee pools')
+    69→  return r.json()
+    70→}
+    71→
+    72→async function fetchPoolDetail(id: string): Promise<NomineePool> {
+    73→  const r = await fetch(`/api/nominee-pools/${id}`)
+    74→  if (!r.ok) throw new Error('Failed to load pool detail')
+    75→  return r.json()
+    76→}
+    77→
+    78→async function createDraftApplication(poolId: string): Promise<EmploymentApplication> {
+    79→  const r = await fetch('/api/employment/apply', {
+    80→    method: 'POST',
+    81→    headers: { 'Content-Type': 'application/json' },
+    82→    body: JSON.stringify({ poolId }),
+    83→  })
+    84→  const data = await r.json()
+    85→  if (!r.ok) throw new Error(data.error ?? 'Failed to create draft application')
+    86→  return data
+    87→}
+    88→
+    89→async function updateApplication(
+    90→  id: string,
+    91→  payload: Record<string, unknown>,
+    92→): Promise<EmploymentApplication> {
+    93→  const r = await fetch(`/api/employment/${id}`, {
+    94→    method: 'PATCH',
+    95→    headers: { 'Content-Type': 'application/json' },
+    96→    body: JSON.stringify(payload),
+    97→  })
+    98→  const data = await r.json()
+    99→  if (!r.ok) throw new Error(data.error ?? 'Failed to update application')
+   100→  return data
+   101→}
+   102→
+   103→async function fetchApplication(id: string): Promise<EmploymentApplication> {
+   104→  const r = await fetch(`/api/employment/${id}`)
+   105→  if (!r.ok) throw new Error('Failed to load application')
+   106→  return r.json()
+   107→}
+   108→
+   109→// ─── Constants ───────────────────────────────────────────────────────────────
+   110→
+   111→const EMPLOYMENT_THRESHOLD = 2.0
+   112→
+   113→const EDUCATION_OPTIONS = [
+   114→  { value: 'none', label: 'None' },
+   115→  { value: 'matric', label: 'Matric' },
+   116→  { value: 'intermediate', label: 'Intermediate' },
+   117→  { value: 'graduate', label: 'Graduate' },
+   118→  { value: 'post_graduate', label: 'Post-Graduate' },
+   119→]
+   120→
+   121→const GENDER_OPTIONS = [
+   122→  { value: 'male', label: 'Male' },
+   123→  { value: 'female', label: 'Female' },
+   124→  { value: 'other', label: 'Other' },
+   125→]
+   126→
+   127→const DOCUMENT_CHECKLIST = [
+   128→  { key: 'EDU_CERT', label: 'Education Certificate', required: true },
+   129→  { key: 'IDENTITY_PROOF', label: 'Identity Proof (Aadhaar / EPIC)', required: true },
+   130→  { key: 'ADDRESS_PROOF', label: 'Address Proof', required: true },
+   131→  { key: 'PASSPORT_PHOTO', label: 'Passport Photo', required: true },
+   132→] as const
+   133→
+   134→const WIZARD_STEPS = [
+   135→  { key: 'pool-select', title: 'Pool Selection', description: 'Choose nominee pool', icon: Users },
+   136→  { key: 'eligibility', title: 'Eligibility', description: 'PUB-M10-01', icon: ShieldCheck },
+   137→  { key: 'form-vi', title: 'Form-V/VI', description: 'PUB-M10-02', icon: FileText },
+   138→  { key: 'documents', title: 'Documents', description: 'PUB-M10-03', icon: Upload },
+   139→  { key: 'status', title: 'Status', description: 'PUB-M10-04', icon: Briefcase },
+   140→] as const
+   141→
+   142→const INITIAL_BIO_DATA: BioDataForm = {
+   143→  fullName: '',
+   144→  dateOfBirth: '',
+   145→  gender: '',
+   146→  education: '',
+   147→  aadhaarNumber: '',
+   148→  address: '',
+   149→  mobileNumber: '',
+   150→}
+   151→
+   152→// ─── Helpers ─────────────────────────────────────────────────────────────────
+   153→
+   154→function buildTimelineNodes(app: EmploymentApplication, exceptionFlags: Record<string, unknown> | null): TimelineNode[] {
+   155→  const nodes: TimelineNode[] = [
+   156→    {
+   157→      state: 'Submitted',
+   158→      label: 'Application Submitted',
+   159→      status: ['Submitted', 'MathVerification', 'CL4Checklist', 'HQApproval', 'TransparencyWindow', 'AppointmentLetter'].includes(app.state) ? 'done' : 'pending',
+   160→      timestamp: app.submittedAt ?? undefined,
+   161→    },
+   162→    {
+   163→      state: 'MathVerification',
+   164→      label: 'Math Engine Verification',
+   165→      status: ['MathVerification', 'CL4Checklist', 'HQApproval', 'TransparencyWindow', 'AppointmentLetter'].includes(app.state) ? 'done' : app.state === 'Submitted' ? 'current' : 'pending',
+   166→      actor: 'System',
+   167→    },
+   168→    {
+   169→      state: 'CL4Checklist',
+   170→      label: 'CL-4 Checklist',
+   171→      status: ['CL4Checklist', 'HQApproval', 'TransparencyWindow', 'AppointmentLetter'].includes(app.state) ? 'done' : app.state === 'MathVerification' ? 'current' : 'pending',
+   172→      actor: 'CL-4 Officer',
+   173→    },
+   174→    {
+   175→      state: 'HQApproval',
+   176→      label: 'HQ Approval',
+   177→      status: ['HQApproval', 'TransparencyWindow', 'AppointmentLetter'].includes(app.state) ? 'done' : app.state === 'CL4Checklist' ? 'current' : 'pending',
+   178→      actor: 'HQ Manager',
+   179→      timestamp: app.hqApprovedAt ?? undefined,
+   180→    },
+   181→    {
+   182→      state: 'TransparencyWindow',
+   183→      label: 'Transparency Window (21 days)',
+   184→      status: ['TransparencyWindow', 'AppointmentLetter'].includes(app.state) ? (app.state === 'TransparencyWindow' ? 'current' : 'done') : app.state === 'HQApproval' ? 'current' : 'pending',
+   185→      timestamp: app.transparencyWindowEndsAt ?? undefined,
+   186→    },
+   187→    {
+   188→      state: 'AppointmentLetter',
+   189→      label: 'Appointment Letter',
+   190→      status: app.state === 'AppointmentLetter' ? 'current' : 'pending',
+   191→    },
+   192→  ]
+   193→
+   194→  // Insert conditional branch node for female nominee counseling (Form-XXIII)
+   195→  if (exceptionFlags?.femaleNomineeCounseling) {
+   196→    nodes.splice(4, 0, {
+   197→      state: 'FormXXIII_Counseling',
+   198→      label: 'Form-XXIII Female Counseling',
+   199→      status: 'done',
+   200→      isBranch: true,
+   201→      note: 'Conditional exception — female nominee counseling completed',
+   202→    })
+   203→  }
+   204→
+   205→  return nodes
+   206→}
+   207→
+   208→function daysRemaining(endIso: string): number {
+   209→  return Math.ceil((new Date(endIso).getTime() - Date.now()) / 86400000)
+   210→}
+   211→
+   212→// ─── Component ───────────────────────────────────────────────────────────────
+   213→
+   214→export function EmploymentWizardView() {
+   215→  const qc = useQueryClient()
+   216→  const user = useCoalrr((s) => s.user)
+   217→
+   218→  // Wizard state
+   219→  const [step, setStep] = React.useState(0)
+   220→  const [maxVisited, setMaxVisited] = React.useState(0)
+   221→  const [selectedPoolId, setSelectedPoolId] = React.useState<string | null>(null)
+   222→  const [applicationId, setApplicationId] = React.useState<string | null>(null)
+   223→  const [submitting, setSubmitting] = React.useState(false)
+   224→
+   225→  // Form state (step 2)
+   226→  const [bioData, setBioData] = React.useState<BioDataForm>(INITIAL_BIO_DATA)
+   227→  const [selfDeclarationChecked, setSelfDeclarationChecked] = React.useState(false)
+   228→
+   229→  // Upload state (step 3)
+   230→  const [uploadedDocs, setUploadedDocs] = React.useState<Record<string, Array<{ fileName: string; fileSizeKb: number; mimeType: string; virusScanStatus: 'clean' | 'scanning'; uploadedAt: string }>>>({})
+   231→
+   232→  // ── Queries ──
+   233→
+   234→  const { data: pools, isLoading: poolsLoading, error: poolsError } = useQuery({
+   235→    queryKey: ['nominee-pools'],
+   236→    queryFn: fetchPools,
+   237→  })
+   238→
+   239→  const { data: poolDetail, isLoading: poolLoading } = useQuery({
+   240→    queryKey: ['nominee-pools', selectedPoolId],
+   241→    queryFn: () => fetchPoolDetail(selectedPoolId!),
+   242→    enabled: !!selectedPoolId,
+   243→  })
+   244→
+   245→  const { data: application, isLoading: appLoading } = useQuery({
+   246→    queryKey: ['employment-application', applicationId],
+   247→    queryFn: () => fetchApplication(applicationId!),
+   248→    enabled: !!applicationId,
+   249→  })
+   250→
+   251→  // ── Mutations ──
+   252→
+   253→  const createAppMutation = useMutation({
+   254→    mutationFn: (poolId: string) => createDraftApplication(poolId),
+   255→    onSuccess: (app) => {
+   256→      setApplicationId(app.id)
+   257→      toast.success('Draft application created', {
+   258→        description: `Reference: ${app.applicationCode}`,
+   259→      })
+   260→      qc.invalidateQueries({ queryKey: ['nominee-pools'] })
+   261→      qc.invalidateQueries({ queryKey: ['employment-application'] })
+   262→    },
+   263→    onError: (e: Error) => toast.error('Failed to create application', { description: e.message }),
+   264→  })
+   265→
+   266→  const saveBioDataMutation = useMutation({
+   267→    mutationFn: (appId: string) =>
+   268→      updateApplication(appId, {
+   269→        bioData: JSON.stringify(bioData),
+   270→        selfDeclarationConfirmed: selfDeclarationChecked,
+   271→      }),
+   272→    onSuccess: () => {
+   273→      toast.success('Bio-data saved', { description: 'Form-V/VI details persisted' })
+   274→      qc.invalidateQueries({ queryKey: ['employment-application'] })
+   275→    },
+   276→    onError: (e: Error) => toast.error('Save failed', { description: e.message }),
+   277→  })
+   278→
+   279→  const submitApplicationMutation = useMutation({
+   280→    mutationFn: (appId: string) =>
+   281→      updateApplication(appId, {
+   282→        bioData: JSON.stringify(bioData),
+   283→        selfDeclarationConfirmed: true,
+   284→        state: 'Submitted',
+   285→      }),
+   286→    onSuccess: (app) => {
+   287→      toast.success(`Application ${app.applicationCode} submitted`, {
+   288→        description: 'Your employment application is now in the verification pipeline.',
+   289→      })
+   290→      qc.invalidateQueries({ queryKey: ['employment-application'] })
+   291→      qc.invalidateQueries({ queryKey: ['nominee-pools'] })
+   292→      qc.invalidateQueries({ queryKey: ['dashboard'] })
+   293→    },
+   294→    onError: (e: Error) => toast.error('Submission failed', { description: e.message }),
+   295→    onSettled: () => setSubmitting(false),
+   296→  })
+   297→
+   298→  // ── Handlers ──
+   299→
+   300→  const handleStepChange = React.useCallback((next: number) => {
+   301→    setStep(next)
+   302→    setMaxVisited((m) => Math.max(m, next))
+   303→    toast.info('Step auto-saved', { description: `Draft persisted at step ${next + 1}` })
+   304→  }, [])
+   305→
+   306→  const handlePoolSelect = React.useCallback((poolId: string, hasCrossed: boolean) => {
+   307→    if (!hasCrossed) {
+   308→      toast.warning('Threshold not met', {
+   309→        description: 'Pooled acreage must reach 2.0000 acres before applying.',
+   310→      })
+   311→      return
+   312→    }
+   313→    setSelectedPoolId(poolId)
+   314→    handleStepChange(1)
+   315→  }, [handleStepChange])
+   316→
+   317→  const handleStartApplication = React.useCallback(() => {
+   318→    if (!selectedPoolId) return
+   319→    createAppMutation.mutate(selectedPoolId)
+   320→  }, [selectedPoolId, createAppMutation])
+   321→
+   322→  const handleBioDataNext = React.useCallback(() => {
+   323→    if (!applicationId) return
+   324→    saveBioDataMutation.mutate(applicationId)
+   325→    handleStepChange(3)
+   326→  }, [applicationId, saveBioDataMutation, handleStepChange])
+   327→
+   328→  const handleDocUpload = React.useCallback((docKey: string, file: File) => {
+   329→    setUploadedDocs((prev) => ({
+   330→      ...prev,
+   331→      [docKey]: [
+   332→        ...(prev[docKey] ?? []),
+   333→        {
+   334→          fileName: file.name,
+   335→          fileSizeKb: Math.round(file.size / 1024),
+   336→          mimeType: file.type,
+   337→          virusScanStatus: 'clean' as const,
+   338→          uploadedAt: new Date().toISOString(),
+   339→        },
+   340→      ],
+   341→    }))
+   342→    toast.success(`Uploaded: ${file.name}`)
+   343→  }, [])
+   344→
+   345→  const handleDocRemove = React.useCallback((docKey: string, fileName: string) => {
+   346→    setUploadedDocs((prev) => ({
+   347→      ...prev,
+   348→      [docKey]: (prev[docKey] ?? []).filter((d) => d.fileName !== fileName),
+   349→    }))
+   350→  }, [])
+   351→
+   352→  const handleSubmit = React.useCallback(() => {
+   353→    if (!applicationId) return
+   354→    setSubmitting(true)
+   355→    submitApplicationMutation.mutate(applicationId)
+   356→  }, [applicationId, submitApplicationMutation])
+   357→
+   358→  // If draft was created, advance to step 2
+   359→  React.useEffect(() => {
+   360→    if (createAppMutation.isSuccess && applicationId && step === 1) {
+   361→      handleStepChange(2)
+   362→    }
+   363→  }, [createAppMutation.isSuccess, applicationId, step, handleStepChange])
+   364→
+   365→  // ── Derived state ──
+   366→
+   367→  const pooledAcreage = poolDetail ? Number(poolDetail.pooledAcreage) || 0 : 0
+   368→  const thresholdPct = Math.min(100, (pooledAcreage / EMPLOYMENT_THRESHOLD) * 100)
+   369→  const thresholdMet = pooledAcreage >= EMPLOYMENT_THRESHOLD
+   370→  const hasExceptionFemale = poolDetail?.exceptionFlags
+   371→    ? JSON.parse(poolDetail.exceptionFlags)?.femaleNomineeCounseling === true
+   372→    : false
+   373→
+   374→  const isSubmitted = application?.state === 'Submitted' ||
+   375→    ['MathVerification', 'CL4Checklist', 'HQApproval', 'TransparencyWindow', 'AppointmentLetter'].includes(application?.state ?? '')
+   376→  const allRequiredDocsUploaded = DOCUMENT_CHECKLIST.every(
+   377→    (d) => d.required === false || (uploadedDocs[d.key]?.length ?? 0) > 0,
+   378→  )
+   379→  const bioDataValid = bioData.fullName.trim() !== '' &&
+   380→    bioData.dateOfBirth !== '' &&
+   381→    bioData.gender !== '' &&
+   382→    bioData.education !== '' &&
+   383→    bioData.aadhaarNumber.trim() !== '' &&
+   384→    bioData.mobileNumber.trim() !== ''
+   385→
+   386→  // Navigation guards per step
+   387→  const canNext = React.useMemo(() => {
+   388→    switch (step) {
+   389→      case 0: return false // Pool selection uses its own buttons
+   390→      case 1: return createAppMutation.isSuccess
+   391→      case 2: return selfDeclarationChecked && bioDataValid
+   392→      case 3: return allRequiredDocsUploaded
+   393→      case 4: return false // Last step
+   394→      default: return false
+   395→    }
+   396→  }, [step, createAppMutation.isSuccess, selfDeclarationChecked, bioDataValid, allRequiredDocsUploaded])
+   397→
+   398→  const isLastStep = step === WIZARD_STEPS.length - 1
+   399→
+   400→  const onStepChange = React.useCallback(
+   401→    (next: number) => {
+   402→      if (next <= maxVisited) handleStepChange(next)
+   403→    },
+   404→    [maxVisited, handleStepChange],
+   405→  )
+   406→
+   407→  const handleNext = React.useCallback(() => {
+   408→    if (step === 1 && !createAppMutation.isSuccess && selectedPoolId) {
+   409→      handleStartApplication()
+   410→      return
+   411→    }
+   412→    if (step === 2) {
+   413→      handleBioDataNext()
+   414→      return
+   415→    }
+   416→    if (step === 3) {
+   417→      handleSubmit()
+   418→      return
+   419→    }
+   420→    if (canNext && step < WIZARD_STEPS.length - 1) {
+   421→      handleStepChange(step + 1)
+   422→    }
+   423→  }, [step, canNext, selectedPoolId, createAppMutation.isSuccess, handleStartApplication, handleBioDataNext, handleSubmit, handleStepChange])
+   424→
+   425→  // ─── Countdown widget ──
+   426→
+   427→  const [countdown, setCountdown] = React.useState<{ d: number; h: number; m: number; s: number } | null>(null)
+   428→
+   429→  React.useEffect(() => {
+   430→    if (!application?.transparencyWindowEndsAt || application.state !== 'TransparencyWindow') {
+   431→      setCountdown(null)
+   432→      return
+   433→    }
+   434→    const tick = () => {
+   435→      const diff = new Date(application.transparencyWindowEndsAt!).getTime() - Date.now()
+   436→      if (diff <= 0) {
+   437→        setCountdown({ d: 0, h: 0, m: 0, s: 0 })
+   438→        return
+   439→      }
+   440→      setCountdown({
+   441→        d: Math.floor(diff / 86400000),
+   442→        h: Math.floor((diff % 86400000) / 3600000),
+   443→        m: Math.floor((diff % 3600000) / 60000),
+   444→        s: Math.floor((diff % 60000) / 1000),
+   445→      })
+   446→    }
+   447→    tick()
+   448→    const id = setInterval(tick, 1000)
+   449→    return () => clearInterval(id)
+   450→  }, [application?.transparencyWindowEndsAt, application?.state])
+   451→
+   452→  // ─── Render ────────────────────────────────────────────────────────────────
+   453→
+   454→  return (
+   455→    <div className="space-y-4">
+   456→      {/* Header */}
+   457→      <div className="flex items-center justify-between">
+   458→        <div>
+   459→          <h2 className="text-xl font-bold tracking-tight">Employment Application Wizard</h2>
+   460→          <p className="text-sm text-muted-foreground">
+   461→            Module M10 · Public Portal · 2.00-acre nominee pooling gate · Form-V/VI capture
+   462→          </p>
+   463→        </div>
+   464→      </div>
+   465→
+   466→      {/* Step Indicator (4 dots) */}
+   467→      <div className="rounded-lg border border-border/60 bg-card p-4">
+   468→        <div className="flex items-center justify-between gap-2">
+   469→          {WIZARD_STEPS.map((s, i) => {
+   470→            const Icon = s.icon
+   471→            const st = i < step ? 'complete' : i === step ? 'active' : 'pending'
+   472→            const clickable = i <= maxVisited
+   473→            return (
+   474→              <React.Fragment key={s.key}>
+   475→                <button
+   476→                  type="button"
+   477→                  disabled={!clickable}
+   478→                  onClick={() => clickable && onStepChange(i)}
+   479→                  className={`group flex flex-1 flex-col items-center gap-1.5 text-center transition ${clickable ? 'cursor-pointer' : 'cursor-default'}`}
+   480→                >
+   481→                  <span
+   482→                    className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-semibold transition ${
+   483→                      st === 'complete'
+   484→                        ? 'border-emerald-500 bg-emerald-500 text-white'
+   485→                        : st === 'active'
+   486→                          ? 'border-amber-500 bg-amber-500 text-white ring-4 ring-amber-100 dark:ring-amber-950'
+   487→                          : 'border-border bg-background text-muted-foreground'
+   488→                    }`}
+   489→                  >
+   490→                    {st === 'complete' ? <CheckCircle2 className="h-4 w-4" /> : Icon ? <Icon className="h-4 w-4" /> : i + 1}
+   491→                  </span>
+   492→                  <span className={`hidden text-xs font-medium sm:block ${st === 'active' ? 'text-foreground' : 'text-muted-foreground'}`}>
+   493→                    {s.title}
+   494→                  </span>
+   495→                </button>
+   496→                {i < WIZARD_STEPS.length - 1 && (
+   497→                  <div className={`h-0.5 flex-1 rounded-full transition ${i < step ? 'bg-emerald-400' : 'bg-border'}`} />
+   498→                )}
+   499→              </React.Fragment>
+   500→            )
+   501→          })}
+   502→        </div>
+   503→        <div className="mt-3 text-center text-xs text-muted-foreground sm:hidden">
+   504→          Step {step + 1} of {WIZARD_STEPS.length}:{' '}
+   505→          <span className="font-medium text-foreground">{WIZARD_STEPS[step].title}</span>
+   506→        </div>
+   507→      </div>
+   508→
+   509→      {/* ── Step Content ── */}
+   510→      <div className="min-h-[320px]">
+   511→        {/* ─── Step 0: Pool Selection ─── */}
+   512→        {step === 0 && (
+   513→          <PoolSelectionStep
+   514→            pools={pools}
+   515→            isLoading={poolsLoading}
+   516→            error={poolsError}
+   517→            onSelect={handlePoolSelect}
+   518→          />
+   519→        )}
+   520→
+   521→        {/* ─── Step 1: Eligibility Check (PUB-M10-01) ─── */}
+   522→        {step === 1 && (
+   523→          <EligibilityStep
+   524→            pool={poolDetail}
+   525→            isLoading={poolLoading}
+   526→            pooledAcreage={pooledAcreage}
+   527→            thresholdPct={thresholdPct}
+   528→            thresholdMet={thresholdMet}
+   529→            creating={createAppMutation.isPending}
+   530→            onStart={handleStartApplication}
+   531→            onBack={() => handleStepChange(0)}
+   532→          />
+   533→        )}
+   534→
+   535→        {/* ─── Step 2: Form-V/VI Capture (PUB-M10-02) ─── */}
+   536→        {step === 2 && (
+   537→          <FormVICaptureStep
+   538→            bioData={bioData}
+   539→            onBioDataChange={setBioData}
+   540→            selfDeclarationChecked={selfDeclarationChecked}
+   541→            onSelfDeclarationChange={setSelfDeclarationChecked}
+   542→            saving={saveBioDataMutation.isPending}
+   543→          />
+   544→        )}
+   545→
+   546→        {/* ─── Step 3: Document Upload (PUB-M10-03) ─── */}
+   547→        {step === 3 && (
+   548→          <DocumentUploadStep
+   549→            uploadedDocs={uploadedDocs}
+   550→            onUpload={handleDocUpload}
+   551→            onRemove={handleDocRemove}
+   552→            hasFemaleException={hasExceptionFemale}
+   553→          />
+   554→        )}
+   555→
+   556→        {/* ─── Step 4: Status Tracker (PUB-M10-04) ─── */}
+   557→        {step === 4 && (
+   558→          <StatusTrackerStep
+   559→            application={application}
+   560→            isLoading={appLoading}
+   561→            exceptionFlags={poolDetail?.exceptionFlags ?? null}
+   562→            countdown={countdown}
+   563→          />
+   564→        )}
+   565→      </div>
+   566→
+   567→      {/* ── Navigation Footer ── */}
+   568→      <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+   569→        <Button
+   570→          type="button"
+   571→          variant="outline"
+   572→          onClick={() => step > 0 && handleStepChange(step - 1)}
+   573→          disabled={step === 0}
+   574→        >
+   575→          <ArrowLeft className="h-4 w-4" />
+   576→          Back
+   577→        </Button>
+   578→
+   579→        <div className="text-xs text-muted-foreground">
+   580→          {step + 1} / {WIZARD_STEPS.length}
+   581→        </div>
+   582→
+   583→        {step === 3 ? (
+   584→          <Button
+   585→            type="button"
+   586→            onClick={handleSubmit}
+   587→            disabled={!allRequiredDocsUploaded || submitting || submitApplicationMutation.isPending}
+   588→            className="bg-amber-600 hover:bg-amber-700"
+   589→          >
+   590→            {submitting || submitApplicationMutation.isPending ? (
+   591→              <Loader2 className="h-4 w-4 animate-spin" />
+   592→            ) : (
+   593→              <CheckCircle2 className="h-4 w-4" />
+   594→            )}
+   595→            Submit Application
+   596→          </Button>
+   597→        ) : step < WIZARD_STEPS.length - 1 && step > 0 ? (
+   598→          <Button
+   599→            type="button"
+   600→            onClick={handleNext}
+   601→            disabled={!canNext}
+   602→            className="bg-amber-600 hover:bg-amber-700"
+   603→          >
+   604→            {step === 1 && createAppMutation.isPending ? (
+   605→              <Loader2 className="h-4 w-4 animate-spin" />
+   606→            ) : step === 2 && saveBioDataMutation.isPending ? (
+   607→              <Loader2 className="h-4 w-4 animate-spin" />
+   608→            ) : null}
+   609→            {step === 1 && !createAppMutation.isSuccess ? 'Start My Application' : 'Next'}
+   610→            {step === 1 && !createAppMutation.isPending && <ArrowRight className="h-4 w-4" />}
+   611→          </Button>
+   612→        ) : step === 0 ? (
+   613→          <div />
+   614→        ) : null}
+   615→      </div>
+   616→    </div>
+   617→  )
+   618→}
+   619→
+   620→// ─── Step 0: Pool Selection ──────────────────────────────────────────────────
+   621→
+   622→function PoolSelectionStep({
+   623→  pools,
+   624→  isLoading,
+   625→  error,
+   626→  onSelect,
+   627→}: {
+   628→  pools: NomineePool[] | undefined
+   629→  isLoading: boolean
+   630→  error: Error | null
+   631→  onSelect: (poolId: string, hasCrossed: boolean) => void
+   632→}) {
+   633→  if (isLoading) {
+   634→    return (
+   635→      <div className="flex flex-col items-center justify-center gap-3 py-12">
+   636→        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+   637→        <p className="text-sm text-muted-foreground">Loading your nominee pools…</p>
+   638→      </div>
+   639→    )
+   640→  }
+   641→
+   642→  if (error) {
+   643→    return (
+   644→      <Alert variant="destructive" className="border-rose-200 bg-rose-50 dark:bg-rose-950/30">
+   645→        <AlertCircle className="h-4 w-4 text-rose-600" />
+   646→        <AlertDescription className="text-rose-800 dark:text-rose-300">
+   647→          Failed to load nominee pools: {error.message}
+   648→        </AlertDescription>
+   649→      </Alert>
+   650→    )
+   651→  }
+   652→
+   653→  if (!pools || pools.length === 0) {
+   654→    return (
+   655→      <div className="flex flex-col items-center justify-center gap-3 py-12">
+   656→        <Users className="h-10 w-10 text-muted-foreground/40" />
+   657→        <p className="text-sm font-medium text-muted-foreground">No nominee pools found</p>
+   658→        <p className="text-xs text-muted-foreground/70">
+   659→          You need to be nominated in a pool before you can apply for employment.
+   660→        </p>
+   661→      </div>
+   662→    )
+   663→  }
+   664→
+   665→  return (
+   666→    <div className="space-y-4">
+   667→      <SectionCard
+   668→        title="Select Nominee Pool"
+   669→        icon={Users}
+   670→        description="Choose which nominee pool you want to apply for employment under."
+   671→      >
+   672→        <div className="space-y-3">
+   673→          {pools.map((pool) => {
+   674→            const pooled = Number(pool.pooledAcreage) || 0
+   675→            const pct = Math.min(100, (pooled / EMPLOYMENT_THRESHOLD) * 100)
+   676→            const met = pool.hasCrossedThreshold
+   677→
+   678→            return (
+   679→              <div
+   680→                key={pool.id}
+   681→                className="rounded-lg border border-border/60 bg-muted/20 p-4 transition hover:border-amber-300 hover:bg-amber-50/30 dark:hover:bg-amber-950/20"
+   682→              >
+   683→                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   684→                  <div className="min-w-0 flex-1">
+   685→                    <div className="flex items-center gap-2">
+   686→                      <p className="truncate text-sm font-semibold">{pool.projectName}</p>
+   687→                      <StateBadge state={pool.state} />
+   688→                    </div>
+   689→                    <p className="mt-0.5 text-xs text-muted-foreground">
+   690→                      Nominee: <span className="font-medium text-foreground">{pool.nomineeName}</span>
+   691→                      {' · '}Contributions: {pool.contributionCount}
+   692→                    </p>
+   693→                    <div className="mt-2 space-y-1">
+   694→                      <div className="flex items-baseline justify-between text-xs">
+   695→                        <span className="text-muted-foreground">
+   696→                          Pooled: <span className="font-mono font-semibold tabular-nums text-foreground">{formatNumber(pool.pooledAcreage, 4)}</span>{' '}
+   697→                          / {formatNumber(EMPLOYMENT_THRESHOLD, 4)} acres
+   698→                        </span>
+   699→                        <span className={`font-medium tabular-nums ${met ? 'text-emerald-600' : 'text-amber-600'}`}>{pct.toFixed(1)}%</span>
+   700→                      </div>
+   701→                      <Progress
+   702→                        value={pct}
+   703→                        className="h-2"
+   704→                        indicatorClassName={met ? 'bg-emerald-500' : 'bg-amber-500'}
+   705→                      />
+   706→                    </div>
+   707→                  </div>
+   708→                  <Button
+   709→                    onClick={() => onSelect(pool.id, met)}
+   710→                    disabled={!met}
+   711→                    className="bg-amber-600 hover:bg-amber-700 shrink-0"
+   712→                  >
+   713→                    {met ? (
+   714→                      <>
+   715→                        <Briefcase className="h-4 w-4" />
+   716→                        Apply for Employment
+   717→                      </>
+   718→                    ) : (
+   719→                      <>
+   720→                        <AlertCircle className="h-4 w-4" />
+   721→                        Threshold Not Met
+   722→                      </>
+   723→                    )}
+   724→                  </Button>
+   725→                </div>
+   726→              </div>
+   727→            )
+   728→          })}
+   729→        </div>
+   730→      </SectionCard>
+   731→    </div>
+   732→  )
+   733→}
+   734→
+   735→// ─── Step 1: Eligibility Check (PUB-M10-01) ──────────────────────────────────
+   736→
+   737→function EligibilityStep({
+   738→  pool,
+   739→  isLoading,
+   740→  pooledAcreage,
+   741→  thresholdPct,
+   742→  thresholdMet,
+   743→  creating,
+   744→  onStart,
+   745→  onBack,
+   746→}: {
+   747→  pool: NomineePool | undefined
+   748→  isLoading: boolean
+   749→  pooledAcreage: number
+   750→  thresholdPct: number
+   751→  thresholdMet: boolean
+   752→  creating: boolean
+   753→  onStart: () => void
+   754→  onBack: () => void
+   755→}) {
+   756→  if (isLoading) {
+   757→    return (
+   758→      <div className="flex flex-col items-center justify-center gap-3 py-12">
+   759→        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+   760→        <p className="text-sm text-muted-foreground">Fetching fresh eligibility data…</p>
+   761→      </div>
+   762→    )
+   763→  }
+   764→
+   765→  if (!pool) {
+   766→    return (
+   767→      <Alert variant="destructive" className="border-rose-200 bg-rose-50 dark:bg-rose-950/30">
+   768→        <AlertCircle className="h-4 w-4 text-rose-600" />
+   769→        <AlertDescription className="text-rose-800 dark:text-rose-300">
+   770→          Pool data unavailable. Please go back and select a pool again.
+   771→        </AlertDescription>
+   772→      </Alert>
+   773→    )
+   774→  }
+   775→
+   776→  return (
+   777→    <div className="space-y-4">
+   778→      <SectionCard
+   779→        title="Eligibility Check"
+   780→        icon={ShieldCheck}
+   781→        description="PUB-M10-01 — Re-verifying pooled acreage against the 2.00-acre statutory threshold"
+   782→      >
+   783→        <div className="space-y-5">
+   784→          {/* Pool info */}
+   785→          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   786→            <InfoTile label="Project" value={pool.projectName} />
+   787→            <InfoTile label="Nominee" value={pool.nomineeName} />
+   788→            <InfoTile label="State" value={pool.state} />
+   789→            <InfoTile label="Contributions" value={String(pool.contributionCount)} />
+   790→          </div>
+   791→
+   792→          <Separator />
+   793→
+   794→          {/* Large progress bar */}
+   795→          <div className="space-y-3">
+   796→            <div className="flex items-baseline justify-between">
+   797→              <div>
+   798→                <p className="text-3xl font-bold tabular-nums">{formatNumber(pooledAcreage, 4)}</p>
+   799→                <p className="text-xs text-muted-foreground">
+   800→                  Your pooled land total: <span className="font-mono font-semibold">{formatNumber(pooledAcreage, 4)}</span>{' '}
+   801→                  / {formatNumber(EMPLOYMENT_THRESHOLD, 4)} acres
+   802→                </p>
+   803→              </div>
+   804→              <div className="text-right">
+   805→                <p className="text-sm text-muted-foreground">threshold</p>
+   806→                <p className="text-lg font-semibold tabular-nums">{formatNumber(EMPLOYMENT_THRESHOLD, 2)} ac</p>
+   807→              </div>
+   808→            </div>
+   809→
+   810→            <Progress
+   811→              value={thresholdPct}
+   812→              className="h-4"
+   813→              indicatorClassName={thresholdMet ? 'bg-emerald-500' : 'bg-amber-500'}
+   814→            />
+   815→
+   816→            <div className="flex items-center justify-between text-xs">
+   817→              <span className={thresholdMet ? 'text-emerald-700' : 'text-amber-700'}>
+   818→                {thresholdMet ? (
+   819→                  <span className="flex items-center gap-1.5">
+   820→                    <CheckCircle2 className="h-3.5 w-3.5" />
+   821→                    ✓ Threshold crossed — you are eligible to apply
+   822→                  </span>
+   823→                ) : (
+   824→                  <span className="flex items-center gap-1.5">
+   825→                    <AlertCircle className="h-3.5 w-3.5" />
+   826→                    ⚠ {formatNumber(EMPLOYMENT_THRESHOLD - pooledAcreage, 4)} acres short — application blocked
+   827→                  </span>
+   828→                )}
+   829→              </span>
+   830→              <span className="font-medium tabular-nums">{thresholdPct.toFixed(1)}%</span>
+   831→            </div>
+   832→          </div>
+   833→
+   834→          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/30">
+   835→            <ShieldCheck className="h-4 w-4 text-amber-600" />
+   836→            <AlertDescription className="text-amber-800 dark:text-amber-300">
+   837→              <strong>Defense in depth:</strong> This eligibility check is re-fetched from the server. The threshold
+   838→              gate is also enforced at the application layer (Workflow Engine guard) and database layer (UNIQUE constraint
+   839→              on contributions).
+   840→            </AlertDescription>
+   841→          </Alert>
+   842→
+   843→          <div className="flex items-center justify-between">
+   844→            <Button variant="outline" onClick={onBack}>
+   845→              <ArrowLeft className="h-4 w-4" />
+   846→              Back to Pools
+   847→            </Button>
+   848→            <Button
+   849→              onClick={onStart}
+   850→              disabled={!thresholdMet || creating}
+   851→              className="bg-amber-600 hover:bg-amber-700"
+   852→            >
+   853→              {creating ? (
+   854→                <Loader2 className="h-4 w-4 animate-spin" />
+   855→              ) : (
+   856→                <Briefcase className="h-4 w-4" />
+   857→              )}
+   858→              Start My Application
+   859→            </Button>
+   860→          </div>
+   861→        </div>
+   862→      </SectionCard>
+   863→    </div>
+   864→  )
+   865→}
+   866→
+   867→// ─── Step 2: Form-V/VI Capture (PUB-M10-02) ─────────────────────────────────
+   868→
+   869→function FormVICaptureStep({
+   870→  bioData,
+   871→  onBioDataChange,
+   872→  selfDeclarationChecked,
+   873→  onSelfDeclarationChange,
+   874→  saving,
+   875→}: {
+   876→  bioData: BioDataForm
+   877→  onBioDataChange: (data: BioDataForm) => void
+   878→  selfDeclarationChecked: boolean
+   879→  onSelfDeclarationChange: (checked: boolean) => void
+   880→  saving: boolean
+   881→}) {
+   882→  const update = (field: keyof BioDataForm, value: string) => {
+   883→    onBioDataChange({ ...bioData, [field]: value })
+   884→  }
+   885→
+   886→  return (
+   887→    <div className="space-y-4">
+   888→      <SectionCard
+   889→        title="Form-V/VI Bio-Data Capture"
+   890→        icon={FileText}
+   891→        description="PUB-M10-02 — Personal details and self-declaration for employment application"
+   892→      >
+   893→        <div className="space-y-5">
+   894→          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/30">
+   895→            <AlertCircle className="h-4 w-4 text-amber-600" />
+   896→            <AlertDescription className="text-amber-800 dark:text-amber-300">
+   897→              All fields marked with an asterisk are mandatory. Data is validated client-side (instant feedback)
+   898→              and server-side (Layer-3 re-check) before submission.
+   899→            </AlertDescription>
+   900→          </Alert>
+   901→
+   902→          {/* Row 1: Name + DOB */}
+   903→          <div className="grid gap-3 sm:grid-cols-2">
+   904→            <Field label="Full Name *" hint="As per Aadhaar / EPIC">
+   905→              <Input
+   906→                value={bioData.fullName}
+   907→                onChange={(e) => update('fullName', e.target.value)}
+   908→                placeholder="Enter full name"
+   909→              />
+   910→            </Field>
+   911→            <Field label="Date of Birth *" hint="DD/MM/YYYY format">
+   912→              <Input
+   913→                type="date"
+   914→                value={bioData.dateOfBirth}
+   915→                onChange={(e) => update('dateOfBirth', e.target.value)}
+   916→              />
+   917→            </Field>
+   918→          </div>
+   919→
+   920→          {/* Row 2: Gender + Education */}
+   921→          <div className="grid gap-3 sm:grid-cols-2">
+   922→            <Field label="Gender *">
+   923→              <Select value={bioData.gender} onValueChange={(v) => update('gender', v)}>
+   924→                <SelectTrigger className="w-full">
+   925→                  <SelectValue placeholder="Select gender" />
+   926→                </SelectTrigger>
+   927→                <SelectContent>
+   928→                  {GENDER_OPTIONS.map((opt) => (
+   929→                    <SelectItem key={opt.value} value={opt.value}>
+   930→                      {opt.label}
+   931→                    </SelectItem>
+   932→                  ))}
+   933→                </SelectContent>
+   934→              </Select>
+   935→            </Field>
+   936→            <Field label="Education *" hint="Highest qualification">
+   937→              <Select value={bioData.education} onValueChange={(v) => update('education', v)}>
+   938→                <SelectTrigger className="w-full">
+   939→                  <SelectValue placeholder="Select education level" />
+   940→                </SelectTrigger>
+   941→                <SelectContent>
+   942→                  {EDUCATION_OPTIONS.map((opt) => (
+   943→                    <SelectItem key={opt.value} value={opt.value}>
+   944→                      {opt.label}
+   945→                    </SelectItem>
+   946→                  ))}
+   947→                </SelectContent>
+   948→              </Select>
+   949→            </Field>
+   950→          </div>
+   951→
+   952→          {/* Row 3: Aadhaar */}
+   953→          <div className="grid gap-3 sm:grid-cols-2">
+   954→            <Field label="Aadhaar Number *" hint="12-digit — hashed server-side (SHA-256), never stored raw">
+   955→              <Input
+   956→                value={bioData.aadhaarNumber}
+   957→                onChange={(e) =>
+   958→                  update('aadhaarNumber', e.target.value.replace(/[^0-9]/g, '').slice(0, 12))
+   959→                }
+   960→                placeholder="123456789012"
+   961→                maxLength={12}
+   962→                className="font-mono"
+   963→              />
+   964→            </Field>
+   965→            <Field label="Mobile Number *" hint="10-digit Indian mobile">
+   966→              <Input
+   967→                value={bioData.mobileNumber}
+   968→                onChange={(e) =>
+   969→                  update('mobileNumber', e.target.value.replace(/[^0-9]/g, '').slice(0, 10))
+   970→                }
+   971→                placeholder="9876543210"
+   972→                maxLength={10}
+   973→                className="font-mono"
+   974→              />
+   975→            </Field>
+   976→          </div>
+   977→
+   978→          {/* Row 4: Address */}
+   979→          <Field label="Address *" hint="Current residential address">
+   980→            <Input
+   981→              value={bioData.address}
+   982→              onChange={(e) => update('address', e.target.value)}
+   983→              placeholder="Village / Town, Post Office, District, State, PIN"
+   984→            />
+   985→          </Field>
+   986→
+   987→          <Separator />
+   988→
+   989→          {/* Self-declaration */}
+   990→          <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+   991→            <Checkbox
+   992→              id="self-declaration"
+   993→              checked={selfDeclarationChecked}
+   994→              onCheckedChange={(checked) => onSelfDeclarationChange(checked === true)}
+   995→              className="mt-0.5"
+   996→            />
+   997→            <Label htmlFor="self-declaration" className="text-sm leading-relaxed">
+   998→              I confirm that the relationship and eligibility details provided are true and correct to the best
+   999→              of my knowledge and belief. I understand that any false statement may lead to disqualification
+  1000→              from the employment process under the CBA Act provisions.
+  1001→            </Label>
+  1002→          </div>
+  1003→
+  1004→          {!selfDeclarationChecked && (
+  1005→            <p className="flex items-center gap-1.5 text-xs text-amber-700">
+  1006→              <AlertCircle className="h-3 w-3" />
+  1007→              Self-declaration must be confirmed to proceed.
+  1008→            </p>
+  1009→          )}
+  1010→        </div>
+  1011→      </SectionCard>
+  1012→    </div>
+  1013→  )
+  1014→}
+  1015→
+  1016→// ─── Step 3: Document Upload (PUB-M10-03) ────────────────────────────────────
+  1017→
+  1018→function DocumentUploadStep({
+  1019→  uploadedDocs,
+  1020→  onUpload,
+  1021→  onRemove,
+  1022→  hasFemaleException,
+  1023→}: {
+  1024→  uploadedDocs: Record<string, Array<{ fileName: string; fileSizeKb: number; mimeType: string; virusScanStatus: 'clean' | 'scanning'; uploadedAt: string }>>
+  1025→  onUpload: (docKey: string, file: File) => void
+  1026→  onRemove: (docKey: string, fileName: string) => void
+  1027→  hasFemaleException: boolean
+  1028→}) {
+  1029→  const allDocs = hasFemaleException
+  1030→    ? [...DOCUMENT_CHECKLIST, { key: 'FORM_XXIII_COUNSELING', label: 'Form-XXIII Female Nominee Counseling', required: true }]
+  1031→    : [...DOCUMENT_CHECKLIST]
+  1032→
+  1033→  return (
+  1034→    <div className="space-y-4">
+  1035→      <SectionCard
+  1036→        title="Document Upload"
+  1037→        icon={Upload}
+  1038→        description="PUB-M10-03 — Upload mandatory documents for verification"
+  1039→      >
+  1040→        <div className="space-y-4">
+  1041→          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/30">
+  1042→            <ShieldCheck className="h-4 w-4 text-amber-600" />
+  1043→            <AlertDescription className="text-amber-800 dark:text-amber-300">
+  1044→              Layer-1 client-side validation runs before upload (instant feedback, zero roundtrip); Layer-3
+  1045→              server MIME re-check on receipt. All documents are virus-scanned before processing.
+  1046→            </AlertDescription>
+  1047→          </Alert>
+  1048→
+  1049→          <div className="grid gap-4 sm:grid-cols-2">
+  1050→            {allDocs.map((doc) => (
+  1051→              <div
+  1052→                key={doc.key}
+  1053→                className="rounded-lg border border-border/60 bg-card p-3"
+  1054→              >
+  1055→                <div className="mb-2 flex items-center justify-between">
+  1056→                  <span className="text-sm font-medium">
+  1057→                    {doc.label}
+  1058→                    {doc.required && <span className="ml-1 text-rose-500">*</span>}
+  1059→                  </span>
+  1060→                  {(uploadedDocs[doc.key]?.length ?? 0) > 0 ? (
+  1061→                    <Badge className="gap-1 border-emerald-300 bg-emerald-50 text-[10px] text-emerald-700 hover:bg-emerald-50">
+  1062→                      <CheckCircle2 className="h-2.5 w-2.5" />
+  1063→                      Uploaded
+  1064→                    </Badge>
+  1065→                  ) : (
+  1066→                    <Badge variant="outline" className="text-[10px] text-muted-foreground">
+  1067→                      Pending
+  1068→                    </Badge>
+  1069→                  )}
+  1070→                </div>
+  1071→                <DocumentUploader
+  1072→                  checklistItemKey={doc.key}
+  1073→                  label=""
+  1074→                  documents={uploadedDocs[doc.key] ?? []}
+  1075→                  onUpload={(file) => onUpload(doc.key, file)}
+  1076→                  onRemove={(d) => onRemove(doc.key, d.fileName)}
+  1077→                />
+  1078→              </div>
+  1079→            ))}
+  1080→          </div>
+  1081→
+  1082→          {hasFemaleException && (
+  1083→            <Alert className="border-sky-200 bg-sky-50 dark:bg-sky-950/30">
+  1084→              <AlertCircle className="h-4 w-4 text-sky-600" />
+  1085→              <AlertDescription className="text-sky-800 dark:text-sky-300">
+  1086→                <strong>Conditional document required:</strong> Form-XXIII (Female Nominee Counseling Certificate)
+  1087→                is required because this pool has a female nominee counseling exception flag.
+  1088→              </AlertDescription>
+  1089→            </Alert>
+  1090→          )}
+  1091→
+  1092→          <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+  1093→            <p className="text-xs text-muted-foreground">
+  1094→              <strong>Accepted formats:</strong> PDF, JPG, JPEG, PNG, DOCX · Max 10 MB per file · Virus scan automatic
+  1095→            </p>
+  1096→          </div>
+  1097→        </div>
+  1098→      </SectionCard>
+  1099→    </div>
+  1100→  )
+  1101→}
+  1102→
+  1103→// ─── Step 4: Status Tracker (PUB-M10-04) ─────────────────────────────────────
+  1104→
+  1105→function StatusTrackerStep({
+  1106→  application,
+  1107→  isLoading,
+  1108→  exceptionFlags,
+  1109→  countdown,
+  1110→}: {
+  1111→  application: EmploymentApplication | undefined
+  1112→  isLoading: boolean
+  1113→  exceptionFlags: string | null
+  1114→  countdown: { d: number; h: number; m: number; s: number } | null
+  1115→}) {
+  1116→  if (isLoading) {
+  1117→    return (
+  1118→      <div className="flex flex-col items-center justify-center gap-3 py-12">
+  1119→        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+  1120→        <p className="text-sm text-muted-foreground">Loading application status…</p>
+  1121→      </div>
+  1122→    )
+  1123→  }
+  1124→
+  1125→  if (!application) {
+  1126→    return (
+  1127→      <div className="flex flex-col items-center justify-center gap-3 py-12">
+  1128→        <Briefcase className="h-10 w-10 text-muted-foreground/40" />
+  1129→        <p className="text-sm font-medium text-muted-foreground">No application found</p>
+  1130→        <p className="text-xs text-muted-foreground/70">
+  1131→          Application data could not be loaded. Please try again later.
+  1132→        </p>
+  1133→      </div>
+  1134→    )
+  1135→  }
+  1136→
+  1137→  const flags = exceptionFlags ? JSON.parse(exceptionFlags) as Record<string, unknown> : null
+  1138→  const timelineNodes = buildTimelineNodes(application, flags)
+  1139→
+  1140→  return (
+  1141→    <div className="space-y-4">
+  1142→      <SectionCard
+  1143→        title="Status Transparency Tracker"
+  1144→        icon={Briefcase}
+  1145→        description="PUB-M10-04 — Real-time application status with 21-day countdown"
+  1146→      >
+  1147→        <div className="space-y-4">
+  1148→          {/* Application summary bar */}
+  1149→          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+  1150→            <div>
+  1151→              <div className="flex items-center gap-2">
+  1152→                <span className="font-mono text-sm font-semibold">{application.applicationCode}</span>
+  1153→                <StateBadge state={application.state} />
+  1154→              </div>
+  1155→              <p className="mt-0.5 text-xs text-muted-foreground">
+  1156→                {application.projectName} · {application.nomineeName}
+  1157→                {application.submittedAt && (
+  1158→                  <> · Submitted {timeAgo(application.submittedAt)}</>
+  1159→                )}
+  1160→              </p>
+  1161→            </div>
+  1162→            {application.submittedAt && (
+  1163→              <div className="text-right">
+  1164→                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Submitted On</p>
+  1165→                <p className="text-sm font-medium tabular-nums">
+  1166→                  {new Date(application.submittedAt).toLocaleDateString('en-IN', {
+  1167→                    day: '2-digit',
+  1168→                    month: 'short',
+  1169→                    year: 'numeric',
+  1170→                  })}
+  1171→                </p>
+  1172→              </div>
+  1173→            )}
+  1174→          </div>
+  1175→
+  1176→          {/* Countdown widget for Transparency Window */}
+  1177→          {countdown && application.state === 'TransparencyWindow' && (
+  1178→            <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:bg-amber-950/30">
+  1179→              <div className="flex items-center gap-2 mb-3">
+  1180→                <Clock className="h-4 w-4 text-amber-600" />
+  1181→                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+  1182→                  Transparency Window Countdown
+  1183→                </p>
+  1184→              </div>
+  1185→              <div className="grid grid-cols-4 gap-2 text-center">
+  1186→                {[
+  1187→                  { value: countdown.d, label: 'Days' },
+  1188→                  { value: countdown.h, label: 'Hours' },
+  1189→                  { value: countdown.m, label: 'Minutes' },
+  1190→                  { value: countdown.s, label: 'Seconds' },
+  1191→                ].map((unit) => (
+  1192→                  <div key={unit.label} className="rounded-md border border-amber-200 bg-white px-2 py-2 dark:border-amber-800 dark:bg-amber-950/50">
+  1193→                    <p className="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-300">
+  1194→                      {String(unit.value).padStart(2, '0')}
+  1195→                    </p>
+  1196→                    <p className="text-[10px] uppercase tracking-wide text-amber-600/70">{unit.label}</p>
+  1197→                  </div>
+  1198→                ))}
+  1199→              </div>
+  1200→              <p className="mt-2 text-[11px] text-amber-700/70">
+  1201→                Window ends:{' '}
+  1202→                {application.transparencyWindowEndsAt
+  1203→                  ? new Date(application.transparencyWindowEndsAt).toLocaleDateString('en-IN', {
+  1204→                      day: '2-digit',
+  1205→                      month: 'short',
+  1206→                      year: 'numeric',
+  1207→                    })
+  1208→                  : '—'}
+  1209→              </p>
+  1210→            </div>
+  1211→          )}
+  1212→
+  1213→          {/* Timeline */}
+  1214→          <StatusTimeline nodes={timelineNodes} maxheight={420} />
+  1215→
+  1216→          {/* Exception flags note */}
+  1217→          {flags && Object.keys(flags).length > 0 && (
+  1218→            <>
+  1219→              <Separator />
+  1220→              <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+  1221→                <p className="mb-1.5 text-xs font-medium">Active Exception Flags</p>
+  1222→                <div className="flex flex-wrap gap-2">
+  1223→                  {Object.entries(flags).map(([k, v]) => (
+  1224→                    <Badge
+  1225→                      key={k}
+  1226→                      variant="outline"
+  1227→                      className={
+  1228→                        v
+  1229→                          ? 'border-amber-300 bg-amber-100 text-amber-700'
+  1230→                          : 'border-slate-200 bg-slate-50 text-slate-600'
+  1231→                      }
+  1232→                    >
+  1233→                      {k}: {v ? 'triggered' : 'n/a'}
+  1234→                    </Badge>
+  1235→                  ))}
+  1236→                </div>
+  1237→              </div>
+  1238→            </>
+  1239→          )}
+  1240→        </div>
+  1241→      </SectionCard>
+  1242→    </div>
+  1243→  )
+  1244→}
+  1245→
+  1246→// ─── Shared sub-components ───────────────────────────────────────────────────
+  1247→
+  1248→function Field({
+  1249→  label,
+  1250→  hint,
+  1251→  children,
+  1252→}: {
+  1253→  label: string
+  1254→  hint?: string
+  1255→  children: React.ReactNode
+  1256→}) {
+  1257→  return (
+  1258→    <div className="space-y-1">
+  1259→      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+  1260→      {children}
+  1261→      {hint && <p className="text-[11px] text-muted-foreground/70">{hint}</p>}
+  1262→    </div>
+  1263→  )
+  1264→}
+  1265→
+  1266→function InfoTile({ label, value }: { label: string; value: string }) {
+  1267→  return (
+  1268→    <div className="rounded-md border border-border/60 bg-muted/30 p-2.5">
+  1269→      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+  1270→      <p className="mt-0.5 text-sm font-medium">{value}</p>
+  1271→    </div>
+  1272→  )
+  1273→}

@@ -1,0 +1,1067 @@
+     1→'use client'
+     2→
+     3→import * as React from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import { SectionCard, StateBadge, DataTable } from '@/components/coalrr'
+     6→import { useCoalrr, formatNumber } from '@/components/coalrr/store'
+     7→import type { Column } from '@/components/coalrr'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Label } from '@/components/ui/label'
+    11→import { Badge } from '@/components/ui/badge'
+    12→import { Progress } from '@/components/ui/progress'
+    13→import { Alert, AlertDescription } from '@/components/ui/alert'
+    14→import { Separator } from '@/components/ui/separator'
+    15→import {
+    16→  Select,
+    17→  SelectContent,
+    18→  SelectItem,
+    19→  SelectTrigger,
+    20→  SelectValue,
+    21→} from '@/components/ui/select'
+    22→import {
+    23→  Dialog,
+    24→  DialogContent,
+    25→  DialogHeader,
+    26→  DialogTitle,
+    27→  DialogDescription,
+    28→  DialogFooter,
+    29→} from '@/components/ui/dialog'
+    30→import {
+    31→  Table,
+    32→  TableBody,
+    33→  TableCell,
+    34→  TableHead,
+    35→  TableHeader,
+    36→  TableRow,
+    37→} from '@/components/ui/table'
+    38→import { toast } from 'sonner'
+    39→import {
+    40→  UserPlus,
+    41→  Users,
+    42→  CheckCircle2,
+    43→  AlertCircle,
+    44→  ArrowLeft,
+    45→  Loader2,
+    46→  Plus,
+    47→  TrendingUp,
+    48→  MapPin,
+    49→  Clock,
+    50→  ChevronRight,
+    51→  FileText,
+    52→} from 'lucide-react'
+    53→
+    54→// ─── Types ──────────────────────────────────────────────────────────────────
+    55→
+    56→interface Claim {
+    57→  id: string
+    58→  claimCode: string
+    59→  plotNumber: string
+    60→  ownShareAcres: string
+    61→  state: string
+    62→  mouza: string | null
+    63→  nominated: boolean
+    64→}
+    65→
+    66→interface NomineePoolSummary {
+    67→  id: string
+    68→  nomineeName: string
+    69→  nomineeAadhaarHash: string
+    70→  pooledAcreage: string
+    71→  contributionCount: number
+    72→  status: 'Pooling' | 'Threshold Met' | 'Application Submitted'
+    73→  threshold: string
+    74→  hasCrossedThreshold: boolean
+    75→  createdAt: string
+    76→}
+    77→
+    78→interface PoolContribution {
+    79→  id: string
+    80→  claimantName: string
+    81→  plotNumber: string
+    82→  shareAcres: string
+    83→  claimCode: string
+    84→}
+    85→
+    86→interface NomineePoolDetail {
+    87→  id: string
+    88→  nomineeName: string
+    89→  nomineeAadhaarHash: string
+    90→  pooledAcreage: string
+    91→  threshold: string
+    92→  hasCrossedThreshold: boolean
+    93→  contributionCount: number
+    94→  status: 'Pooling' | 'Threshold Met' | 'Application Submitted'
+    95→  contributions: PoolContribution[]
+    96→  createdAt: string
+    97→}
+    98→
+    99→// ─── API helpers ────────────────────────────────────────────────────────────
+   100→
+   101→async function fetchClaims(): Promise<Claim[]> {
+   102→  const r = await fetch('/api/claims')
+   103→  if (!r.ok) throw new Error('Failed to load land claims')
+   104→  return r.json()
+   105→}
+   106→
+   107→async function fetchPools(): Promise<NomineePoolSummary[]> {
+   108→  const r = await fetch('/api/nominee-pools')
+   109→  if (!r.ok) throw new Error('Failed to load nominee pools')
+   110→  return r.json()
+   111→}
+   112→
+   113→async function fetchPoolDetail(id: string): Promise<NomineePoolDetail> {
+   114→  const r = await fetch(`/api/nominee-pools/${id}`)
+   115→  if (!r.ok) throw new Error('Failed to load pool detail')
+   116→  return r.json()
+   117→}
+   118→
+   119→// ─── Constants ──────────────────────────────────────────────────────────────
+   120→
+   121→const THRESHOLD_ACRES = 2.0
+   122→
+   123→const RELATIONSHIP_OPTIONS = [
+   124→  { value: 'Spouse', label: 'Spouse' },
+   125→  { value: 'Son', label: 'Son' },
+   126→  { value: 'Daughter', label: 'Daughter' },
+   127→  { value: 'Father', label: 'Father' },
+   128→  { value: 'Mother', label: 'Mother' },
+   129→  { value: 'Brother', label: 'Brother' },
+   130→  { value: 'Sister', label: 'Sister' },
+   131→  { value: 'Other', label: 'Other' },
+   132→] as const
+   133→
+   134→const POOL_STATUS_META: Record<string, { label: string; color: string }> = {
+   135→  Pooling: {
+   136→    label: 'Pooling',
+   137→    color: 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300',
+   138→  },
+   139→  'Threshold Met': {
+   140→    label: 'Threshold Met',
+   141→    color: 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300',
+   142→  },
+   143→  'Application Submitted': {
+   144→    label: 'Application Submitted',
+   145→    color: 'bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-950 dark:text-teal-300',
+   146→  },
+   147→}
+   148→
+   149→// ─── Skeleton helper ────────────────────────────────────────────────────────
+   150→
+   151→function SectionSkeleton({ lines = 3 }: { lines?: number }) {
+   152→  return (
+   153→    <div className="space-y-3">
+   154→      <div className="h-6 w-48 animate-pulse rounded bg-muted" />
+   155→      {Array.from({ length: lines }).map((_, i) => (
+   156→        <div key={i} className="h-10 animate-pulse rounded bg-muted" />
+   157→      ))}
+   158→    </div>
+   159→  )
+   160→}
+   161→
+   162→// ─── Pooling Gauge (hero element) ───────────────────────────────────────────
+   163→
+   164→function PoolingGauge({
+   165→  pooled,
+   166→  threshold,
+   167→  label,
+   168→}: {
+   169→  pooled: number
+   170→  threshold: number
+   171→  label: string
+   172→}) {
+   173→  const pct = Math.min(100, (pooled / threshold) * 100)
+   174→  const met = pooled >= threshold
+   175→  const remaining = Math.max(0, threshold - pooled)
+   176→
+   177→  return (
+   178→    <div className="rounded-xl border border-border/60 bg-card p-6">
+   179→      <div className="mb-2 flex items-center gap-2">
+   180→        <div
+   181→          className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+   182→            met
+   183→              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+   184→              : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+   185→          }`}
+   186→        >
+   187→          <TrendingUp className="h-5 w-5" />
+   188→        </div>
+   189→        <div>
+   190→          <p className="text-sm font-medium text-muted-foreground">{label}</p>
+   191→          <p className="text-xs text-muted-foreground">2.00-acre employment eligibility threshold</p>
+   192→        </div>
+   193→      </div>
+   194→
+   195→      <div className="mt-5 flex items-baseline justify-between">
+   196→        <div>
+   197→          <p className="text-4xl font-bold tabular-nums tracking-tight">
+   198→            {formatNumber(pooled, 4)}
+   199→          </p>
+   200→          <p className="mt-1 text-sm text-muted-foreground">acres pooled</p>
+   201→        </div>
+   202→        <div className="text-right">
+   203→          <p className="text-sm text-muted-foreground">threshold</p>
+   204→          <p className="text-2xl font-semibold tabular-nums">{formatNumber(threshold, 2)} ac</p>
+   205→        </div>
+   206→      </div>
+   207→
+   208→      {/* Custom progress bar for full color control */}
+   209→      <div className="mt-4 h-4 w-full overflow-hidden rounded-full bg-muted">
+   210→        <div
+   211→          className={`h-full rounded-full transition-all duration-500 ${
+   212→            met ? 'bg-emerald-500' : 'bg-amber-500'
+   213→          }`}
+   214→          style={{ width: `${pct}%` }}
+   215→        />
+   216→      </div>
+   217→
+   218→      <div className="mt-3 flex items-center justify-between text-xs">
+   219→        <span className="flex items-center gap-1.5">
+   220→          {met ? (
+   221→            <>
+   222→              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+   223→              <span className="font-medium text-emerald-700">
+   224→                Threshold met — eligible for employment
+   225→              </span>
+   226→            </>
+   227→          ) : (
+   228→            <>
+   229→              <Clock className="h-3.5 w-3.5 text-amber-600" />
+   230→              <span className="font-medium text-amber-700">
+   231→                {formatNumber(remaining, 4)} acres remaining to qualify
+   232→              </span>
+   233→            </>
+   234→          )}
+   235→        </span>
+   236→        <span className="font-mono font-medium tabular-nums text-muted-foreground">
+   237→          {pct.toFixed(1)}%
+   238→        </span>
+   239→      </div>
+   240→    </div>
+   241→  )
+   242→}
+   243→
+   244→// ─── Public List View ───────────────────────────────────────────────────────
+   245→
+   246→function PublicListView() {
+   247→  const { setNominationView, selectClaim, selectPool, user } = useCoalrr()
+   248→
+   249→  const claimsQuery = useQuery({
+   250→    queryKey: ['claims', 'nominatable'],
+   251→    queryFn: fetchClaims,
+   252→  })
+   253→
+   254→  const poolsQuery = useQuery({
+   255→    queryKey: ['nominee-pools', 'mine'],
+   256→    queryFn: fetchPools,
+   257→  })
+   258→
+   259→  const claims = claimsQuery.data ?? []
+   260→  const pools = poolsQuery.data ?? []
+   261→  const isLoading = claimsQuery.isLoading || poolsQuery.isLoading
+   262→
+   263→  const handleNominate = (claim: Claim) => {
+   264→    setSelectedClaimForNomination(claim.id)
+   265→    setNominationView('form')
+   266→  }
+   267→
+   268→  const handleTrack = (poolId: string) => {
+   269→    setSelectedPoolId(poolId)
+   270→    setNominationView('tracking')
+   271→  }
+   272→
+   273→  return (
+   274→    <div className="space-y-6">
+   275→      <div>
+   276→        <h2 className="text-xl font-bold tracking-tight">Nominee Package Deal</h2>
+   277→        <p className="text-sm text-muted-foreground">
+   278→          Module M9 · Form-A Nomination · Pool land shares toward 2.00-acre employment eligibility
+   279→        </p>
+   280→      </div>
+   281→
+   282→      {isLoading ? (
+   283→        <div className="space-y-6">
+   284→          <SectionSkeleton lines={4} />
+   285→          <SectionSkeleton lines={2} />
+   286→        </div>
+   287→      ) : (
+   288→        <>
+   289→          {/* My Land Claims */}
+   290→          <SectionCard
+   291→            title="My Land Claims"
+   292→            icon={FileText}
+   293→            description="Your Form-I claims eligible for nomination. Each share can be contributed to one nominee pool."
+   294→          >
+   295→            {claims.length === 0 ? (
+   296→              <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+   297→                <FileText className="h-8 w-8 opacity-40" />
+   298→                <p className="text-sm">No land claims found. Submit a Form-I claim first.</p>
+   299→              </div>
+   300→            ) : (
+   301→              <div className="overflow-hidden rounded-lg border border-border/60">
+   302→                <Table>
+   303→                  <TableHeader>
+   304→                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+   305→                      <TableHead className="h-10 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+   306→                        Claim Code
+   307→                      </TableHead>
+   308→                      <TableHead className="h-10 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+   309→                        Plot Number
+   310→                      </TableHead>
+   311→                      <TableHead className="h-10 text-xs font-semibold uppercase tracking-wide text-muted-foreground text-right tabular-nums">
+   312→                        Share Acres
+   313→                      </TableHead>
+   314→                      <TableHead className="h-10 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+   315→                        Status
+   316→                      </TableHead>
+   317→                      <TableHead className="h-10 text-xs font-semibold uppercase tracking-wide text-muted-foreground text-right">
+   318→                        Action
+   319→                      </TableHead>
+   320→                    </TableRow>
+   321→                  </TableHeader>
+   322→                  <TableBody>
+   323→                    {claims.map((claim, idx) => (
+   324→                      <TableRow
+   325→                        key={claim.id}
+   326→                        className={idx % 2 === 1 ? 'bg-muted/20' : undefined}
+   327→                      >
+   328→                        <TableCell className="font-mono text-sm font-medium">
+   329→                          {claim.claimCode}
+   330→                        </TableCell>
+   331→                        <TableCell className="text-sm">{claim.plotNumber}</TableCell>
+   332→                        <TableCell className="text-right font-mono text-sm tabular-nums">
+   333→                          {formatNumber(claim.ownShareAcres, 4)}
+   334→                        </TableCell>
+   335→                        <TableCell>
+   336→                          <StateBadge state={claim.state} />
+   337→                        </TableCell>
+   338→                        <TableCell className="text-right">
+   339→                          {claim.nominated ? (
+   340→                            <Badge
+   341→                              variant="outline"
+   342→                              className="border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+   343→                            >
+   344→                              Nominated
+   345→                            </Badge>
+   346→                          ) : (
+   347→                            <Button
+   348→                              size="sm"
+   349→                              onClick={() => handleNominate(claim)}
+   350→                              className="gap-1.5 bg-amber-600 text-white hover:bg-amber-700"
+   351→                            >
+   352→                              <UserPlus className="h-3.5 w-3.5" />
+   353→                              Nominate
+   354→                            </Button>
+   355→                          )}
+   356→                        </TableCell>
+   357→                      </TableRow>
+   358→                    ))}
+   359→                  </TableBody>
+   360→                </Table>
+   361→              </div>
+   362→            )}
+   363→          </SectionCard>
+   364→
+   365→          {/* Nominee Pools */}
+   366→          <SectionCard
+   367→            title="Nominee Pools"
+   368→            icon={Users}
+   369→            description="Pools you have contributed to. Click a pool to track progress toward the 2.00-acre threshold."
+   370→          >
+   371→            {pools.length === 0 ? (
+   372→              <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+   373→                <Users className="h-8 w-8 opacity-40" />
+   374→                <p className="text-sm">No nominee pools yet. Nominate a claim to create one.</p>
+   375→              </div>
+   376→            ) : (
+   377→              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   378→                {pools.map((pool) => {
+   379→                  const pooled = Number(pool.pooledAcreage) || 0
+   380→                  const pct = Math.min(100, (pooled / THRESHOLD_ACRES) * 100)
+   381→                  const meta = POOL_STATUS_META[pool.status] ?? POOL_STATUS_META.Pooling
+   382→
+   383→                  return (
+   384→                    <button
+   385→                      key={pool.id}
+   386→                      type="button"
+   387→                      onClick={() => handleTrack(pool.id)}
+   388→                      className="group flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4 text-left transition-colors hover:border-amber-300 hover:bg-amber-50/50 dark:hover:border-amber-800 dark:hover:bg-amber-950/30"
+   389→                    >
+   390→                      <div className="flex items-start justify-between">
+   391→                        <div className="min-w-0 flex-1">
+   392→                          <p className="truncate text-sm font-semibold">{pool.nomineeName}</p>
+   393→                          <p className="mt-0.5 text-xs text-muted-foreground">
+   394→                            {pool.contributionCount} contribution{pool.contributionCount !== 1 ? 's' : ''}
+   395→                          </p>
+   396→                        </div>
+   397→                        <Badge variant="outline" className={`shrink-0 border font-medium ${meta.color}`}>
+   398→                          {meta.label}
+   399→                        </Badge>
+   400→                      </div>
+   401→
+   402→                      <div className="space-y-1.5">
+   403→                        <div className="flex items-baseline justify-between text-xs">
+   404→                          <span className="font-mono tabular-nums font-semibold">
+   405→                            {formatNumber(pool.pooledAcreage, 4)} ac
+   406→                          </span>
+   407→                          <span className="text-muted-foreground">of {formatNumber(THRESHOLD_ACRES, 2)} ac</span>
+   408→                        </div>
+   409→                        <Progress
+   410→                          value={pct}
+   411→                          className="h-2"
+   412→                        />
+   413→                      </div>
+   414→
+   415→                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   416→                        <ChevronRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+   417→                        <span>Track pool</span>
+   418→                      </div>
+   419→                    </button>
+   420→                  )
+   421→                })}
+   422→              </div>
+   423→            )}
+   424→          </SectionCard>
+   425→        </>
+   426→      )}
+   427→    </div>
+   428→  )
+   429→}
+   430→
+   431→// ─── ECL List View (ERP-M9-01) ─────────────────────────────────────────────
+   432→
+   433→function EclListView() {
+   434→  const { setNominationView, selectPool } = useCoalrr()
+   435→  const [statusFilter, setStatusFilter] = React.useState<string>('all')
+   436→
+   437→  const { data: pools = [], isLoading } = useQuery({
+   438→    queryKey: ['nominee-pools', 'ecl', statusFilter],
+   439→    queryFn: fetchPools,
+   440→  })
+   441→
+   442→  const filteredPools =
+   443→    statusFilter === 'all'
+   444→      ? pools
+   445→      : pools.filter((p) => p.status === statusFilter)
+   446→
+   447→  const columns: Column<NomineePoolSummary>[] = [
+   448→    {
+   449→      key: 'nomineeName',
+   450→      header: 'Nominee Name',
+   451→      sortable: true,
+   452→      render: (row) => (
+   453→        <span className="font-medium">{row.nomineeName}</span>
+   454→      ),
+   455→    },
+   456→    {
+   457→      key: 'pooledAcreage',
+   458→      header: 'Pooled Acreage',
+   459→      sortable: true,
+   460→      align: 'right',
+   461→      render: (row) => (
+   462→        <span className="font-mono tabular-nums">{formatNumber(row.pooledAcreage, 4)} ac</span>
+   463→      ),
+   464→    },
+   465→    {
+   466→      key: 'hasCrossedThreshold',
+   467→      header: 'Threshold Met',
+   468→      align: 'center',
+   469→      render: (row) =>
+   470→        row.hasCrossedThreshold ? (
+   471→          <CheckCircle2 className="mx-auto h-4 w-4 text-emerald-600" />
+   472→        ) : (
+   473→          <AlertCircle className="mx-auto h-4 w-4 text-amber-500" />
+   474→        ),
+   475→    },
+   476→    {
+   477→      key: 'contributionCount',
+   478→      header: 'Contributions',
+   479→      sortable: true,
+   480→      align: 'right',
+   481→      render: (row) => (
+   482→        <span className="font-mono tabular-nums">{row.contributionCount}</span>
+   483→      ),
+   484→    },
+   485→    {
+   486→      key: 'status',
+   487→      header: 'Status',
+   488→      render: (row) => {
+   489→        const meta = POOL_STATUS_META[row.status] ?? POOL_STATUS_META.Pooling
+   490→        return (
+   491→          <Badge variant="outline" className={`border font-medium ${meta.color}`}>
+   492→            {meta.label}
+   493→          </Badge>
+   494→        )
+   495→      },
+   496→    },
+   497→  ]
+   498→
+   499→  return (
+   500→    <div className="space-y-6">
+   501→      <div className="flex flex-wrap items-start justify-between gap-4">
+   502→        <div>
+   503→          <h2 className="text-xl font-bold tracking-tight">ERP-M9-01 Nominee Pool Monitor</h2>
+   504→          <p className="text-sm text-muted-foreground">
+   505→            Module M9 · ECL internal view of all nominee pools and pooling progress
+   506→          </p>
+   507→        </div>
+   508→        <div className="flex items-center gap-2">
+   509→          <Label className="text-xs text-muted-foreground">Status</Label>
+   510→          <Select value={statusFilter} onValueChange={setStatusFilter}>
+   511→            <SelectTrigger className="h-8 w-[180px] text-xs">
+   512→              <SelectValue />
+   513→            </SelectTrigger>
+   514→            <SelectContent>
+   515→              <SelectItem value="all">All Statuses</SelectItem>
+   516→              <SelectItem value="Pooling">Pooling</SelectItem>
+   517→              <SelectItem value="Threshold Met">Threshold Met</SelectItem>
+   518→              <SelectItem value="Application Submitted">Application Submitted</SelectItem>
+   519→            </SelectContent>
+   520→          </Select>
+   521→        </div>
+   522→      </div>
+   523→
+   524→      <SectionCard
+   525→        title="All Nominee Pools"
+   526→        icon={Users}
+   527→        description="Comprehensive view of all nominee pools across the project area"
+   528→      >
+   529→        <DataTable<NomineePoolSummary>
+   530→          columns={columns}
+   531→          data={filteredPools}
+   532→          getRowId={(row) => row.id}
+   533→          loading={isLoading}
+   534→          emptyMessage="No nominee pools match the selected filter."
+   535→          onRowClick={(row) => {
+   536→            setSelectedPoolId(row.id)
+   537→            setNominationView('tracking')
+   538→          }}
+   539→          searchPlaceholder="Search by nominee name…"
+   540→          className="[&_td]:py-2.5"
+   541→        />
+   542→      </SectionCard>
+   543→    </div>
+   544→  )
+   545→}
+   546→
+   547→// ─── Form View (PUB-M9-01) ──────────────────────────────────────────────────
+   548→
+   549→function NominationFormView() {
+   550→  const {
+   551→    nominationView, setNominationView, selectClaim,
+   552→    selectedClaimId, user,
+   553→  } = useCoalrr()
+   554→  const queryClient = useQueryClient()
+   555→
+   556→  const [nomineeAadhaarHash, setNomineeAadhaarHash] = React.useState('')
+   557→  const [nomineeName, setNomineeName] = React.useState('')
+   558→  const [relationship, setRelationship] = React.useState('')
+   559→  const [formError, setFormError] = React.useState<string | null>(null)
+   560→
+   561→  const { data: claims = [], isLoading: claimsLoading } = useQuery({
+   562→    queryKey: ['claims', 'nominatable'],
+   563→    queryFn: fetchClaims,
+   564→  })
+   565→
+   566→  const selectedClaim = claims.find((c) => c.id === selectedClaimId) ?? null
+   567→
+   568→  // Reset form when claim changes
+   569→  React.useEffect(() => {
+   570→    setNomineeAadhaarHash('')
+   571→    setNomineeName('')
+   572→    setRelationship('')
+   573→    setFormError(null)
+   574→  }, [selectedClaimId])
+   575→
+   576→  const nominateMutation = useMutation({
+   577→    mutationFn: async (payload: {
+   578→      nomineeAadhaarHash: string
+   579→      nomineeName: string
+   580→      relationship: string
+   581→      claimId: string
+   582→      shareAcres: string
+   583→    }) => {
+   584→      const r = await fetch('/api/nominate', {
+   585→        method: 'POST',
+   586→        headers: { 'Content-Type': 'application/json' },
+   587→        body: JSON.stringify(payload),
+   588→      })
+   589→      const data = await r.json()
+   590→      if (!r.ok) {
+   591→        throw new Error(data.error ?? data.message ?? 'Nomination failed')
+   592→      }
+   593→      return data
+   594→    },
+   595→    onSuccess: (data) => {
+   596→      toast.success('Nomination submitted successfully', {
+   597→        description: `${nomineeName} now has ${selectedClaim?.ownShareAcres ?? '0'} acres pooled.`,
+   598→      })
+   599→      queryClient.invalidateQueries({ queryKey: ['claims'] })
+   600→      queryClient.invalidateQueries({ queryKey: ['nominee-pools'] })
+   601→      if (data?.poolId) {
+   602→        useCoalrr.getState().setSelectedPoolId(data.poolId)
+   603→        setNominationView('tracking')
+   604→      } else {
+   605→        setSelectedClaimForNomination(null)
+   606→        setNominationView('list')
+   607→      }
+   608→    },
+   609→    onError: (err: Error) => {
+   610→      const msg = err.message.toLowerCase()
+   611→      if (msg.includes('already nominated') || msg.includes('already been nominated')) {
+   612→        setFormError('This land share has already been nominated. Each share can only be contributed to one nominee pool.')
+   613→      } else {
+   614→        setFormError(err.message)
+   615→      }
+   616→      toast.error('Nomination failed', {
+   617→        description: err.message,
+   618→      })
+   619→    },
+   620→  })
+   621→
+   622→  const isSubmitting = nominateMutation.isPending
+   623→  const canSubmit =
+   624→    selectedClaim &&
+   625→    nomineeAadhaarHash.trim().length >= 4 &&
+   626→    nomineeName.trim().length >= 2 &&
+   627→    relationship.length > 0 &&
+   628→    !isSubmitting
+   629→
+   630→  const handleSubmit = (e: React.FormEvent) => {
+   631→    e.preventDefault()
+   632→    if (!selectedClaim || !canSubmit) return
+   633→
+   634→    setFormError(null)
+   635→    nominateMutation.mutate({
+   636→      nomineeAadhaarHash: nomineeAadhaarHash.trim(),
+   637→      nomineeName: nomineeName.trim(),
+   638→      relationship,
+   639→      claimId: selectedClaim.id,
+   640→      shareAcres: selectedClaim.ownShareAcres,
+   641→    })
+   642→  }
+   643→
+   644→  if (nominationView !== 'form') return null
+   645→
+   646→  return (
+   647→    <div className="space-y-6">
+   648→      {/* Back nav */}
+   649→      <Button
+   650→        variant="ghost"
+   651→        size="sm"
+   652→        className="gap-1.5 text-muted-foreground hover:text-foreground"
+   653→        onClick={() => {
+   654→          setSelectedClaimForNomination(null)
+   655→          setNominationView('list')
+   656→        }}
+   657→      >
+   658→        <ArrowLeft className="h-4 w-4" />
+   659→        Back to Claims
+   660→      </Button>
+   661→
+   662→      <div>
+   663→        <h2 className="text-xl font-bold tracking-tight">Form-A Nomination</h2>
+   664→        <p className="text-sm text-muted-foreground">
+   665→          PUB-M9-01 · Nominate a family member for employment eligibility pooling
+   666→        </p>
+   667→      </div>
+   668→
+   669→      {claimsLoading ? (
+   670→        <SectionSkeleton lines={6} />
+   671→      ) : !selectedClaim ? (
+   672→        <Alert variant="destructive">
+   673→          <AlertCircle className="h-4 w-4" />
+   674→          <AlertDescription>
+   675→            No claim selected. Please go back and select a claim to nominate.
+   676→          </AlertDescription>
+   677→        </Alert>
+   678→      ) : (
+   679→        <form onSubmit={handleSubmit} className="space-y-6">
+   680→          {/* Context card: selected claim restatement */}
+   681→          <SectionCard
+   682→            title="Selected Claim"
+   683→            icon={FileText}
+   684→            description="Read-only restatement of the land share you are contributing"
+   685→          >
+   686→            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   687→              <div>
+   688→                <p className="text-xs text-muted-foreground">Claim Code</p>
+   689→                <p className="mt-0.5 font-mono text-sm font-semibold">{selectedClaim.claimCode}</p>
+   690→              </div>
+   691→              <div>
+   692→                <p className="text-xs text-muted-foreground">Plot Number</p>
+   693→                <p className="mt-0.5 text-sm font-medium">{selectedClaim.plotNumber}</p>
+   694→              </div>
+   695→              <div>
+   696→                <p className="text-xs text-muted-foreground">Your Share</p>
+   697→                <p className="mt-0.5 font-mono text-sm font-semibold tabular-nums">
+   698→                  {formatNumber(selectedClaim.ownShareAcres, 4)} acres
+   699→                </p>
+   700→              </div>
+   701→              <div>
+   702→                <p className="text-xs text-muted-foreground">Status</p>
+   703→                <div className="mt-0.5">
+   704→                  <StateBadge state={selectedClaim.state} />
+   705→                </div>
+   706→              </div>
+   707→            </div>
+   708→          </SectionCard>
+   709→
+   710→          {/* Nominee identity */}
+   711→          <SectionCard
+   712→            title="Nominee Identity"
+   713→            icon={UserPlus}
+   714→            description="Provide the nominee's Aadhaar hash and personal details"
+   715→          >
+   716→            <div className="space-y-4">
+   717→              <div className="grid gap-4 sm:grid-cols-2">
+   718→                <div className="space-y-2">
+   719→                  <Label htmlFor="nominee-aadhaar">
+   720→                    Nominee Aadhaar Hash <span className="text-rose-500">*</span>
+   721→                  </Label>
+   722→                  <Input
+   723→                    id="nominee-aadhaar"
+   724→                    type="text"
+   725→                    placeholder="Last 4+ digits of Aadhaar hash"
+   726→                    value={nomineeAadhaarHash}
+   727→                    onChange={(e) => setNomineeAadhaarHash(e.target.value)}
+   728→                    className="font-mono"
+   729→                    disabled={isSubmitting}
+   730→                  />
+   731→                  <p className="text-xs text-muted-foreground">
+   732→                    Enter the hashed Aadhaar identifier linked to the nominee
+   733→                  </p>
+   734→                </div>
+   735→                <div className="space-y-2">
+   736→                  <Label htmlFor="nominee-name">
+   737→                    Nominee Full Name <span className="text-rose-500">*</span>
+   738→                  </Label>
+   739→                  <Input
+   740→                    id="nominee-name"
+   741→                    type="text"
+   742→                    placeholder="As on Aadhaar"
+   743→                    value={nomineeName}
+   744→                    onChange={(e) => setNomineeName(e.target.value)}
+   745→                    disabled={isSubmitting}
+   746→                  />
+   747→                </div>
+   748→              </div>
+   749→
+   750→              <div className="max-w-xs space-y-2">
+   751→                <Label htmlFor="relationship">
+   752→                  Relationship to Claimant <span className="text-rose-500">*</span>
+   753→                </Label>
+   754→                <Select value={relationship} onValueChange={setRelationship} disabled={isSubmitting}>
+   755→                  <SelectTrigger id="relationship" className="w-full">
+   756→                    <SelectValue placeholder="Select relationship" />
+   757→                  </SelectTrigger>
+   758→                  <SelectContent>
+   759→                    {RELATIONSHIP_OPTIONS.map((opt) => (
+   760→                      <SelectItem key={opt.value} value={opt.value}>
+   761→                        {opt.label}
+   762→                      </SelectItem>
+   763→                    ))}
+   764→                  </SelectContent>
+   765→                </Select>
+   766→              </div>
+   767→            </div>
+   768→          </SectionCard>
+   769→
+   770→          {/* Contribution confirmation */}
+   771→          <SectionCard
+   772→            title="Contribution Confirmation"
+   773→            icon={TrendingUp}
+   774→            description="Review before submitting — this action is irreversible"
+   775→          >
+   776→            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40">
+   777→              <div className="flex items-start gap-3">
+   778→                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+   779→                <div className="space-y-1.5 text-sm">
+   780→                  <p className="font-medium text-amber-900 dark:text-amber-200">
+   781→                    You are contributing{' '}
+   782→                    <span className="font-mono font-bold tabular-nums">
+   783→                      {formatNumber(selectedClaim.ownShareAcres, 4)} acres
+   784→                    </span>{' '}
+   785→                    toward{' '}
+   786→                    <span className="font-bold">
+   787→                      {nomineeName.trim() || '[nominee name]'}
+   788→                    </span>
+   789→                    {'\u2019'}s employment eligibility
+   790→                  </p>
+   791→                  <p className="text-amber-700 dark:text-amber-400">
+   792→                    Once submitted, this land share cannot be nominated to another person or withdrawn.
+   793→                    The share will be pooled with other contributions until the 2.00-acre threshold is met.
+   794→                  </p>
+   795→                </div>
+   796→              </div>
+   797→            </div>
+   798→
+   799→            {formError && (
+   800→              <Alert variant="destructive" className="mt-4">
+   801→                <AlertCircle className="h-4 w-4" />
+   802→                <AlertDescription>{formError}</AlertDescription>
+   803→              </Alert>
+   804→            )}
+   805→          </SectionCard>
+   806→
+   807→          {/* Submit */}
+   808→          <div className="flex items-center gap-3">
+   809→            <Button
+   810→              type="submit"
+   811→              disabled={!canSubmit}
+   812→              className="gap-2 bg-amber-600 px-6 text-white hover:bg-amber-700 disabled:opacity-50"
+   813→            >
+   814→              {isSubmitting ? (
+   815→                <>
+   816→                  <Loader2 className="h-4 w-4 animate-spin" />
+   817→                  Submitting…
+   818→                </>
+   819→              ) : (
+   820→                <>
+   821→                  <CheckCircle2 className="h-4 w-4" />
+   822→                  Submit Nomination
+   823→                </>
+   824→              )}
+   825→            </Button>
+   826→            <Button
+   827→              type="button"
+   828→              variant="outline"
+   829→              onClick={() => {
+   830→                setSelectedClaimForNomination(null)
+   831→                setNominationView('list')
+   832→              }}
+   833→              disabled={isSubmitting}
+   834→            >
+   835→              Cancel
+   836→            </Button>
+   837→          </div>
+   838→        </form>
+   839→      )}
+   840→    </div>
+   841→  )
+   842→}
+   843→
+   844→// ─── Tracking View (PUB-M9-02) ──────────────────────────────────────────────
+   845→
+   846→function TrackingView() {
+   847→  const { nominationView, setNominationView, selectPool, selectedPoolId, setView } = useCoalrr()
+   848→
+   849→  const { data: pool, isLoading, error } = useQuery({
+   850→    queryKey: ['nominee-pools', 'detail', selectedPoolId],
+   851→    queryFn: () => fetchPoolDetail(selectedPoolId!),
+   852→    enabled: !!selectedPoolId && nominationView === 'tracking',
+   853→  })
+   854→
+   855→  if (nominationView !== 'tracking') return null
+   856→
+   857→  const pooled = pool ? Number(pool.pooledAcreage) || 0 : 0
+   858→  const remaining = Math.max(0, THRESHOLD_ACRES - pooled)
+   859→  const thresholdMet = pool?.hasCrossedThreshold ?? false
+   860→
+   861→  return (
+   862→    <div className="space-y-6">
+   863→      {/* Back nav */}
+   864→      <Button
+   865→        variant="ghost"
+   866→        size="sm"
+   867→        className="gap-1.5 text-muted-foreground hover:text-foreground"
+   868→        onClick={() => {
+   869→          setSelectedPoolId(null)
+   870→          setNominationView('list')
+   871→        }}
+   872→      >
+   873→        <ArrowLeft className="h-4 w-4" />
+   874→        Back to Pools
+   875→      </Button>
+   876→
+   877→      <div>
+   878→        <h2 className="text-xl font-bold tracking-tight">Nominee Tracking Dashboard</h2>
+   879→        <p className="text-sm text-muted-foreground">
+   880→          PUB-M9-02 · Pooling gauge and contribution breakdown for this nominee
+   881→        </p>
+   882→      </div>
+   883→
+   884→      {isLoading ? (
+   885→        <div className="space-y-4">
+   886→          <div className="h-48 animate-pulse rounded-xl bg-muted" />
+   887→          <div className="h-32 animate-pulse rounded-lg bg-muted" />
+   888→        </div>
+   889→      ) : error || !pool ? (
+   890→        <Alert variant="destructive">
+   891→          <AlertCircle className="h-4 w-4" />
+   892→          <AlertDescription>
+   893→            {error
+   894→              ? 'Failed to load pool detail. Please try again.'
+   895→              : 'No pool selected. Please go back and select a pool to track.'}
+   896→          </AlertDescription>
+   897→        </Alert>
+   898→      ) : (
+   899→        <>
+   900→          {/* Pooling Gauge — hero element */}
+   901→          <PoolingGauge
+   902→            pooled={pooled}
+   903→            threshold={THRESHOLD_ACRES}
+   904→            label={`${pool.nomineeName} — Pool Progress`}
+   905→          />
+   906→
+   907→          {/* Pool metadata */}
+   908→          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   909→            <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
+   910→              <p className="text-xs text-muted-foreground">Pool Status</p>
+   911→              <div className="mt-1">
+   912→                {(() => {
+   913→                  const meta = POOL_STATUS_META[pool.status] ?? POOL_STATUS_META.Pooling
+   914→                  return (
+   915→                    <Badge variant="outline" className={`border font-medium ${meta.color}`}>
+   916→                      {meta.label}
+   917→                    </Badge>
+   918→                  )
+   919→                })()}
+   920→              </div>
+   921→            </div>
+   922→            <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
+   923→              <p className="text-xs text-muted-foreground">Total Contributions</p>
+   924→              <p className="mt-1 font-mono text-lg font-semibold tabular-nums">{pool.contributionCount}</p>
+   925→            </div>
+   926→            <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
+   927→              <p className="text-xs text-muted-foreground">Pooled Acreage</p>
+   928→              <p className="mt-1 font-mono text-lg font-semibold tabular-nums">
+   929→                {formatNumber(pool.pooledAcreage, 4)} ac
+   930→              </p>
+   931→            </div>
+   932→            <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
+   933→              <p className="text-xs text-muted-foreground">Created</p>
+   934→              <p className="mt-1 flex items-center gap-1 text-sm font-medium text-muted-foreground">
+   935→                <Clock className="h-3.5 w-3.5" />
+   936→                {new Date(pool.createdAt).toLocaleDateString('en-IN', {
+   937→                  day: '2-digit',
+   938→                  month: 'short',
+   939→                  year: 'numeric',
+   940→                })}
+   941→              </p>
+   942→            </div>
+   943→          </div>
+   944→
+   945→          {/* Contributing Shares List */}
+   946→          <SectionCard
+   947→            title="Contributing Shares"
+   948→            icon={Users}
+   949→            description="Each Form-A contribution traceable back to the constituent plot and claimant"
+   950→          >
+   951→            {pool.contributions.length === 0 ? (
+   952→              <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+   953→                <Users className="h-8 w-8 opacity-40" />
+   954→                <p className="text-sm">No contributions recorded yet.</p>
+   955→              </div>
+   956→            ) : (
+   957→              <>
+   958→                <div className="overflow-hidden rounded-lg border border-border/60">
+   959→                  <Table>
+   960→                    <TableHeader>
+   961→                      <TableRow className="bg-muted/40 hover:bg-muted/40">
+   962→                        <TableHead className="h-10 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+   963→                          Claimant
+   964→                        </TableHead>
+   965→                        <TableHead className="h-10 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+   966→                          Claim Code
+   967→                        </TableHead>
+   968→                        <TableHead className="h-10 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+   969→                          Plot Number
+   970→                        </TableHead>
+   971→                        <TableHead className="h-10 text-xs font-semibold uppercase tracking-wide text-muted-foreground text-right tabular-nums">
+   972→                          Share Acres
+   973→                        </TableHead>
+   974→                      </TableRow>
+   975→                    </TableHeader>
+   976→                    <TableBody>
+   977→                      {pool.contributions.map((c, idx) => (
+   978→                        <TableRow
+   979→                          key={c.id}
+   980→                          className={idx % 2 === 1 ? 'bg-muted/20' : undefined}
+   981→                        >
+   982→                          <TableCell className="text-sm font-medium">{c.claimantName}</TableCell>
+   983→                          <TableCell className="font-mono text-xs text-muted-foreground">
+   984→                            {c.claimCode}
+   985→                          </TableCell>
+   986→                          <TableCell className="text-sm">{c.plotNumber}</TableCell>
+   987→                          <TableCell className="text-right font-mono text-sm tabular-nums font-medium">
+   988→                            {formatNumber(c.shareAcres, 4)}
+   989→                          </TableCell>
+   990→                        </TableRow>
+   991→                      ))}
+   992→                    </TableBody>
+   993→                  </Table>
+   994→                </div>
+   995→
+   996→                {/* Sum row */}
+   997→                <div className="mt-3 flex items-center justify-between rounded-md bg-amber-50 px-4 py-2.5 dark:bg-amber-950/30">
+   998→                  <span className="text-xs font-medium text-amber-800 dark:text-amber-300">
+   999→                    Total pooled (decimal.js, no floats)
+  1000→                  </span>
+  1001→                  <span className="font-mono text-sm font-bold tabular-nums text-amber-700 dark:text-amber-300">
+  1002→                    {formatNumber(pool.pooledAcreage, 4)} ac
+  1003→                  </span>
+  1004→                </div>
+  1005→              </>
+  1006→            )}
+  1007→          </SectionCard>
+  1008→
+  1009→          {/* Conditional CTA */}
+  1010→          <SectionCard
+  1011→            title="Next Steps"
+  1012→            icon={TrendingUp}
+  1013→            description={thresholdMet
+  1014→              ? 'Threshold met — the nominee is now eligible to apply for employment.'
+  1015→              : 'More contributions are needed before the nominee can apply for employment.'}
+  1016→          >
+  1017→            {thresholdMet ? (
+  1018→              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  1019→                <div className="flex items-center gap-2">
+  1020→                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+  1021→                  <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+  1022→                    {pool.nomineeName} has crossed the 2.00-acre threshold and can proceed with the employment application.
+  1023→                  </span>
+  1024→                </div>
+  1025→                <Button
+  1026→                  className="gap-2 bg-emerald-600 px-6 text-white hover:bg-emerald-700"
+  1027→                  onClick={() => setView('employment-wizard')}
+  1028→                >
+  1029→                  <Plus className="h-4 w-4" />
+  1030→                  Apply for Employment
+  1031→                </Button>
+  1032→              </div>
+  1033→            ) : (
+  1034→              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  1035→                <div className="flex items-center gap-2">
+  1036→                  <Clock className="h-5 w-5 text-amber-600" />
+  1037→                  <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+  1038→                    {formatNumber(remaining, 4)} acres still needed before {pool.nomineeName} can apply.
+  1039→                  </span>
+  1040→                </div>
+  1041→                <Button disabled className="gap-2 opacity-50">
+  1042→                  <Plus className="h-4 w-4" />
+  1043→                  Apply for Employment
+  1044→                </Button>
+  1045→              </div>
+  1046→            )}
+  1047→          </SectionCard>
+  1048→        </>
+  1049→      )}
+  1050→    </div>
+  1051→  )
+  1052→}
+  1053→
+  1054→// ─── Main Export ────────────────────────────────────────────────────────────
+  1055→
+  1056→export function NominationView() {
+  1057→  const { nominationView, user } = useCoalrr()
+  1058→  const isEcl = user?.portal === 'ecl'
+  1059→
+  1060→  // When ECL user is on the list sub-view, show ECL-specific list
+  1061→  // When on form/tracking, share the same components (data is per-user anyway)
+  1062→  if (nominationView === 'form') return <NominationFormView />
+  1063→  if (nominationView === 'tracking') return <TrackingView />
+  1064→
+  1065→  // nominationView === 'list'
+  1066→  return isEcl ? <EclListView /> : <PublicListView />
+  1067→}

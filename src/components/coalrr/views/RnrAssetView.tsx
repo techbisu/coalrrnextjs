@@ -271,7 +271,7 @@ export function RnrAssetView() {
 
   const transitions = React.useMemo(
     () => (payroll ? getTransitionsForState(payroll.state) : []),
-    [payroll?.state],
+    [payroll],
   )
 
   const reviewTasks: ReviewTaskView[] = React.useMemo(

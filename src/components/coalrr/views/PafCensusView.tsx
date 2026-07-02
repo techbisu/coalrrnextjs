@@ -287,8 +287,7 @@ export function PafCensusView() {
   }
 
   // ── Columns ───────────────────────────────────────────────────────
-  const columns = React.useMemo<Column<PafRecord>[]>(
-    () => [
+  const columns: Column<PafRecord>[] = [
       {
         key: 'pafId',
         header: 'PAF ID',
@@ -408,9 +407,7 @@ export function PafCensusView() {
           </div>
         ),
       },
-    ],
-    [],
-  )
+    ]
 
   // ── Render ────────────────────────────────────────────────────────
   return (

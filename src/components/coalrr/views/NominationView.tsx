@@ -244,7 +244,7 @@ function PoolingGauge({
 // ─── Public List View ───────────────────────────────────────────────────────
 
 function PublicListView() {
-  const { setNominationView, selectClaim, selectPool, user } = useCoalrr()
+  const { setNominationView, setSelectedClaimForNomination, setSelectedPoolId, user } = useCoalrr()
 
   const claimsQuery = useQuery({
     queryKey: ['claims', 'nominatable'],
@@ -431,7 +431,7 @@ function PublicListView() {
 // ─── ECL List View (ERP-M9-01) ─────────────────────────────────────────────
 
 function EclListView() {
-  const { setNominationView, selectPool } = useCoalrr()
+  const { setNominationView, setSelectedPoolId } = useCoalrr()
   const [statusFilter, setStatusFilter] = React.useState<string>('all')
 
   const { data: pools = [], isLoading } = useQuery({
@@ -548,8 +548,8 @@ function EclListView() {
 
 function NominationFormView() {
   const {
-    nominationView, setNominationView, selectClaim,
-    selectedClaimId, user,
+    nominationView, setNominationView,
+    selectedClaimForNomination: selectedClaimId, setSelectedClaimForNomination, user,
   } = useCoalrr()
   const queryClient = useQueryClient()
 
@@ -844,7 +844,7 @@ function NominationFormView() {
 // ─── Tracking View (PUB-M9-02) ──────────────────────────────────────────────
 
 function TrackingView() {
-  const { nominationView, setNominationView, selectPool, selectedPoolId, setView } = useCoalrr()
+  const { nominationView, setNominationView, selectedPoolId, setSelectedPoolId, setView } = useCoalrr()
 
   const { data: pool, isLoading, error } = useQuery({
     queryKey: ['nominee-pools', 'detail', selectedPoolId],
