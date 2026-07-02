@@ -546,3 +546,5 @@ export function ProjectMasterView() {
     </div>
   )
 }
+
+export default ProjectMasterView

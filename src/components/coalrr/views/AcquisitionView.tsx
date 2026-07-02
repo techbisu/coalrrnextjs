@@ -1231,3 +1231,5 @@ function TimelineTab({ schedule }: { schedule: ScheduleDetail }) {
     </SectionCard>
   )
 }
+
+export default AcquisitionView

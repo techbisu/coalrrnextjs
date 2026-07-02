@@ -1250,3 +1250,4 @@ function DeviationPreview({ actual, expected }: { actual: number; expected: numb
     </div>
   )
 }
+export default RnrAssetView

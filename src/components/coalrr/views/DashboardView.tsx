@@ -222,3 +222,5 @@ function AlertRow({ icon: Icon, color, label, value, onClick }: {
     </button>
   )
 }
+
+export default DashboardView

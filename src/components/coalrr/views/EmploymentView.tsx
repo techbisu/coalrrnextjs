@@ -399,3 +399,4 @@ function EmploymentDetailView({ app, onBack }: { app: EmploymentApp; onBack: () 
     </div>
   )
 }
+export default EmploymentView

@@ -871,3 +871,4 @@ function PafFormDialog({
     </Dialog>
   )
 }
+export default PafCensusView

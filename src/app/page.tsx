@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { NAV_ITEMS, useCoalrr } from '@/components/coalrr/store'
 import { NotificationBell } from '@/components/coalrr'
-import { AuthView } from '@/components/coalrr/views/AuthView'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -15,25 +14,19 @@ import {
   Home, UserPlus, Briefcase, UserCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import dynamic from 'next/dynamic'
-
-// Helper: next/dynamic for named exports (views use named exports, not default)
-function nd(loader: () => Promise<Record<string, unknown>>, name: string) {
-  return dynamic(() => loader().then(m => ({ default: m[name] })), { ssr: false })
-}
-
-const DashboardView = nd(() => import('@/components/coalrr/views/DashboardView'), 'DashboardView')
-const ProjectMasterView = nd(() => import('@/components/coalrr/views/ProjectMasterView'), 'ProjectMasterView')
-const AcquisitionView = nd(() => import('@/components/coalrr/views/AcquisitionView'), 'AcquisitionView')
-const FormIWizardView = nd(() => import('@/components/coalrr/views/FormIWizardView'), 'FormIWizardView')
-const PayrollBuilderView = nd(() => import('@/components/coalrr/views/PayrollBuilderView'), 'PayrollBuilderView')
-const PaymentLedgerView = nd(() => import('@/components/coalrr/views/PaymentLedgerView'), 'PaymentLedgerView')
-const NominationView = nd(() => import('@/components/coalrr/views/NominationView'), 'NominationView')
-const EmploymentView = nd(() => import('@/components/coalrr/views/EmploymentView'), 'EmploymentView')
-const EmploymentWizardView = nd(() => import('@/components/coalrr/views/EmploymentWizardView'), 'EmploymentWizardView')
-const PafCensusView = nd(() => import('@/components/coalrr/views/PafCensusView'), 'PafCensusView')
-const RnrAssetView = nd(() => import('@/components/coalrr/views/RnrAssetView'), 'RnrAssetView')
-const WorkflowInboxView = nd(() => import('@/components/coalrr/views/WorkflowInboxView'), 'WorkflowInboxView')
+import { AuthView } from '@/components/coalrr/views/AuthView'
+import { DashboardView } from '@/components/coalrr/views/DashboardView'
+import { ProjectMasterView } from '@/components/coalrr/views/ProjectMasterView'
+import { AcquisitionView } from '@/components/coalrr/views/AcquisitionView'
+import { FormIWizardView } from '@/components/coalrr/views/FormIWizardView'
+import { PayrollBuilderView } from '@/components/coalrr/views/PayrollBuilderView'
+import { PaymentLedgerView } from '@/components/coalrr/views/PaymentLedgerView'
+import { NominationView } from '@/components/coalrr/views/NominationView'
+import { EmploymentView } from '@/components/coalrr/views/EmploymentView'
+import { EmploymentWizardView } from '@/components/coalrr/views/EmploymentWizardView'
+import { PafCensusView } from '@/components/coalrr/views/PafCensusView'
+import { RnrAssetView } from '@/components/coalrr/views/RnrAssetView'
+import { WorkflowInboxView } from '@/components/coalrr/views/WorkflowInboxView'
 
 const VIEW_MAP: Record<string, React.ComponentType> = {
   'dashboard': DashboardView,

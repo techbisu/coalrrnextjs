@@ -209,3 +209,5 @@ function StatCard({ label, value, icon: Icon, color }: {
     </div>
   )
 }
+
+export default WorkflowInboxView

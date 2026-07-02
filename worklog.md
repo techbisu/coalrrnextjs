@@ -22,3 +22,22 @@ Stage Summary:
 - Modules verified: Dashboard (M1-Overview), sidebar shows all 10 modules (M1-M4, M6-M10) plus Workflow Inbox
 - M9 NominationView (1067 lines) already fully implemented with: PublicListView, EclListView, NominationFormView, TrackingView, PoolingGauge
 - M10 EmploymentWizardView (1273 lines) already fully implemented with: 5-step wizard (Pool Selection → Eligibility → Form-V/VI → Documents → Status Tracker), countdown widget, timeline nodes
+
+---
+Task ID: fix-console-errors
+Agent: Main Agent
+Task: Fix Runtime ChunkLoadError and indicatorClassName prop warning
+
+Work Log:
+- Diagnosed ChunkLoadError: `next/dynamic` with Turbopack creates async chunk files that fail to load in the sandbox environment
+- First attempted `nd()` wrapper for named exports → still ChunkLoadError (chunk hash mismatch)
+- Added `export default` to all 12 view files so `next/dynamic` works natively → still ChunkLoadError on navigation
+- Final fix: replaced all `next/dynamic` with static imports — eliminates chunk loading entirely
+- Fixed duplicate `AuthView` import that caused "defined multiple times" compilation error
+- Fixed `indicatorClassName` prop leaking to DOM: destructured it from `...props` in Progress component and applied to `ProgressPrimitive.Indicator`
+
+Stage Summary:
+- Static imports are the only reliable approach in this Turbopack sandbox (no chunk splitting)
+- All 12 views compile into a single client bundle (~43s first compile, instant subsequent)
+- Browser verified: zero console errors across Dashboard, PAF Census, R&R Asset, Nomination navigation
+- `progress.tsx` now properly supports `indicatorClassName` prop for custom indicator styling

@@ -1065,3 +1065,4 @@ export function NominationView() {
   // nominationView === 'list'
   return isEcl ? <EclListView /> : <PublicListView />
 }
+export default NominationView

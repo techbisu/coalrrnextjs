@@ -443,3 +443,5 @@ function ChecklistView({ payroll }: { payroll: PayrollDetail }) {
     </SectionCard>
   )
 }
+
+export default PayrollBuilderView
