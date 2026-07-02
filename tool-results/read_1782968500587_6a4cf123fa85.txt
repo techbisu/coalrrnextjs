@@ -1,0 +1,1234 @@
+     1→'use client'
+     2→
+     3→import * as React from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import {
+     6→  SectionCard, DataTable, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline,
+     7→} from '@/components/coalrr'
+     8→import type {
+     9→  Column, AvailableTransition, TimelineNode, ChecklistItem, ChecklistItemStatus,
+    10→} from '@/components/coalrr'
+    11→import { formatNumber, timeAgo, useCoalrr } from '@/components/coalrr/store'
+    12→import { Button } from '@/components/ui/button'
+    13→import { Input } from '@/components/ui/input'
+    14→import { Label } from '@/components/ui/label'
+    15→import { Badge } from '@/components/ui/badge'
+    16→import { Textarea } from '@/components/ui/textarea'
+    17→import { Separator } from '@/components/ui/separator'
+    18→import {
+    19→  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    20→} from '@/components/ui/dialog'
+    21→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    22→import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+    23→import { toast } from 'sonner'
+    24→import {
+    25→  ClipboardList, Plus, Loader2, ArrowLeft, MapPin, Building2, Calendar, ShieldCheck,
+    26→  History, FileText, Layers, CheckCircle2, Circle, Clock, AlertCircle, Lock, ChevronRight,
+    27→  Trash2, ListChecks,
+    28→} from 'lucide-react'
+    29→import { COMPENSATION_PAYROLL_STATES, COMPENSATION_PAYROLL_ORDERED_STATES } from '@/lib/engines'
+    30→
+    31→// ─── Acquisition mode metadata (CL-1.x) ────────────────────────────────────
+    32→type AcquisitionMode = 'cba_act' | 'direct_purchase' | 'rfctlarr' | 'patta'
+    33→
+    34→const MODE_META: Record<AcquisitionMode, { label: string; checklistCode: string; color: string }> = {
+    35→  cba_act:         { label: 'CBA Act, 1957',      checklistCode: 'CL-1.1', color: 'border-rose-300 bg-rose-50 text-rose-700' },
+    36→  direct_purchase: { label: 'Direct Purchase',    checklistCode: 'CL-1.2', color: 'border-amber-300 bg-amber-50 text-amber-700' },
+    37→  rfctlarr:        { label: 'RFCTLARR Act, 2013', checklistCode: 'CL-1.3', color: 'border-violet-300 bg-violet-50 text-violet-700' },
+    38→  patta:           { label: 'Patta Transfer',     checklistCode: 'CL-1.4', color: 'border-teal-300 bg-teal-50 text-teal-700' },
+    39→}
+    40→
+    41→const MODES: AcquisitionMode[] = ['cba_act', 'direct_purchase', 'rfctlarr', 'patta']
+    42→
+    43→// Annexure tag styling (A/B/C)
+    44→const ANNEXURE_META: Record<'A' | 'B' | 'C', { label: string; color: string; desc: string }> = {
+    45→  A: { label: 'A', color: 'border-emerald-300 bg-emerald-50 text-emerald-700',     desc: 'Govt. land' },
+    46→  B: { label: 'B', color: 'border-amber-300 bg-amber-50 text-amber-700',           desc: 'Private tenancy' },
+    47→  C: { label: 'C', color: 'border-rose-300 bg-rose-50 text-rose-700',              desc: 'Forest/Debottar' },
+    48→}
+    49→
+    50→const LAND_TYPE_COLOR: Record<string, string> = {
+    51→  Forest:    'border-rose-300 bg-rose-50 text-rose-700',
+    52→  Govt:      'border-teal-300 bg-teal-50 text-teal-700',
+    53→  Patta:     'border-teal-300 bg-teal-50 text-teal-700',
+    54→  Tenancy:   'border-emerald-300 bg-emerald-50 text-emerald-700',
+    55→  Debottar:  'border-amber-300 bg-amber-50 text-amber-700',
+    56→}
+    57→
+    58→// ─── Types ────────────────────────────────────────────────────────────────
+    59→interface ScheduleListItem {
+    60→  id: string
+    61→  scheduleCode: string
+    62→  projectName: string
+    63→  acquisitionMode: AcquisitionMode
+    64→  state: string
+    65→  proposalTitle: string
+    66→  description: string
+    67→  totalAreaAcres: string
+    68→  notificationDate: string | null
+    69→  itemSummary: { total: number; annexureA: number; annexureB: number; annexureC: number }
+    70→  createdAt: string
+    71→}
+    72→
+    73→interface ScheduleItem {
+    74→  id: string
+    75→  plotId: string
+    76→  plotNumber: string
+    77→  mouza: string
+    78→  landType: string
+    79→  areaAcres: string
+    80→  annexureTag: 'A' | 'B' | 'C'
+    81→  isActive: boolean
+    82→}
+    83→
+    84→interface ModeChecklistPayload {
+    85→  checklistCode: string
+    86→  items: Array<{ key: string; label: string; required: boolean; status: string }>
+    87→}
+    88→
+    89→interface ScheduleDetail {
+    90→  id: string
+    91→  scheduleCode: string
+    92→  projectName: string
+    93→  acquisitionMode: AcquisitionMode
+    94→  state: string
+    95→  proposalTitle: string
+    96→  description: string
+    97→  proposedBy: string
+    98→  proposedByRole: string
+    99→  areaOffice: string
+   100→  collieryCode: string
+   101→  adjacentColliery: string
+   102→  totalAreaAcres: string
+   103→  notificationDate: string | null
+   104→  annexureA: string
+   105→  annexureB: string
+   106→  annexureC: string
+   107→  modeSpecificChecklist: string
+   108→  items: ScheduleItem[]
+   109→  createdAt: string
+   110→}
+   111→
+   112→interface ProjectListItem {
+   113→  id: string
+   114→  name: string
+   115→  collieryCode: string
+   116→  isLocked: boolean
+   117→  totalLandLimitAcres: string
+   118→}
+   119→
+   120→interface PlotListItem {
+   121→  id: string
+   122→  plotNumber: string
+   123→  mouza: string
+   124→  landType: string
+   125→  areaAcres: string
+   126→}
+   127→
+   128→// ─── Fetchers ─────────────────────────────────────────────────────────────
+   129→async function fetchSchedules(): Promise<ScheduleListItem[]> {
+   130→  const r = await fetch('/api/schedules')
+   131→  if (!r.ok) throw new Error('Failed to load schedules')
+   132→  return r.json()
+   133→}
+   134→
+   135→async function fetchSchedule(id: string): Promise<ScheduleDetail> {
+   136→  const r = await fetch(`/api/schedules/${id}`)
+   137→  if (!r.ok) throw new Error('Failed to load schedule')
+   138→  return r.json()
+   139→}
+   140→
+   141→async function fetchProjects(): Promise<ProjectListItem[]> {
+   142→  const r = await fetch('/api/projects')
+   143→  if (!r.ok) throw new Error('Failed to load projects')
+   144→  return r.json()
+   145→}
+   146→
+   147→async function fetchPlots(): Promise<PlotListItem[]> {
+   148→  const r = await fetch('/api/plots')
+   149→  if (!r.ok) throw new Error('Failed to load plots')
+   150→  return r.json()
+   151→}
+   152→
+   153→// ─── Main component ───────────────────────────────────────────────────────
+   154→export function AcquisitionView() {
+   155→  const qc = useQueryClient()
+   156→  const { selectedScheduleId, selectSchedule } = useCoalrr()
+   157→
+   158→  const { data: scheduleList, isLoading: listLoading } = useQuery({
+   159→    queryKey: ['schedules'],
+   160→    queryFn: fetchSchedules,
+   161→  })
+   162→
+   163→  const { data: schedule, isLoading: detailLoading } = useQuery({
+   164→    queryKey: ['schedule', selectedScheduleId],
+   165→    queryFn: () => fetchSchedule(selectedScheduleId!),
+   166→    enabled: !!selectedScheduleId,
+   167→  })
+   168→
+   169→  // ── List view ─────────────────────────────────────────────────────────
+   170→  if (!selectedScheduleId || !schedule) {
+   171→    return (
+   172→      <ListView
+   173→        schedules={scheduleList ?? []}
+   174→        loading={listLoading}
+   175→        onSelect={(id) => selectSchedule(id)}
+   176→        onCreated={(id) => {
+   177→          qc.invalidateQueries({ queryKey: ['schedules'] })
+   178→          selectSchedule(id)
+   179→        }}
+   180→      />
+   181→    )
+   182→  }
+   183→
+   184→  // ── Detail view ───────────────────────────────────────────────────────
+   185→  return (
+   186→    <DetailView
+   187→      schedule={schedule}
+   188→      loading={detailLoading}
+   189→      onBack={() => selectSchedule(null)}
+   190→      onChanged={() => {
+   191→        qc.invalidateQueries({ queryKey: ['schedule', schedule.id] })
+   192→        qc.invalidateQueries({ queryKey: ['schedules'] })
+   193→        qc.invalidateQueries({ queryKey: ['dashboard'] })
+   194→      }}
+   195→    />
+   196→  )
+   197→}
+   198→
+   199→// ─── List View ────────────────────────────────────────────────────────────
+   200→function ListView({
+   201→  schedules, loading, onSelect, onCreated,
+   202→}: {
+   203→  schedules: ScheduleListItem[]
+   204→  loading: boolean
+   205→  onSelect: (id: string) => void
+   206→  onCreated: (id: string) => void
+   207→}) {
+   208→  const [createOpen, setCreateOpen] = React.useState(false)
+   209→
+   210→  return (
+   211→    <div className="space-y-6">
+   212→      <div className="flex flex-wrap items-start justify-between gap-3">
+   213→        <div>
+   214→          <h2 className="text-xl font-bold tracking-tight">Land Acquisition Proposals</h2>
+   215→          <p className="text-sm text-muted-foreground">
+   216→            Module M2 · Plot schedules · CL-1 mode-specific checklists · spec §1.2.1 Journey A
+   217→          </p>
+   218→        </div>
+   219→        <Button onClick={() => setCreateOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
+   220→          <Plus className="h-4 w-4" /> New Proposal
+   221→        </Button>
+   222→      </div>
+   223→
+   224→      {loading ? (
+   225→        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   226→          {Array.from({ length: 3 }).map((_, i) => (
+   227→            <div key={i} className="h-44 animate-pulse rounded-lg border border-border/60 bg-muted/40" />
+   228→          ))}
+   229→        </div>
+   230→      ) : schedules.length === 0 ? (
+   231→        <Alert>
+   232→          <ClipboardList className="h-4 w-4" />
+   233→          <AlertTitle>No acquisition proposals yet</AlertTitle>
+   234→          <AlertDescription>
+   235→            Create your first land acquisition proposal against a locked project baseline to begin the
+   236→            CL-1 checklist + area/HQ vetting workflow.
+   237→          </AlertDescription>
+   238→        </Alert>
+   239→      ) : (
+   240→        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   241→          {schedules.map((s) => {
+   242→            const mode = MODE_META[s.acquisitionMode] ?? {
+   243→              label: s.acquisitionMode, checklistCode: 'CL-1', color: 'border-slate-300 bg-slate-50 text-slate-700',
+   244→            }
+   245→            return (
+   246→              <button
+   247→                key={s.id}
+   248→                onClick={() => onSelect(s.id)}
+   249→                className="group flex flex-col rounded-lg border border-border/60 bg-card p-4 text-left transition hover:border-amber-300 hover:shadow-md"
+   250→              >
+   251→                <div className="flex items-center justify-between gap-2">
+   252→                  <span className="font-mono text-sm font-medium">{s.scheduleCode}</span>
+   253→                  <StateBadge state={s.state} />
+   254→                </div>
+   255→
+   256→                <h3 className="mt-2 line-clamp-1 text-sm font-semibold">{s.proposalTitle}</h3>
+   257→                <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{s.projectName}</p>
+   258→
+   259→                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+   260→                  <Badge variant="outline" className={`font-mono text-[10px] ${mode.color}`}>
+   261→                    {mode.checklistCode} · {mode.label}
+   262→                  </Badge>
+   263→                </div>
+   264→
+   265→                <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border/60 pt-3 text-center">
+   266→                  <AnnexurePill tag="A" count={s.itemSummary.annexureA} />
+   267→                  <AnnexurePill tag="B" count={s.itemSummary.annexureB} />
+   268→                  <AnnexurePill tag="C" count={s.itemSummary.annexureC} />
+   269→                </div>
+   270→
+   271→                <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+   272→                  <span className="inline-flex items-center gap-1">
+   273→                    <Layers className="h-3 w-3" />
+   274→                    {formatNumber(s.totalAreaAcres, 4)} ac
+   275→                  </span>
+   276→                  <span>{timeAgo(s.createdAt)}</span>
+   277→                </div>
+   278→              </button>
+   279→            )
+   280→          })}
+   281→        </div>
+   282→      )}
+   283→
+   284→      <CreateProposalDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={onCreated} />
+   285→    </div>
+   286→  )
+   287→}
+   288→
+   289→function AnnexurePill({ tag, count }: { tag: 'A' | 'B' | 'C'; count: number }) {
+   290→  const meta = ANNEXURE_META[tag]
+   291→  return (
+   292→    <div className={`rounded-md border px-2 py-1 ${meta.color}`}>
+   293→      <div className="text-[10px] font-semibold uppercase">{meta.label}</div>
+   294→      <div className="text-sm font-bold tabular-nums">{count}</div>
+   295→    </div>
+   296→  )
+   297→}
+   298→
+   299→// ─── Create Proposal Dialog ──────────────────────────────────────────────
+   300→function CreateProposalDialog({
+   301→  open, onOpenChange, onCreated,
+   302→}: {
+   303→  open: boolean
+   304→  onOpenChange: (b: boolean) => void
+   305→  onCreated: (id: string) => void
+   306→}) {
+   307→  const { data: projects, isLoading: projectsLoading } = useQuery({
+   308→    queryKey: ['projects'],
+   309→    queryFn: fetchProjects,
+   310→    enabled: open,
+   311→  })
+   312→
+   313→  const lockedProjects = React.useMemo(
+   314→    () => (projects ?? []).filter((p) => p.isLocked),
+   315→    [projects],
+   316→  )
+   317→
+   318→  const [form, setForm] = React.useState({
+   319→    projectId: '',
+   320→    acquisitionMode: '' as AcquisitionMode | '',
+   321→    proposalTitle: '',
+   322→    description: '',
+   323→    areaOffice: '',
+   324→    collieryCode: '',
+   325→    adjacentColliery: '',
+   326→    notificationDate: '',
+   327→  })
+   328→
+   329→  // Pre-fill colliery code from selected project
+   330→  React.useEffect(() => {
+   331→    if (!form.projectId) return
+   332→    const p = lockedProjects.find((pr) => pr.id === form.projectId)
+   333→    if (p && !form.collieryCode) {
+   334→      setForm((f) => ({ ...f, collieryCode: p.collieryCode }))
+   335→    }
+   336→  }, [form.projectId, lockedProjects, form.collieryCode])
+   337→
+   338→  const create = useMutation({
+   339→    mutationFn: async () => {
+   340→      const r = await fetch('/api/schedules', {
+   341→        method: 'POST',
+   342→        headers: { 'Content-Type': 'application/json' },
+   343→        body: JSON.stringify({
+   344→          projectId: form.projectId,
+   345→          acquisitionMode: form.acquisitionMode,
+   346→          proposalTitle: form.proposalTitle,
+   347→          description: form.description,
+   348→          areaOffice: form.areaOffice,
+   349→          collieryCode: form.collieryCode,
+   350→          adjacentColliery: form.adjacentColliery,
+   351→          notificationDate: form.notificationDate || undefined,
+   352→        }),
+   353→      })
+   354→      const data = await r.json()
+   355→      if (!r.ok) throw new Error(data.error ?? 'Failed to create proposal')
+   356→      return data as { id: string; scheduleCode: string; message?: string }
+   357→    },
+   358→    onSuccess: (data) => {
+   359→      toast.success(`Proposal ${data.scheduleCode} created`, {
+   360→        description: data.message ?? 'Drafting state — add plots & complete CL-1 checklist.',
+   361→      })
+   362→      setForm({
+   363→        projectId: '', acquisitionMode: '', proposalTitle: '', description: '',
+   364→        areaOffice: '', collieryCode: '', adjacentColliery: '', notificationDate: '',
+   365→      })
+   366→      onOpenChange(false)
+   367→      onCreated(data.id)
+   368→    },
+   369→    onError: (e: Error) => toast.error(e.message),
+   370→  })
+   371→
+   372→  const canSubmit = form.projectId && form.acquisitionMode && form.proposalTitle.trim()
+   373→
+   374→  return (
+   375→    <Dialog open={open} onOpenChange={onOpenChange}>
+   376→      <DialogContent className="sm:max-w-2xl">
+   377→        <DialogHeader>
+   378→          <DialogTitle>New Land Acquisition Proposal</DialogTitle>
+   379→          <DialogDescription>
+   380→            Create a schedule against a locked project baseline. Mode drives the CL-1.x checklist
+   381→            enforced at area vetting.
+   382→          </DialogDescription>
+   383→        </DialogHeader>
+   384→
+   385→        <div className="grid gap-4">
+   386→          {/* Project selector */}
+   387→          <Field label="Project (locked baseline only)">
+   388→            {projectsLoading ? (
+   389→              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+   390→                <Loader2 className="h-3 w-3 animate-spin" /> Loading projects…
+   391→              </div>
+   392→            ) : lockedProjects.length === 0 ? (
+   393→              <Alert variant="destructive">
+   394→                <AlertCircle className="h-4 w-4" />
+   395→                <AlertTitle>No locked projects available</AlertTitle>
+   396→                <AlertDescription>
+   397→                  A project baseline must be locked before acquisition proposals can be raised against it.
+   398→                </AlertDescription>
+   399→              </Alert>
+   400→            ) : (
+   401→              <select
+   402→                value={form.projectId}
+   403→                onChange={(e) => setForm({ ...form, projectId: e.target.value })}
+   404→                className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+   405→              >
+   406→                <option value="">Select a locked project…</option>
+   407→                {lockedProjects.map((p) => (
+   408→                  <option key={p.id} value={p.id}>
+   409→                    {p.name} · {p.collieryCode} · limit {formatNumber(p.totalLandLimitAcres, 2)} ac
+   410→                  </option>
+   411→                ))}
+   412→              </select>
+   413→            )}
+   414→          </Field>
+   415→
+   416→          {/* Acquisition mode picker */}
+   417→          <Field label="Acquisition Mode (drives CL-1.x checklist)">
+   418→            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+   419→              {MODES.map((m) => {
+   420→                const meta = MODE_META[m]
+   421→                const selected = form.acquisitionMode === m
+   422→                return (
+   423→                  <button
+   424→                    key={m}
+   425→                    type="button"
+   426→                    onClick={() => setForm({ ...form, acquisitionMode: m })}
+   427→                    className={`flex flex-col items-start rounded-md border px-3 py-2 text-left transition ${
+   428→                      selected ? meta.color + ' ring-2 ring-offset-1 ring-amber-300' : 'border-border bg-card hover:border-amber-300'
+   429→                    }`}
+   430→                  >
+   431→                    <span className="font-mono text-[10px] font-bold uppercase">{meta.checklistCode}</span>
+   432→                    <span className="mt-0.5 text-xs font-medium leading-tight">{meta.label}</span>
+   433→                  </button>
+   434→                )
+   435→              })}
+   436→            </div>
+   437→          </Field>
+   438→
+   439→          {/* Proposal title + description */}
+   440→          <div className="grid gap-3 sm:grid-cols-2">
+   441→            <Field label="Proposal Title">
+   442→              <Input
+   443→                value={form.proposalTitle}
+   444→                onChange={(e) => setForm({ ...form, proposalTitle: e.target.value })}
+   445→                placeholder="e.g. Hingula Phase-III acquisition — 42 acres"
+   446→              />
+   447→            </Field>
+   448→            <Field label="Notification Date">
+   449→              <Input
+   450→                type="date"
+   451→                value={form.notificationDate}
+   452→                onChange={(e) => setForm({ ...form, notificationDate: e.target.value })}
+   453→              />
+   454→            </Field>
+   455→          </div>
+   456→
+   457→          <Field label="Description">
+   458→            <Textarea
+   459→              value={form.description}
+   460→              onChange={(e) => setForm({ ...form, description: e.target.value })}
+   461→              placeholder="Brief scope, affected mouzas, rationale…"
+   462→              className="min-h-16"
+   463→            />
+   464→          </Field>
+   465→
+   466→          {/* Colliery details */}
+   467→          <div className="grid gap-3 sm:grid-cols-3">
+   468→            <Field label="Area Office">
+   469→              <Input
+   470→                value={form.areaOffice}
+   471→                onChange={(e) => setForm({ ...form, areaOffice: e.target.value })}
+   472→                placeholder="e.g. Talcher Area"
+   473→              />
+   474→            </Field>
+   475→            <Field label="Acquiring Colliery Code">
+   476→              <Input
+   477→                value={form.collieryCode}
+   478→                onChange={(e) => setForm({ ...form, collieryCode: e.target.value })}
+   479→                placeholder="e.g. HNG"
+   480→              />
+   481→            </Field>
+   482→            <Field label="Adjacent Colliery">
+   483→              <Input
+   484→                value={form.adjacentColliery}
+   485→                onChange={(e) => setForm({ ...form, adjacentColliery: e.target.value })}
+   486→                placeholder="e.g. BNP"
+   487→              />
+   488→            </Field>
+   489→          </div>
+   490→        </div>
+   491→
+   492→        <DialogFooter>
+   493→          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+   494→          <Button
+   495→            onClick={() => create.mutate()}
+   496→            disabled={!canSubmit || create.isPending}
+   497→            className="bg-emerald-600 hover:bg-emerald-700"
+   498→          >
+   499→            {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+   500→            Create Proposal
+   501→          </Button>
+   502→        </DialogFooter>
+   503→      </DialogContent>
+   504→    </Dialog>
+   505→  )
+   506→}
+   507→
+   508→// ─── Detail View (4 tabs) ────────────────────────────────────────────────
+   509→function DetailView({
+   510→  schedule, loading, onBack, onChanged,
+   511→}: {
+   512→  schedule: ScheduleDetail
+   513→  loading: boolean
+   514→  onBack: () => void
+   515→  onChanged: () => void
+   516→}) {
+   517→  const mode = MODE_META[schedule.acquisitionMode] ?? {
+   518→    label: schedule.acquisitionMode, checklistCode: 'CL-1', color: 'border-slate-300 bg-slate-50 text-slate-700',
+   519→  }
+   520→
+   521→  // Parse the modeSpecificChecklist JSON string
+   522→  const checklist: ModeChecklistPayload = React.useMemo(() => {
+   523→    try {
+   524→      const parsed = JSON.parse(schedule.modeSpecificChecklist ?? '{"checklistCode":"CL-1","items":[]}')
+   525→      return {
+   526→        checklistCode: parsed.checklistCode ?? mode.checklistCode,
+   527→        items: Array.isArray(parsed.items) ? parsed.items : [],
+   528→      }
+   529→    } catch {
+   530→      return { checklistCode: mode.checklistCode, items: [] }
+   531→    }
+   532→  }, [schedule.modeSpecificChecklist, mode.checklistCode])
+   533→
+   534→  return (
+   535→    <div className="space-y-6">
+   536→      {/* Header */}
+   537→      <div className="flex flex-wrap items-start justify-between gap-3">
+   538→        <div className="flex items-start gap-3">
+   539→          <Button variant="outline" size="sm" onClick={onBack} className="mt-0.5">
+   540→            <ArrowLeft className="h-4 w-4" /> Back
+   541→          </Button>
+   542→          <div>
+   543→            <div className="flex items-center gap-2">
+   544→              <h2 className="text-xl font-bold tracking-tight">{schedule.proposalTitle}</h2>
+   545→              <StateBadge state={schedule.state} size="md" />
+   546→            </div>
+   547→            <p className="mt-1 font-mono text-xs text-muted-foreground">{schedule.scheduleCode}</p>
+   548→          </div>
+   549→        </div>
+   550→        <div className="flex items-center gap-2">
+   551→          <Badge variant="outline" className={`font-mono text-xs ${mode.color}`}>
+   552→            {mode.checklistCode} · {mode.label}
+   553→          </Badge>
+   554→        </div>
+   555→      </div>
+   556→
+   557→      {/* Proposal meta strip */}
+   558→      <div className="grid gap-3 rounded-lg border border-border/60 bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
+   559→        <MetaItem icon={Building2} label="Project" value={schedule.projectName} />
+   560→        <MetaItem icon={MapPin} label="Area Office / Colliery" value={`${schedule.areaOffice || '—'} · ${schedule.collieryCode || '—'}`} />
+   561→        <MetaItem icon={Calendar} label="Notification Date" value={schedule.notificationDate ? new Date(schedule.notificationDate).toLocaleDateString('en-IN') : '—'} />
+   562→        <MetaItem icon={Layers} label="Total Area" value={`${formatNumber(schedule.totalAreaAcres, 4)} acres`} />
+   563→      </div>
+   564→
+   565→      {/* Tabs */}
+   566→      <Tabs defaultValue="plots" className="w-full">
+   567→        <TabsList className="w-fit">
+   568→          <TabsTrigger value="plots"><Layers className="h-3.5 w-3.5" /> Plots &amp; Annexures</TabsTrigger>
+   569→          <TabsTrigger value="checklist"><ListChecks className="h-3.5 w-3.5" /> CL-1 Checklist</TabsTrigger>
+   570→          <TabsTrigger value="verify"><ShieldCheck className="h-3.5 w-3.5" /> Verification</TabsTrigger>
+   571→          <TabsTrigger value="timeline"><History className="h-3.5 w-3.5" /> Timeline</TabsTrigger>
+   572→        </TabsList>
+   573→
+   574→        <TabsContent value="plots" className="mt-4">
+   575→          <PlotsTab schedule={schedule} onChanged={onChanged} />
+   576→        </TabsContent>
+   577→
+   578→        <TabsContent value="checklist" className="mt-4">
+   579→          <ChecklistTab schedule={schedule} checklist={checklist} onChanged={onChanged} />
+   580→        </TabsContent>
+   581→
+   582→        <TabsContent value="verify" className="mt-4">
+   583→          <VerificationTab schedule={schedule} onChanged={onChanged} />
+   584→        </TabsContent>
+   585→
+   586→        <TabsContent value="timeline" className="mt-4">
+   587→          <TimelineTab schedule={schedule} />
+   588→        </TabsContent>
+   589→      </Tabs>
+   590→
+   591→      {loading && (
+   592→        <p className="text-xs text-muted-foreground">Refreshing…</p>
+   593→      )}
+   594→    </div>
+   595→  )
+   596→}
+   597→
+   598→function MetaItem({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
+   599→  return (
+   600→    <div className="flex items-start gap-2">
+   601→      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+   602→        <Icon className="h-4 w-4" />
+   603→      </div>
+   604→      <div className="min-w-0">
+   605→        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+   606→        <p className="truncate text-sm font-medium">{value}</p>
+   607→      </div>
+   608→    </div>
+   609→  )
+   610→}
+   611→
+   612→function Field({ label, children }: { label: string; children: React.ReactNode }) {
+   613→  return (
+   614→    <div className="space-y-1">
+   615→      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+   616→      {children}
+   617→    </div>
+   618→  )
+   619→}
+   620→
+   621→// ─── Tab 1: Plots & Annexures ────────────────────────────────────────────
+   622→function PlotsTab({
+   623→  schedule, onChanged,
+   624→}: {
+   625→  schedule: ScheduleDetail
+   626→  onChanged: () => void
+   627→}) {
+   628→  const qc = useQueryClient()
+   629→  const isDrafting = schedule.state === 'Drafting'
+   630→  const [addOpen, setAddOpen] = React.useState(false)
+   631→
+   632→  const deleteItem = useMutation({
+   633→    mutationFn: async (itemId: string) => {
+   634→      const r = await fetch(`/api/schedules/${schedule.id}/items/${itemId}`, { method: 'DELETE' })
+   635→      const data = await r.json()
+   636→      if (!r.ok) throw new Error(data.error ?? 'Failed to remove plot')
+   637→      return data
+   638→    },
+   639→    onSuccess: () => {
+   640→      toast.success('Plot removed from schedule')
+   641→      onChanged()
+   642→    },
+   643→    onError: (e: Error) => toast.error(e.message),
+   644→  })
+   645→
+   646→  const reclassify = useMutation({
+   647→    mutationFn: async ({ itemId, tag }: { itemId: string; tag: 'A' | 'B' | 'C' }) => {
+   648→      const r = await fetch(`/api/schedules/${schedule.id}/items/${itemId}`, {
+   649→        method: 'PATCH',
+   650→        headers: { 'Content-Type': 'application/json' },
+   651→        body: JSON.stringify({ annexureTag: tag }),
+   652→      })
+   653→      const data = await r.json()
+   654→      if (!r.ok) throw new Error(data.error ?? 'Failed to reclassify')
+   655→      return data
+   656→    },
+   657→    onSuccess: () => {
+   658→      toast.success('Annexure reclassified')
+   659→      onChanged()
+   660→    },
+   661→    onError: (e: Error) => toast.error(e.message),
+   662→  })
+   663→
+   664→  // Summary counts (live from items)
+   665→  const counts = React.useMemo(() => {
+   666→    const c = { A: 0, B: 0, C: 0 }
+   667→    for (const it of schedule.items) {
+   668→      if (it.isActive) c[it.annexureTag] += 1
+   669→    }
+   670→    return c
+   671→  }, [schedule.items])
+   672→
+   673→  const columns: Column<ScheduleItem>[] = [
+   674→    { key: 'plotNumber', header: 'Plot', sortable: true, render: (r) => (
+   675→      <span className="font-mono text-xs font-medium">{r.plotNumber}</span>
+   676→    ) },
+   677→    { key: 'mouza', header: 'Mouza', sortable: true, render: (r) => <span className="text-sm">{r.mouza}</span> },
+   678→    { key: 'landType', header: 'Land Type', render: (r) => (
+   679→      <Badge variant="outline" className={`text-[10px] ${LAND_TYPE_COLOR[r.landType] ?? 'border-slate-300 bg-slate-50 text-slate-700'}`}>
+   680→        {r.landType}
+   681→      </Badge>
+   682→    ) },
+   683→    { key: 'areaAcres', header: 'Area (ac)', align: 'right', sortable: true, render: (r) => (
+   684→      <span className="tabular-nums">{formatNumber(r.areaAcres, 4)}</span>
+   685→    ) },
+   686→    { key: 'annexureTag', header: 'Annexure', align: 'center', render: (r) => {
+   687→      const meta = ANNEXURE_META[r.annexureTag]
+   688→      return (
+   689→        <Badge variant="outline" className={`font-mono text-xs ${meta.color}`}>
+   690→          {meta.label} · {meta.desc}
+   691→        </Badge>
+   692→      )
+   693→    } },
+   694→    { key: '_reclassify', header: 'Reclassify', align: 'center', render: (r) => (
+   695→      <select
+   696→        value={r.annexureTag}
+   697→        disabled={!isDrafting || reclassify.isPending}
+   698→        onChange={(e) => reclassify.mutate({ itemId: r.id, tag: e.target.value as 'A' | 'B' | 'C' })}
+   699→        className="h-7 rounded border border-border bg-background px-1.5 text-xs disabled:opacity-50"
+   700→      >
+   701→        <option value="A">A · Govt</option>
+   702→        <option value="B">B · Private</option>
+   703→        <option value="C">C · Forest</option>
+   704→      </select>
+   705→    ) },
+   706→    { key: '_actions', header: '', align: 'right', render: (r) => (
+   707→      isDrafting ? (
+   708→        <Button
+   709→          size="icon"
+   710→          variant="ghost"
+   711→          className="h-7 w-7 text-muted-foreground hover:text-rose-600"
+   712→          onClick={() => deleteItem.mutate(r.id)}
+   713→          disabled={deleteItem.isPending}
+   714→        >
+   715→          <Trash2 className="h-3.5 w-3.5" />
+   716→        </Button>
+   717→      ) : (
+   718→        <Lock className="h-3 w-3 text-muted-foreground/40" />
+   719→      )
+   720→    ) },
+   721→  ]
+   722→
+   723→  return (
+   724→    <div className="space-y-4">
+   725→      {/* Summary cards */}
+   726→      <div className="grid gap-3 sm:grid-cols-3">
+   727→        {(['A', 'B', 'C'] as const).map((tag) => {
+   728→          const meta = ANNEXURE_META[tag]
+   729→          return (
+   730→            <div key={tag} className={`rounded-lg border p-4 ${meta.color}`}>
+   731→              <div className="flex items-center justify-between">
+   732→                <div>
+   733→                  <p className="text-[10px] font-semibold uppercase tracking-wide">Annexure {meta.label}</p>
+   734→                  <p className="text-xs opacity-80">{meta.desc}</p>
+   735→                </div>
+   736→                <span className="text-3xl font-bold tabular-nums">{counts[tag]}</span>
+   737→              </div>
+   738→            </div>
+   739→          )
+   740→        })}
+   741→      </div>
+   742→
+   743→      <SectionCard
+   744→        title="Schedule Items (Plots)"
+   745→        icon={Layers}
+   746→        description={
+   747→          isDrafting
+   748→            ? `${schedule.items.length} plot(s) · total ${formatNumber(schedule.totalAreaAcres, 4)} acres`
+   749→            : `Schedule locked in ${schedule.state} — plots cannot be added or removed`
+   750→        }
+   751→        action={
+   752→          isDrafting ? (
+   753→            <Button size="sm" onClick={() => setAddOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
+   754→              <Plus className="h-4 w-4" /> Add Plot
+   755→            </Button>
+   756→          ) : undefined
+   757→        }
+   758→      >
+   759→        <DataTable
+   760→          columns={columns}
+   761→          data={schedule.items}
+   762→          getRowId={(r) => r.id}
+   763→          pageSize={5}
+   764→          emptyMessage="No plots added yet. Click 'Add Plot' to compose the schedule."
+   765→        />
+   766→      </SectionCard>
+   767→
+   768→      <AddPlotDialog
+   769→        open={addOpen}
+   770→        onOpenChange={setAddOpen}
+   771→        scheduleId={schedule.id}
+   772→        existingPlotIds={schedule.items.map((i) => i.plotId)}
+   773→        onAdded={onChanged}
+   774→      />
+   775→    </div>
+   776→  )
+   777→}
+   778→
+   779→function AddPlotDialog({
+   780→  open, onOpenChange, scheduleId, existingPlotIds, onAdded,
+   781→}: {
+   782→  open: boolean
+   783→  onOpenChange: (b: boolean) => void
+   784→  scheduleId: string
+   785→  existingPlotIds: string[]
+   786→  onAdded: () => void
+   787→}) {
+   788→  const { data: plots, isLoading } = useQuery({
+   789→    queryKey: ['plots'],
+   790→    queryFn: fetchPlots,
+   791→    enabled: open,
+   792→  })
+   793→
+   794→  const availablePlots = React.useMemo(
+   795→    () => (plots ?? []).filter((p) => !existingPlotIds.includes(p.id)),
+   796→    [plots, existingPlotIds],
+   797→  )
+   798→
+   799→  const [plotId, setPlotId] = React.useState('')
+   800→  const [tag, setTag] = React.useState<'A' | 'B' | 'C'>('A')
+   801→
+   802→  React.useEffect(() => {
+   803→    if (!open) { setPlotId(''); setTag('A') }
+   804→  }, [open])
+   805→
+   806→  const add = useMutation({
+   807→    mutationFn: async () => {
+   808→      const r = await fetch(`/api/schedules/${scheduleId}/items`, {
+   809→        method: 'POST',
+   810→        headers: { 'Content-Type': 'application/json' },
+   811→        body: JSON.stringify({ plotId, annexureTag: tag }),
+   812→      })
+   813→      const data = await r.json()
+   814→      if (!r.ok) throw new Error(data.error ?? 'Failed to add plot')
+   815→      return data as { plotNumber: string; totalAreaAcres: string }
+   816→    },
+   817→    onSuccess: (data) => {
+   818→      toast.success(`Plot ${data.plotNumber} added`, {
+   819→        description: `Schedule total now ${formatNumber(data.totalAreaAcres, 4)} acres`,
+   820→      })
+   821→      setPlotId('')
+   822→      setTag('A')
+   823→      onOpenChange(false)
+   824→      onAdded()
+   825→    },
+   826→    onError: (e: Error) => toast.error(e.message),
+   827→  })
+   828→
+   829→  return (
+   830→    <Dialog open={open} onOpenChange={onOpenChange}>
+   831→      <DialogContent className="sm:max-w-lg">
+   832→        <DialogHeader>
+   833→          <DialogTitle>Add Plot to Schedule</DialogTitle>
+   834→          <DialogDescription>
+   835→            Select an available plot and assign it to an annexure class. Plot must not already be
+   836→            active in another schedule.
+   837→          </DialogDescription>
+   838→        </DialogHeader>
+   839→
+   840→        <div className="space-y-4">
+   841→          <Field label="Available Plot">
+   842→            {isLoading ? (
+   843→              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+   844→                <Loader2 className="h-3 w-3 animate-spin" /> Loading plots…
+   845→              </div>
+   846→            ) : availablePlots.length === 0 ? (
+   847→              <Alert variant="destructive">
+   848→                <AlertCircle className="h-4 w-4" />
+   849→                <AlertTitle>No plots available</AlertTitle>
+   850→                <AlertDescription>
+   851→                  All plots in the registry are already attached to this schedule.
+   852→                </AlertDescription>
+   853→              </Alert>
+   854→            ) : (
+   855→              <select
+   856→                value={plotId}
+   857→                onChange={(e) => setPlotId(e.target.value)}
+   858→                className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+   859→              >
+   860→                <option value="">Select a plot…</option>
+   861→                {availablePlots.map((p) => (
+   862→                  <option key={p.id} value={p.id}>
+   863→                    {p.plotNumber} · {p.mouza} · {p.landType} · {formatNumber(p.areaAcres, 4)} ac
+   864→                  </option>
+   865→                ))}
+   866→              </select>
+   867→            )}
+   868→          </Field>
+   869→
+   870→          <Field label="Annexure Tag">
+   871→            <div className="grid grid-cols-3 gap-2">
+   872→              {(['A', 'B', 'C'] as const).map((t) => {
+   873→                const meta = ANNEXURE_META[t]
+   874→                const selected = tag === t
+   875→                return (
+   876→                  <button
+   877→                    key={t}
+   878→                    type="button"
+   879→                    onClick={() => setTag(t)}
+   880→                    className={`rounded-md border px-3 py-2 text-left transition ${
+   881→                      selected ? meta.color + ' ring-2 ring-offset-1 ring-amber-300' : 'border-border bg-card hover:border-amber-300'
+   882→                    }`}
+   883→                  >
+   884→                    <div className="font-mono text-xs font-bold">Annexure {meta.label}</div>
+   885→                    <div className="text-[10px] opacity-80">{meta.desc}</div>
+   886→                  </button>
+   887→                )
+   888→              })}
+   889→            </div>
+   890→          </Field>
+   891→        </div>
+   892→
+   893→        <DialogFooter>
+   894→          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+   895→          <Button
+   896→            onClick={() => add.mutate()}
+   897→            disabled={!plotId || add.isPending}
+   898→            className="bg-emerald-600 hover:bg-emerald-700"
+   899→          >
+   900→            {add.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+   901→            Add Plot
+   902→          </Button>
+   903→        </DialogFooter>
+   904→      </DialogContent>
+   905→    </Dialog>
+   906→  )
+   907→}
+   908→
+   909→// ─── Tab 2: CL-1 Checklist ───────────────────────────────────────────────
+   910→function ChecklistTab({
+   911→  schedule, checklist, onChanged,
+   912→}: {
+   913→  schedule: ScheduleDetail
+   914→  checklist: ModeChecklistPayload
+   915→  onChanged: () => void
+   916→}) {
+   917→  // Build SmartChecklist items
+   918→  const items: ChecklistItem[] = checklist.items.map((it) => ({
+   919→    key: it.key,
+   920→    label: it.label,
+   921→    required: it.required,
+   922→    status: (it.status === 'in_progress' ? 'in_progress' : it.status === 'complete' ? 'complete' : it.status === 'skipped' ? 'skipped' : 'pending') as ChecklistItemStatus,
+   923→  }))
+   924→
+   925→  const canEdit = schedule.state === 'Drafting' || schedule.state === 'AreaVetting'
+   926→  const showForward = schedule.state === 'UnitSubmitted'
+   927→
+   928→  const qc = useQueryClient()
+   929→  const updateItem = useMutation({
+   930→    mutationFn: async ({ itemKey, status }: { itemKey: string; status: ChecklistItemStatus }) => {
+   931→      const r = await fetch(`/api/schedules/${schedule.id}/checklist`, {
+   932→        method: 'PATCH',
+   933→        headers: { 'Content-Type': 'application/json' },
+   934→        body: JSON.stringify({ itemKey, status }),
+   935→      })
+   936→      const data = await r.json()
+   937→      if (!r.ok) throw new Error(data.error ?? 'Failed to update checklist')
+   938→      return data
+   939→    },
+   940→    onSuccess: () => {
+   941→      onChanged()
+   942→    },
+   943→    onError: (e: Error) => toast.error(e.message),
+   944→  })
+   945→
+   946→  const forward = useMutation({
+   947→    mutationFn: async () => {
+   948→      const r = await fetch(`/api/schedules/${schedule.id}/verify`, {
+   949→        method: 'POST',
+   950→        headers: { 'Content-Type': 'application/json' },
+   951→        body: JSON.stringify({ transition: 'submit_to_area' }),
+   952→      })
+   953→      const data = await r.json()
+   954→      if (!r.ok) throw new Error(data.error ?? 'Forward failed')
+   955→      if (data.ok === false) throw new Error(data.reason ?? 'Transition blocked')
+   956→      return data
+   957→    },
+   958→    onSuccess: (data) => {
+   959→      toast.success(`Forwarded to ${data.newStatusLabel ?? 'Area Vetting'}`)
+   960→      onChanged()
+   961→      qc.invalidateQueries({ queryKey: ['schedules'] })
+   962→    },
+   963→    onError: (e: Error) => toast.error('Forward blocked', { description: e.message }),
+   964→  })
+   965→
+   966→  return (
+   967→    <div className="space-y-4">
+   968→      <SectionCard
+   969→        title={`CL-1 Checklist — ${checklist.checklistCode}`}
+   970→        icon={ListChecks}
+   971→        description={`Mode-specific compliance items for ${MODE_META[schedule.acquisitionMode]?.label ?? schedule.acquisitionMode}. 'Forward to Area Vetting' enabled once all required items are complete.`}
+   972→      >
+   973→        <SmartChecklist
+   974→          code={checklist.checklistCode}
+   975→          title="Compliance Checklist"
+   976→          items={items}
+   977→          hideForward={!showForward}
+   978→          forwardLabel="Forward to Area Vetting"
+   979→          onForward={() => forward.mutate()}
+   980→        />
+   981→      </SectionCard>
+   982→
+   983→      {/* Quick-update panel */}
+   984→      <SectionCard
+   985→        title="Quick Update"
+   986→        icon={CheckCircle2}
+   987→        description={
+   988→          canEdit
+   989→            ? 'Click ○ / ◐ / ✓ to set each item status. PATCHes /api/schedules/[id]/checklist.'
+   990→            : `Checklist is locked in state ${schedule.state} — only editable from Drafting or AreaVetting.`
+   991→        }
+   992→      >
+   993→        {checklist.items.length === 0 ? (
+   994→          <p className="text-sm text-muted-foreground">No checklist items defined.</p>
+   995→        ) : (
+   996→          <div className="space-y-1.5">
+   997→            {checklist.items.map((it) => {
+   998→              const status = it.status as ChecklistItemStatus
+   999→              return (
+  1000→                <div
+  1001→                  key={it.key}
+  1002→                  className={`flex items-center justify-between gap-3 rounded-md border border-transparent px-2.5 py-2 transition ${
+  1003→                    status === 'complete' ? 'bg-emerald-50/60 dark:bg-emerald-950/20' :
+  1004→                    status === 'in_progress' ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''
+  1005→                  }`}
+  1006→                >
+  1007→                  <div className="flex min-w-0 items-center gap-2">
+  1008→                    <StatusGlyph status={status} />
+  1009→                    <div className="min-w-0">
+  1010→                      <p className="truncate text-sm font-medium">{it.label}</p>
+  1011→                      <p className="font-mono text-[10px] text-muted-foreground">{it.key}</p>
+  1012→                    </div>
+  1013→                    {it.required && (
+  1014→                      <Badge variant="secondary" className="h-4 px-1 text-[10px] uppercase">required</Badge>
+  1015→                    )}
+  1016→                  </div>
+  1017→                  <div className="flex shrink-0 items-center gap-1">
+  1018→                    <QuickButton
+  1019→                      active={status === 'pending'} disabled={!canEdit || updateItem.isPending}
+  1020→                      onClick={() => updateItem.mutate({ itemKey: it.key, status: 'pending' })}
+  1021→                      title="Pending"
+  1022→                    >
+  1023→                      <Circle className="h-3.5 w-3.5" />
+  1024→                    </QuickButton>
+  1025→                    <QuickButton
+  1026→                      active={status === 'in_progress'} disabled={!canEdit || updateItem.isPending}
+  1027→                      onClick={() => updateItem.mutate({ itemKey: it.key, status: 'in_progress' })}
+  1028→                      title="In progress"
+  1029→                    >
+  1030→                      <Clock className="h-3.5 w-3.5" />
+  1031→                    </QuickButton>
+  1032→                    <QuickButton
+  1033→                      active={status === 'complete'} disabled={!canEdit || updateItem.isPending}
+  1034→                      onClick={() => updateItem.mutate({ itemKey: it.key, status: 'complete' })}
+  1035→                      title="Complete"
+  1036→                    >
+  1037→                      <CheckCircle2 className="h-3.5 w-3.5" />
+  1038→                    </QuickButton>
+  1039→                  </div>
+  1040→                </div>
+  1041→              )
+  1042→            })}
+  1043→          </div>
+  1044→        )}
+  1045→
+  1046→        {showForward && (
+  1047→          <>
+  1048→            <Separator className="my-3" />
+  1049→            <div className="flex items-center justify-between gap-3">
+  1050→              <p className="text-xs text-muted-foreground">
+  1051→                Once all required items are complete, forward to area office for vetting.
+  1052→              </p>
+  1053→              <Button
+  1054→                onClick={() => forward.mutate()}
+  1055→                disabled={forward.isPending}
+  1056→                className="bg-emerald-600 hover:bg-emerald-700"
+  1057→              >
+  1058→                {forward.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+  1059→                Forward to Area Vetting
+  1060→              </Button>
+  1061→            </div>
+  1062→          </>
+  1063→        )}
+  1064→      </SectionCard>
+  1065→    </div>
+  1066→  )
+  1067→}
+  1068→
+  1069→function StatusGlyph({ status }: { status: ChecklistItemStatus }) {
+  1070→  if (status === 'complete') return <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+  1071→  if (status === 'in_progress') return <Clock className="h-4 w-4 text-amber-600" />
+  1072→  if (status === 'skipped') return <AlertCircle className="h-4 w-4 text-slate-400" />
+  1073→  return <Circle className="h-4 w-4 text-muted-foreground/60" />
+  1074→}
+  1075→
+  1076→function QuickButton({
+  1077→  active, disabled, onClick, title, children,
+  1078→}: {
+  1079→  active: boolean
+  1080→  disabled: boolean
+  1081→  onClick: () => void
+  1082→  title: string
+  1083→  children: React.ReactNode
+  1084→}) {
+  1085→  return (
+  1086→    <button
+  1087→      type="button"
+  1088→      title={title}
+  1089→      disabled={disabled}
+  1090→      onClick={onClick}
+  1091→      className={`flex h-7 w-7 items-center justify-center rounded-md border transition ${
+  1092→        active
+  1093→          ? 'border-amber-400 bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+  1094→          : 'border-border bg-background text-muted-foreground hover:border-amber-300 hover:text-foreground'
+  1095→      } disabled:cursor-not-allowed disabled:opacity-40`}
+  1096→    >
+  1097→      {children}
+  1098→    </button>
+  1099→  )
+  1100→}
+  1101→
+  1102→// ─── Tab 3: Verification (ApprovalPanel) ─────────────────────────────────
+  1103→function VerificationTab({
+  1104→  schedule, onChanged,
+  1105→}: {
+  1106→  schedule: ScheduleDetail
+  1107→  onChanged: () => void
+  1108→}) {
+  1109→  const qc = useQueryClient()
+  1110→  const [actorRole, setActorRole] = React.useState('area_office')
+  1111→
+  1112→  const stateKey = schedule.state as keyof typeof COMPENSATION_PAYROLL_STATES
+  1113→  const stateMeta = COMPENSATION_PAYROLL_STATES[stateKey]
+  1114→  const transitions: AvailableTransition[] = (stateMeta?.allowedTransitions ?? []).map((t) => ({
+  1115→    name: t.name,
+  1116→    label: t.label,
+  1117→    role: t.role,
+  1118→    guardFailed: null,
+  1119→  }))
+  1120→
+  1121→  const verify = useMutation({
+  1122→    mutationFn: async (transitionName: string) => {
+  1123→      const r = await fetch(`/api/schedules/${schedule.id}/verify`, {
+  1124→        method: 'POST',
+  1125→        headers: { 'Content-Type': 'application/json' },
+  1126→        body: JSON.stringify({ transition: transitionName }),
+  1127→      })
+  1128→      const data = await r.json()
+  1129→      if (!r.ok) throw new Error(data.error ?? 'Transition failed')
+  1130→      if (data.ok === false) throw new Error(data.reason ?? 'Transition blocked')
+  1131→      return data as { newStatusLabel?: string; spawnedTasks?: Array<{ role: string }> }
+  1132→    },
+  1133→    onSuccess: (data) => {
+  1134→      toast.success(`Transitioned to ${data.newStatusLabel ?? 'next state'}`, {
+  1135→        description: data.spawnedTasks?.length ? `Spawned ${data.spawnedTasks.length} review task(s)` : undefined,
+  1136→      })
+  1137→      onChanged()
+  1138→      qc.invalidateQueries({ queryKey: ['schedules'] })
+  1139→    },
+  1140→    onError: (e: Error) => toast.error('Transition blocked', { description: e.message }),
+  1141→  })
+  1142→
+  1143→  return (
+  1144→    <div className="space-y-4">
+  1145→      <SectionCard
+  1146→        title="Actor Role"
+  1147→        icon={ShieldCheck}
+  1148→        description="Simulate acting as different approvers across the workflow chain."
+  1149→      >
+  1150→        <select
+  1151→          value={actorRole}
+  1152→          onChange={(e) => setActorRole(e.target.value)}
+  1153→          className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+  1154→        >
+  1155→          <option value="unit_office">Unit Office</option>
+  1156→          <option value="area_office">Area Office</option>
+  1157→          <option value="gm_planning">GM (Planning)</option>
+  1158→          <option value="gm_finance">GM (Finance)</option>
+  1159→          <option value="director">Director</option>
+  1160→          <option value="cmd">CMD</option>
+  1161→          <option value="board">Board</option>
+  1162→        </select>
+  1163→      </SectionCard>
+  1164→
+  1165→      <ApprovalPanel
+  1166→        currentState={schedule.state}
+  1167→        availableTransitions={transitions}
+  1168→        actorRole={actorRole}
+  1169→        onAction={(name) => verify.mutate(name)}
+  1170→      />
+  1171→
+  1172→      {schedule.state === 'Drafting' && (
+  1173→        <Alert>
+  1174→          <FileText className="h-4 w-4" />
+  1175→          <AlertTitle>Drafting — not yet submitted</AlertTitle>
+  1176→          <AlertDescription>
+  1177→            Compose the plot schedule and complete the CL-1 checklist, then submit to the Unit Office
+  1178→            to begin the verification chain.
+  1179→          </AlertDescription>
+  1180→        </Alert>
+  1181→      )}
+  1182→
+  1183→      {schedule.state === 'Published' && (
+  1184→        <Alert>
+  1185→          <CheckCircle2 className="h-4 w-4" />
+  1186→          <AlertTitle>Published — terminal state</AlertTitle>
+  1187→          <AlertDescription>
+  1188→            Award published to the immutable Form-D ledger. Transparency window started.
+  1189→          </AlertDescription>
+  1190→        </Alert>
+  1191→      )}
+  1192→    </div>
+  1193→  )
+  1194→}
+  1195→
+  1196→// ─── Tab 4: Timeline ─────────────────────────────────────────────────────
+  1197→function TimelineTab({ schedule }: { schedule: ScheduleDetail }) {
+  1198→  const nodes: TimelineNode[] = COMPENSATION_PAYROLL_ORDERED_STATES.map((state) => {
+  1199→    const meta = COMPENSATION_PAYROLL_STATES[state]
+  1200→    const currentState = schedule.state as keyof typeof COMPENSATION_PAYROLL_STATES
+  1201→    const isBranch = state === 'BoardEscalation'
+  1202→    let status: TimelineNode['status'] = 'pending'
+  1203→
+  1204→    if (currentState === 'BoardEscalation') {
+  1205→      // Linear chain up to DirectorConsent is done; CmdApproved/Published stay pending; branch is current
+  1206→      if (state === 'BoardEscalation') status = 'current'
+  1207→      else if (meta.order < COMPENSATION_PAYROLL_STATES.DirectorConsent.order) status = 'done'
+  1208→      else if (state === 'DirectorConsent') status = 'done'
+  1209→      else status = 'pending'
+  1210→    } else {
+  1211→      if (meta.order < COMPENSATION_PAYROLL_STATES[currentState].order) status = 'done'
+  1212→      else if (state === currentState) status = 'current'
+  1213→    }
+  1214→
+  1215→    return {
+  1216→      state,
+  1217→      label: meta.label,
+  1218→      status,
+  1219→      note: status === 'current' ? meta.description : undefined,
+  1220→      isBranch,
+  1221→    }
+  1222→  })
+  1223→
+  1224→  return (
+  1225→    <SectionCard
+  1226→      title="Workflow Timeline"
+  1227→      icon={History}
+  1228→      description="Finite state machine — spec §2.3.1. BoardEscalation is a branch off AreaVetting / DirectorConsent."
+  1229→    >
+  1230→      <StatusTimeline nodes={nodes} maxheight={460} />
+  1231→    </SectionCard>
+  1232→  )
+  1233→}
+  1234→
