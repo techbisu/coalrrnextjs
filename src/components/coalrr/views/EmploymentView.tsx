@@ -4,7 +4,10 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SectionCard, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline, DataTable } from '@/components/coalrr'
 import type { Column, ChecklistItem, ChecklistItemStatus, AvailableTransition, ReviewTaskView } from '@/components/coalrr'
-import { formatINR, formatNumber } from '@/components/coalrr/store'
+import { formatINR, formatNumber, timeAgo,  } from '@/lib/utils/formatters'
+import { useAuth } from '@/authorization/providers/AuthProvider'
+import { useUiState } from '@/providers/UiStateProvider'
+import { routes } from '@/lib/url/UrlService'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -15,7 +18,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
 import {
   Users, TrendingUp, CheckCircle2, AlertCircle, Lock, ArrowLeft, Loader2,
-  BarChart3, Shield, FileText, Clock, Award, Briefcase, Eye,
+  BarChart3, Shield, FileText, Clock, Award, Briefcase, Eye, History,
 } from 'lucide-react'
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -145,7 +148,7 @@ export function EmploymentView() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">{app.contributionCount} shares</span>
-                        <Button size="sm" onClick={() => setSelectedId(app.id)}><Eye className="mr-1.5 h-3.5 w-3.5" /> Open</Button>
+                        <Button size="sm" onClick={() => { setSelectedId(app.id); window.history.pushState(null, '', `/employment/${app.applicationCode}`); }}><Eye className="mr-1.5 h-3.5 w-3.5" /> Open</Button>
                       </div>
                     </div>
                   </div>
@@ -156,7 +159,7 @@ export function EmploymentView() {
         </div>
       ) : (
         /* ─── Detail Sub-views ─── */
-        <EmploymentDetailView app={selected} onBack={() => setSelectedId(null)} />
+        <EmploymentDetailView app={selected} onBack={() => { setSelectedId(null); window.history.pushState(null, '', routes.employment.list()); }} />
       )}
     </div>
   )
@@ -184,14 +187,20 @@ function EmploymentDetailView({ app, onBack }: { app: EmploymentApp; onBack: () 
     onError: (e) => toast.error(e.message),
   })
 
-  const timelineNodes = [
-    { label: 'Submitted', done: ['Submitted', 'MathVerification', 'CL4Checklist', 'AwaitingHQ', 'Approved', 'TransparencyWindow', 'Completed'].includes(app.state) },
+  const rawNodes = [
+    { label: 'Submitted', done: ['Submitted', 'MathVerification', 'CL4Checklist', 'AwaitingHQ', 'Approved', 'TransparencyWindow', 'Completed'].includes(app.state), active: app.state === 'Submitted' },
     { label: 'Math Verification', done: ['MathVerification', 'CL4Checklist', 'AwaitingHQ', 'Approved', 'TransparencyWindow', 'Completed'].includes(app.state), active: app.state === 'MathVerification' },
     { label: 'CL-4 Checklist', done: ['CL4Checklist', 'AwaitingHQ', 'Approved', 'TransparencyWindow', 'Completed'].includes(app.state), active: app.state === 'CL4Checklist' },
     { label: 'HQ Approval', done: ['Approved', 'TransparencyWindow', 'Completed'].includes(app.state), active: app.state === 'AwaitingHQ' },
     { label: 'Transparency Window', done: ['TransparencyWindow', 'Completed'].includes(app.state), active: app.state === 'TransparencyWindow' },
-    { label: 'Appointment Letter', done: app.state === 'Completed' },
+    { label: 'Appointment Letter', done: app.state === 'Completed', active: false },
   ]
+
+  const timelineNodes = rawNodes.map((n) => ({
+    state: n.label,
+    label: n.label,
+    status: (n.active ? 'current' : n.done ? 'done' : 'pending') as 'current' | 'done' | 'pending'
+  }))
 
   return (
     <div className="space-y-6">
@@ -205,15 +214,15 @@ function EmploymentDetailView({ app, onBack }: { app: EmploymentApp; onBack: () 
             </div>
             <p className="mt-1 text-sm text-muted-foreground">{app.projectName} · nominee: <span className="font-medium text-foreground">{app.nomineeName}</span></p>
           </div>
-          <StatusTimeline nodes={timelineNodes} />
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full justify-start">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="balance"><BarChart3 className="mr-1.5 h-3.5 w-3.5" /> Balance Review</TabsTrigger>
-          <TabsTrigger value="cl4" disabled={app.state === 'Drafting' || app.state === 'Submitted'}><Shield className="mr-1.5 h-3.5 w-3.5" /> CL-4 Checklist</TabsTrigger>
-          <TabsTrigger value="hq" disabled={!['CL4Checklist', 'AwaitingHQ', 'Approved', 'TransparencyWindow', 'Completed'].includes(app.state)}><Award className="mr-1.5 h-3.5 w-3.5" /> HQ Approval</TabsTrigger>
+          <TabsTrigger value="cl4"><Shield className="mr-1.5 h-3.5 w-3.5" /> CL-4 Checklist</TabsTrigger>
+          <TabsTrigger value="hq"><Award className="mr-1.5 h-3.5 w-3.5" /> HQ Approval</TabsTrigger>
+          <TabsTrigger value="timeline"><History className="mr-1.5 h-3.5 w-3.5" /> Timeline</TabsTrigger>
         </TabsList>
 
         {/* ─── ERP-M10-02: Balance Review ─── */}
@@ -395,8 +404,16 @@ function EmploymentDetailView({ app, onBack }: { app: EmploymentApp; onBack: () 
             </div>
           </SectionCard>
         </TabsContent>
+
+        {/* ─── ERP-M10-05: Timeline ─── */}
+        <TabsContent value="timeline" className="space-y-4 mt-4">
+          <SectionCard title="Workflow Timeline" icon={History} description="Finite state machine — application progress.">
+            <StatusTimeline nodes={timelineNodes} maxheight={460} />
+          </SectionCard>
+        </TabsContent>
       </Tabs>
     </div>
   )
 }
 export default EmploymentView
+

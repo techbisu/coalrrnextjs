@@ -56,7 +56,7 @@ export {
   WorkflowEngine,
   WorkflowEventCatalog,
   WithinProjectBaselineGuard,
-} from "./workflow";
+} from "@/core/workflow";
 export type {
   ActorRole,
   AttemptTransitionResult,
@@ -69,7 +69,7 @@ export type {
   WorkflowEventName,
   WorkflowState,
   WorkflowStateMeta,
-} from "./workflow";
+} from "@/core/workflow";
 
 // ── Docx Engine ──────────────────────────────────────────────────────────────
 export {

@@ -1,0 +1,42 @@
+import { ok, badRequest, serverError, readJson } from '@/app/api/_lib'
+import { authorizeApi } from '@/authorization/middleware/authorize'
+import { roleSchema } from '@/authorization/validators'
+import { RoleService } from '@/authorization/services/RoleService'
+import { db } from '@/lib/db'
+
+export async function GET() {
+  const auth = await authorizeApi('role.manage')
+  if (auth.error) return auth.error
+
+  try {
+    const roles = await db.role.findMany({
+      orderBy: [{ isSystem: 'desc' }, { name: 'asc' }],
+      include: {
+        _count: {
+          select: { users: true, permissions: true },
+        },
+      },
+    })
+    return ok(roles)
+  } catch (error: any) {
+    return serverError(error.message)
+  }
+}
+
+export async function POST(req: Request) {
+  const auth = await authorizeApi('role.manage')
+  if (auth.error) return auth.error
+
+  try {
+    const body = await readJson(req)
+    const result = roleSchema.safeParse(body)
+    if (!result.success) {
+      return badRequest('Invalid payload', result.error.format())
+    }
+
+    const role = await RoleService.create(result.data)
+    return ok(role)
+  } catch (error: any) {
+    return serverError(error.message)
+  }
+}

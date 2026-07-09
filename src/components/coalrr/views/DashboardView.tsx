@@ -2,9 +2,12 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { routes } from '@/lib/url/UrlService'
 import { SectionCard, StatTile, DataTable, StateBadge, NotificationBell } from '@/components/coalrr'
 import type { Column } from '@/components/coalrr'
-import { formatINR, formatNumber, timeAgo, useCoalrr } from '@/components/coalrr/store'
+import { formatINR, formatNumber, timeAgo,  } from '@/lib/utils/formatters'
+import { useAuth } from '@/authorization/providers/AuthProvider'
+import { useUiState } from '@/providers/UiStateProvider'
 import {
   Building2, MapPin, FileText, Calculator, Lock, Users, AlertTriangle,
   Clock, IndianRupee, Layers, CheckCircle2,
@@ -48,7 +51,7 @@ const LAND_TYPE_COLOR: Record<string, string> = {
 
 export function DashboardView() {
   const { data, isLoading, error } = useQuery({ queryKey: ['dashboard'], queryFn: fetchDashboard })
-  const setView = useCoalrr((s) => s.setView)
+  const { setView, selectPayroll } = useUiState()
 
   if (error) return <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">Failed to load dashboard: {String(error)}</div>
 
@@ -96,9 +99,9 @@ export function DashboardView() {
         <SectionCard title="Open Alerts" icon={AlertTriangle} description="SLA timers + grievances + pending reviews">
           {data && (
             <div className="space-y-2">
-              <AlertRow icon={AlertTriangle} color="rose" label="Open grievances" value={data.stats.openGrievanceCount} onClick={() => setView('workflow-inbox')} />
-              <AlertRow icon={Clock} color="amber" label="SLA transparency windows" value={data.notifications.filter((n) => n.type === 'sla').length} onClick={() => setView('form-i-wizard')} />
-              <AlertRow icon={CheckCircle2} color="violet" label="Pending reviews" value={data.stats.pendingReviewCount} onClick={() => setView('workflow-inbox')} />
+              <AlertRow icon={AlertTriangle} color="rose" label="Open grievances" value={data.stats.openGrievanceCount} onClick={() => { setView('workflow-inbox'); window.history.pushState(null, '', routes.workflow.list()); }} />
+              <AlertRow icon={Clock} color="amber" label="SLA transparency windows" value={data.notifications.filter((n) => n.type === 'sla').length} onClick={() => { setView('form-i-wizard'); window.history.pushState(null, '', routes.claim.list()); }} />
+              <AlertRow icon={CheckCircle2} color="violet" label="Pending reviews" value={data.stats.pendingReviewCount} onClick={() => { setView('workflow-inbox'); window.history.pushState(null, '', routes.workflow.list()); }} />
             </div>
           )}
         </SectionCard>
@@ -132,7 +135,7 @@ export function DashboardView() {
         title="Active Payrolls"
         icon={Calculator}
         description="Compensation payroll batches across all states"
-        action={<button onClick={() => setView('payroll-builder')} className="text-xs font-medium text-amber-700 hover:underline">Open builder →</button>}
+        action={<button onClick={() => { setView('payroll-builder'); window.history.pushState(null, '', routes.payroll.list()); }} className="text-xs font-medium text-amber-700 hover:underline">Open builder →</button>}
       >
         <DataTable
           loading={isLoading}
@@ -146,7 +149,7 @@ export function DashboardView() {
           ] as Column<DashboardData['payrolls'][0]>[]}
           data={data?.payrolls ?? []}
           getRowId={(r) => r.id}
-          onRowClick={(r) => { useCoalrr.getState().selectPayroll(r.id); setView('payroll-builder') }}
+          onRowClick={(r) => { selectPayroll(r.id); setView('payroll-builder'); window.history.pushState(null, '', routes.payroll.details(r.payrollCode)); }}
           pageSize={5}
         />
       </SectionCard>
@@ -224,3 +227,4 @@ function AlertRow({ icon: Icon, color, label, value, onClick }: {
 }
 
 export default DashboardView
+

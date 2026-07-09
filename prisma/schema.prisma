@@ -1,13 +1,13 @@
 // COALRR - Coal Land Acquisition, Rehabilitation & Resettlement Platform
-// Prisma Schema adapted from PostgreSQL spec to SQLite
-// Money/area stored as TEXT (Decimal) — NEVER floats (per spec §2.1.2)
+// Prisma Schema — PostgreSQL (original spec)
+// Money/area stored as Decimal — NEVER floats (per spec §2.1.2)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -48,8 +48,8 @@ model MstProject {
   id                      String   @id @default(cuid())
   name                    String
   collieryCode            String
-  totalLandLimitAcres     Decimal // NUMERIC(10,4) — acreage threshold
-  totalBudgetCeiling      Decimal // NUMERIC(15,2) — INR paise precision
+  totalLandLimitAcres     Decimal @db.Decimal(10,4) // acreage threshold
+  totalBudgetCeiling      Decimal @db.Decimal(15,2) // INR paise precision
   totalEmploymentQuota    Int
   boundary                String  // JSON: simplified PostGIS MultiPolygon
   statutoryClearances     String? // JSONB: DGMS/Forest/Env clearances
@@ -79,9 +79,9 @@ model MstPlot {
   plotNumber             String
   khataNumber            String?
   landType               String   // forest | got_patta | tenancy | debottar
-  areaAcres              Decimal // NUMERIC(10,4)
+  areaAcres              Decimal @db.Decimal(10,4)
   geometry               String? // JSON: Polygon coords (simplified PostGIS)
-  exhaustedAreaForJobs   Decimal @default("0.0000") // denormalized, trigger-maintained
+  exhaustedAreaForJobs   Decimal @default("0.0000") @db.Decimal(10,4) // denormalized, trigger-maintained
   remainingJobQuota      Int      @default(0)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
@@ -113,7 +113,7 @@ model LandSchedule {
   areaOffice        String?
   collieryCode      String?
   adjacentColliery  String?
-  totalAreaAcres    Decimal  @default("0.0000")
+  totalAreaAcres    Decimal  @default("0.0000") @db.Decimal(10,4)
   annexureA         String?
   annexureB         String?
   annexureC         String?
@@ -146,7 +146,7 @@ model FormIClaim {
   plotId                      String
   citizenIdHash               String   // SHA-256 of Aadhaar (never raw)
   claimantName                String
-  ownShareAcres               Decimal // NUMERIC(10,4)
+  ownShareAcres               Decimal @db.Decimal(10,4)
   optedMonetaryInLieuOfEmployment Boolean @default(false)
   bankAccountNumber           String?
   bankIfsc                    String?
@@ -170,10 +170,10 @@ model CompensationPayroll {
   id                  String   @id @default(cuid())
   projectId           String
   payrollCode         String   // e.g. PR-2026-0412
-  multiplicationFactor Decimal @default("1.0000") // NUMERIC(6,4)
+  multiplicationFactor Decimal @default("1.0000") @db.Decimal(6,4) // NUMERIC(6,4)
   state               String   @default("Drafting")
   landownerCount      Int      @default(0)
-  totalAward          Decimal @default("0.00")
+  totalAward          Decimal @default("0.00") @db.Decimal(15,2)
   meta                String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -187,11 +187,11 @@ model CompensationPayrollLine {
   payrollId         String
   landownerName     String
   plotReference     String
-  landValue         Decimal // NUMERIC(15,2)
-  assetValue        Decimal
-  solatiumAmount    Decimal @default("0.00")
-  escalationAmount  Decimal @default("0.00")
-  totalAward        Decimal @default("0.00")
+  landValue         Decimal @db.Decimal(15,2)
+  assetValue        Decimal @db.Decimal(15,2)
+  solatiumAmount    Decimal @default("0.00") @db.Decimal(15,2)
+  escalationAmount  Decimal @default("0.00") @db.Decimal(15,2)
+  totalAward        Decimal @default("0.00") @db.Decimal(15,2)
   yearsSinceNotification Int  @default(0)
   formulaSnapshot   String  // JSONB: audit trail of calculator + inputs
   createdAt         DateTime @default(now())
@@ -223,7 +223,7 @@ model RnrAssetPayroll {
   projectId   String
   payrollCode String
   state       String   @default("Drafting")
-  totalValue  Decimal @default("0.00")
+  totalValue  Decimal @default("0.00") @db.Decimal(15,2)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -236,7 +236,7 @@ model RnrAssetPayrollLine {
   payrollId       String
   beneficiaryName String
   entitlementType String   // homestead | shifting_allowance | cattle_shed | subsistence_grant
-  valuationAmount Decimal
+  valuationAmount Decimal @db.Decimal(15,2)
   pwdRateReference String?
   formulaSnapshot String 
   createdAt       DateTime @default(now())
@@ -251,8 +251,8 @@ model FormDLedgerEntry {
   id                String   @id @default(cuid())
   projectId         String
   plotId            String
-  amountLand        Decimal
-  amountRnr         Decimal
+  amountLand        Decimal @db.Decimal(15,2)
+  amountRnr         Decimal @db.Decimal(15,2)
   payeeType         String   // individual | legal_tribunal
   payeeName         String
   rtgsUtrReference  String?
@@ -273,7 +273,7 @@ model NomineePool {
   id                  String   @id @default(cuid())
   nomineeAadhaarHash  String   @unique
   nomineeName         String
-  pooledAcreage       Decimal @default("0.0000")
+  pooledAcreage       Decimal @default("0.0000") @db.Decimal(10,4)
   applyButtonUnlocked Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -286,7 +286,7 @@ model NomineePoolContribution {
   id            String   @id @default(cuid())
   poolId        String
   formIClaimId  String
-  shareAcres    Decimal
+  shareAcres    Decimal @db.Decimal(10,4)
   createdAt     DateTime @default(now())
 
   pool          NomineePool @relation(fields: [poolId], references: [id])
@@ -303,7 +303,7 @@ model EmploymentApplication {
   applicationCode     String
   projectId           String
   nomineePoolId       String
-  formIxBalanceAcres  Decimal // point-in-time snapshot (frozen at approval)
+  formIxBalanceAcres  Decimal @db.Decimal(10,4) // point-in-time snapshot (frozen at approval)
   formXBalanceJobs    Int      // point-in-time snapshot
   state               String   @default("Drafting")
   exceptionFlags      String? // JSONB: female_nominee_counseling etc.
@@ -351,6 +351,117 @@ model Document {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// DOCUMENT ENGINE — Enterprise Reusable Framework
+// ═══════════════════════════════════════════════════════════════
+
+model DocTemplate {
+  id              String   @id @default(cuid())
+  templateCode    String   @unique
+  name            String
+  description     String?
+  storagePath     String   // Path to the base .docx file
+  config          String   // JSONB: { dynamicForm: true, workflow: true, signature: true, preview: true, versioning: true, audit: true }
+  dynamicQuestions String? // JSONB: Array of questions for dynamic form
+  workflowConfig   String? // JSONB: Approval chain definitions
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  instances       DocInstance[]
+}
+
+model DocInstance {
+  id              String   @id @default(cuid())
+  documentId      String   @unique // e.g., DOC-2026-000245
+  templateId      String
+  entityType      String   // FormIClaim, CompensationPayroll, etc.
+  entityId        String
+  status          String   @default("Draft") // Draft, PendingApproval, Approved, Rejected, Signed
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  template        DocTemplate       @relation(fields: [templateId], references: [id])
+  versions        DocVersion[]
+  dynamicAnswers  DocDynamicAnswer[]
+  workflowSteps   DocWorkflowStep[]
+  signatures      DocSignature[]
+}
+
+model DocVersion {
+  id              String   @id @default(cuid())
+  instanceId      String
+  versionNumber   Int
+  docxFileId      String?
+  pdfFileId       String?
+  generatedBy     String
+  metadata        String?  // JSONB
+  createdAt       DateTime @default(now())
+
+  instance        DocInstance       @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+}
+
+model DocDynamicAnswer {
+  id              String   @id @default(cuid())
+  instanceId      String
+  questionKey     String
+  answerValue     String
+  createdAt       DateTime @default(now())
+
+  instance        DocInstance       @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@unique([instanceId, questionKey])
+}
+
+model DocWorkflowStep {
+  id              String   @id @default(cuid())
+  instanceId      String
+  role            String   // DEO, AO, GM, etc.
+  status          String   @default("Pending") // Pending, Approved, Rejected, Returned
+  comments        String?
+  actedBy         String?
+  actedAt         DateTime?
+  createdAt       DateTime @default(now())
+
+  instance        DocInstance       @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+}
+
+model DocSignature {
+  id              String   @id @default(cuid())
+  instanceId      String
+  role            String
+  signerName      String
+  signerDesignation String
+  signatureDate   DateTime @default(now())
+  metadata        String?  // JSONB
+
+  instance        DocInstance       @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+}
+
+model DocAuditLog {
+  id              String   @id @default(cuid())
+  documentId      String
+  action          String   // Generated, Previewed, Downloaded, Approved, Signed
+  userId          String?
+  userName        String?
+  role            String?
+  ipAddress       String?
+  browser         String?
+  createdAt       DateTime @default(now())
+}
+
+model DownloadLog {
+  id              String   @id @default(cuid())
+  fileType        String   // DOCX, PDF
+  documentId      String?
+  storagePath     String
+  downloadedBy    String?
+  userName        String?
+  ipAddress       String?
+  browser         String?
+  createdAt       DateTime @default(now())
+}
+
+
+// ═══════════════════════════════════════════════════════════════
 // GENERIC — Grievances (21-day transparency window objections)
 // ═══════════════════════════════════════════════════════════════
 model Grievance {
@@ -365,4 +476,393 @@ model Grievance {
   resolvedAt    DateTime?
   createdAt     DateTime @default(now())
   // Polymorphic — no hard FK
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// CAPTCHA SERVICE — Enterprise Framework
+// ═══════════════════════════════════════════════════════════════
+
+model CaptchaChallenge {
+  id             String   @id @default(uuid())
+  expectedAnswer String   // Hashed or plain (since it deletes after use/expiration)
+  purpose        String
+  expiresAt      DateTime
+  attempts       Int      @default(0)
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+}
+
+model CaptchaConfig {
+  id                   String   @id @default("global") // singleton
+  provider             String   @default("math")
+  difficulty           String   @default("difficult")
+  expirationMinutes    Int      @default(5)
+  maxAttempts          Int      @default(3)
+  adaptiveCaptcha      Boolean  @default(true)
+  showAfterFailedLogin Int      @default(3)
+  updatedAt            DateTime @updatedAt
+}
+
+model CaptchaAuditLog {
+  id        String   @id @default(uuid())
+  action    String   // Generated, Validated, Failed, Expired, Refreshed
+  ipAddress String?
+  purpose   String
+  timestamp DateTime @default(now())
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOCALIZATION & TRANSLATION ENGINE
+// ═══════════════════════════════════════════════════════════════
+
+model Language {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g., 'en', 'bn', 'hi'
+  name        String
+  nativeName  String
+  direction   String   @default("LTR") // LTR or RTL
+  flag        String?
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  translationValues TranslationValue[]
+}
+
+model TranslationModule {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g., 'common', 'auth', 'dashboard'
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  translationKeys TranslationKey[]
+}
+
+model TranslationKey {
+  id          String   @id @default(cuid())
+  moduleId    String
+  key         String   // e.g., 'save', 'cancel' (without module prefix)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  module            TranslationModule  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  translationValues TranslationValue[]
+
+  @@unique([moduleId, key])
+}
+
+model TranslationValue {
+  id               String   @id @default(cuid())
+  translationKeyId String
+  languageId       String
+  value            String
+  status           String   @default("draft") // draft, approved, rejected
+  version          Int      @default(1)
+  createdBy        String?
+  approvedBy       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  translationKey   TranslationKey @relation(fields: [translationKeyId], references: [id], onDelete: Cascade)
+  language         Language       @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  history          TranslationHistory[]
+
+  @@unique([translationKeyId, languageId])
+}
+
+model TranslationHistory {
+  id                 String   @id @default(cuid())
+  translationValueId String
+  value              String
+  status             String
+  version            Int
+  changedBy          String?
+  changeReason       String?
+  createdAt          DateTime @default(now())
+
+  translationValue   TranslationValue @relation(fields: [translationValueId], references: [id], onDelete: Cascade)
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUDIT LOG & ACTIVITY TRACKING FRAMEWORK
+// ═══════════════════════════════════════════════════════════════
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  eventType     String   // CREATE, UPDATE, DELETE, LOGIN, EXPORT, etc.
+  moduleName    String   // e.g., 'authentication', 'workflow', 'documents'
+  entityName    String?  // Table name (e.g., 'User', 'MstPlot')
+  entityId      String?  // Primary key of the affected record
+  userId        String?  // The user who performed the action
+  userRole      String?
+  ipAddress     String?
+  userAgent     String?
+  requestUrl    String?
+  requestMethod String?
+  remarks       String?  // Business reason or custom note
+  createdAt     DateTime @default(now())
+
+  // Relations
+  changes       AuditChange[]
+  session       AuditSession? @relation(fields: [sessionId], references: [id])
+  sessionId     String?
+}
+
+model AuditChange {
+  id            String   @id @default(cuid())
+  auditLogId    String
+  fieldName     String?  // If it's a single field change, or "JSON_DIFF" if storing entire diff
+  oldValue      String?  // JSONB string of old data
+  newValue      String?  // JSONB string of new data
+  jsonDiff      String?  // JSONB string of the computed diff
+  createdAt     DateTime @default(now())
+
+  auditLog      AuditLog @relation(fields: [auditLogId], references: [id], onDelete: Cascade)
+}
+
+model AuditSession {
+  id            String   @id @default(cuid())
+  userId        String?
+  status        String   // LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT, EXPIRED
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  logs          AuditLog[]
+}
+
+model AuditSecurity {
+  id            String   @id @default(cuid())
+  eventType     String   // SQL_INJECTION_ATTEMPT, BRUTE_FORCE, UNAUTHORIZED_ACCESS, CSRF_FAILURE
+  ipAddress     String?
+  userId        String?
+  requestUrl    String?
+  payload       String?  // JSONB
+  severity      String   @default("HIGH") // LOW, MEDIUM, HIGH, CRITICAL
+  createdAt     DateTime @default(now())
+}
+
+model AuditDownload {
+  id            String   @id @default(cuid())
+  userId        String?
+  fileType      String   // PDF, CSV, EXCEL, DOCX
+  fileName      String
+  entityType    String?
+  entityId      String?
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GLOBAL FILE MANAGEMENT FRAMEWORK
+// ═══════════════════════════════════════════════════════════════
+
+model FileRecord {
+  id              String   @id @default(cuid())
+  originalName    String
+  ownerId         String?  // User who originally uploaded it
+  tags            String?  // JSONB array of tags
+  status          String   @default("ACTIVE") // ACTIVE, ARCHIVED, SOFT_DELETED
+  checksum        String?  @unique // Global deduplication checksum (e.g. SHA-256)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  versions        FileVersion[]
+  attachments     FileAttachment[]
+}
+
+model FileVersion {
+  id              String   @id @default(cuid())
+  fileId          String
+  versionNumber   Int      @default(1)
+  storageProvider String   // e.g. "LOCAL", "S3", "AZURE"
+  storagePath     String   // Physical path or key in the bucket
+  bucket          String?  // If applicable
+  mimeType        String
+  extension       String?
+  sizeBytes       BigInt
+  checksum        String?  // Checksum of this specific version
+  createdBy       String?
+  createdAt       DateTime @default(now())
+
+  file            FileRecord @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, versionNumber])
+}
+
+model FileAttachment {
+  id              String   @id @default(cuid())
+  fileId          String
+  entityType      String   // e.g., "MstProject", "FormIClaim", "Workflow"
+  entityId        String
+  module          String?
+  attachedBy      String?
+  createdAt       DateTime @default(now())
+
+  file            FileRecord @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, entityType, entityId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NOTIFICATION & EVENT FRAMEWORK
+// ═══════════════════════════════════════════════════════════════
+
+model EventRegistry {
+  id              String   @id @default(cuid())
+  eventName       String   @unique // e.g. PROPOSAL_APPROVED
+  module          String
+  description     String?
+  createdAt       DateTime @default(now())
+  rules           NotificationRule[]
+}
+
+model NotificationTemplate {
+  id              String   @id @default(cuid())
+  code            String   @unique // e.g. TPL_PROPOSAL_APPROVED_EMAIL
+  channel         String   // EMAIL | SMS | IN_APP | PUSH
+  subject         String?  // For emails
+  body            String   // The liquid/handlebars template
+  language        String   @default("en")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  rules           NotificationRule[]
+}
+
+model NotificationRule {
+  id              String   @id @default(cuid())
+  eventId         String
+  templateId      String
+  recipientResolver String // e.g. "ProposalOwner", "Role:Deo", "SpecificUser:123"
+  priority        String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT, CRITICAL
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  event           EventRegistry        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  template        NotificationTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+}
+
+model NotificationLog {
+  id              String   @id @default(cuid())
+  eventId         String?  // The original event name that triggered this
+  recipientId     String?  // User ID (if internal)
+  recipientContact String  // Email, phone number, or user ID
+  channel         String   // EMAIL | SMS | IN_APP | PUSH
+  payload         String   // JSONB string containing the final compiled message (subject, body, etc.)
+  status          String   // PENDING | QUEUED | SENT | DELIVERED | FAILED | READ
+  priority        String   @default("NORMAL")
+  failureReason   String?
+  retryCount      Int      @default(0)
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  readAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model NotificationPreference {
+  id              String   @id @default(cuid())
+  userId          String
+  channel         String   // EMAIL | SMS | IN_APP | PUSH
+  isEnabled       Boolean  @default(true)
+  quietHoursStart String?  // e.g. "22:00"
+  quietHoursEnd   String?  // e.g. "08:00"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, channel])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECURE URL FRAMEWORK
+// ═══════════════════════════════════════════════════════════════
+model SignedUrlLog {
+  id              String   @id @default(cuid())
+  signatureHash   String   @unique
+  urlPath         String
+  entityId        String?
+  action          String?  // e.g., "DOWNLOAD", "APPROVE"
+  expiresAt       DateTime
+  isOneTime       Boolean  @default(false)
+  isConsumed      Boolean  @default(false)
+  consumedAt      DateTime?
+  createdAt       DateTime @default(now())
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTHORIZATION FRAMEWORK (Spatie-compatible)
+// ═══════════════════════════════════════════════════════════════
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String                          // e.g. "Administrator", "Unit Office"
+  displayName String?  @map("display_name")
+  description String?
+  guardName   String   @default("web") @map("guard_name")
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  permissions RoleHasPermission[]
+  users       ModelHasRole[]
+
+  @@unique([name, guardName])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String                          // e.g. "proposal.view"
+  displayName String?  @map("display_name")
+  description String?
+  module      String?                         // e.g. "proposal", "workflow"
+  group       String?                         // e.g. "Dashboard", "Finance"
+  guardName   String   @default("web") @map("guard_name")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  roles           RoleHasPermission[]
+  directUsers     ModelHasPermission[]
+
+  @@unique([name, guardName])
+  @@map("permissions")
+}
+
+model RoleHasPermission {
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_has_permissions")
+}
+
+model ModelHasRole {
+  roleId    String @map("role_id")
+  modelType String @default("User") @map("model_type")
+  modelId   String @map("model_id")
+  role      Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, modelType, modelId])
+  @@index([modelType, modelId])
+  @@map("model_has_roles")
+}
+
+model ModelHasPermission {
+  permissionId String     @map("permission_id")
+  modelType    String     @default("User") @map("model_type")
+  modelId      String     @map("model_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([permissionId, modelType, modelId])
+  @@index([modelType, modelId])
+  @@map("model_has_permissions")
 }

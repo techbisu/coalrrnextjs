@@ -1,35 +1,25 @@
-// PATCH /api/projects/[id] — edit a draft project (only when unlocked)
-import { db } from '@/lib/db'
-import { ok, badRequest, notFound, serverError, readJson } from '../../_lib'
-import { getCurrentUser } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { authorizeApi } from '@/authorization/middleware/authorize'
+import { ProjectService } from '@/modules/project-master/services/ProjectService'
+import { ok, badRequest, serverError, notFound } from '../../_lib'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ id: string }> }
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
-    const user = await getCurrentUser()
-    if (!user || user.portal !== 'ecl') return badRequest('Only ECL officers can edit projects')
+    const auth = await authorizeApi('project.edit')
+    if (auth.error) return auth.error
+
     const { id } = await ctx.params
-    const project = await db.mstProject.findUnique({ where: { id } })
-    if (!project) return notFound('Project not found')
-    if (project.lockedAt) return badRequest('Baseline is locked — cannot edit.')
-    const body = await readJson<{ name?: string; collieryCode?: string; totalLandLimitAcres?: string; totalBudgetCeiling?: string; totalEmploymentQuota?: number; boundary?: string; statutoryClearances?: string }>(req)
+    const body = await req.json()
     if (!body) return badRequest('Invalid body')
-    const updated = await db.mstProject.update({
-      where: { id },
-      data: {
-        ...(body.name !== undefined && { name: body.name }),
-        ...(body.collieryCode !== undefined && { collieryCode: body.collieryCode }),
-        ...(body.totalLandLimitAcres !== undefined && { totalLandLimitAcres: body.totalLandLimitAcres }),
-        ...(body.totalBudgetCeiling !== undefined && { totalBudgetCeiling: body.totalBudgetCeiling }),
-        ...(body.totalEmploymentQuota !== undefined && { totalEmploymentQuota: body.totalEmploymentQuota }),
-        ...(body.boundary !== undefined && { boundary: body.boundary }),
-        ...(body.statutoryClearances !== undefined && { statutoryClearances: body.statutoryClearances }),
-      },
-    })
+
+    const updated = await ProjectService.updateProject(id, body, auth.user.id)
     return ok({ id: updated.id, name: updated.name, message: 'Project updated.' })
-  } catch (e) {
-    return serverError('Failed to update project', e instanceof Error ? e.message : String(e))
+  } catch (e: any) {
+    if (e.message === 'Project not found') return notFound(e.message)
+    if (e.message.includes('locked')) return badRequest(e.message)
+    return serverError('Failed to update project', e.message)
   }
 }

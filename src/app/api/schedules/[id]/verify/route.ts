@@ -1,52 +1,63 @@
-// POST /api/schedules/[id]/verify — proposal verification workflow transition
-import { db } from '@/lib/db'
-import { ok, badRequest, notFound, serverError, readJson } from '../../../_lib'
-import { getCurrentUser } from '@/lib/auth'
-import { COMPENSATION_PAYROLL_STATES } from '@/lib/engines'
+/**
+ * Proposal Workflow/Verify API - Refactored to use Clean Architecture.
+ * Uses proper use cases for state transitions.
+ */
+import { NextResponse } from 'next/server'
+import { authorizeApi } from '@/authorization/middleware/authorize'
+import { ok, badRequest, serverError, notFound } from '../../../_lib'
 import type { NextRequest } from 'next/server'
+import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories/PrismaProposalRepository'
+import { SubmitProposalUseCase } from '@/application/use-cases/proposal'
+import { apiRateLimiter, getClientIdentifier } from '@/infrastructure/security'
+import { DomainException, NotFoundException } from '@/core/errors'
 
 type Ctx = { params: Promise<{ id: string }> }
 
+const proposalRepository = new PrismaProposalRepository()
+
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
-    const user = await getCurrentUser()
-    if (!user || user.portal !== 'ecl') return badRequest('Only ECL officers')
+    // Rate limiting
+    const clientId = getClientIdentifier(req)
+    const rateLimit = apiRateLimiter.check(clientId)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests', retryAfter: rateLimit.retryAfter },
+        { status: 429 }
+      )
+    }
+
+    const auth = await authorizeApi('proposal.verify')
+    if (auth.error) return auth.error
+
     const { id } = await ctx.params
-    const body = await readJson<{ transition?: string }>(req)
-    if (!body?.transition) return badRequest('transition required')
-    const s = await db.landSchedule.findUnique({ where: { id }, include: { project: true } })
-    if (!s) return notFound('Schedule not found')
-    const currentState = s.state as keyof typeof COMPENSATION_PAYROLL_STATES
-    const stateMeta = COMPENSATION_PAYROLL_STATES[currentState]
-    if (!stateMeta) return badRequest(`Unknown state: ${s.state}`)
-    const transition = stateMeta.allowedTransitions.find((t) => t.name === body.transition)
-    if (!transition) return ok({ ok: false, reason: `No authorised transition "${body.transition}" from state "${s.state}"`, currentState: s.state })
+    const body = await req.json()
+    if (!body?.action) return badRequest('action required (submit | approve | reject)')
 
-    const checklist = JSON.parse(s.modeSpecificChecklist ?? '{"items":[]}')
-    const requiredItems: Array<{ status: string }> = (checklist.items ?? []).filter((i: { required: boolean }) => i.required)
-    const allChecklistDone = requiredItems.every((i) => i.status === 'complete')
-
-    if (transition.guard) {
-      const guardResult = transition.guard.check({
-        recordId: id, recordType: 'LandSchedule' as never, actorRole: user.role as never, currentState: s.state as never,
-        data: { checklistSatisfied: allChecklistDone, batchTotal: Number(s.totalAreaAcres), budgetCeiling: Number(s.project.totalLandLimitAcres) },
+    // Handle different actions with respective use cases
+    if (body.action === 'submit') {
+      const useCase = new SubmitProposalUseCase(proposalRepository)
+      const result = await useCase.execute({
+        proposalId: id,
+        userId: auth.user.id,
+        comments: body.comments,
       })
-      if (!guardResult.ok) return ok({ ok: false, failedGuard: transition.guard.name, reason: guardResult.reason, currentState: s.state })
-    }
-    if (body.transition === 'submit_to_area' && !allChecklistDone) {
-      return ok({ ok: false, failedGuard: 'ChecklistFullySatisfied', reason: `Cannot forward: ${requiredItems.filter((i) => i.status !== 'complete').length} required checklist items still incomplete.`, currentState: s.state })
-    }
 
-    const updated = await db.landSchedule.update({ where: { id }, data: { state: transition.to } })
-    let spawnedTasks: { role: string }[] = []
-    if (transition.to === 'HqParallelVetting') {
-      for (const role of ['gm_planning', 'gm_finance']) {
-        await db.workflowReviewTask.create({ data: { reviewableType: 'LandSchedule', reviewableId: id, role, status: 'pending' } })
-        spawnedTasks.push({ role })
+      if (result.isFailure) {
+        if (result.error instanceof NotFoundException) return notFound(result.error.message)
+        if (result.error instanceof DomainException) return badRequest(result.error.message)
+        throw result.error
       }
+
+      return ok({ success: true, data: result.value })
+    } 
+    // Approvals and Rejections would be handled by their respective use cases
+    // For now we'll throw an error if those actions are attempted until we build the use cases
+    else {
+      return badRequest(`Action '${body.action}' not yet implemented in new architecture`)
     }
-    return ok({ ok: true, previousState: s.state, newState: updated.state, newStatusLabel: COMPENSATION_PAYROLL_STATES[transition.to as keyof typeof COMPENSATION_PAYROLL_STATES]?.label, spawnedTasks })
-  } catch (e) {
-    return serverError('Verification transition failed', e instanceof Error ? e.message : String(e))
+  } catch (e: any) {
+    console.error('POST /api/schedules/[id]/verify error:', e)
+    return serverError('Failed to verify schedule', e.message)
   }
 }

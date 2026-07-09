@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Z.ai Code Scaffold - AI-Powered Development",
+  title: "Coalrr | Eastern Coalfields Limited",
   description: "Modern Next.js scaffold optimized for AI-powered development with Z.ai. Built with TypeScript, Tailwind CSS, and shadcn/ui.",
   keywords: ["Z.ai", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
   authors: [{ name: "Z.ai Team" }],
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
   openGraph: {
-    title: "Z.ai Code Scaffold",
+    title: "Coalrr | Eastern Coalfields Limited",
     description: "AI-powered development with modern React stack",
     url: "https://chat.z.ai",
     siteName: "Z.ai",
@@ -30,23 +30,40 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Z.ai Code Scaffold",
+    title: "Coalrr | Eastern Coalfields Limited",
     description: "AI-powered development with modern React stack",
   },
 };
 
-export default function RootLayout({
+import { getMessages, getLocale } from "next-intl/server";
+import { LanguageProvider } from "@/localization/providers/LanguageProvider";
+import { QueryProvider } from "@/providers/QueryProvider";
+import { AuthProvider } from "@/authorization/providers/AuthProvider";
+import { UiStateProvider } from "@/providers/UiStateProvider";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const messages = await getMessages();
+  const locale = await getLocale();
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        {children}
-        <Toaster />
+        <QueryProvider>
+          <AuthProvider>
+            <UiStateProvider>
+              <LanguageProvider messages={messages} locale={locale}>
+                {children}
+                <Toaster />
+              </LanguageProvider>
+            </UiStateProvider>
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

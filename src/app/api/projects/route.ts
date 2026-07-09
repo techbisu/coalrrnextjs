@@ -1,76 +1,128 @@
-// GET  /api/projects — list projects with GIS boundary + plots
-// POST /api/projects — create a new project (draft baseline)
-import { db } from '@/lib/db'
-import { ok, badRequest, serverError, dec, iso, readJson } from '../_lib'
-import { getCurrentUser } from '@/lib/auth'
+/**
+ * Projects API - Refactored to use Clean Architecture.
+ * Uses validation middleware, use cases, and proper error handling.
+ */
+import { NextResponse } from 'next/server'
+import { authorizeApi } from '@/authorization/middleware/authorize'
+import { serverError, ok } from '../_lib'
 import type { NextRequest } from 'next/server'
+import { validateBody, validateQuery } from '@/application/middleware/validation'
+import { CreateProjectSchema, PaginationSchema } from '@/application/validators/schemas'
+import { CreateProjectUseCase, GetProjectDashboardUseCase } from '@/application/use-cases/project'
+import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
+import { apiRateLimiter, getClientIdentifier } from '@/infrastructure/security'
+import { DomainException, ValidationException } from '@/core/errors'
 
-export async function GET(_req: NextRequest) {
+// Initialize dependencies (in production, use DI container)
+const projectRepository = new PrismaProjectRepository()
+
+export async function GET(req: NextRequest) {
   try {
-    const projects = await db.mstProject.findMany({
-      include: {
-        landSchedules: { include: { items: { include: { plot: { include: { mouza: true } } } } } },
-        payrolls: true,
-        ledgerEntries: true,
+    // Rate limiting
+    const clientId = getClientIdentifier(req)
+    const rateLimit = apiRateLimiter.check(clientId)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests', retryAfter: rateLimit.retryAfter },
+        { 
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '100',
+            'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+            'X-RateLimit-Reset': new Date(rateLimit.resetAt).toISOString(),
+            'Retry-After': (rateLimit.retryAfter || 0).toString(),
+          }
+        }
+      )
+    }
+
+    // Authorization
+    const auth = await authorizeApi('project.view')
+    if (auth.error) return auth.error
+
+    // Validation
+    const queryResult = validateQuery(req, PaginationSchema)
+    if (!queryResult.success) return queryResult.error
+
+    // Execute use case
+    const useCase = new GetProjectDashboardUseCase(projectRepository)
+    const result = await useCase.execute(queryResult.data)
+
+    if (result.isFailure) {
+      if (result.error instanceof ValidationException) {
+        return NextResponse.json(
+          { error: result.error.message, details: result.error.errors },
+          { status: 400 }
+        )
+      }
+      throw result.error
+    }
+
+    return ok({
+      success: true,
+      data: result.value.projects,
+      meta: {
+        total: result.value.total,
+        page: result.value.page,
+        pageSize: result.value.pageSize,
+        totalPages: result.value.totalPages,
       },
     })
-
-    // Fetch all plots (project-scoped via land_schedules)
-    const allPlots = await db.mstPlot.findMany({ include: { mouza: true } })
-
-    return ok(projects.map((p) => {
-      const totalAcquired = p.ledgerEntries.reduce((s, e) => s + Number(e.amountLand) + Number(e.amountRnr), 0)
-      return {
-        id: p.id,
-        name: p.name,
-        collieryCode: p.collieryCode,
-        totalLandLimitAcres: dec(p.totalLandLimitAcres),
-        totalBudgetCeiling: dec(p.totalBudgetCeiling),
-        totalEmploymentQuota: p.totalEmploymentQuota,
-        boundary: p.boundary,
-        statutoryClearances: p.statutoryClearances,
-        lockedAt: iso(p.lockedAt),
-        isLocked: p.lockedAt !== null,
-        payrollCount: p.payrolls.length,
-        totalDisbursed: totalAcquired.toFixed(2),
-        budgetUtilization: Number(p.totalBudgetCeiling) > 0
-          ? ((totalAcquired / Number(p.totalBudgetCeiling)) * 100).toFixed(1)
-          : '0',
-        plots: allPlots.map((pl) => ({
-          id: pl.id,
-          plotNumber: pl.plotNumber,
-          mouza: pl.mouza.name,
-          landType: pl.landType,
-          areaAcres: dec(pl.areaAcres),
-          exhaustedAreaForJobs: dec(pl.exhaustedAreaForJobs),
-          remainingJobQuota: pl.remainingJobQuota,
-        })),
-      }
-    }))
-  } catch (e) {
-    return serverError('Failed to load projects', e instanceof Error ? e.message : String(e))
+  } catch (e: any) {
+    console.error('GET /api/projects error:', e)
+    return serverError('Failed to load projects', e.message)
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user || user.portal !== 'ecl') return badRequest('Only ECL officers can create projects')
-    const body = await readJson<{ name?: string; collieryCode?: string; totalLandLimitAcres?: string; totalBudgetCeiling?: string; totalEmploymentQuota?: number; boundary?: string; statutoryClearances?: string }>(req)
-    if (!body?.name || !body.collieryCode || !body.totalLandLimitAcres || !body.totalBudgetCeiling) return badRequest('name, collieryCode, totalLandLimitAcres, totalBudgetCeiling required')
-    if (Number(body.totalLandLimitAcres) <= 0) return badRequest('Land limit must be > 0')
-    if (Number(body.totalBudgetCeiling) <= 0) return badRequest('Budget ceiling must be > 0')
-    const project = await db.mstProject.create({
-      data: {
-        name: body.name, collieryCode: body.collieryCode,
-        totalLandLimitAcres: body.totalLandLimitAcres, totalBudgetCeiling: body.totalBudgetCeiling,
-        totalEmploymentQuota: body.totalEmploymentQuota ?? 0,
-        boundary: body.boundary ?? JSON.stringify({ type: 'MultiPolygon', coordinates: [], color: '#16a34a' }),
-        statutoryClearances: body.statutoryClearances ?? null, lockedAt: null,
-      },
+    // Rate limiting
+    const clientId = getClientIdentifier(req)
+    const rateLimit = apiRateLimiter.check(clientId)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests', retryAfter: rateLimit.retryAfter },
+        { status: 429 }
+      )
+    }
+
+    // Authorization
+    const auth = await authorizeApi('project.create')
+    if (auth.error) return auth.error
+
+    // Validation
+    const bodyResult = await validateBody(req, CreateProjectSchema)
+    if (!bodyResult.success) return bodyResult.error
+
+    // Execute use case
+    const useCase = new CreateProjectUseCase(projectRepository)
+    const result = await useCase.execute({
+      ...bodyResult.data,
+      userId: auth.user.id,
     })
-    return ok({ id: project.id, name: project.name, collieryCode: project.collieryCode, isLocked: false, message: `Project "${project.name}" created as draft.` }, { status: 201 })
-  } catch (e) {
-    return serverError('Failed to create project', e instanceof Error ? e.message : String(e))
+
+    if (result.isFailure) {
+      if (result.error instanceof ValidationException) {
+        return NextResponse.json(
+          { error: result.error.message, details: result.error.errors },
+          { status: 400 }
+        )
+      }
+      if (result.error instanceof DomainException) {
+        return NextResponse.json(
+          { error: result.error.message, code: result.error.code },
+          { status: 400 }
+        )
+      }
+      throw result.error
+    }
+
+    return ok(
+      { success: true, data: result.value },
+      { status: 201 }
+    )
+  } catch (e: any) {
+    console.error('POST /api/projects error:', e)
+    return serverError('Failed to create project', e.message)
   }
 }

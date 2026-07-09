@@ -4,7 +4,10 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SectionCard, StateBadge, MathPreviewPanel, ApprovalPanel, DataTable } from '@/components/coalrr'
 import type { Column, MathPreviewResultLike, AvailableTransition, ReviewTaskView } from '@/components/coalrr'
-import { formatINR, formatNumber } from '@/components/coalrr/store'
+import { formatINR, formatNumber,  } from '@/lib/utils/formatters'
+import { useAuth } from '@/authorization/providers/AuthProvider'
+import { useUiState } from '@/providers/UiStateProvider'
+import { routes } from '@/lib/url/UrlService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -222,6 +225,7 @@ export function RnrAssetView() {
     onSuccess: (p) => {
       toast.success(`R&R Payroll ${p.payrollCode} created`, { description: `Linked to ${p.projectName}` })
       setSelectedId(p.id)
+      window.history.pushState(null, '', routes.rnrAsset.details(p.payrollCode))
       setCreateDialogOpen(false)
       setSelectedProjectId('')
       qc.invalidateQueries({ queryKey: ['rnr-payrolls'] })
@@ -250,7 +254,7 @@ export function RnrAssetView() {
 
   // ── Derived ──
   const totalValue = React.useMemo(
-    () => payroll?.lines.reduce((sum, l) => sum + l.valuationAmount, 0) ?? 0,
+    () => payroll?.lines.reduce((sum, l) => sum + Number(l.valuationAmount), 0) ?? 0,
     [payroll?.lines],
   )
 
@@ -276,7 +280,7 @@ export function RnrAssetView() {
 
   const reviewTasks: ReviewTaskView[] = React.useMemo(
     () =>
-      payroll?.reviewTasks.map((t) => ({
+      payroll?.reviewTasks?.map((t: any) => ({
         role: t.role,
         status: t.status as 'pending' | 'approved' | 'rejected',
         decidedBy: t.decidedBy ?? undefined,
@@ -361,6 +365,7 @@ export function RnrAssetView() {
                 key={p.id}
                 onClick={() => {
                   setSelectedId(p.id)
+                  window.history.pushState(null, '', routes.rnrAsset.details(p.payrollCode))
                   setActiveTab('build')
                 }}
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
@@ -819,7 +824,7 @@ function BuildLinesSection({
     },
   ]
 
-  const lineTotal = payroll.lines.reduce((s, l) => s + l.valuationAmount, 0)
+  const lineTotal = payroll.lines.reduce((s, l) => s + Number(l.valuationAmount), 0)
 
   return (
     <>
@@ -1251,3 +1256,4 @@ function DeviationPreview({ actual, expected }: { actual: number; expected: numb
   )
 }
 export default RnrAssetView
+

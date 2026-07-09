@@ -108,7 +108,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       const result = new LandCompensationEngine().calculate(input)
 
       // Baseline guard (spec §1.3.3 WithinProjectBaseline)
-      const totalStr = result.total.format().replace(/[^0-9.-]/g, '')
+      const totalStr = result.total.toString()
       const newTotal = Number(payroll.totalAward) + Number(totalStr)
       const ceiling = Number(payroll.project.totalBudgetCeiling)
       if (newTotal > ceiling) {
@@ -124,9 +124,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
           plotReference: body.plotReference ?? '',
           landValue: body.landValue,
           assetValue: body.assetValue,
-          solatiumAmount: result.solatium.amount.format(),
-          escalationAmount: result.escalation.amount.format(),
-          totalAward: result.total.format(),
+          solatiumAmount: result.solatium.amount.toString(),
+          escalationAmount: result.escalation.amount.toString(),
+          totalAward: result.total.toString(),
           yearsSinceNotification: body.yearsSinceNotification ?? 0,
           formulaSnapshot: JSON.stringify({
             calculator: 'LandCompensationEngine',

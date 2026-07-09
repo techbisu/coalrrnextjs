@@ -4,13 +4,18 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SectionCard, MathPreviewPanel, DataTable, ApprovalPanel, StatusTimeline, StateBadge, SmartChecklist } from '@/components/coalrr'
 import type { Column, MathPreviewResultLike, AvailableTransition, ReviewTaskView, TimelineNode, ChecklistItem } from '@/components/coalrr'
-import { formatINR, formatNumber, useCoalrr } from '@/components/coalrr/store'
+import { formatINR, formatNumber,  } from '@/lib/utils/formatters'
+import { useAuth } from '@/authorization/providers/AuthProvider'
+import { useUiState } from '@/providers/UiStateProvider'
+import { routes } from '@/lib/url/UrlService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Calculator, Plus, Trash2, Loader2, FileText, ShieldCheck, Clock, AlertCircle, History, Lock,
 } from 'lucide-react'
@@ -43,15 +48,8 @@ async function fetchPayrolls(): Promise<Array<{ id: string; payrollCode: string;
 
 export function PayrollBuilderView() {
   const qc = useQueryClient()
-  const { selectedPayrollId, selectPayroll, actorRole, setActorRole } = useCoalrr()
+  const { selectedPayrollId, selectPayroll, actorRole, setActorRole } = useUiState()
   const { data: payrollList } = useQuery({ queryKey: ['payrolls'], queryFn: fetchPayrolls })
-
-  // Auto-select first payroll if none selected
-  React.useEffect(() => {
-    if (!selectedPayrollId && payrollList && payrollList.length > 0) {
-      selectPayroll(payrollList[0].id)
-    }
-  }, [selectedPayrollId, payrollList, selectPayroll])
 
   const { data: payroll, isLoading } = useQuery({
     queryKey: ['payroll', selectedPayrollId],
@@ -59,15 +57,17 @@ export function PayrollBuilderView() {
     enabled: !!selectedPayrollId,
   })
 
+  const [isCreateOpen, setIsCreateOpen] = React.useState(false)
+
   if (!selectedPayrollId || !payroll) {
     return (
       <div className="space-y-4">
-        <Header />
+        <Header onCreateClick={() => setIsCreateOpen(true)} />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {payrollList?.map((p) => (
             <button
               key={p.id}
-              onClick={() => selectPayroll(p.id)}
+              onClick={() => { selectPayroll(p.id); window.history.pushState(null, '', routes.payroll.details(p.payrollCode)); }}
               className="rounded-lg border border-border/60 bg-card p-4 text-left transition hover:border-amber-300 hover:shadow-md"
             >
               <div className="flex items-center justify-between">
@@ -79,26 +79,37 @@ export function PayrollBuilderView() {
             </button>
           ))}
         </div>
+        <CreatePayrollDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} onSuccess={(id) => { selectPayroll(id); qc.invalidateQueries({ queryKey: ['payrolls'] }) }} />
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <Header payroll={payroll} />
+      <Header payroll={payroll} onCreateClick={() => setIsCreateOpen(true)} />
 
       {/* Payroll selector pills */}
-      {payrollList && payrollList.length > 1 && (
-        <div className="flex flex-wrap gap-2">
+      {payrollList && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => { selectPayroll(null); window.history.pushState(null, '', routes.payroll.list()); }} className="h-7 text-xs border-dashed">
+            &larr; Back to List
+          </Button>
+          <div className="h-4 w-[1px] bg-border mx-1" />
           {payrollList.map((p) => (
             <button
               key={p.id}
-              onClick={() => selectPayroll(p.id)}
+              onClick={() => { selectPayroll(p.id); window.history.pushState(null, '', routes.payroll.details(p.payrollCode)); }}
               className={`rounded-full border px-3 py-1 text-xs transition ${p.id === selectedPayrollId ? 'border-amber-400 bg-amber-100 text-amber-800' : 'border-border bg-card hover:border-amber-300'}`}
             >
               <span className="font-mono">{p.payrollCode}</span>
             </button>
           ))}
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="flex h-7 items-center rounded-full border border-dashed border-emerald-300 bg-emerald-50 px-3 text-xs text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+          >
+            <Plus className="mr-1 h-3 w-3" /> New
+          </button>
         </div>
       )}
 
@@ -120,26 +131,35 @@ export function PayrollBuilderView() {
         <TimelineView payroll={payroll} />
         <ChecklistView payroll={payroll} />
       </div>
+
+      <CreatePayrollDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} onSuccess={(id) => { selectPayroll(id); qc.invalidateQueries({ queryKey: ['payrolls'] }) }} />
     </div>
   )
 }
 
-function Header({ payroll }: { payroll?: PayrollDetail }) {
+function Header({ payroll, onCreateClick }: { payroll?: PayrollDetail, onCreateClick?: () => void }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 className="text-xl font-bold tracking-tight">Compensation Payroll Builder</h2>
         <p className="text-sm text-muted-foreground">Module M4 · Form 1A/1B · live Math Engine preview · spec §1.2.1 Journey A</p>
       </div>
-      {payroll && (
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="font-mono text-sm font-semibold">{payroll.payrollCode}</p>
-            <p className="text-xs text-muted-foreground">{payroll.projectName}</p>
-          </div>
-          <StateBadge state={payroll.state} size="md" />
-        </div>
-      )}
+      <div className="flex items-center gap-3">
+        {payroll ? (
+          <>
+            <div className="text-right">
+              <p className="font-mono text-sm font-semibold">{payroll.payrollCode}</p>
+              <p className="text-xs text-muted-foreground">{payroll.projectName}</p>
+            </div>
+            <StateBadge state={payroll.state} size="md" />
+          </>
+        ) : (
+          <Button onClick={onCreateClick} className="bg-emerald-600 hover:bg-emerald-700">
+            <Plus className="mr-2 h-4 w-4" />
+            New Payroll
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
@@ -444,4 +464,75 @@ function ChecklistView({ payroll }: { payroll: PayrollDetail }) {
   )
 }
 
+function CreatePayrollDialog({ open, onOpenChange, onSuccess }: { open: boolean, onOpenChange: (o: boolean) => void, onSuccess: (id: string) => void }) {
+  const { data: projects, isLoading } = useQuery({ queryKey: ['projects'], queryFn: async () => { 
+    const r = await fetch('/api/projects'); 
+    const data = await r.json();
+    if (!r.ok) throw new Error(data?.error || 'Failed to fetch projects');
+    return Array.isArray(data) ? data : []; 
+  } })
+  const [projectId, setProjectId] = React.useState('')
+  const [multiplicationFactor, setMultiplicationFactor] = React.useState('1.0000')
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+
+  const handleSubmit = async () => {
+    if (!projectId) return toast.error('Select a project')
+    setIsSubmitting(true)
+    try {
+      const r = await fetch('/api/payrolls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, multiplicationFactor })
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error)
+      toast.success('Payroll created')
+      onSuccess(data.id)
+      onOpenChange(false)
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create Compensation Payroll</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Project</Label>
+            <Select value={projectId} onValueChange={setProjectId} disabled={isLoading}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a project..." />
+              </SelectTrigger>
+              <SelectContent>
+                {projects?.map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.collieryCode})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Multiplication Factor</Label>
+            <Input value={multiplicationFactor} onChange={e => setMultiplicationFactor(e.target.value)} />
+            <p className="text-xs text-muted-foreground">Default is 1.0000. Adjust based on urban/rural statutory multiplier.</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting || !projectId}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Create Payroll
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default PayrollBuilderView
+

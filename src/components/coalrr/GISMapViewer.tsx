@@ -62,9 +62,13 @@ export function GISMapViewer({
   for (const p of plots) if (p.geometry && p.geometry.length >= 3) allRings.push([p.geometry])
   const bounds = computeBounds(allRings)
 
-  const boundaryPath = boundary?.coordinates
-    ? projectCoords(boundary.coordinates[0] ?? [], bounds)
-        .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ') + ' Z'
+  const boundaryPath = boundary?.coordinates && boundary.coordinates[0]?.length > 0
+    ? (() => {
+        const projected = projectCoords(boundary.coordinates[0], bounds)
+        return projected.length > 0
+          ? projected.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ') + ' Z'
+          : null
+      })()
     : null
 
   return (
@@ -98,7 +102,7 @@ export function GISMapViewer({
             {plots.map((plot) => {
               if (!plot.geometry || plot.geometry.length < 3) return null
               const meta = LAND_TYPE_META[plot.landType] ?? LAND_TYPE_META.tenancy
-              const pts = projectCoords([plot.geometry], bounds)
+              const pts = projectCoords(plot.geometry, bounds)
               const d = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ') + ' Z'
               const isSelected = plot.id === selectedPlotId
               // Centroid for label

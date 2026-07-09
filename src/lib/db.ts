@@ -1,13 +1,16 @@
 import { PrismaClient } from '@prisma/client'
+import { withAuditExtension } from '@/audit/extensions/PrismaAuditExtension'
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+  prisma: ReturnType<typeof createExtendedClient> | undefined
 }
 
-export const db =
-  globalForPrisma.prisma ??
-  new PrismaClient({
+function createExtendedClient() {
+  return new PrismaClient({
     log: process.env.DEBUG_PRISMA === '1' ? ['query'] : ['error'],
-  })
+  }).$extends(withAuditExtension);
+}
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+export const db = globalForPrisma.prisma ?? createExtendedClient();
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;

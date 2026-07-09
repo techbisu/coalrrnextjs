@@ -24,9 +24,13 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"],
+      "@/components/ui/*": ["./src/shared/components/ui/*"],
+      "@/hooks/*": ["./src/shared/hooks/*"],
+      "@/authorization/*": ["./src/core/authorization/*"],
+      "@/audit/*": ["./src/core/audit/*"],
+      "@/notifications/*": ["./src/core/notifications/*"],
+      "@/lib/engines/workflow/*": ["./src/core/workflow/*"]
     }
   },
   "include": [

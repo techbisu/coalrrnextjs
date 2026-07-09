@@ -4,7 +4,9 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SectionCard, StateBadge, StatusTimeline, DocumentUploader } from '@/components/coalrr'
 import type { TimelineNode } from '@/components/coalrr'
-import { useCoalrr, formatNumber, timeAgo } from '@/components/coalrr/store'
+import { formatNumber, timeAgo } from '@/lib/utils/formatters'
+import { useAuth } from '@/authorization/providers/AuthProvider'
+import { useUiState } from '@/providers/UiStateProvider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -213,7 +215,7 @@ function daysRemaining(endIso: string): number {
 
 export function EmploymentWizardView() {
   const qc = useQueryClient()
-  const user = useCoalrr((s) => s.user)
+  const { user } = useAuth()
 
   // Wizard state
   const [step, setStep] = React.useState(0)
@@ -290,6 +292,7 @@ export function EmploymentWizardView() {
       qc.invalidateQueries({ queryKey: ['employment-application'] })
       qc.invalidateQueries({ queryKey: ['nominee-pools'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
+      handleStepChange(4)
     },
     onError: (e: Error) => toast.error('Submission failed', { description: e.message }),
     onSettled: () => setSubmitting(false),
@@ -1272,3 +1275,4 @@ function InfoTile({ label, value }: { label: string; value: string }) {
   )
 }
 export default EmploymentWizardView
+

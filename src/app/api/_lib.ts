@@ -15,6 +15,14 @@ export function notFound(error = 'Not found') {
   return NextResponse.json<ApiError>({ error }, { status: 404 })
 }
 
+export function unauthorized(error = 'Unauthorized') {
+  return NextResponse.json<ApiError>({ error }, { status: 401 })
+}
+
+export function forbidden(error = 'Forbidden') {
+  return NextResponse.json<ApiError>({ error }, { status: 403 })
+}
+
 export function serverError(error: string, details?: unknown) {
   return NextResponse.json<ApiError>({ error, details }, { status: 500 })
 }

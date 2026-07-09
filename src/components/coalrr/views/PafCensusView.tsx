@@ -4,7 +4,9 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SectionCard, DataTable } from '@/components/coalrr'
 import type { Column } from '@/components/coalrr'
-import { useCoalrr, timeAgo } from '@/components/coalrr/store'
+import { timeAgo } from '@/lib/utils/formatters'
+import { useAuth } from '@/authorization/providers/AuthProvider'
+import { useUiState } from '@/providers/UiStateProvider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -872,3 +874,4 @@ function PafFormDialog({
   )
 }
 export default PafCensusView
+

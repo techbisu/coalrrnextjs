@@ -1,7 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { useCoalrr } from '@/components/coalrr/store'
+import { useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '@/authorization/providers/AuthProvider'
+import { useUiState } from '@/providers/UiStateProvider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
 import { Mountain, ShieldCheck, Users, Mail, Phone, Lock, Fingerprint, Loader2, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Captcha } from '@/components/captcha/Captcha'
 
 type Portal = 'ecl' | 'public'
 type Mode = 'login' | 'register'
@@ -17,12 +20,17 @@ export function AuthView() {
   const [portal, setPortal] = React.useState<Portal>('ecl')
   const [mode, setMode] = React.useState<Mode>('login')
   const [loading, setLoading] = React.useState(false)
-  const { setUser, setAuthChecked, setView } = useCoalrr()
+  const { setView } = useUiState()
   const [eclForm, setEclForm] = React.useState({ email: '', password: '' })
   const [regForm, setRegForm] = React.useState({ aadhaarNumber: '', name: '', mobile: '', plotId: '', otp: '' })
   const [otpRequested, setOtpRequested] = React.useState(false)
   const [pubForm, setPubForm] = React.useState({ mobile: '', otp: '' })
   const [pubOtpRequested, setPubOtpRequested] = React.useState(false)
+  const [eclCaptchaVerified, setEclCaptchaVerified] = React.useState(false)
+  const [regCaptchaVerified, setRegCaptchaVerified] = React.useState(false)
+  const [pubCaptchaVerified, setPubCaptchaVerified] = React.useState(false)
+
+  const queryClient = useQueryClient()
 
   const submit = async () => {
     setLoading(true)
@@ -31,17 +39,20 @@ export function AuthView() {
         const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ portal: 'ecl', email: eclForm.email, password: eclForm.password }) })
         const data = await r.json()
         if (!r.ok) throw new Error(data.error)
-        setUser(data.user); setAuthChecked(true); toast.success(data.message); setView('dashboard')
+        await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] })
+        toast.success(data.message); setView('dashboard')
       } else if (mode === 'register') {
         const r = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(regForm) })
         const data = await r.json()
         if (!r.ok) throw new Error(data.error)
-        setUser(data.user); setAuthChecked(true); toast.success(data.message); setView('form-i-wizard')
+        await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] })
+        toast.success(data.message); setView('form-i-wizard')
       } else {
         const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ portal: 'public', mobile: pubForm.mobile, otp: pubForm.otp }) })
         const data = await r.json()
         if (!r.ok) throw new Error(data.error)
-        setUser(data.user); setAuthChecked(true); toast.success(data.message); setView('form-i-wizard')
+        await queryClient.invalidateQueries({ queryKey: ['auth', 'me'] })
+        toast.success(data.message); setView('form-i-wizard')
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Authentication failed')
@@ -93,7 +104,8 @@ export function AuthView() {
                 <ShieldCheck className="h-4 w-4 text-sky-600" />
                 <AlertDescription className="text-xs text-sky-800"><strong>Demo credentials:</strong> password <code className="rounded bg-sky-100 px-1">demo1234</code> for all seeded officers.</AlertDescription>
               </Alert>
-              <Button onClick={submit} disabled={loading || !eclForm.email || !eclForm.password} className="w-full bg-amber-600 hover:bg-amber-700">
+              <Captcha purpose="ecl-login" onVerified={() => setEclCaptchaVerified(true)} />
+              <Button onClick={submit} disabled={loading || !eclForm.email || !eclForm.password || !eclCaptchaVerified} className="w-full bg-amber-600 hover:bg-amber-700">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Sign in to ECL Portal
               </Button>
               <div className="rounded-md bg-muted/40 p-2.5 text-[11px] text-muted-foreground">
@@ -124,7 +136,8 @@ export function AuthView() {
                   <Button type="button" variant="outline" onClick={() => { setOtpRequested(true); toast.success('OTP sent', { description: 'Demo: enter any 6 digits' }) }} disabled={otpRequested || regForm.mobile.length !== 10} className="shrink-0">Send OTP</Button>
                 </div>
               </div>
-              <Button onClick={submit} disabled={loading || !regForm.name || !regForm.aadhaarNumber || regForm.mobile.length !== 10 || regForm.otp.length !== 6} className="w-full bg-emerald-600 hover:bg-emerald-700">
+              <Captcha purpose="public-register" onVerified={() => setRegCaptchaVerified(true)} />
+              <Button onClick={submit} disabled={loading || !regForm.name || !regForm.aadhaarNumber || regForm.mobile.length !== 10 || regForm.otp.length !== 6 || !regCaptchaVerified} className="w-full bg-emerald-600 hover:bg-emerald-700">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Register &amp; Continue
               </Button>
               <p className="text-center text-[11px] text-muted-foreground">Already registered? <button onClick={() => setMode('login')} className="font-medium text-amber-700 hover:underline">Login instead</button></p>
@@ -148,7 +161,8 @@ export function AuthView() {
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 <AlertDescription className="text-xs text-emerald-800"><strong>Demo:</strong> use mobile <code className="rounded bg-emerald-100 px-1">9876543210</code> with any 6-digit OTP.</AlertDescription>
               </Alert>
-              <Button onClick={submit} disabled={loading || pubForm.mobile.length !== 10 || pubForm.otp.length !== 6} className="w-full bg-emerald-600 hover:bg-emerald-700">
+              <Captcha purpose="public-login" onVerified={() => setPubCaptchaVerified(true)} />
+              <Button onClick={submit} disabled={loading || pubForm.mobile.length !== 10 || pubForm.otp.length !== 6 || !pubCaptchaVerified} className="w-full bg-emerald-600 hover:bg-emerald-700">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />} Login to Public Portal
               </Button>
               <p className="text-center text-[11px] text-muted-foreground">New user? <button onClick={() => setMode('register')} className="font-medium text-amber-700 hover:underline">Register here</button></p>
@@ -160,3 +174,4 @@ export function AuthView() {
     </div>
   )
 }
+

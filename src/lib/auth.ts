@@ -10,6 +10,8 @@ export interface AuthUser {
   id: string
   portal: 'ecl' | 'public'
   role: string
+  roles: string[]
+  permissions: string[]
   email: string | null
   mobile: string | null
   name: string
@@ -17,6 +19,8 @@ export interface AuthUser {
   collieryCode: string | null
   plotId: string | null
 }
+
+import { AuthorizationService } from '@/authorization/services/AuthorizationService'
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
   const cookieStore = await cookies()
@@ -28,8 +32,14 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   })
   if (!session || session.expiresAt < new Date()) return null
   const u = session.user
+  
+  // Load full RBAC profile
+  const roles = await AuthorizationService.getUserRoles(u.id)
+  const permissions = await AuthorizationService.getUserPermissions(u.id)
+  
   return {
     id: u.id, portal: u.portal as 'ecl' | 'public', role: u.role,
+    roles, permissions,
     email: u.email, mobile: u.mobile, name: u.name,
     designation: u.designation, collieryCode: u.collieryCode, plotId: u.plotId,
   }
@@ -45,8 +55,14 @@ export async function createSession(userId: string): Promise<AuthUser> {
   })
   const u = await db.user.findUnique({ where: { id: userId } })
   if (!u) throw new Error('User vanished')
+    
+  // Load full RBAC profile
+  const roles = await AuthorizationService.getUserRoles(u.id)
+  const permissions = await AuthorizationService.getUserPermissions(u.id)
+
   return {
     id: u.id, portal: u.portal as 'ecl' | 'public', role: u.role,
+    roles, permissions,
     email: u.email, mobile: u.mobile, name: u.name,
     designation: u.designation, collieryCode: u.collieryCode, plotId: u.plotId,
   }

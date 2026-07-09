@@ -116,7 +116,7 @@ export function MathPreviewPanel({
                   <p className="text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Total Award</p>
                   <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80">Payable to landowner</p>
                 </div>
-                <p className="text-2xl font-bold tabular-nums text-emerald-800 dark:text-emerald-200">
+                <p className="text-2xl font-bold tabular-nums text-emerald-800 dark:text-emerald-200 break-all">
                   {result.total}
                 </p>
               </motion.div>
@@ -156,8 +156,8 @@ function StatTile({
           <Icon className="h-3.5 w-3.5" />
         </div>
       </div>
-      <p className="mt-1 text-base font-semibold tabular-nums">{value}</p>
-      <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/80">{formula}</p>
+      <p className="mt-1 text-base font-semibold tabular-nums break-all">{value}</p>
+      <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/80 break-words">{formula}</p>
     </div>
   )
 }

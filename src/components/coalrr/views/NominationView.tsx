@@ -2,8 +2,11 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { routes } from '@/lib/url/UrlService'
 import { SectionCard, StateBadge, DataTable } from '@/components/coalrr'
-import { useCoalrr, formatNumber } from '@/components/coalrr/store'
+import { formatNumber } from '@/lib/utils/formatters'
+import { useAuth } from '@/authorization/providers/AuthProvider'
+import { useUiState } from '@/providers/UiStateProvider'
 import type { Column } from '@/components/coalrr'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -244,7 +247,8 @@ function PoolingGauge({
 // ─── Public List View ───────────────────────────────────────────────────────
 
 function PublicListView() {
-  const { setNominationView, setSelectedClaimForNomination, setSelectedPoolId, user } = useCoalrr()
+  const { user } = useAuth();
+  const {  setNominationView, setSelectedClaimForNomination, setSelectedPoolId,   } = useUiState()
 
   const claimsQuery = useQuery({
     queryKey: ['claims', 'nominatable'],
@@ -263,11 +267,13 @@ function PublicListView() {
   const handleNominate = (claim: Claim) => {
     setSelectedClaimForNomination(claim.id)
     setNominationView('form')
+    window.history.pushState(null, '', routes.nomination.details(claim.id))
   }
 
   const handleTrack = (poolId: string) => {
     setSelectedPoolId(poolId)
     setNominationView('tracking')
+    window.history.pushState(null, '', routes.nomination.details(poolId))
   }
 
   return (
@@ -431,7 +437,7 @@ function PublicListView() {
 // ─── ECL List View (ERP-M9-01) ─────────────────────────────────────────────
 
 function EclListView() {
-  const { setNominationView, setSelectedPoolId } = useCoalrr()
+  const { setNominationView, setSelectedPoolId } = useUiState()
   const [statusFilter, setStatusFilter] = React.useState<string>('all')
 
   const { data: pools = [], isLoading } = useQuery({
@@ -547,10 +553,12 @@ function EclListView() {
 // ─── Form View (PUB-M9-01) ──────────────────────────────────────────────────
 
 function NominationFormView() {
-  const {
+  const { user } = useAuth();
+  const { 
     nominationView, setNominationView,
-    selectedClaimForNomination: selectedClaimId, setSelectedClaimForNomination, user,
-  } = useCoalrr()
+    selectedClaimForNomination: selectedClaimId, setSelectedClaimForNomination,
+    setSelectedPoolId
+   } = useUiState()
   const queryClient = useQueryClient()
 
   const [nomineeAadhaarHash, setNomineeAadhaarHash] = React.useState('')
@@ -599,11 +607,11 @@ function NominationFormView() {
       queryClient.invalidateQueries({ queryKey: ['claims'] })
       queryClient.invalidateQueries({ queryKey: ['nominee-pools'] })
       if (data?.poolId) {
-        useCoalrr.getState().setSelectedPoolId(data.poolId)
+        setSelectedPoolId(data.poolId)
         setNominationView('tracking')
       } else {
         setSelectedClaimForNomination(null)
-        setNominationView('list')
+        setNominationView('list'); window.history.pushState(null, '', routes.nomination.list());
       }
     },
     onError: (err: Error) => {
@@ -652,7 +660,7 @@ function NominationFormView() {
         className="gap-1.5 text-muted-foreground hover:text-foreground"
         onClick={() => {
           setSelectedClaimForNomination(null)
-          setNominationView('list')
+          setNominationView('list'); window.history.pushState(null, '', routes.nomination.list());
         }}
       >
         <ArrowLeft className="h-4 w-4" />
@@ -828,7 +836,7 @@ function NominationFormView() {
               variant="outline"
               onClick={() => {
                 setSelectedClaimForNomination(null)
-                setNominationView('list')
+                setNominationView('list'); window.history.pushState(null, '', routes.nomination.list());
               }}
               disabled={isSubmitting}
             >
@@ -844,7 +852,7 @@ function NominationFormView() {
 // ─── Tracking View (PUB-M9-02) ──────────────────────────────────────────────
 
 function TrackingView() {
-  const { nominationView, setNominationView, selectedPoolId, setSelectedPoolId, setView } = useCoalrr()
+  const { nominationView, setNominationView, selectedPoolId, setSelectedPoolId, setView } = useUiState()
 
   const { data: pool, isLoading, error } = useQuery({
     queryKey: ['nominee-pools', 'detail', selectedPoolId],
@@ -867,7 +875,7 @@ function TrackingView() {
         className="gap-1.5 text-muted-foreground hover:text-foreground"
         onClick={() => {
           setSelectedPoolId(null)
-          setNominationView('list')
+          setNominationView('list'); window.history.pushState(null, '', routes.nomination.list());
         }}
       >
         <ArrowLeft className="h-4 w-4" />
@@ -1054,7 +1062,8 @@ function TrackingView() {
 // ─── Main Export ────────────────────────────────────────────────────────────
 
 export function NominationView() {
-  const { nominationView, user } = useCoalrr()
+  const { user } = useAuth();
+  const {  nominationView,   } = useUiState()
   const isEcl = user?.portal === 'ecl'
 
   // When ECL user is on the list sub-view, show ECL-specific list
@@ -1066,3 +1075,4 @@ export function NominationView() {
   return isEcl ? <EclListView /> : <PublicListView />
 }
 export default NominationView
+

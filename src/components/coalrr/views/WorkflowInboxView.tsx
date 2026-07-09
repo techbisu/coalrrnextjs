@@ -4,10 +4,12 @@ import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { SectionCard, StateBadge, DataTable } from '@/components/coalrr'
 import type { Column } from '@/components/coalrr'
-import { timeAgo } from '@/components/coalrr/store'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useCoalrr } from '@/components/coalrr/store'
+import { routes } from '@/lib/url/UrlService'
+import { timeAgo } from '@/lib/utils/formatters'
+import { useAuth } from '@/authorization/providers/AuthProvider'
+import { useUiState } from '@/providers/UiStateProvider'
 import {
   Inbox, Clock, CheckCircle2, AlertTriangle, GitBranch, ShieldCheck, Mail, ArrowRight,
 } from 'lucide-react'
@@ -33,7 +35,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function WorkflowInboxView() {
   const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: fetchDashboard })
-  const { selectPayroll, setView } = useCoalrr()
+  const { selectPayroll, setView } = useUiState()
 
   const pendingReviews = data?.reviewTasks.filter((r) => r.status === 'pending') ?? []
   const completedReviews = data?.reviewTasks.filter((r) => r.status !== 'pending') ?? []
@@ -81,7 +83,7 @@ export function WorkflowInboxView() {
                       variant="link"
                       size="sm"
                       className="mt-1 h-auto p-0 text-xs text-amber-700"
-                      onClick={() => { selectPayroll(r.reviewableId); setView('payroll-builder') }}
+                      onClick={() => { selectPayroll(r.reviewableId); setView('payroll-builder'); window.history.pushState(null, '', routes.payroll.details(r.reviewableId)); }}
                     >
                       Open payroll <ArrowRight className="h-3 w-3" />
                     </Button>
@@ -177,7 +179,7 @@ export function WorkflowInboxView() {
           ] as Column<DashboardData['payrolls'][0]>[]}
           data={data?.payrolls ?? []}
           getRowId={(r) => r.id}
-          onRowClick={(r) => { selectPayroll(r.id); setView('payroll-builder') }}
+          onRowClick={(r) => { selectPayroll(r.id); setView('payroll-builder'); window.history.pushState(null, '', routes.payroll.details(r.id)); }}
           pageSize={10}
         />
       </SectionCard>
@@ -211,3 +213,4 @@ function StatCard({ label, value, icon: Icon, color }: {
 }
 
 export default WorkflowInboxView
+

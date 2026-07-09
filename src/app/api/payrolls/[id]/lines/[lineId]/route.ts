@@ -1,6 +1,6 @@
 // DELETE /api/payrolls/[id]/lines/[lineId] — remove a payroll line (only in Drafting)
 import { db } from '@/lib/db'
-import { ok, badRequest, notFound, serverError } from '../../../_lib'
+import { ok, badRequest, notFound, serverError } from '../../../../_lib'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ id: string; lineId: string }> }
