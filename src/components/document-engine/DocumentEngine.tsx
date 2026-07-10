@@ -9,8 +9,8 @@ import { toast } from 'sonner'
 import { useMutation, useQuery } from '@tanstack/react-query'
 
 interface DocumentEngineProps {
-  templateCode: string
-  entityId: string
+  template_code: string
+  entity_id: string
   dataProvider: () => Promise<Record<string, unknown>>
   workflowCode?: string
   options?: {
@@ -23,8 +23,8 @@ interface DocumentEngineProps {
 }
 
 export function DocumentEngine({
-  templateCode,
-  entityId,
+  template_code,
+  entity_id,
   dataProvider,
   workflowCode,
   options = { preview: true, pdf: true, docx: true, signature: true, versioning: true }
@@ -33,9 +33,9 @@ export function DocumentEngine({
   
   // Simulated fetch of document history/instance
   const { data: instance, isLoading: isInstanceLoading, refetch } = useQuery({
-    queryKey: ['doc-instance', templateCode, entityId],
+    queryKey: ['doc-instance', template_code, entity_id],
     queryFn: async () => {
-      // In a real app, this fetches from GET /api/documents/instance?templateCode=X&entityId=Y
+      // In a real app, this fetches from GET /api/documents/instance?template_code=X&entity_id=Y
       // Mocking for frontend scaffolding:
       return null as any
     }
@@ -47,10 +47,10 @@ export function DocumentEngine({
       // Call POST /api/documents/generate
       // In this scaffold, we just pretend it succeeds
       await new Promise(r => setTimeout(r, 2000))
-      return { documentId: `DOC-2026-${Math.floor(Math.random() * 9999)}`, version: 1 }
+      return { document_id: `DOC-2026-${Math.floor(Math.random() * 9999)}`, version: 1 }
     },
     onSuccess: (data) => {
-      toast.success(`Document Generated: ${data.documentId}`)
+      toast.success(`document Generated: ${data.document_id}`)
       if (options.preview) setActiveTab('preview')
       refetch()
     },
@@ -73,14 +73,14 @@ export function DocumentEngine({
     }
     
     const latestVersion = instance.versions[0];
-    const fileId = type === 'pdf' ? latestVersion.pdfFileId : latestVersion.docxFileId;
+    const file_id = type === 'pdf' ? latestVersion.pdf_file_id : latestVersion.docx_file_id;
     
-    if (!fileId) {
+    if (!file_id) {
       toast.error(`${type.toUpperCase()} version is not available`)
       return;
     }
 
-    window.location.href = `/api/files/${fileId}/download`
+    window.location.href = `/api/files/${file_id}/download`
   }
 
   return (
@@ -89,10 +89,10 @@ export function DocumentEngine({
         <div>
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <FileText className="h-5 w-5 text-blue-500" />
-            Document Engine
+            document Engine
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Template: <span className="font-mono bg-muted px-1 py-0.5 rounded text-xs">{templateCode}</span>
+            Template: <span className="font-mono bg-muted px-1 py-0.5 rounded text-xs">{template_code}</span>
           </p>
         </div>
         
@@ -135,7 +135,7 @@ export function DocumentEngine({
                 className="w-full sm:w-auto"
               >
                 {generateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Generate Document
+                Generate document
               </Button>
             </CardContent>
           </Card>
@@ -146,15 +146,15 @@ export function DocumentEngine({
             <CardContent className="pt-6">
               {!instance ? (
                 <div className="text-center text-muted-foreground py-10">
-                  Document not generated yet.
+                  document not generated yet.
                 </div>
               ) : (
                 <div className="border bg-muted/50 rounded flex items-center justify-center min-h-[400px]">
                   {/* Ideally, load an iframe pointing to PDF download or use react-doc-viewer */}
                   <iframe 
-                    src={instance.versions?.[0]?.pdfFileId ? `/api/files/${instance.versions[0].pdfFileId}/download#toolbar=0` : ''} 
+                    src={instance.versions?.[0]?.pdf_file_id ? `/api/files/${instance.versions[0].pdf_file_id}/download#toolbar=0` : ''} 
                     className="w-full h-[600px] border-0"
-                    title="Document Preview"
+                    title="document Preview"
                   />
                 </div>
               )}
@@ -176,7 +176,7 @@ export function DocumentEngine({
                     </div>
                     <Button variant="default">
                       <Edit3 className="w-4 h-4 mr-2" />
-                      Sign Document
+                      Sign document
                     </Button>
                   </div>
                </div>

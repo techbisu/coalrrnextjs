@@ -29,7 +29,7 @@ export class MathPreviewAction {
    */
   preview(input: CompensationInput): MathPreviewResult {
     const result = this.engine.calculate(input);
-    const base = input.landValue.add(input.assetValue);
+    const base = input.land_value.add(input.asset_value);
     return {
       solatium: result.solatium.amount.format(),
       escalation: result.escalation.amount.format(),

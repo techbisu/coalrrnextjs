@@ -6,46 +6,46 @@ import { Decimal } from 'decimal.js'
 export async function POST(req: NextRequest) {
   try {
     const body = await readJson<{
-      nomineeAadhaarHash?: string
-      nomineeName?: string
+      nominee_aadhaar_hash?: string
+      nominee_name?: string
       relationship?: string
       claimId?: string
-      shareAcres?: string
+      share_acres?: string
     }>(req)
 
-    if (!body?.nomineeAadhaarHash || !body.nomineeName || !body.claimId || !body.shareAcres) {
-      return badRequest('nomineeAadhaarHash, nomineeName, claimId, shareAcres required')
+    if (!body?.nominee_aadhaar_hash || !body.nominee_name || !body.claimId || !body.share_acres) {
+      return badRequest('nominee_aadhaar_hash, nominee_name, claimId, share_acres required')
     }
 
-    const claim = await db.formIClaim.findUnique({ where: { id: body.claimId } })
+    const claim = await db.form_i_claim.findUnique({ where: { id: body.claimId } })
     if (!claim) return badRequest('Claim not found')
 
-    const shareAcres = new Decimal(body.shareAcres)
-    if (shareAcres.lte(0)) return badRequest('Share acres must be greater than 0')
-    if (shareAcres.gt(new Decimal(claim.ownShareAcres as any))) return badRequest('Cannot contribute more than own share')
+    const share_acres = new Decimal(body.share_acres)
+    if (share_acres.lte(0)) return badRequest('Share acres must be greater than 0')
+    if (share_acres.gt(new Decimal(claim.own_share_acres as any))) return badRequest('Cannot contribute more than own share')
 
     // Start a transaction to create/update the pool and add contribution
     const result = await db.$transaction(async (tx) => {
-      let pool = await tx.nomineePool.findUnique({
-        where: { nomineeAadhaarHash: body.nomineeAadhaarHash! }
+      let pool = await tx.nominee_pool.findUnique({
+        where: { nominee_aadhaar_hash: body.nominee_aadhaar_hash! }
       })
 
       if (!pool) {
-        pool = await tx.nomineePool.create({
+        pool = await tx.nominee_pool.create({
           data: {
-            nomineeAadhaarHash: body.nomineeAadhaarHash!,
-            nomineeName: body.nomineeName!,
-            pooledAcreage: 0,
+            nominee_aadhaar_hash: body.nominee_aadhaar_hash!,
+            nominee_name: body.nominee_name!,
+            pooled_acreage: 0,
           }
         })
       }
 
       // Check if this claim is already contributed to this pool
-      const existingContrib = await tx.nomineePoolContribution.findUnique({
+      const existingContrib = await tx.nominee_pool_contribution.findUnique({
         where: {
-          poolId_formIClaimId: {
-            poolId: pool.id,
-            formIClaimId: claim.id
+          pool_id_form_i_claim_id: {
+            pool_id: pool.id,
+            form_i_claim_id: claim.id
           }
         }
       })
@@ -55,26 +55,26 @@ export async function POST(req: NextRequest) {
       }
 
       // Create contribution
-      const contrib = await tx.nomineePoolContribution.create({
+      const contrib = await tx.nominee_pool_contribution.create({
         data: {
-          poolId: pool.id,
-          formIClaimId: claim.id,
-          shareAcres: shareAcres.toString()
+          pool_id: pool.id,
+          form_i_claim_id: claim.id,
+          share_acres: share_acres.toString()
         }
       })
 
       // Update pooled acreage
-      const newPooledAcreage = new Decimal(pool.pooledAcreage as any).plus(shareAcres)
-      pool = await tx.nomineePool.update({
+      const newPooledAcreage = new Decimal(pool.pooled_acreage as any).plus(share_acres)
+      pool = await tx.nominee_pool.update({
         where: { id: pool.id },
         data: {
-          pooledAcreage: newPooledAcreage.toString(),
-          applyButtonUnlocked: newPooledAcreage.gte(2.0)
+          pooled_acreage: newPooledAcreage.toString(),
+          apply_button_unlocked: newPooledAcreage.gte(2.0)
         }
       })
 
       // Update claim state if needed
-      await tx.formIClaim.update({
+      await tx.form_i_claim.update({
         where: { id: claim.id },
         data: { state: 'Nominated' }
       })

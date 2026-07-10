@@ -81,46 +81,46 @@ function getTransitionsForState(state: string): AvailableTransition[] {
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface RnrLine {
   id: string
-  beneficiaryName: string
-  entitlementType: string
-  valuationAmount: number
-  pwdRateReference: string | null
-  formulaSnapshot: string | null
-  createdAt: string
+  beneficiary_name: string
+  entitlement_type: string
+  valuation_amount: number
+  pwd_rate_reference: string | null
+  formula_snapshot: string | null
+  entry_ts: string
 }
 
 interface RnrPayroll {
   id: string
-  payrollCode: string
+  payroll_code: string
   projectName: string
-  projectId: string
+  project_id: string
   state: string
-  totalValue: number
+  total_value: number
   lineCount: number
   lines: RnrLine[]
   reviewTasks: Array<{
     id: string
     role: string
     status: string
-    decidedBy: string | null
-    decidedAt: string | null
+    decided_by: string | null
+    decided_at: string | null
     comment: string | null
   }>
-  createdAt: string
-  updatedAt: string
+  entry_ts: string
+  updt_ts: string
 }
 
 interface ProjectOption {
   id: string
   name: string
-  collieryCode: string
+  colliery_code: string
 }
 
 interface PafRecord {
   id: string
   pafNumber: string
-  beneficiaryName: string
-  khataNumber: string
+  beneficiary_name: string
+  khata_number: string
   status: string
 }
 
@@ -137,11 +137,11 @@ async function fetchRnrPayroll(id: string): Promise<RnrPayroll> {
   return r.json()
 }
 
-async function createRnrPayroll(projectId: string): Promise<RnrPayroll> {
+async function createRnrPayroll(project_id: string): Promise<RnrPayroll> {
   const r = await fetch('/api/rnr-payrolls', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ projectId }),
+    body: JSON.stringify({ project_id }),
   })
   if (!r.ok) throw new Error('Failed to create R&R payroll')
   return r.json()
@@ -161,10 +161,10 @@ async function patchRnrPayroll(id: string, body: Record<string, unknown>): Promi
 }
 
 async function addRnrLine(
-  payrollId: string,
-  body: { beneficiaryName: string; entitlementType: string; valuationAmount: number; pwdRateReference?: string },
+  payroll_id: string,
+  body: { beneficiary_name: string; entitlement_type: string; valuation_amount: number; pwd_rate_reference?: string },
 ): Promise<RnrLine> {
-  const r = await fetch(`/api/rnr-payrolls/${payrollId}/lines`, {
+  const r = await fetch(`/api/rnr-payrolls/${payroll_id}/lines`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -179,7 +179,8 @@ async function addRnrLine(
 async function fetchProjects(): Promise<ProjectOption[]> {
   const r = await fetch('/api/projects')
   if (!r.ok) throw new Error('Failed to load projects')
-  return r.json()
+  const json = await r.json()
+  return json?.data || json
 }
 
 async function fetchPafRecords(): Promise<PafRecord[]> {
@@ -223,9 +224,9 @@ export function RnrAssetView() {
   const createMutation = useMutation({
     mutationFn: () => createRnrPayroll(selectedProjectId),
     onSuccess: (p) => {
-      toast.success(`R&R Payroll ${p.payrollCode} created`, { description: `Linked to ${p.projectName}` })
+      toast.success(`R&R Payroll ${p.payroll_code} created`, { description: `Linked to ${p.projectName}` })
       setSelectedId(p.id)
-      window.history.pushState(null, '', routes.rnrAsset.details(p.payrollCode))
+      window.history.pushState(null, '', routes.rnrAsset.details(p.payroll_code))
       setCreateDialogOpen(false)
       setSelectedProjectId('')
       qc.invalidateQueries({ queryKey: ['rnr-payrolls'] })
@@ -253,14 +254,14 @@ export function RnrAssetView() {
   }, [selectedId, payrolls])
 
   // ── Derived ──
-  const totalValue = React.useMemo(
-    () => payroll?.lines.reduce((sum, l) => sum + Number(l.valuationAmount), 0) ?? 0,
+  const total_value = React.useMemo(
+    () => payroll?.lines.reduce((sum, l) => sum + Number(l.valuation_amount), 0) ?? 0,
     [payroll?.lines],
   )
 
   const mathPreview: MathPreviewResultLike | null = React.useMemo(() => {
     if (!payroll || payroll.lines.length === 0) return null
-    const base = totalValue
+    const base = total_value
     const solatium = base
     const escalation = Math.round(base * 0.12 * 2) // assumed 2 years for preview
     const t = base + solatium + escalation
@@ -271,7 +272,7 @@ export function RnrAssetView() {
       breakdown: { base: formatINR(base), solatium: formatINR(solatium), escalation: formatINR(escalation) },
       formula: `(${formatINR(base)} + ${formatINR(solatium)} + ${formatINR(escalation)}) = ${formatINR(t)}`,
     }
-  }, [payroll, totalValue])
+  }, [payroll, total_value])
 
   const transitions = React.useMemo(
     () => (payroll ? getTransitionsForState(payroll.state) : []),
@@ -283,8 +284,8 @@ export function RnrAssetView() {
       payroll?.reviewTasks?.map((t: any) => ({
         role: t.role,
         status: t.status as 'pending' | 'approved' | 'rejected',
-        decidedBy: t.decidedBy ?? undefined,
-        decidedAt: t.decidedAt ?? undefined,
+        decided_by: t.decided_by ?? undefined,
+        decided_at: t.decided_at ?? undefined,
         comment: t.comment ?? undefined,
       })) ?? [],
     [payroll?.reviewTasks],
@@ -293,9 +294,9 @@ export function RnrAssetView() {
   const matchScore = React.useMemo(() => {
     if (!payroll) return 0
     const checked = payroll.lines.filter((l) => {
-      const sor = SOR_RATES[l.entitlementType]
+      const sor = SOR_RATES[l.entitlement_type]
       if (sor == null) return true
-      return Math.abs(l.valuationAmount - sor) / sor <= 0.1
+      return Math.abs(l.valuation_amount - sor) / sor <= 0.1
     }).length
     return payroll.lines.length > 0 ? Math.round((checked / payroll.lines.length) * 100) : 0
   }, [payroll])
@@ -325,7 +326,7 @@ export function RnrAssetView() {
         {payroll && (
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="font-mono text-sm font-semibold">{payroll.payrollCode}</p>
+              <p className="font-mono text-sm font-semibold">{payroll.payroll_code}</p>
               <p className="text-xs text-muted-foreground">{payroll.projectName}</p>
             </div>
             <StateBadge state={payroll.state} size="md" />
@@ -365,7 +366,7 @@ export function RnrAssetView() {
                 key={p.id}
                 onClick={() => {
                   setSelectedId(p.id)
-                  window.history.pushState(null, '', routes.rnrAsset.details(p.payrollCode))
+                  window.history.pushState(null, '', routes.rnrAsset.details(p.payroll_code))
                   setActiveTab('build')
                 }}
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
@@ -374,9 +375,9 @@ export function RnrAssetView() {
                     : 'border-border bg-card text-muted-foreground hover:border-amber-300 hover:text-foreground'
                 }`}
               >
-                <span className="font-mono">{p.payrollCode}</span>
+                <span className="font-mono">{p.payroll_code}</span>
                 <span className="ml-2 opacity-70">{p.lineCount} lines</span>
-                <span className="ml-2 opacity-50">· {formatINR(p.totalValue)}</span>
+                <span className="ml-2 opacity-50">· {formatINR(p.total_value)}</span>
               </button>
             ))}
           </div>
@@ -399,7 +400,7 @@ export function RnrAssetView() {
                 <SelectContent>
                   {projects?.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} ({p.collieryCode})
+                      {p.name} ({p.colliery_code})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -520,9 +521,9 @@ export function RnrAssetView() {
               <p className="text-xs text-muted-foreground">
                 {payroll.lines.length > 0
                   ? `${payroll.lines.filter((l) => {
-                      const sor = SOR_RATES[l.entitlementType]
+                      const sor = SOR_RATES[l.entitlement_type]
                       if (sor == null) return true
-                      return Math.abs(l.valuationAmount - sor) / sor <= 0.1
+                      return Math.abs(l.valuation_amount - sor) / sor <= 0.1
                     }).length} of ${payroll.lines.length} lines within ±10% of PWD rates`
                   : 'No lines to verify'}
               </p>
@@ -591,12 +592,12 @@ export function RnrAssetView() {
                 <SectionCard
                   title="Batch Summary"
                   icon={FileText}
-                  description={`${payroll.payrollCode} · ${payroll.projectName}`}
+                  description={`${payroll.payroll_code} · ${payroll.projectName}`}
                 >
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <SummaryTile label="Payroll Code" value={payroll.payrollCode} mono />
+                    <SummaryTile label="Payroll Code" value={payroll.payroll_code} mono />
                     <SummaryTile label="State" value={RNR_STATES[payroll.state]?.label ?? payroll.state} />
-                    <SummaryTile label="Total Value" value={formatINR(totalValue)} accent />
+                    <SummaryTile label="Total Value" value={formatINR(total_value)} accent />
                     <SummaryTile label="Line Count" value={String(payroll.lines.length)} />
                   </div>
                 </SectionCard>
@@ -613,7 +614,7 @@ export function RnrAssetView() {
 
               {/* Right: Approval panel */}
               <div className="space-y-4">
-                <SectionCard title="Actor Role" icon={Shield} description="Simulate approver role">
+                <SectionCard title="Actor role" icon={Shield} description="Simulate approver role">
                   <Select value={actorRole} onValueChange={setActorRole}>
                     <SelectTrigger>
                       <SelectValue />
@@ -706,29 +707,29 @@ function BuildLinesSection({
   const qc = useQueryClient()
   const [addDialogOpen, setAddDialogOpen] = React.useState(false)
   const [form, setForm] = React.useState({
-    beneficiaryName: '',
-    entitlementType: '',
-    valuationAmount: '',
-    pwdRateReference: '',
+    beneficiary_name: '',
+    entitlement_type: '',
+    valuation_amount: '',
+    pwd_rate_reference: '',
   })
 
   const isDrafting = payroll.state === 'Drafting'
 
   const addLineMutation = useMutation({
     mutationFn: () => {
-      const ref = form.pwdRateReference.trim() || undefined
+      const ref = form.pwd_rate_reference.trim() || undefined
       return addRnrLine(payroll.id, {
-        beneficiaryName: form.beneficiaryName,
-        entitlementType: form.entitlementType,
-        valuationAmount: Number(form.valuationAmount),
-        pwdRateReference: ref,
+        beneficiary_name: form.beneficiary_name,
+        entitlement_type: form.entitlement_type,
+        valuation_amount: Number(form.valuation_amount),
+        pwd_rate_reference: ref,
       })
     },
     onSuccess: (line) => {
-      toast.success(`Line added — ${line.beneficiaryName}`, {
-        description: `${SOR_LABELS[line.entitlementType] ?? line.entitlementType}: ${formatINR(line.valuationAmount)}`,
+      toast.success(`Line added — ${line.beneficiary_name}`, {
+        description: `${SOR_LABELS[line.entitlement_type] ?? line.entitlement_type}: ${formatINR(line.valuation_amount)}`,
       })
-      setForm({ beneficiaryName: '', entitlementType: '', valuationAmount: '', pwdRateReference: '' })
+      setForm({ beneficiary_name: '', entitlement_type: '', valuation_amount: '', pwd_rate_reference: '' })
       setAddDialogOpen(false)
       onInvalidate()
     },
@@ -748,52 +749,52 @@ function BuildLinesSection({
     onError: (e: Error) => toast.error(e.message),
   })
 
-  const handlePafSelect = (pafId: string) => {
-    const paf = pafRecords.find((r) => r.id === pafId)
+  const handlePafSelect = (paf_id: string) => {
+    const paf = pafRecords.find((r) => r.id === paf_id)
     if (paf) {
-      setForm((f) => ({ ...f, beneficiaryName: paf.beneficiaryName }))
+      setForm((f) => ({ ...f, beneficiary_name: paf.beneficiary_name }))
     }
   }
 
   const handleEntitlementChange = (value: string) => {
-    setForm((f) => ({ ...f, entitlementType: value }))
+    setForm((f) => ({ ...f, entitlement_type: value }))
     // Pre-fill SOR rate
     const sor = SOR_RATES[value]
     if (sor) {
-      setForm((f) => ({ ...f, valuationAmount: String(sor), pwdRateReference: value }))
+      setForm((f) => ({ ...f, valuation_amount: String(sor), pwd_rate_reference: value }))
     }
   }
 
   const columns: Column<RnrLine>[] = [
     {
-      key: 'beneficiaryName',
+      key: 'beneficiary_name',
       header: 'Beneficiary',
       sortable: true,
-      render: (r) => <span className="font-medium">{r.beneficiaryName}</span>,
+      render: (r) => <span className="font-medium">{r.beneficiary_name}</span>,
     },
     {
-      key: 'entitlementType',
+      key: 'entitlement_type',
       header: 'Entitlement',
       sortable: true,
       render: (r) => (
         <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800 text-xs dark:bg-amber-950 dark:text-amber-300">
-          {SOR_LABELS[r.entitlementType] ?? r.entitlementType}
+          {SOR_LABELS[r.entitlement_type] ?? r.entitlement_type}
         </Badge>
       ),
     },
     {
-      key: 'valuationAmount',
+      key: 'valuation_amount',
       header: 'Valuation',
       align: 'right',
       sortable: true,
-      render: (r) => <span className="font-semibold tabular-nums">{formatINR(r.valuationAmount)}</span>,
+      render: (r) => <span className="font-semibold tabular-nums">{formatINR(r.valuation_amount)}</span>,
     },
     {
-      key: 'pwdRateReference',
+      key: 'pwd_rate_reference',
       header: 'SOR Ref',
       render: (r) =>
-        r.pwdRateReference ? (
-          <span className="font-mono text-xs text-muted-foreground">{r.pwdRateReference}</span>
+        r.pwd_rate_reference ? (
+          <span className="font-mono text-xs text-muted-foreground">{r.pwd_rate_reference}</span>
         ) : (
           <span className="text-xs text-muted-foreground/50">—</span>
         ),
@@ -824,7 +825,7 @@ function BuildLinesSection({
     },
   ]
 
-  const lineTotal = payroll.lines.reduce((s, l) => s + Number(l.valuationAmount), 0)
+  const lineTotal = payroll.lines.reduce((s, l) => s + Number(l.valuation_amount), 0)
 
   return (
     <>
@@ -882,7 +883,7 @@ function BuildLinesSection({
                       .filter((p) => p.status === 'approved')
                       .map((p) => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.pafNumber} — {p.beneficiaryName}
+                          {p.pafNumber} — {p.beneficiary_name}
                         </SelectItem>
                       ))}
                   </SelectContent>
@@ -893,15 +894,15 @@ function BuildLinesSection({
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">Beneficiary Name</Label>
               <Input
-                value={form.beneficiaryName}
-                onChange={(e) => setForm((f) => ({ ...f, beneficiaryName: e.target.value }))}
+                value={form.beneficiary_name}
+                onChange={(e) => setForm((f) => ({ ...f, beneficiary_name: e.target.value }))}
                 placeholder="e.g. Ramesh Kumar Sahoo"
               />
             </div>
 
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">Entitlement Type</Label>
-              <Select value={form.entitlementType} onValueChange={handleEntitlementChange}>
+              <Select value={form.entitlement_type} onValueChange={handleEntitlementChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select entitlement category…" />
                 </SelectTrigger>
@@ -920,14 +921,14 @@ function BuildLinesSection({
               <div className="relative">
                 <Input
                   type="number"
-                  value={form.valuationAmount}
-                  onChange={(e) => setForm((f) => ({ ...f, valuationAmount: e.target.value }))}
+                  value={form.valuation_amount}
+                  onChange={(e) => setForm((f) => ({ ...f, valuation_amount: e.target.value }))}
                   placeholder="e.g. 350000"
                   className="pr-20"
                 />
-                {form.entitlementType && SOR_RATES[form.entitlementType] && (
+                {form.entitlement_type && SOR_RATES[form.entitlement_type] && (
                   <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-amber-600">
-                    SOR: {formatINR(SOR_RATES[form.entitlementType])}
+                    SOR: {formatINR(SOR_RATES[form.entitlement_type])}
                   </span>
                 )}
               </div>
@@ -936,17 +937,17 @@ function BuildLinesSection({
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">PWD Rate Reference (optional)</Label>
               <Input
-                value={form.pwdRateReference}
-                onChange={(e) => setForm((f) => ({ ...f, pwdRateReference: e.target.value }))}
+                value={form.pwd_rate_reference}
+                onChange={(e) => setForm((f) => ({ ...f, pwd_rate_reference: e.target.value }))}
                 placeholder="e.g. homestead, shifting_allowance"
               />
             </div>
 
             {/* Deviation preview */}
-            {form.valuationAmount && form.entitlementType && SOR_RATES[form.entitlementType] ? (
+            {form.valuation_amount && form.entitlement_type && SOR_RATES[form.entitlement_type] ? (
               <DeviationPreview
-                actual={Number(form.valuationAmount)}
-                expected={SOR_RATES[form.entitlementType]}
+                actual={Number(form.valuation_amount)}
+                expected={SOR_RATES[form.entitlement_type]}
               />
             ) : null}
           </div>
@@ -957,9 +958,9 @@ function BuildLinesSection({
             <Button
               className="bg-amber-600 hover:bg-amber-700"
               disabled={
-                !form.beneficiaryName ||
-                !form.entitlementType ||
-                !form.valuationAmount ||
+                !form.beneficiary_name ||
+                !form.entitlement_type ||
+                !form.valuation_amount ||
                 addLineMutation.isPending
               }
               onClick={() => addLineMutation.mutate()}
@@ -984,7 +985,7 @@ function VerifyLinesTable({ payroll }: { payroll: RnrPayroll }) {
   const [editedAmounts, setEditedAmounts] = React.useState<Record<string, string>>({})
 
   const getAmount = (line: RnrLine): string => {
-    return editedAmounts[line.id] ?? String(line.valuationAmount)
+    return editedAmounts[line.id] ?? String(line.valuation_amount)
   }
 
   const updateAmount = (lineId: string, value: string) => {
@@ -998,7 +999,7 @@ function VerifyLinesTable({ payroll }: { payroll: RnrPayroll }) {
       const r = await fetch(`/api/rnr-payrolls/${payroll.id}/lines/${lineId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ valuationAmount: amount }),
+        body: JSON.stringify({ valuation_amount: amount }),
       })
       if (!r.ok) throw new Error('Failed to update line')
       return r.json()
@@ -1013,22 +1014,22 @@ function VerifyLinesTable({ payroll }: { payroll: RnrPayroll }) {
 
   const columns: Column<RnrLine>[] = [
     {
-      key: 'beneficiaryName',
+      key: 'beneficiary_name',
       header: 'Beneficiary',
       sortable: true,
-      render: (r) => <span className="font-medium">{r.beneficiaryName}</span>,
+      render: (r) => <span className="font-medium">{r.beneficiary_name}</span>,
     },
     {
-      key: 'entitlementType',
+      key: 'entitlement_type',
       header: 'Entitlement',
       render: (r) => (
         <Badge variant="outline" className="border-border text-xs">
-          {SOR_LABELS[r.entitlementType] ?? r.entitlementType}
+          {SOR_LABELS[r.entitlement_type] ?? r.entitlement_type}
         </Badge>
       ),
     },
     {
-      key: 'valuationAmount',
+      key: 'valuation_amount',
       header: 'Valuation (editable)',
       align: 'right',
       sortable: true,
@@ -1043,7 +1044,7 @@ function VerifyLinesTable({ payroll }: { payroll: RnrPayroll }) {
               disabled={isLocked}
               className="h-7 w-36 text-right text-sm tabular-nums"
             />
-            {!isLocked && editedAmounts[r.id] && Number(editedAmounts[r.id]) !== r.valuationAmount && (
+            {!isLocked && editedAmounts[r.id] && Number(editedAmounts[r.id]) !== r.valuation_amount && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -1070,7 +1071,7 @@ function VerifyLinesTable({ payroll }: { payroll: RnrPayroll }) {
       header: 'Status',
       align: 'center',
       render: (r) => {
-        const sor = SOR_RATES[r.entitlementType]
+        const sor = SOR_RATES[r.entitlement_type]
         if (sor == null) {
           return (
             <Badge variant="outline" className="text-xs text-muted-foreground">
@@ -1078,7 +1079,7 @@ function VerifyLinesTable({ payroll }: { payroll: RnrPayroll }) {
             </Badge>
           )
         }
-        const actual = Number(getAmount(r)) || r.valuationAmount
+        const actual = Number(getAmount(r)) || r.valuation_amount
         const deviationPct = ((actual - sor) / sor) * 100
         const isDeviation = Math.abs(deviationPct) > 10
 
@@ -1105,7 +1106,7 @@ function VerifyLinesTable({ payroll }: { payroll: RnrPayroll }) {
       header: 'SOR Rate',
       align: 'right',
       render: (r) => {
-        const sor = SOR_RATES[r.entitlementType]
+        const sor = SOR_RATES[r.entitlement_type]
         return sor ? (
           <span className="text-xs tabular-nums text-muted-foreground">{formatINR(sor)}</span>
         ) : (
@@ -1130,44 +1131,44 @@ function VerifyLinesTable({ payroll }: { payroll: RnrPayroll }) {
 function ReviewLinesTable({ lines }: { lines: RnrLine[] }) {
   const columns: Column<RnrLine>[] = [
     {
-      key: 'beneficiaryName',
+      key: 'beneficiary_name',
       header: 'Beneficiary',
       sortable: true,
-      render: (r) => <span className="font-medium">{r.beneficiaryName}</span>,
+      render: (r) => <span className="font-medium">{r.beneficiary_name}</span>,
     },
     {
-      key: 'entitlementType',
+      key: 'entitlement_type',
       header: 'Entitlement',
       render: (r) => (
         <Badge variant="outline" className="border-border text-xs">
-          {SOR_LABELS[r.entitlementType] ?? r.entitlementType}
+          {SOR_LABELS[r.entitlement_type] ?? r.entitlement_type}
         </Badge>
       ),
     },
     {
-      key: 'valuationAmount',
+      key: 'valuation_amount',
       header: 'Valuation',
       align: 'right',
       sortable: true,
-      render: (r) => <span className="font-semibold tabular-nums">{formatINR(r.valuationAmount)}</span>,
+      render: (r) => <span className="font-semibold tabular-nums">{formatINR(r.valuation_amount)}</span>,
     },
     {
-      key: 'pwdRateReference',
+      key: 'pwd_rate_reference',
       header: 'SOR Ref',
       render: (r) =>
-        r.pwdRateReference ? (
-          <span className="font-mono text-xs text-muted-foreground">{r.pwdRateReference}</span>
+        r.pwd_rate_reference ? (
+          <span className="font-mono text-xs text-muted-foreground">{r.pwd_rate_reference}</span>
         ) : (
           <span className="text-xs text-muted-foreground/50">—</span>
         ),
     },
     {
-      key: 'formulaSnapshot',
+      key: 'formula_snapshot',
       header: 'Formula Snapshot',
       render: (r) =>
-        r.formulaSnapshot ? (
-          <span className="max-w-[200px] truncate font-mono text-[11px] text-muted-foreground" title={r.formulaSnapshot}>
-            {r.formulaSnapshot}
+        r.formula_snapshot ? (
+          <span className="max-w-[200px] truncate font-mono text-[11px] text-muted-foreground" title={r.formula_snapshot}>
+            {r.formula_snapshot}
           </span>
         ) : (
           <span className="text-xs text-muted-foreground/50">—</span>

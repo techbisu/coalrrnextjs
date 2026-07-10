@@ -55,21 +55,21 @@ export function AcquisitionListView({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {schedules.map((s) => {
-            const mode = MODE_META[s.acquisitionMode] ?? {
-              label: s.acquisitionMode, checklistCode: 'CL-1', color: 'border-slate-300 bg-slate-50 text-slate-700',
+            const mode = MODE_META[s.acquisition_mode] ?? {
+              label: s.acquisition_mode, checklistCode: 'CL-1', color: 'border-slate-300 bg-slate-50 text-slate-700',
             }
             return (
               <button
                 key={s.id}
-                onClick={() => onSelect(s.id, s.scheduleCode)}
+                onClick={() => onSelect(s.id, s.schedule_code)}
                 className="group flex flex-col rounded-lg border border-border/60 bg-card p-4 text-left transition hover:border-amber-300 hover:shadow-md"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-sm font-medium">{s.scheduleCode}</span>
+                  <span className="font-mono text-sm font-medium">{s.schedule_code}</span>
                   <StateBadge state={s.state} />
                 </div>
 
-                <h3 className="mt-2 line-clamp-1 text-sm font-semibold">{s.proposalTitle}</h3>
+                <h3 className="mt-2 line-clamp-1 text-sm font-semibold">{s.proposal_title}</h3>
                 <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{s.projectName}</p>
 
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
@@ -79,17 +79,17 @@ export function AcquisitionListView({
                 </div>
 
                 <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border/60 pt-3 text-center">
-                  <AnnexurePill tag="A" count={s.itemSummary.annexureA} />
-                  <AnnexurePill tag="B" count={s.itemSummary.annexureB} />
-                  <AnnexurePill tag="C" count={s.itemSummary.annexureC} />
+                  <AnnexurePill tag="A" count={s.itemSummary.annexure_a} />
+                  <AnnexurePill tag="B" count={s.itemSummary.annexure_b} />
+                  <AnnexurePill tag="C" count={s.itemSummary.annexure_c} />
                 </div>
 
                 <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
                     <Layers className="h-3 w-3" />
-                    {formatNumber(s.totalAreaAcres, 4)} ac
+                    {formatNumber(s.total_area_acres, 4)} ac
                   </span>
-                  <span>{timeAgo(s.createdAt)}</span>
+                  <span>{timeAgo(s.entry_ts)}</span>
                 </div>
               </button>
             )
@@ -97,7 +97,7 @@ export function AcquisitionListView({
         </div>
       )}
 
-      <CreateProposalDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={onCreated} />
+      <CreateProposalDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   )
 }

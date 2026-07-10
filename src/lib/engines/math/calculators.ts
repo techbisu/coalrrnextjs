@@ -37,16 +37,16 @@ export class SolatiumCalculator
   readonly formulaCode = "solatium_100pct";
 
   calculate(input: CompensationInput): MoneyResult {
-    const base = input.landValue.add(input.assetValue);
+    const base = input.land_value.add(input.asset_value);
     // 100% ⇒ multiply by 1; expressed explicitly for audit clarity.
-    const amount = base.multiply(input.multiplicationFactor);
+    const amount = base.multiply(input.multiplication_factor);
     return {
       amount,
       formula: this.formulaCode,
       inputs: {
-        landValue: input.landValue.toString(),
-        assetValue: input.assetValue.toString(),
-        multiplicationFactor: input.multiplicationFactor,
+        land_value: input.land_value.toString(),
+        asset_value: input.asset_value.toString(),
+        multiplication_factor: input.multiplication_factor,
         ratePct: "100",
       },
     };
@@ -60,7 +60,7 @@ export class SolatiumCalculator
 /**
  * Escalium calculator — implements spec §4 / RFCTLARR escalation rule.
  *
- * **Formula:** `escalation = 12% per annum × Land Value × yearsSinceNotification`
+ * **Formula:** `escalation = 12% per annum × Land Value × years_since_notification`
  *
  * The SOP is explicit (§4): escalation accrues on the **BASE LAND VALUE ONLY**.
  * Assets (structures, trees, crops) are excluded — this is a frequent source of
@@ -74,9 +74,9 @@ export class EscalationCalculator
   static readonly RATE_PER_ANNUM = "0.12";
 
   calculate(input: CompensationInput): MoneyResult {
-    // yearsSinceNotification is already a non-negative integer post-validation.
-    const years = new Decimal(input.yearsSinceNotification);
-    const landDec = input.landValue.toDecimal();
+    // years_since_notification is already a non-negative integer post-validation.
+    const years = new Decimal(input.years_since_notification);
+    const landDec = input.land_value.toDecimal();
     // escalation = land × 0.12 × years
     const amount = MoneyValue.from(
       landDec.times(EscalationCalculator.RATE_PER_ANNUM).times(years),
@@ -85,12 +85,12 @@ export class EscalationCalculator
       amount,
       formula: this.formulaCode,
       inputs: {
-        landValue: input.landValue.toString(),
+        land_value: input.land_value.toString(),
         // explicitly recorded so auditors can verify asset exclusion
-        assetValue: input.assetValue.toString(),
+        asset_value: input.asset_value.toString(),
         assetExcluded: "true",
         ratePerAnnum: EscalationCalculator.RATE_PER_ANNUM,
-        yearsSinceNotification: String(input.yearsSinceNotification),
+        years_since_notification: String(input.years_since_notification),
       },
     };
   }
@@ -127,8 +127,8 @@ export class LandCompensationEngine
   calculate(input: CompensationInput): CompensationResult {
     const solatium = this.solatiumCalc.calculate(input);
     const escalation = this.escalationCalc.calculate(input);
-    const total = input.landValue
-      .add(input.assetValue)
+    const total = input.land_value
+      .add(input.asset_value)
       .add(solatium.amount)
       .add(escalation.amount);
     return { input, solatium, escalation, total };
@@ -155,10 +155,10 @@ export class NomineePoolThresholdCalculator {
   readonly threshold: AcreageValue = EMPLOYMENT_GATE_ACRES;
 
   /**
-   * @param shareAcres list of share-acre strings contributed by Form-I claims.
+   * @param share_acres list of share-acre strings contributed by Form-I claims.
    */
-  calculate(shareAcres: ReadonlyArray<string>): NomineePoolThresholdResult {
-    const sum = shareAcres.reduce(
+  calculate(share_acres: ReadonlyArray<string>): NomineePoolThresholdResult {
+    const sum = share_acres.reduce(
       (acc, s) => acc.add(AcreageValue.from(s)),
       AcreageValue.zero(),
     );
@@ -167,7 +167,7 @@ export class NomineePoolThresholdCalculator {
       ? AcreageValue.zero()
       : this.threshold.subtract(sum);
     return {
-      pooledAcreage: sum,
+      pooled_acreage: sum,
       threshold: this.threshold,
       hasCrossedThreshold,
       remainingToThreshold: remaining,

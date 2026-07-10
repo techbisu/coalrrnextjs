@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -65,20 +65,20 @@ function getCategoryMeta(value: string) {
 
 interface PafRecord {
   id: string
-  pafId: string
-  claimantName: string
-  categoryOfEntitlement: string
-  scStObcCategory: string | null
-  plotId: string | null
-  plotNumber: string | null
+  paf_id: string
+  claimant_name: string
+  category_of_entitlement: string
+  sc_st_obc_category: string | null
+  plot_id: string | null
+  plot_number: string | null
   mouza: string | null
-  photoIdentityCardDoc: string | null
-  createdAt: string
+  photo_identity_card_doc: string | null
+  entry_ts: string
 }
 
 interface PlotOption {
   id: string
-  plotNumber: string
+  plot_number: string
   mouza?: string | null
 }
 
@@ -126,10 +126,10 @@ export function PafCensusView() {
     if (!records) return []
     let result = records
     if (filterCategory !== 'all') {
-      result = result.filter((r) => r.categoryOfEntitlement === filterCategory)
+      result = result.filter((r) => r.category_of_entitlement === filterCategory)
     }
     if (filterCaste !== 'all') {
-      result = result.filter((r) => r.scStObcCategory === filterCaste)
+      result = result.filter((r) => r.sc_st_obc_category === filterCaste)
     }
     if (filterMouza.trim()) {
       const q = filterMouza.toLowerCase()
@@ -140,7 +140,7 @@ export function PafCensusView() {
 
   // ── Summary stats ─────────────────────────────────────────────────
   const totalRecords = records?.length ?? 0
-  const photoGenerated = records?.filter((r) => r.photoIdentityCardDoc).length ?? 0
+  const photoGenerated = records?.filter((r) => r.photo_identity_card_doc).length ?? 0
   const photoPending = totalRecords - photoGenerated
 
   // ── Dialog state ──────────────────────────────────────────────────
@@ -153,10 +153,10 @@ export function PafCensusView() {
   // ── Mutations ─────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: async (body: {
-      claimantName: string
-      categoryOfEntitlement: string
-      scStObcCategory?: string
-      plotId?: string
+      claimant_name: string
+      category_of_entitlement: string
+      sc_st_obc_category?: string
+      plot_id?: string
     }) => {
       const r = await fetch('/api/paf', {
         method: 'POST',
@@ -184,10 +184,10 @@ export function PafCensusView() {
     }: {
       id: string
       body: {
-        claimantName: string
-        categoryOfEntitlement: string
-        scStObcCategory?: string
-        plotId?: string
+        claimant_name: string
+        category_of_entitlement: string
+        sc_st_obc_category?: string
+        plot_id?: string
       }
     }) => {
       const r = await fetch(`/api/paf/${id}`, {
@@ -266,14 +266,14 @@ export function PafCensusView() {
       ...rows.map(
         (r) =>
           [
-            r.pafId,
-            `"${r.claimantName}"`,
-            getCategoryMeta(r.categoryOfEntitlement).label,
-            r.scStObcCategory?.toUpperCase() ?? '—',
-            r.plotNumber ?? '—',
+            r.paf_id,
+            `"${r.claimant_name}"`,
+            getCategoryMeta(r.category_of_entitlement).label,
+            r.sc_st_obc_category?.toUpperCase() ?? '—',
+            r.plot_number ?? '—',
             `"${r.mouza ?? ''}"`,
-            r.photoIdentityCardDoc ? 'Generated' : 'Pending',
-            r.createdAt,
+            r.photo_identity_card_doc ? 'Generated' : 'Pending',
+            r.entry_ts,
           ].join(','),
       ),
     ].join('\n')
@@ -291,29 +291,29 @@ export function PafCensusView() {
   // ── Columns ───────────────────────────────────────────────────────
   const columns: Column<PafRecord>[] = [
       {
-        key: 'pafId',
+        key: 'paf_id',
         header: 'PAF ID',
         sortable: true,
         className: 'w-[130px]',
         render: (r) => (
           <span className="font-mono text-xs font-semibold text-amber-800 dark:text-amber-300">
-            {r.pafId}
+            {r.paf_id}
           </span>
         ),
       },
       {
-        key: 'claimantName',
+        key: 'claimant_name',
         header: 'Claimant Name',
         sortable: true,
-        render: (r) => <span className="font-medium">{r.claimantName}</span>,
+        render: (r) => <span className="font-medium">{r.claimant_name}</span>,
       },
       {
-        key: 'categoryOfEntitlement',
+        key: 'category_of_entitlement',
         header: 'Category',
         sortable: true,
         align: 'center',
         render: (r) => {
-          const cat = getCategoryMeta(r.categoryOfEntitlement)
+          const cat = getCategoryMeta(r.category_of_entitlement)
           return (
             <Badge variant="secondary" className={cat.color}>
               {cat.label}
@@ -322,13 +322,13 @@ export function PafCensusView() {
         },
       },
       {
-        key: 'scStObcCategory',
+        key: 'sc_st_obc_category',
         header: 'SC/ST/OBC',
         align: 'center',
         render: (r) =>
-          r.scStObcCategory ? (
+          r.sc_st_obc_category ? (
             <Badge variant="outline" className="text-[11px] font-semibold uppercase">
-              {r.scStObcCategory}
+              {r.sc_st_obc_category}
             </Badge>
           ) : (
             <span className="text-muted-foreground">—</span>
@@ -339,25 +339,25 @@ export function PafCensusView() {
         header: 'Plot / Mouza',
         render: (r) => (
           <span className="text-xs">
-            {r.plotNumber && (
-              <span className="font-mono text-muted-foreground">{r.plotNumber}</span>
+            {r.plot_number && (
+              <span className="font-mono text-muted-foreground">{r.plot_number}</span>
             )}
-            {r.plotNumber && r.mouza && (
+            {r.plot_number && r.mouza && (
               <span className="text-muted-foreground/50 mx-1">·</span>
             )}
             {r.mouza && <span>{r.mouza}</span>}
-            {!r.plotNumber && !r.mouza && (
+            {!r.plot_number && !r.mouza && (
               <span className="text-muted-foreground">—</span>
             )}
           </span>
         ),
       },
       {
-        key: 'photoIdentityCardDoc',
+        key: 'photo_identity_card_doc',
         header: 'Photo ID',
         align: 'center',
         render: (r) =>
-          r.photoIdentityCardDoc ? (
+          r.photo_identity_card_doc ? (
             <Badge className="gap-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-300">
               <CheckCircle2 className="h-3 w-3" />
               Generated
@@ -370,11 +370,11 @@ export function PafCensusView() {
           ),
       },
       {
-        key: 'createdAt',
+        key: 'entry_ts',
         header: 'Created',
         sortable: true,
         render: (r) => (
-          <span className="text-xs text-muted-foreground">{timeAgo(r.createdAt)}</span>
+          <span className="text-xs text-muted-foreground">{timeAgo(r.entry_ts)}</span>
         ),
       },
       {
@@ -589,7 +589,7 @@ export function PafCensusView() {
 
       {/* Data table */}
       {isError ? (
-        <SectionCard>
+        <SectionCard title="PAF Overview">
           <div className="flex flex-col items-center gap-3 py-12 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
               <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
@@ -658,9 +658,9 @@ export function PafCensusView() {
           <p className="text-sm text-muted-foreground">
             Are you sure you want to delete the PAF record for{' '}
             <span className="font-semibold text-foreground">
-              {deleteTarget?.claimantName}
+              {deleteTarget?.claimant_name}
             </span>{' '}
-            (<span className="font-mono text-xs">{deleteTarget?.pafId}</span>)?
+            (<span className="font-mono text-xs">{deleteTarget?.paf_id}</span>)?
             This action cannot be undone.
           </p>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -695,10 +695,10 @@ interface PafFormDialogProps {
   plots: PlotOption[]
   onClose: () => void
   onSubmit: (body: {
-    claimantName: string
-    categoryOfEntitlement: string
-    scStObcCategory?: string
-    plotId?: string
+    claimant_name: string
+    category_of_entitlement: string
+    sc_st_obc_category?: string
+    plot_id?: string
   }) => void
   isSubmitting: boolean
 }
@@ -711,18 +711,18 @@ function PafFormDialog({
   onSubmit,
   isSubmitting,
 }: PafFormDialogProps) {
-  const [claimantName, setClaimantName] = React.useState('')
-  const [categoryOfEntitlement, setCategoryOfEntitlement] = React.useState<CategoryValue | ''>('')
-  const [scStObcCategory, setScStObcCategory] = React.useState('')
-  const [plotId, setPlotId] = React.useState('')
+  const [claimant_name, setClaimantName] = React.useState('')
+  const [category_of_entitlement, setCategoryOfEntitlement] = React.useState<CategoryValue | ''>('')
+  const [sc_st_obc_category, setScStObcCategory] = React.useState('')
+  const [plot_id, setPlotId] = React.useState('')
 
   // Sync form when editing record changes
   React.useEffect(() => {
     if (editing) {
-      setClaimantName(editing.claimantName)
-      setCategoryOfEntitlement(editing.categoryOfEntitlement as CategoryValue)
-      setScStObcCategory(editing.scStObcCategory ?? '')
-      setPlotId(editing.plotId ?? '')
+      setClaimantName(editing.claimant_name)
+      setCategoryOfEntitlement(editing.category_of_entitlement as CategoryValue)
+      setScStObcCategory(editing.sc_st_obc_category ?? '')
+      setPlotId(editing.plot_id ?? '')
     } else {
       setClaimantName('')
       setCategoryOfEntitlement('')
@@ -732,23 +732,23 @@ function PafFormDialog({
   }, [editing, open])
 
   const isFormValid =
-    claimantName.trim().length > 0 && categoryOfEntitlement !== ''
+    claimant_name.trim().length > 0 && category_of_entitlement !== ''
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!isFormValid) return
 
     const body: Parameters<typeof onSubmit>[0] = {
-      claimantName: claimantName.trim(),
-      categoryOfEntitlement,
+      claimant_name: claimant_name.trim(),
+      category_of_entitlement,
     }
-    if (scStObcCategory) body.scStObcCategory = scStObcCategory
-    if (plotId) body.plotId = plotId
+    if (sc_st_obc_category) body.sc_st_obc_category = sc_st_obc_category
+    if (plot_id) body.plot_id = plot_id
 
     onSubmit(body)
   }
 
-  const selectedPlot = plots.find((p) => p.id === plotId)
+  const selectedPlot = plots.find((p) => p.id === plot_id)
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -768,7 +768,7 @@ function PafFormDialog({
             </Label>
             <Input
               id="paf-claimant"
-              value={claimantName}
+              value={claimant_name}
               onChange={(e) => setClaimantName(e.target.value)}
               placeholder="Full name of the claimant"
               className="h-10"
@@ -782,7 +782,7 @@ function PafFormDialog({
               Category of Entitlement <span className="text-red-500">*</span>
             </Label>
             <Select
-              value={categoryOfEntitlement}
+              value={category_of_entitlement}
               onValueChange={(v) => setCategoryOfEntitlement(v as CategoryValue)}
             >
               <SelectTrigger id="paf-category" className="h-10">
@@ -803,7 +803,7 @@ function PafFormDialog({
             <Label htmlFor="paf-caste" className="text-sm font-medium">
               SC / ST / OBC Category
             </Label>
-            <Select value={scStObcCategory} onValueChange={setScStObcCategory}>
+            <Select value={sc_st_obc_category} onValueChange={setScStObcCategory}>
               <SelectTrigger id="paf-caste" className="h-10">
                 <SelectValue placeholder="Select caste category…" />
               </SelectTrigger>
@@ -824,14 +824,14 @@ function PafFormDialog({
             <Label htmlFor="paf-plot" className="text-sm font-medium">
               Plot Assignment
             </Label>
-            <Select value={plotId} onValueChange={setPlotId}>
+            <Select value={plot_id} onValueChange={setPlotId}>
               <SelectTrigger id="paf-plot" className="h-10">
                 <SelectValue placeholder="Select plot (optional)…" />
               </SelectTrigger>
               <SelectContent>
                 {plots.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    <span className="font-mono text-xs">{p.plotNumber}</span>
+                    <span className="font-mono text-xs">{p.plot_number}</span>
                     {p.mouza && (
                       <span className="ml-2 text-muted-foreground">
                         · {p.mouza}

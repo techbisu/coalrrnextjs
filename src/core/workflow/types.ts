@@ -12,7 +12,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
- * All states reachable by a `CompensationPayroll` record (spec §2.3 / Module 4).
+ * All states reachable by a `compensation_payroll` record (spec §2.3 / Module 4).
  *
  * Happy path:
  *   Drafting → UnitSubmitted → AreaVetting → HqParallelVetting →
@@ -33,17 +33,17 @@ export type WorkflowState =
 
 /**
  * Record types that participate in a workflow (spec §2.3 polymorphic).
- * Each may eventually have its own state set; today only `CompensationPayroll`
+ * Each may eventually have its own state set; today only `compensation_payroll`
  * has the full pipeline modelled.
  */
 export type RecordType =
-  | "CompensationPayroll"
-  | "FormIClaim"
-  | "LandSchedule"
-  | "EmploymentApplication";
+  | "compensation_payroll"
+  | "form_i_claim"
+  | "land_schedule"
+  | "employment_application";
 
 /**
- * Roles that can drive transitions (mirrors Prisma `WorkflowReviewTask.role`).
+ * Roles that can drive transitions (mirrors Prisma `workflow_review_task.role`).
  */
 export type ActorRole =
   | "unit_office"
@@ -107,7 +107,7 @@ export interface Transition {
   readonly label: string;
   readonly from: WorkflowState;
   readonly to: WorkflowState;
-  /** Role authorised to fire this transition. */
+  /** role authorised to fire this transition. */
   readonly role: ActorRole;
   /** Optional guard(s) that must pass before the transition fires. */
   readonly guard?: TransitionGuard;

@@ -3,13 +3,13 @@
  */
 import { IUseCase, Result, Fail, Ok } from '@/core'
 import { IProposalRepository } from '@/domain/entities/proposal'
-import { EventBus } from '@/notifications/EventBus'
-import { AuditQueue } from '@/audit/services/AuditQueue'
+import { EventBus } from '@/core/notifications/EventBus'
+import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
 import { NotFoundException } from '@/core/errors'
 
 export interface SubmitProposalRequest {
   proposalId: string
-  userId: string
+  user_id: string
   comments?: string
 }
 
@@ -29,13 +29,13 @@ export class SubmitProposalUseCase implements IUseCase<SubmitProposalRequest, Su
     // 1. Find proposal
     const proposal = await this.proposalRepository.findById(request.proposalId)
     if (!proposal) {
-      return Fail(new NotFoundException('Proposal', request.proposalId))
+      return Fail('Proposal')
     }
 
     // 2. Execute business behavior (includes checking invariants like checklist completion)
     const submitResult = proposal.submit()
     if (submitResult.isFailure) {
-      return Fail(submitResult.error!)
+      return Fail(String(submitResult.error!))
     }
 
     // 3. Persist
@@ -45,10 +45,10 @@ export class SubmitProposalUseCase implements IUseCase<SubmitProposalRequest, Su
     const domainEvents = proposal.clearDomainEvents()
     for (const event of domainEvents) {
       EventBus.publish({
-        eventName: event.eventType,
+        event_name: event.event_type,
         module: 'land-acquisition',
-        userId: request.userId,
-        entityId: event.aggregateId,
+        user_id: request.user_id,
+        entity_id: event.aggregateId,
         data: {
           ...event.payload,
           comments: request.comments,
@@ -58,11 +58,11 @@ export class SubmitProposalUseCase implements IUseCase<SubmitProposalRequest, Su
 
     // 5. Audit logging
     AuditQueue.push({
-      action: 'SUBMIT_PROPOSAL',
-      entityType: 'LandSchedule',
-      entityId: proposal.id,
-      userId: request.userId,
-      details: request.comments ?? 'Submitted for Area Vetting',
+      event_type: 'SUBMIT_PROPOSAL',
+      entity_name: 'land_schedule',
+      entity_id: proposal.id,
+      user_id: request.user_id,
+      remarks: request.comments ?? 'Submitted for Area Vetting',
     })
 
     // 6. Return response

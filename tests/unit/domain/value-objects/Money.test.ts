@@ -127,7 +127,8 @@ describe('Money Value Object', () => {
     it('should format with locale', () => {
       const money = Money.fromINR(123456.78)
       const formatted = money.format()
-      expect(formatted).toContain('123') // Should have Indian number formatting
+      expect(formatted).toContain('23') // Indian formatting: ₹1,23,456.78
+      expect(formatted).toContain('456.78')
     })
   })
 

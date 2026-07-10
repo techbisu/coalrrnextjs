@@ -1,18 +1,18 @@
 import { db } from './src/lib/db';
 import { withAuditContext } from './src/lib/context/AuditContext';
-import { AuditQueue } from './src/audit/services/AuditQueue';
+import { auditQueue as AuditQueue } from './src/infrastructure/di/Container';
 
 async function testAuditFramework() {
   console.log('Testing Audit Framework...');
   
   // Create a dummy user context
   const auditContext = {
-    userId: 'user-123',
+    user_id: 'user-123',
     userRole: 'admin',
-    ipAddress: '192.168.1.100',
-    userAgent: 'Audit-Test-Script',
-    requestUrl: '/api/test',
-    requestMethod: 'POST',
+    ip_address: '192.168.1.100',
+    user_agent: 'Audit-Test-Script',
+    request_url: '/api/test',
+    request_method: 'POST',
   };
 
   await withAuditContext(auditContext, async () => {
@@ -22,7 +22,7 @@ async function testAuditFramework() {
       data: {
         code: 'dummy-lang',
         name: 'Dummy Lang',
-        nativeName: 'Dummy',
+        native_name: 'Dummy',
         direction: 'LTR',
       }
     });
@@ -35,7 +35,7 @@ async function testAuditFramework() {
       where: { id: lang.id },
       data: {
         name: 'Updated Dummy Lang',
-        isActive: false
+        is_active: false
       }
     });
 
@@ -56,23 +56,23 @@ async function testAuditFramework() {
 
   // Check the DB for Audit Logs
   console.log('Checking Audit Logs in DB...');
-  const logs = await db.auditLog.findMany({
-    where: { entityName: 'Language' },
-    orderBy: { createdAt: 'desc' },
+  const logs = await db.audit_log.findMany({
+    where: { entity_name: 'Language' },
+    orderBy: { entry_ts: 'desc' },
     take: 3,
     include: { changes: true }
   });
 
   console.log('\n--- Audit Logs ---');
   logs.forEach(log => {
-    console.log(`[${log.eventType}] on ${log.entityName} by ${log.userId}`);
+    console.log(`[${log.event_type}] on ${log.entity_name} by ${log.user_id}`);
     if (log.changes.length > 0) {
       log.changes.forEach(change => {
-        console.log(`  -> Field: ${change.fieldName}`);
-        console.log(`  -> Old: ${change.oldValue}`);
-        console.log(`  -> New: ${change.newValue}`);
-        if (change.jsonDiff) {
-          console.log(`  -> JSON Diff: ${change.jsonDiff}`);
+        console.log(`  -> Field: ${change.field_name}`);
+        console.log(`  -> Old: ${change.old_value}`);
+        console.log(`  -> New: ${change.new_value}`);
+        if (change.json_diff) {
+          console.log(`  -> JSON Diff: ${change.json_diff}`);
         }
       });
     }

@@ -42,54 +42,54 @@ export interface CalculatorContract<TInput, TResult> {
  * Spec §4 (Module 4) — Land Compensation Payroll.
  */
 export class CompensationInput {
-  readonly landValue: MoneyValue;
-  readonly assetValue: MoneyValue;
-  readonly yearsSinceNotification: number;
-  readonly multiplicationFactor: string;
+  readonly land_value: MoneyValue;
+  readonly asset_value: MoneyValue;
+  readonly years_since_notification: number;
+  readonly multiplication_factor: string;
 
   constructor(args: {
-    landValue: MoneyValue;
-    assetValue: MoneyValue;
-    yearsSinceNotification: number;
-    multiplicationFactor: string;
+    land_value: MoneyValue;
+    asset_value: MoneyValue;
+    years_since_notification: number;
+    multiplication_factor: string;
   }) {
-    if (!args.landValue) throwInvalid("landValue", "is required");
-    if (!args.assetValue) throwInvalid("assetValue", "is required");
-    if (args.landValue.isNegative()) throwInvalid("landValue", "must not be negative");
-    if (args.assetValue.isNegative()) throwInvalid("assetValue", "must not be negative");
+    if (!args.land_value) throwInvalid("land_value", "is required");
+    if (!args.asset_value) throwInvalid("asset_value", "is required");
+    if (args.land_value.isNegative()) throwInvalid("land_value", "must not be negative");
+    if (args.asset_value.isNegative()) throwInvalid("asset_value", "must not be negative");
 
     if (
-      typeof args.yearsSinceNotification !== "number" ||
-      !Number.isFinite(args.yearsSinceNotification) ||
-      args.yearsSinceNotification < 0
+      typeof args.years_since_notification !== "number" ||
+      !Number.isFinite(args.years_since_notification) ||
+      args.years_since_notification < 0
     ) {
       throwInvalid(
-        "yearsSinceNotification",
+        "years_since_notification",
         "must be a non-negative finite number",
       );
     }
 
-    if (!args.multiplicationFactor || args.multiplicationFactor.trim() === "") {
-      throwInvalid("multiplicationFactor", "is required");
+    if (!args.multiplication_factor || args.multiplication_factor.trim() === "") {
+      throwInvalid("multiplication_factor", "is required");
     }
     let factorDecimal: Decimal;
     try {
-      factorDecimal = new Decimal(args.multiplicationFactor);
+      factorDecimal = new Decimal(args.multiplication_factor);
     } catch {
       throwInvalid(
-        "multiplicationFactor",
-        `Cannot parse "${args.multiplicationFactor}" as a decimal`,
+        "multiplication_factor",
+        `Cannot parse "${args.multiplication_factor}" as a decimal`,
       );
       return; // unreachable — throwInvalid always throws
     }
     if (!factorDecimal.isFinite() || factorDecimal.lt(0)) {
-      throwInvalid("multiplicationFactor", "must be a finite, non-negative decimal");
+      throwInvalid("multiplication_factor", "must be a finite, non-negative decimal");
     }
 
-    this.landValue = args.landValue;
-    this.assetValue = args.assetValue;
-    this.yearsSinceNotification = Math.floor(args.yearsSinceNotification);
-    this.multiplicationFactor = args.multiplicationFactor;
+    this.land_value = args.land_value;
+    this.asset_value = args.asset_value;
+    this.years_since_notification = Math.floor(args.years_since_notification);
+    this.multiplication_factor = args.multiplication_factor;
     Object.freeze(this);
   }
 }
@@ -119,7 +119,7 @@ export interface CompensationResult {
 
 /** Result of the 2.00-acre pooling-gate calculator. */
 export interface NomineePoolThresholdResult {
-  readonly pooledAcreage: AcreageValue;
+  readonly pooled_acreage: AcreageValue;
   readonly threshold: AcreageValue;
   readonly hasCrossedThreshold: boolean;
   /** Zero or positive gap to the threshold (zero when crossed). */

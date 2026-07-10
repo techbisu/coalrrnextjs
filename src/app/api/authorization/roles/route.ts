@@ -1,7 +1,7 @@
 import { ok, badRequest, serverError, readJson } from '@/app/api/_lib'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { roleSchema } from '@/authorization/validators'
-import { RoleService } from '@/authorization/services/RoleService'
+import { roleService } from '@/infrastructure/di/Container'
 import { db } from '@/lib/db'
 
 export async function GET() {
@@ -10,7 +10,7 @@ export async function GET() {
 
   try {
     const roles = await db.role.findMany({
-      orderBy: [{ isSystem: 'desc' }, { name: 'asc' }],
+      orderBy: [{ is_system: 'desc' }, { name: 'asc' }],
       include: {
         _count: {
           select: { users: true, permissions: true },
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       return badRequest('Invalid payload', result.error.format())
     }
 
-    const role = await RoleService.create(result.data)
+    const role = await roleService.create(result.data)
     return ok(role)
   } catch (error: any) {
     return serverError(error.message)

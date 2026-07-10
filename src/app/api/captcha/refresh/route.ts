@@ -10,10 +10,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'ID and purpose are required' }, { status: 400 })
     }
 
-    const ipAddress = req.ip || req.headers.get('x-forwarded-for') || undefined
-    const userAgent = req.headers.get('user-agent') || undefined
+    const ip_address = req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for') || undefined
+    const user_agent = req.headers.get('user-agent') || undefined
 
-    const result = await CaptchaService.refresh(id, purpose, ipAddress, userAgent)
+    const result = await CaptchaService.refresh(id, purpose, ip_address, user_agent)
 
     return NextResponse.json(result, { status: 201 })
   } catch (error: any) {

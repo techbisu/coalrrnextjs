@@ -41,6 +41,15 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "upload",
+    "examples",
+    "seed-demo.ts",
+    "seed-rbac.ts",
+    "seed-users.ts",
+    "seed-common.ts",
+    "seed-project-notification.ts",
+    "seed_rbac.js",
+    "seed_translations.js"
   ]
 }

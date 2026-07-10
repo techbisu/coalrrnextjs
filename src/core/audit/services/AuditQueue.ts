@@ -1,75 +1,58 @@
-import { db } from '@/lib/db';
-import { Prisma } from '@prisma/client';
+import { IAuditRepository } from '../interfaces/IAuditRepository';
 
-export type AuditEventPayload = Omit<Prisma.AuditLogCreateInput, 'id' | 'createdAt' | 'changes' | 'session'> & {
-  changes?: Omit<Prisma.AuditChangeCreateWithoutAuditLogInput, 'id' | 'createdAt'>[];
-  sessionId?: string;
-};
+export interface AuditChangePayload {
+  field_name?: string;
+  old_value?: string;
+  new_value?: string;
+  json_diff?: string;
+}
 
-class AuditQueueManager {
-  private queue: AuditEventPayload[] = [];
-  private isProcessing: boolean = false;
-  private readonly BATCH_SIZE = 50;
-  private readonly FLUSH_INTERVAL_MS = 3000;
-  private timer: NodeJS.Timeout | null = null;
+export interface AuditEventPayload {
+  event_type: string;
+  module_name?: string | null;
+  entity_name?: string | null;
+  entity_id?: string | number | null;
+  user_id?: string | null;
+  user_role?: string | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  request_url?: string | null;
+  request_method?: string | null;
+  remarks?: string | null;
+  session_id?: string | null;
+  changes?: AuditChangePayload[];
+}
 
-  constructor() {
-    this.startWorker();
-  }
+import { after } from 'next/server';
+
+export class AuditQueueManager {
+  constructor(private auditRepo: IAuditRepository) {}
 
   public push(event: AuditEventPayload) {
-    this.queue.push(event);
-    if (this.queue.length >= this.BATCH_SIZE) {
-      this.flush();
-    }
-  }
+    if (typeof window !== 'undefined') return;
 
-  private startWorker() {
-    if (typeof window !== 'undefined') return; // Ensure server-side only
-    this.timer = setInterval(() => {
-      this.flush();
-    }, this.FLUSH_INTERVAL_MS);
-  }
-
-  private async flush() {
-    if (this.isProcessing || this.queue.length === 0) return;
-
-    this.isProcessing = true;
-    // Extract a batch from the queue
-    const batch = this.queue.splice(0, this.BATCH_SIZE);
-
+    // Use Next.js after() to run this without blocking the HTTP response
+    // If we're not in a request context, it might throw, so we catch and fallback
     try {
-      // Prisma does not support deep createMany with relations in a single call natively
-      // for SQLite/PostgreSQL easily without some mapping, but we can do a transaction
-      await db.$transaction(
-        batch.map(event => {
-          const { changes, sessionId, ...auditData } = event;
-          return db.auditLog.create({
-            data: {
-              ...auditData,
-              sessionId,
-              changes: changes ? { create: changes } : undefined,
-            },
-          });
-        })
-      );
-    } catch (error) {
-      console.error('[AuditQueue] Failed to flush batch. Pushing back to queue.', error);
-      // Push back to the front of the queue to try again
-      this.queue.unshift(...batch);
-    } finally {
-      this.isProcessing = false;
+      after(async () => {
+        try {
+          await this.auditRepo.saveBatch([event]);
+        } catch (error) {
+          console.error('[AuditQueue] Failed to save audit log in background:', error);
+        }
+      });
+    } catch (e) {
+      // Fallback if not inside a Next.js request context (e.g. CLI or cron)
+      Promise.resolve().then(async () => {
+        try {
+          await this.auditRepo.saveBatch([event]);
+        } catch (error) {
+          console.error('[AuditQueue] Failed to save audit log fallback:', error);
+        }
+      });
     }
   }
 }
 
-// Global singleton to survive Next.js fast refresh during dev
-const globalForAudit = globalThis as unknown as {
-  auditQueue: AuditQueueManager | undefined;
-};
 
-export const AuditQueue = globalForAudit.auditQueue ?? new AuditQueueManager();
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForAudit.auditQueue = AuditQueue;
-}

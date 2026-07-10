@@ -4,14 +4,14 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default async function AdminLocalizationPage() {
-  const translations = await db.translationValue.findMany({
+  const translations = await db.translation_value.findMany({
     include: {
       language: true,
-      translationKey: {
+      translation_key: {
         include: { module: true }
       }
     },
-    orderBy: { updatedAt: 'desc' },
+    orderBy: { updt_ts: 'desc' },
     take: 50
   });
 
@@ -29,7 +29,7 @@ export default async function AdminLocalizationPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Language</TableHead>
+                <TableHead>language</TableHead>
                 <TableHead>Module</TableHead>
                 <TableHead>Key</TableHead>
                 <TableHead>Value</TableHead>
@@ -47,8 +47,8 @@ export default async function AdminLocalizationPage() {
                 translations.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell className="font-medium">{t.language.name}</TableCell>
-                    <TableCell>{t.translationKey.module.name}</TableCell>
-                    <TableCell className="font-mono text-xs">{t.translationKey.key}</TableCell>
+                    <TableCell>{t.translation_key.module.name}</TableCell>
+                    <TableCell className="font-mono text-xs">{t.translation_key.key}</TableCell>
                     <TableCell>{t.value}</TableCell>
                     <TableCell>
                       <Badge variant={t.status === 'approved' ? 'default' : 'secondary'}>

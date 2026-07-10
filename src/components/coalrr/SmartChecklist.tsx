@@ -18,7 +18,7 @@ export interface ChecklistItem {
   label: string
   required?: boolean
   status: ChecklistItemStatus
-  documentId?: string
+  document_id?: string
   helpText?: string
 }
 
@@ -107,7 +107,7 @@ export function SmartChecklist({
                 <p className="mt-0.5 text-xs text-muted-foreground">{item.helpText}</p>
               )}
             </div>
-            {item.documentId && (
+            {item.document_id && (
               <Button
                 size="sm"
                 variant="ghost"

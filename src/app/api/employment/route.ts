@@ -1,4 +1,4 @@
-// GET /api/employment — list employment applications + nominee pool threshold status
+﻿// GET /api/employment — list employment applications + nominee pool threshold status
 import { db } from '@/lib/db'
 import { ok, serverError, dec } from '../_lib'
 import { NomineePoolThresholdCalculator, AcreageValue, EMPLOYMENT_GATE_ACRES } from '@/lib/engines'
@@ -8,39 +8,39 @@ const thresholdCalc = new NomineePoolThresholdCalculator()
 
 export async function GET(_req: NextRequest) {
   try {
-    const apps = await db.employmentApplication.findMany({
+    const apps = await db.employment_application.findMany({
       include: {
-        nomineePool: { include: { contributions: { include: { formIClaim: { include: { plot: true } } } } } },
+        nominee_pool: { include: { contributions: { include: { form_i_claim: { include: { plot: true } } } } } },
         project: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { entry_ts: 'desc' },
     })
 
     const result = apps.map((a) => {
-      // Recompute threshold live for display (the persisted formIxBalanceAcres is the frozen snapshot)
-      const shares = a.nomineePool.contributions.map((c) => c.shareAcres.toString())
+      // Recompute threshold live for display (the persisted form_ix_balance_acres is the frozen snapshot)
+      const shares = a.nominee_pool.contributions.map((c) => c.share_acres.toString())
       const liveThreshold = thresholdCalc.calculate(shares)
       return {
         id: a.id,
-        applicationCode: a.applicationCode,
+        application_code: a.application_code,
         projectName: a.project.name,
-        nomineeName: a.nomineePool.nomineeName,
+        nominee_name: a.nominee_pool.nominee_name,
         state: a.state,
         // Frozen-at-approval snapshot (spec §3.1.1 — "NOT live-recomputed after lock")
-        formIxBalanceAcres: dec(a.formIxBalanceAcres),
-        formXBalanceJobs: a.formXBalanceJobs,
+        form_ix_balance_acres: dec(a.form_ix_balance_acres),
+        form_x_balance_jobs: a.form_x_balance_jobs,
         // Live threshold status (recomputed for UI)
-        livePooledAcreage: liveThreshold.pooledAcreage.format(),
+        livePooledAcreage: liveThreshold.pooled_acreage.format(),
         threshold: EMPLOYMENT_GATE_ACRES.toString(),
         hasCrossedThreshold: liveThreshold.hasCrossedThreshold,
         remainingToThreshold: liveThreshold.remainingToThreshold.format(),
-        applyButtonUnlocked: a.nomineePool.applyButtonUnlocked,
-        exceptionFlags: a.exceptionFlags,
-        contributionCount: a.nomineePool.contributions.length,
-        contributions: a.nomineePool.contributions.map((c) => ({
-          shareAcres: dec(c.shareAcres),
-          claimantName: c.formIClaim.claimantName,
-          plotNumber: c.formIClaim.plot.plotNumber,
+        apply_button_unlocked: a.nominee_pool.apply_button_unlocked,
+        exception_flags: a.exception_flags,
+        contributionCount: a.nominee_pool.contributions.length,
+        contributions: a.nominee_pool.contributions.map((c) => ({
+          share_acres: dec(c.share_acres),
+          claimant_name: c.form_i_claim.claimant_name,
+          plot_number: c.form_i_claim.plot.plot_number,
         })),
       }
     })

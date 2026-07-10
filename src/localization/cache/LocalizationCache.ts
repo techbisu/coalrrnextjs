@@ -1,5 +1,5 @@
 // Fallback in-memory cache since Redis is unavailable
-type CacheMap = Map<string, { data: any; expiresAt: number }>;
+type CacheMap = Map<string, { data: any; expires_at: number }>;
 
 const globalCache: CacheMap = globalThis.localizationCache || new Map();
 if (process.env.NODE_ENV !== 'production') {
@@ -14,7 +14,7 @@ export class LocalizationCache {
     const cached = globalCache.get(key);
     
     if (cached) {
-      if (Date.now() < cached.expiresAt) {
+      if (Date.now() < cached.expires_at) {
         return cached.data;
       }
       globalCache.delete(key);
@@ -26,7 +26,7 @@ export class LocalizationCache {
     const key = `i18n:${locale}`;
     globalCache.set(key, {
       data: translations,
-      expiresAt: Date.now() + this.TTL_MS,
+      expires_at: Date.now() + this.TTL_MS,
     });
   }
 

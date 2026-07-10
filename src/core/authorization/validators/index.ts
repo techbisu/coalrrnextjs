@@ -2,18 +2,18 @@ import { z } from 'zod'
 
 export const roleSchema = z.object({
   name: z.string().min(2, 'Name is required'),
-  displayName: z.string().nullable().optional(),
+  display_name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  guardName: z.string().default('web'),
+  guard_name: z.string().default('web'),
 })
 
 export const permissionSchema = z.object({
   name: z.string().min(2, 'Name is required'),
-  displayName: z.string().nullable().optional(),
+  display_name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   module: z.string().nullable().optional(),
   group: z.string().nullable().optional(),
-  guardName: z.string().default('web'),
+  guard_name: z.string().default('web'),
 })
 
 export const syncRolesSchema = z.object({

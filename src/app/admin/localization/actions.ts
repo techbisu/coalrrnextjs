@@ -5,11 +5,11 @@ import { LocalizationCache } from '@/localization/cache/LocalizationCache';
 import { revalidatePath } from 'next/cache';
 
 export async function approveTranslation(valueId: string, adminUserId: string) {
-  const value = await db.translationValue.update({
+  const value = await db.translation_value.update({
     where: { id: valueId },
     data: {
       status: 'approved',
-      approvedBy: adminUserId,
+      approved_by: adminUserId,
     },
     include: { language: true }
   });
@@ -21,43 +21,43 @@ export async function approveTranslation(valueId: string, adminUserId: string) {
   return { success: true };
 }
 
-export async function saveTranslation(keyId: string, languageId: string, newValue: string, adminUserId: string) {
-  const existing = await db.translationValue.findUnique({
-    where: { translationKeyId_languageId: { translationKeyId: keyId, languageId: languageId } }
+export async function saveTranslation(keyId: string, language_id: string, new_value: string, adminUserId: string) {
+  const existing = await db.translation_value.findUnique({
+    where: { translation_key_id_language_id: { translation_key_id: keyId, language_id: language_id } }
   });
 
   if (existing) {
-    if (existing.value !== newValue) {
-      await db.translationHistory.create({
+    if (existing.value !== new_value) {
+      await db.translation_history.create({
         data: {
-          translationValueId: existing.id,
+          translation_value_id: existing.id,
           value: existing.value,
           status: existing.status,
           version: existing.version,
-          changedBy: adminUserId,
-          changeReason: 'Manual Edit',
+          changed_by: adminUserId,
+          change_reason: 'Manual Edit',
         },
       });
 
-      await db.translationValue.update({
+      await db.translation_value.update({
         where: { id: existing.id },
         data: {
-          value: newValue,
+          value: new_value,
           status: 'draft',
           version: existing.version + 1,
-          createdBy: adminUserId,
+          entry_by: adminUserId,
         }
       });
     }
   } else {
-    await db.translationValue.create({
+    await db.translation_value.create({
       data: {
-        translationKeyId: keyId,
-        languageId: languageId,
-        value: newValue,
+        translation_key_id: keyId,
+        language_id: language_id,
+        value: new_value,
         status: 'draft',
         version: 1,
-        createdBy: adminUserId,
+        entry_by: adminUserId,
       }
     });
   }

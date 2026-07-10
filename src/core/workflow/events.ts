@@ -29,7 +29,7 @@ export type WorkflowEventName =
   (typeof WorkflowEventCatalog)[keyof typeof WorkflowEventCatalog];
 
 /**
- * Per spec §2.3.2 — when a `CompensationPayroll` enters `HqParallelVetting`,
+ * Per spec §2.3.2 — when a `compensation_payroll` enters `HqParallelVetting`,
  * the workflow fans out parallel review tasks to both GM roles.
  */
 export const REVIEW_ROLE_FANOUT: Readonly<Record<string, ReadonlyArray<string>>> =

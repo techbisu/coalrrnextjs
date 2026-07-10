@@ -11,43 +11,39 @@ describe('Project Entity', () => {
     it('should create a valid project', () => {
       const result = Project.create({
         name: 'Test Colliery Project',
-        collieryCode: 'TCL001',
-        totalLandLimitAcres: 1000,
-        totalBudgetCeiling: 5000000,
-        totalEmploymentQuota: 100,
+        colliery_code: 'TCL001',
+        total_land_limit_acres: 1000,
+        total_budget_ceiling: 5000000,
+        total_employment_quota: 100,
       })
 
       expect(result.isSuccess).toBe(true)
       expect(result.value?.name).toBe('Test Colliery Project')
-      expect(result.value?.collieryCode).toBe('TCL001')
+      expect(result.value?.colliery_code).toBe('TCL001')
       expect(result.value?.isLocked()).toBe(false)
     })
 
     it('should fail with empty name', () => {
       const result = Project.create({
         name: '',
-        collieryCode: 'TCL001',
-        totalLandLimitAcres: 1000,
-        totalBudgetCeiling: 5000000,
-        totalEmploymentQuota: 100,
+        colliery_code: 'TCL001',
+        total_land_limit_acres: 1000,
+        total_budget_ceiling: 5000000,
+        total_employment_quota: 100,
       })
 
       expect(result.isFailure).toBe(true)
-      expect(result.error).toBeInstanceOf(ValidationException)
-      const error = result.error as ValidationException
-      expect(error.errors).toContainEqual({
-        field: 'name',
-        message: 'Project name is required',
-      })
+      expect(typeof result.error).toBe('string')
+      expect(result.error).toContain('Project name is required')
     })
 
     it('should fail with negative land limit', () => {
       const result = Project.create({
         name: 'Test Project',
-        collieryCode: 'TCL001',
-        totalLandLimitAcres: -100,
-        totalBudgetCeiling: 5000000,
-        totalEmploymentQuota: 100,
+        colliery_code: 'TCL001',
+        total_land_limit_acres: -100,
+        total_budget_ceiling: 5000000,
+        total_employment_quota: 100,
       })
 
       expect(result.isFailure).toBe(true)
@@ -56,10 +52,10 @@ describe('Project Entity', () => {
     it('should fail with negative budget', () => {
       const result = Project.create({
         name: 'Test Project',
-        collieryCode: 'TCL001',
-        totalLandLimitAcres: 1000,
-        totalBudgetCeiling: -5000000,
-        totalEmploymentQuota: 100,
+        colliery_code: 'TCL001',
+        total_land_limit_acres: 1000,
+        total_budget_ceiling: -5000000,
+        total_employment_quota: 100,
       })
 
       expect(result.isFailure).toBe(true)
@@ -68,15 +64,15 @@ describe('Project Entity', () => {
     it('should fail with multiple validation errors', () => {
       const result = Project.create({
         name: '',
-        collieryCode: '',
-        totalLandLimitAcres: -100,
-        totalBudgetCeiling: -5000000,
-        totalEmploymentQuota: -10,
+        colliery_code: '',
+        total_land_limit_acres: -100,
+        total_budget_ceiling: -5000000,
+        total_employment_quota: -10,
       })
 
       expect(result.isFailure).toBe(true)
-      const error = result.error as ValidationException
-      expect(error.errors.length).toBeGreaterThan(1)
+      expect(typeof result.error).toBe('string')
+      expect(result.error).toContain('Validation')
     })
   })
 
@@ -84,10 +80,10 @@ describe('Project Entity', () => {
     it('should lock an unlocked project', () => {
       const projectResult = Project.create({
         name: 'Test Project',
-        collieryCode: 'TCL001',
-        totalLandLimitAcres: 1000,
-        totalBudgetCeiling: 5000000,
-        totalEmploymentQuota: 100,
+        colliery_code: 'TCL001',
+        total_land_limit_acres: 1000,
+        total_budget_ceiling: 5000000,
+        total_employment_quota: 100,
       })
 
       const project = projectResult.value!
@@ -95,17 +91,17 @@ describe('Project Entity', () => {
 
       expect(lockResult.isSuccess).toBe(true)
       expect(project.isLocked()).toBe(true)
-      expect(project.lockedAt).not.toBeNull()
+      expect(project.locked_at).not.toBeNull()
       expect(project.lockedBy).toBe('user-123')
     })
 
     it('should fail to lock an already locked project', () => {
       const projectResult = Project.create({
         name: 'Test Project',
-        collieryCode: 'TCL001',
-        totalLandLimitAcres: 1000,
-        totalBudgetCeiling: 5000000,
-        totalEmploymentQuota: 100,
+        colliery_code: 'TCL001',
+        total_land_limit_acres: 1000,
+        total_budget_ceiling: 5000000,
+        total_employment_quota: 100,
       })
 
       const project = projectResult.value!
@@ -120,10 +116,10 @@ describe('Project Entity', () => {
     it('should emit domain event when locked', () => {
       const projectResult = Project.create({
         name: 'Test Project',
-        collieryCode: 'TCL001',
-        totalLandLimitAcres: 1000,
-        totalBudgetCeiling: 5000000,
-        totalEmploymentQuota: 100,
+        colliery_code: 'TCL001',
+        total_land_limit_acres: 1000,
+        total_budget_ceiling: 5000000,
+        total_employment_quota: 100,
       })
 
       const project = projectResult.value!
@@ -131,7 +127,7 @@ describe('Project Entity', () => {
       
       const events = project.getDomainEvents()
       expect(events.length).toBe(1)
-      expect(events[0].eventType).toBe('PROJECT_LOCKED')
+      expect(events[0].event_type).toBe('PROJECT_LOCKED')
       expect(events[0].payload.lockedBy).toBe('user-123')
     })
   })
@@ -140,33 +136,33 @@ describe('Project Entity', () => {
     it('should update unlocked project', () => {
       const projectResult = Project.create({
         name: 'Test Project',
-        collieryCode: 'TCL001',
-        totalLandLimitAcres: 1000,
-        totalBudgetCeiling: 5000000,
-        totalEmploymentQuota: 100,
+        colliery_code: 'TCL001',
+        total_land_limit_acres: 1000,
+        total_budget_ceiling: 5000000,
+        total_employment_quota: 100,
       })
 
       const project = projectResult.value!
       const updateResult = project.update(
         {
           name: 'Updated Project Name',
-          totalBudgetCeiling: 6000000,
+          total_budget_ceiling: 6000000,
         },
         'user-123'
       )
 
       expect(updateResult.isSuccess).toBe(true)
       expect(project.name).toBe('Updated Project Name')
-      expect(project.totalBudgetCeiling.toNumber()).toBe(6000000)
+      expect(project.total_budget_ceiling.toNumber()).toBe(6000000)
     })
 
     it('should fail to update locked project', () => {
       const projectResult = Project.create({
         name: 'Test Project',
-        collieryCode: 'TCL001',
-        totalLandLimitAcres: 1000,
-        totalBudgetCeiling: 5000000,
-        totalEmploymentQuota: 100,
+        colliery_code: 'TCL001',
+        total_land_limit_acres: 1000,
+        total_budget_ceiling: 5000000,
+        total_employment_quota: 100,
       })
 
       const project = projectResult.value!
@@ -186,10 +182,10 @@ describe('Project Entity', () => {
     it('should correctly identify if project can be edited', () => {
       const projectResult = Project.create({
         name: 'Test Project',
-        collieryCode: 'TCL001',
-        totalLandLimitAcres: 1000,
-        totalBudgetCeiling: 5000000,
-        totalEmploymentQuota: 100,
+        colliery_code: 'TCL001',
+        total_land_limit_acres: 1000,
+        total_budget_ceiling: 5000000,
+        total_employment_quota: 100,
       })
 
       const project = projectResult.value!

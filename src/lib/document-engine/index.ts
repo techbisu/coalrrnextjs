@@ -5,136 +5,77 @@ import { PdfService } from './pdf'
 import { fileService } from '@/modules/file-management/services/FileService'
 
 export interface GenerationPayload {
-  templateCode: string
-  entityType: string
-  entityId: string
-  generatedBy: string // user id or system
+  template_code: string
+  entity_type: string
+  entity_id: string
+  generated_by: string // user id or system
   businessData: Record<string, unknown>
-  dynamicAnswers?: Record<string, string>
+  dynamic_answers?: Record<string, string>
 }
+
+import { JobQueue } from '@/core/jobs/JobQueue'
 
 export class DocumentEngine {
   /**
-   * Generates a new document instance (or a new version of an existing instance).
+   * Generates a new document instance asynchronously by enqueuing a job.
    */
   static async generate(payload: GenerationPayload) {
-    const template = await db.docTemplate.findUnique({
-      where: { templateCode: payload.templateCode }
+    const template = await db.doc_template.findUnique({
+      where: { template_code: payload.template_code }
     })
     
     if (!template) {
-      throw new Error(`Template not found: ${payload.templateCode}`)
-    }
-
-    // Load the DOCX template binary from storage
-    const templateBuffer = await StorageService.readFile(template.storagePath)
-
-    // Merge business data and dynamic answers
-    const mergedData = {
-      ...payload.businessData,
-      ...payload.dynamicAnswers
-    }
-
-    // Generate the new DOCX buffer
-    const generatedDocxBuffer = DocxGeneratorService.generate(templateBuffer, mergedData)
-    
-    // Convert to PDF
-    let generatedPdfBuffer: Buffer | null = null
-    try {
-      generatedPdfBuffer = await PdfService.convertToPdf(generatedDocxBuffer)
-    } catch (e) {
-      console.warn('PDF conversion failed, falling back to DOCX only.', e)
+      throw new Error(`Template not found: ${payload.template_code}`)
     }
 
     return await db.$transaction(async (tx) => {
       // Find or create the instance
-      let instance = await tx.docInstance.findFirst({
+      let instance = await tx.doc_instance.findFirst({
         where: {
-          templateId: template.id,
-          entityType: payload.entityType,
-          entityId: payload.entityId
+          template_id: template.id,
+          entity_type: payload.entity_type,
+          entity_id: payload.entity_id
         }
       })
 
       if (!instance) {
         const uniqueDocId = `DOC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 99999)).padStart(5, '0')}`
-        instance = await tx.docInstance.create({
+        instance = await tx.doc_instance.create({
           data: {
-            documentId: uniqueDocId,
-            templateId: template.id,
-            entityType: payload.entityType,
-            entityId: payload.entityId,
-            status: 'Draft'
+            document_id: uniqueDocId,
+            template_id: template.id,
+            entity_type: payload.entity_type,
+            entity_id: payload.entity_id,
+            status: 'Processing' // Mark as processing
           }
+        })
+      } else {
+        instance = await tx.doc_instance.update({
+          where: { id: instance.id },
+          data: { status: 'Processing' }
         })
       }
 
-      // Determine the next version number
-      const lastVersion = await tx.docVersion.findFirst({
-        where: { instanceId: instance.id },
-        orderBy: { versionNumber: 'desc' }
-      })
-      const nextVersionNumber = lastVersion ? lastVersion.versionNumber + 1 : 1
-
-      // Save files to Global File Framework
-      const docxRecord = await fileService.uploadFile({
-        buffer: generatedDocxBuffer,
-        originalName: `${instance.documentId}-v${nextVersionNumber}.docx`,
-        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        ownerId: payload.generatedBy,
-        module: 'document-engine',
-        entityType: payload.entityType,
-        entityId: payload.entityId,
-      });
-      
-      let pdfRecord = null;
-      if (generatedPdfBuffer) {
-        pdfRecord = await fileService.uploadFile({
-          buffer: generatedPdfBuffer,
-          originalName: `${instance.documentId}-v${nextVersionNumber}.pdf`,
-          mimeType: 'application/pdf',
-          ownerId: payload.generatedBy,
-          module: 'document-engine',
-          entityType: payload.entityType,
-          entityId: payload.entityId,
-        });
-      }
-
-      // Create version record
-      const version = await tx.docVersion.create({
-        data: {
-          instanceId: instance.id,
-          versionNumber: nextVersionNumber,
-          docxFileId: docxRecord.id,
-          pdfFileId: pdfRecord?.id,
-          generatedBy: payload.generatedBy,
-          metadata: JSON.stringify(mergedData)
-        }
-      })
-
-      // Log Audit
-      await tx.docAuditLog.create({
-        data: {
-          documentId: instance.documentId,
-          action: 'Generated',
-          userId: payload.generatedBy,
-        }
+      // Enqueue the generation job
+      await JobQueue.enqueue('GENERATE_DOCUMENT', {
+        ...payload,
+        instance_id: instance.id
       })
 
       return {
         instance,
-        version
+        message: 'document generation enqueued successfully.'
       }
     })
   }
 
-  static async getHistory(documentId: string) {
-    return await db.docInstance.findUnique({
-      where: { documentId },
+  static async getHistory(document_id: string) {
+    return await db.doc_instance.findUnique({
+      where: { document_id },
       include: {
-        versions: { orderBy: { versionNumber: 'desc' } },
+        versions: { orderBy: { version_number: 'desc' } },
         signatures: true,
-        workflowSteps: true
+        workflow_steps: true
       }
     })
   }

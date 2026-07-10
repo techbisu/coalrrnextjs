@@ -9,25 +9,25 @@ import Decimal from 'decimal.js'
 export interface ProjectDashboardItem {
   id: string
   name: string
-  collieryCode: string
-  totalLandLimitAcres: string
-  totalBudgetCeiling: string
-  totalEmploymentQuota: number
+  colliery_code: string
+  total_land_limit_acres: string
+  total_budget_ceiling: string
+  total_employment_quota: number
   boundary: string | null
-  statutoryClearances: string | null
-  lockedAt: string | null
+  statutory_clearances: string | null
+  locked_at: string | null
   isLocked: boolean
   payrollCount: number
   totalDisbursed: string
   budgetUtilization: string
   plots: Array<{
     id: string
-    plotNumber: string
+    plot_number: string
     mouza: string
-    landType: string
-    areaAcres: string
-    exhaustedAreaForJobs: string
-    remainingJobQuota: number
+    land_type: string
+    area_acres: string
+    exhausted_area_for_jobs: string
+    remaining_job_quota: number
   }>
 }
 
@@ -63,7 +63,7 @@ export class GetProjectDashboardUseCase implements IUseCase<GetProjectDashboardR
       const searchLower = request.search.toLowerCase()
       filtered = dashboardData.filter(d => 
         d.project.name.toLowerCase().includes(searchLower) ||
-        d.project.collieryCode.toLowerCase().includes(searchLower)
+        d.project.colliery_code.toLowerCase().includes(searchLower)
       )
     }
 
@@ -75,15 +75,15 @@ export class GetProjectDashboardUseCase implements IUseCase<GetProjectDashboardR
 
     // Map to response DTOs
     const projects: ProjectDashboardItem[] = paged.map(d => ({
-      id: d.project.id,
+      id: d.project.id.toString(),
       name: d.project.name,
-      collieryCode: d.project.collieryCode,
-      totalLandLimitAcres: d.project.totalLandLimit.toDecimal().toString(),
-      totalBudgetCeiling: d.project.totalBudgetCeiling.toDecimal().toString(),
-      totalEmploymentQuota: d.project.totalEmploymentQuota,
+      colliery_code: d.project.colliery_code,
+      total_land_limit_acres: d.project.totalLandLimit.toDecimal().toString(),
+      total_budget_ceiling: d.project.total_budget_ceiling.toDecimal().toString(),
+      total_employment_quota: d.project.total_employment_quota,
       boundary: d.project.boundary ?? null,
-      statutoryClearances: d.project.statutoryClearances ?? null,
-      lockedAt: d.project.lockedAt?.toISOString() ?? null,
+      statutory_clearances: d.project.statutory_clearances ?? null,
+      locked_at: d.project.locked_at?.toISOString() ?? null,
       isLocked: d.project.isLocked(),
       payrollCount: d.payrollCount,
       totalDisbursed: d.totalDisbursed.toFixed(2),

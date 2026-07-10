@@ -1,27 +1,27 @@
-export interface IProjectMaster {
+﻿export interface IProjectMaster {
   id: string;
   name: string;
-  collieryCode: string;
-  totalLandLimitAcres: string; // Stored as Decimal, passed as string
-  totalBudgetCeiling: string;
-  totalEmploymentQuota: number;
+  colliery_code: string;
+  total_land_limit_acres: string; // Stored as Decimal, passed as string
+  total_budget_ceiling: string;
+  total_employment_quota: number;
   boundary: string;
-  statutoryClearances: string | null;
+  statutory_clearances: string | null;
   isLocked: boolean;
-  lockedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  locked_at: Date | null;
+  entry_ts: Date;
+  updt_ts: Date;
 }
 
 export interface IProjectMasterCreateDTO {
   name: string;
-  collieryCode: string;
-  totalLandLimitAcres: string;
-  totalBudgetCeiling: string;
-  totalEmploymentQuota: number;
+  colliery_code: string;
+  total_land_limit_acres: string;
+  total_budget_ceiling: string;
+  total_employment_quota: number;
   boundary?: string;
 }
 
 export interface IProjectMasterUpdateDTO extends Partial<IProjectMasterCreateDTO> {
-  statutoryClearances?: string | null;
+  statutory_clearances?: string | null;
 }

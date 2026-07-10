@@ -4,19 +4,19 @@
  */
 import { IUseCase, Result, Fail } from '@/core'
 import { Project, ProjectAlreadyLockedException, IProjectRepository } from '@/domain'
-import { EventBus } from '@/notifications/EventBus'
-import { AuditQueue } from '@/audit/services/AuditQueue'
+import { EventBus } from '@/core/notifications/EventBus'
+import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
 import { NotFoundException } from '@/core/errors'
 
 export interface LockProjectRequest {
-  projectId: string
-  userId: string
+  project_id: string
+  user_id: string
 }
 
 export interface LockProjectResponse {
   id: string
   name: string
-  lockedAt: Date
+  locked_at: Date
   message: string
 }
 
@@ -27,41 +27,41 @@ export class LockProjectUseCase implements IUseCase<LockProjectRequest, LockProj
 
   async execute(request: LockProjectRequest): Promise<Result<LockProjectResponse>> {
     // 1. Find project
-    const project = await this.projectRepository.findById(request.projectId)
+    const project = await this.projectRepository.findById(request.project_id)
     
     if (!project) {
-      return Fail(new NotFoundException('Project', request.projectId))
+      return Fail('Project')
     }
 
     // 2. Execute business behavior
-    const lockResult = project.lock(request.userId)
+    const lockResult = project.lock(request.user_id)
     
     if (lockResult.isFailure) {
-      return Fail(lockResult.error!)
+      return Fail(String(lockResult.error!))
     }
 
     // 3. Persist the change
-    await this.projectRepository.lock(request.projectId, request.userId)
+    await this.projectRepository.lock(request.project_id, request.user_id)
 
     // 4. Publish domain events
     const domainEvents = project.clearDomainEvents()
     for (const event of domainEvents) {
       EventBus.publish({
-        eventName: event.eventType,
+        event_name: event.event_type,
         module: 'project-master',
-        userId: request.userId,
-        entityId: event.aggregateId,
+        user_id: request.user_id,
+        entity_id: event.aggregateId,
         data: event.payload,
       })
     }
 
     // 5. Audit logging
     AuditQueue.push({
-      action: 'LOCK_PROJECT_BASELINE',
-      entityType: 'MstProject',
-      entityId: project.id,
-      userId: request.userId,
-      details: 'Baseline permanently locked.',
+      event_type: 'LOCK_PROJECT_BASELINE',
+      entity_name: 'mst_project',
+      entity_id: project.id,
+      user_id: request.user_id,
+      remarks: 'Baseline permanently locked.',
     })
 
     // 6. Return response
@@ -71,7 +71,7 @@ export class LockProjectUseCase implements IUseCase<LockProjectRequest, LockProj
       value: {
         id: project.id,
         name: project.name,
-        lockedAt: project.lockedAt!,
+        locked_at: project.locked_at!,
         message: `Project "${project.name}" has been locked as baseline.`,
       },
       error: null,

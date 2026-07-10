@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -23,14 +23,14 @@ interface DashboardData {
     totalBudget: string; totalSpent: string; budgetUtilization: string
     totalAcreage: string; totalAwardPending: string
   }
-  projects: Array<{ id: string; name: string; collieryCode: string; totalLandLimitAcres: string; totalBudgetCeiling: string; totalEmploymentQuota: number; lockedAt: string | null; scheduleCount: number; payrollCount: number }>
-  plots: Array<{ id: string; plotNumber: string; mouza: string; landType: string; areaAcres: string; exhaustedAreaForJobs: string; remainingJobQuota: number }>
-  payrolls: Array<{ id: string; payrollCode: string; projectName: string; state: string; landownerCount: number; totalAward: string; lineCount: number; createdAt: string }>
-  ledgerEntries: Array<{ id: string; payeeName: string; amountLand: string; amountRnr: string; rtgsUtrReference: string | null; rowHash: string | null; paidAt: string }>
-  nomineePools: Array<{ id: string; nomineeName: string; pooledAcreage: string; applyButtonUnlocked: boolean; contributionCount: number }>
-  employmentApps: Array<{ id: string; applicationCode: string; formIxBalanceAcres: string; formXBalanceJobs: number; state: string }>
-  grievances: Array<{ id: string; grievanceCode: string; complainantName: string; description: string; slaDueAt: string; resolution: string | null; daysRemaining: number }>
-  reviewTasks: Array<{ id: string; reviewableType: string; role: string; status: string; decidedBy: string | null; createdAt: string }>
+  projects: Array<{ id: string; name: string; colliery_code: string; total_land_limit_acres: string; total_budget_ceiling: string; total_employment_quota: number; locked_at: string | null; scheduleCount: number; payrollCount: number }>
+  plots: Array<{ id: string; plot_number: string; mouza: string; land_type: string; area_acres: string; exhausted_area_for_jobs: string; remaining_job_quota: number }>
+  payrolls: Array<{ id: string; payroll_code: string; projectName: string; state: string; landowner_count: number; total_award: string; lineCount: number; entry_ts: string }>
+  ledger_entries: Array<{ id: string; payee_name: string; amount_land: string; amount_rnr: string; rtgs_utr_reference: string | null; row_hash: string | null; paid_at: string }>
+  nomineePools: Array<{ id: string; nominee_name: string; pooled_acreage: string; apply_button_unlocked: boolean; contributionCount: number }>
+  employmentApps: Array<{ id: string; application_code: string; form_ix_balance_acres: string; form_x_balance_jobs: number; state: string }>
+  grievances: Array<{ id: string; grievance_code: string; complainant_name: string; description: string; sla_due_at: string; resolution: string | null; daysRemaining: number }>
+  reviewTasks: Array<{ id: string; reviewable_type: string; role: string; status: string; decided_by: string | null; entry_ts: string }>
   notifications: Array<{ id: string; type: 'sla' | 'grievance' | 'approval' | 'info'; title: string; message: string; timestamp: string; read: boolean }>
   stateDistribution: Record<string, number>
   landTypeDistribution: Record<string, number>
@@ -140,16 +140,16 @@ export function DashboardView() {
         <DataTable
           loading={isLoading}
           columns={[
-            { key: 'payrollCode', header: 'Code', sortable: true, render: (r) => <span className="font-mono text-xs font-medium">{r.payrollCode}</span> },
+            { key: 'payroll_code', header: 'Code', sortable: true, render: (r) => <span className="font-mono text-xs font-medium">{r.payroll_code}</span> },
             { key: 'projectName', header: 'Project', sortable: true },
             { key: 'state', header: 'State', render: (r) => <StateBadge state={r.state} /> },
-            { key: 'landownerCount', header: 'Landowners', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{r.landownerCount}</span> },
-            { key: 'totalAward', header: 'Total Award', align: 'right', sortable: true, render: (r) => <span className="font-medium tabular-nums">{formatINR(r.totalAward)}</span> },
-            { key: 'createdAt', header: 'Created', render: (r) => <span className="text-xs text-muted-foreground">{timeAgo(r.createdAt)}</span> },
+            { key: 'landowner_count', header: 'Landowners', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{r.landowner_count}</span> },
+            { key: 'total_award', header: 'Total Award', align: 'right', sortable: true, render: (r) => <span className="font-medium tabular-nums">{formatINR(r.total_award)}</span> },
+            { key: 'entry_ts', header: 'Created', render: (r) => <span className="text-xs text-muted-foreground">{timeAgo(r.entry_ts)}</span> },
           ] as Column<DashboardData['payrolls'][0]>[]}
           data={data?.payrolls ?? []}
           getRowId={(r) => r.id}
-          onRowClick={(r) => { selectPayroll(r.id); setView('payroll-builder'); window.history.pushState(null, '', routes.payroll.details(r.payrollCode)); }}
+          onRowClick={(r) => { selectPayroll(r.id); setView('payroll-builder'); window.history.pushState(null, '', routes.payroll.details(r.payroll_code)); }}
           pageSize={5}
         />
       </SectionCard>
@@ -164,12 +164,12 @@ export function DashboardView() {
               {data?.grievances.filter((g) => !g.resolution).map((g) => (
                 <li key={g.id} className="rounded-md border border-rose-200 bg-rose-50/50 p-3 dark:border-rose-900 dark:bg-rose-950/20">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-medium text-rose-700 dark:text-rose-300">{g.grievanceCode}</span>
+                    <span className="font-mono text-xs font-medium text-rose-700 dark:text-rose-300">{g.grievance_code}</span>
                     <Badge variant="outline" className={g.daysRemaining < 3 ? 'border-rose-300 bg-rose-100 text-rose-700' : 'border-amber-300 bg-amber-100 text-amber-700'}>
                       <Clock className="mr-1 h-2.5 w-2.5" /> {g.daysRemaining}d left
                     </Badge>
                   </div>
-                  <p className="mt-1 text-xs font-medium">{g.complainantName}</p>
+                  <p className="mt-1 text-xs font-medium">{g.complainant_name}</p>
                   <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{g.description}</p>
                 </li>
               ))}
@@ -179,17 +179,17 @@ export function DashboardView() {
 
         <SectionCard title="Recent Ledger Entries" icon={Lock} description="Hash-chained Form-D payments (immutable)">
           <ul className="space-y-2">
-            {data?.ledgerEntries.slice(0, 4).map((e) => (
+            {data?.ledger_entries.slice(0, 4).map((e) => (
               <li key={e.id} className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-card px-3 py-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{e.payeeName}</p>
+                  <p className="truncate text-sm font-medium">{e.payee_name}</p>
                   <p className="font-mono text-[10px] text-muted-foreground">
-                    {e.rowHash ? `🔒 ${e.rowHash.slice(0, 16)}…` : 'pending'}
+                    {e.row_hash ? `🔒 ${e.row_hash.slice(0, 16)}…` : 'pending'}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold tabular-nums">{formatINR(String(Number(e.amountLand) + Number(e.amountRnr)))}</p>
-                  <p className="text-[10px] text-muted-foreground">{timeAgo(e.paidAt)}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatINR(String(Number(e.amount_land) + Number(e.amount_rnr)))}</p>
+                  <p className="text-[10px] text-muted-foreground">{timeAgo(e.paid_at)}</p>
                 </div>
               </li>
             ))}

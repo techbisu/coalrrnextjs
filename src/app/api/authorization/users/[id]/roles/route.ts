@@ -1,7 +1,7 @@
 import { ok, badRequest, serverError, readJson } from '@/app/api/_lib'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { syncRolesSchema } from '@/authorization/validators'
-import { RoleService } from '@/authorization/services/RoleService'
+import { roleService } from '@/infrastructure/di/Container'
 import { db } from '@/lib/db'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -10,8 +10,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   try {
     const { id } = await params
-    const userRoles = await db.modelHasRole.findMany({
-      where: { modelId: id, modelType: 'User' },
+    const userRoles = await db.model_has_role.findMany({
+      where: { model_id: id, model_type: 'user' },
       include: { role: true },
     })
     return ok(userRoles.map((ur) => ur.role))
@@ -37,7 +37,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       where: { id: { in: roleIds } },
     })
 
-    await RoleService.syncUserRoles(
+    await roleService.syncUserRoles(
       id,
       roles.map((r) => r.name)
     )

@@ -4,12 +4,12 @@
 import { DomainException } from './DomainException'
 
 export class NotFoundException extends DomainException {
-  public readonly entityName: string
+  public readonly entity_name: string
   public readonly identifier: string
 
-  constructor(entityName: string, identifier: string) {
-    super(`${entityName} with identifier '${identifier}' not found`, 'NOT_FOUND')
-    this.entityName = entityName
+  constructor(entity_name: string, identifier: string) {
+    super(`${entity_name} with identifier '${identifier}' not found`, 'NOT_FOUND')
+    this.entity_name = entity_name
     this.identifier = identifier
   }
 }

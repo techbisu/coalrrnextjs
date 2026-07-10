@@ -40,8 +40,8 @@ export class StorageService {
    */
   static async saveFile(buffer: Buffer, extension: string, subDir = ''): Promise<string> {
     await this.init()
-    const fileName = `${crypto.randomUUID()}${extension}`
-    const relativePath = path.join(subDir, fileName).replace(/\\/g, '/')
+    const file_name = `${crypto.randomUUID()}${extension}`
+    const relativePath = path.join(subDir, file_name).replace(/\\/g, '/')
 
     if (STORAGE_PROVIDER === 's3') {
       await s3.send(new PutObjectCommand({
@@ -56,7 +56,7 @@ export class StorageService {
     } else {
       const targetDir = path.join(STORAGE_ROOT, subDir)
       await fs.mkdir(targetDir, { recursive: true })
-      const fullPath = path.join(targetDir, fileName)
+      const fullPath = path.join(targetDir, file_name)
       await fs.writeFile(fullPath, buffer)
     }
     

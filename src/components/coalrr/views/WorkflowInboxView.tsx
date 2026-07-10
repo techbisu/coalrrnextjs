@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -15,9 +15,9 @@ import {
 } from 'lucide-react'
 
 interface DashboardData {
-  reviewTasks: Array<{ id: string; reviewableType: string; reviewableId: string; role: string; status: string; decidedBy: string | null; decidedAt: string | null; comment: string | null; createdAt: string }>
-  grievances: Array<{ id: string; grievanceCode: string; complainantName: string; description: string; slaDueAt: string; resolution: string | null; daysRemaining: number }>
-  payrolls: Array<{ id: string; payrollCode: string; projectName: string; state: string; landownerCount: number; totalAward: string; createdAt: string }>
+  reviewTasks: Array<{ id: string; reviewable_type: string; reviewable_id: string; role: string; status: string; decided_by: string | null; decided_at: string | null; comment: string | null; entry_ts: string }>
+  grievances: Array<{ id: string; grievance_code: string; complainant_name: string; description: string; sla_due_at: string; resolution: string | null; daysRemaining: number }>
+  payrolls: Array<{ id: string; payroll_code: string; projectName: string; state: string; landowner_count: number; total_award: string; entry_ts: string }>
   notifications: Array<{ id: string; type: 'sla' | 'grievance' | 'approval' | 'info'; title: string; message: string; timestamp: string; read: boolean }>
 }
 
@@ -74,16 +74,16 @@ export function WorkflowInboxView() {
                       <Badge className="gap-1 bg-amber-100 text-amber-700 hover:bg-amber-100">
                         <Clock className="h-2.5 w-2.5" /> {ROLE_LABELS[r.role] ?? r.role}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">{r.reviewableType}</span>
+                      <span className="text-xs text-muted-foreground">{r.reviewable_type}</span>
                     </div>
-                    <span className="text-[11px] text-muted-foreground">{timeAgo(r.createdAt)}</span>
+                    <span className="text-[11px] text-muted-foreground">{timeAgo(r.entry_ts)}</span>
                   </div>
-                  {r.reviewableType === 'CompensationPayroll' && (
+                  {r.reviewable_type === 'compensation_payroll' && (
                     <Button
                       variant="link"
                       size="sm"
                       className="mt-1 h-auto p-0 text-xs text-amber-700"
-                      onClick={() => { selectPayroll(r.reviewableId); setView('payroll-builder'); window.history.pushState(null, '', routes.payroll.details(r.reviewableId)); }}
+                      onClick={() => { selectPayroll(r.reviewable_id); setView('payroll-builder'); window.history.pushState(null, '', routes.payroll.details(r.reviewable_id)); }}
                     >
                       Open payroll <ArrowRight className="h-3 w-3" />
                     </Button>
@@ -102,14 +102,14 @@ export function WorkflowInboxView() {
             <DataTable
               loading={isLoading}
               columns={[
-                { key: 'role', header: 'Role', render: (r) => <Badge variant="outline" className="text-xs">{ROLE_LABELS[r.role] ?? r.role}</Badge> },
+                { key: 'role', header: 'role', render: (r) => <Badge variant="outline" className="text-xs">{ROLE_LABELS[r.role] ?? r.role}</Badge> },
                 { key: 'status', header: 'Decision', render: (r) => r.status === 'approved' ? (
                   <Badge className="gap-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-100"><CheckCircle2 className="h-2.5 w-2.5" /> approved</Badge>
                 ) : (
                   <Badge variant="destructive" className="gap-1">rejected</Badge>
                 ) },
-                { key: 'decidedBy', header: 'By', render: (r) => <span className="text-xs">{r.decidedBy ?? '—'}</span> },
-                { key: 'decidedAt', header: 'When', render: (r) => <span className="text-xs text-muted-foreground">{r.decidedAt ? timeAgo(r.decidedAt) : '—'}</span> },
+                { key: 'decided_by', header: 'By', render: (r) => <span className="text-xs">{r.decided_by ?? '—'}</span> },
+                { key: 'decided_at', header: 'When', render: (r) => <span className="text-xs text-muted-foreground">{r.decided_at ? timeAgo(r.decided_at) : '—'}</span> },
               ] as Column<DashboardData['reviewTasks'][0]>[]}
               data={completedReviews}
               getRowId={(r) => r.id}
@@ -130,12 +130,12 @@ export function WorkflowInboxView() {
               {openGrievances.map((g) => (
                 <li key={g.id} className="rounded-md border border-rose-200 bg-rose-50/50 p-3 dark:border-rose-900 dark:bg-rose-950/20">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-medium text-rose-700 dark:text-rose-300">{g.grievanceCode}</span>
+                    <span className="font-mono text-xs font-medium text-rose-700 dark:text-rose-300">{g.grievance_code}</span>
                     <Badge variant="outline" className={g.daysRemaining < 3 ? 'border-rose-300 bg-rose-100 text-rose-700' : 'border-amber-300 bg-amber-100 text-amber-700'}>
                       <Clock className="mr-1 h-2.5 w-2.5" /> {g.daysRemaining}d left
                     </Badge>
                   </div>
-                  <p className="mt-1 text-sm font-medium">{g.complainantName}</p>
+                  <p className="mt-1 text-sm font-medium">{g.complainant_name}</p>
                   <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{g.description}</p>
                 </li>
               ))}
@@ -171,11 +171,11 @@ export function WorkflowInboxView() {
         <DataTable
           loading={isLoading}
           columns={[
-            { key: 'payrollCode', header: 'Code', sortable: true, render: (r) => <span className="font-mono text-xs font-medium">{r.payrollCode}</span> },
+            { key: 'payroll_code', header: 'Code', sortable: true, render: (r) => <span className="font-mono text-xs font-medium">{r.payroll_code}</span> },
             { key: 'projectName', header: 'Project', sortable: true },
             { key: 'state', header: 'State', render: (r) => <StateBadge state={r.state} /> },
-            { key: 'landownerCount', header: 'Landowners', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{r.landownerCount}</span> },
-            { key: 'createdAt', header: 'Created', render: (r) => <span className="text-xs text-muted-foreground">{timeAgo(r.createdAt)}</span> },
+            { key: 'landowner_count', header: 'Landowners', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{r.landowner_count}</span> },
+            { key: 'entry_ts', header: 'Created', render: (r) => <span className="text-xs text-muted-foreground">{timeAgo(r.entry_ts)}</span> },
           ] as Column<DashboardData['payrolls'][0]>[]}
           data={data?.payrolls ?? []}
           getRowId={(r) => r.id}

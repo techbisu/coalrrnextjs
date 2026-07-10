@@ -17,24 +17,24 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const body = await readJson<{ transition?: string; actorRole?: string; comment?: string }>(req)
     if (!body?.transition) return badRequest('transition required')
 
-    if (recordType !== 'CompensationPayroll') {
-      return badRequest(`Workflow for ${recordType} not yet implemented (demo covers CompensationPayroll only)`)
+    if (recordType !== 'compensation_payroll') {
+      return badRequest(`Workflow for ${recordType} not yet implemented (demo covers compensation_payroll only)`)
     }
 
-    const payroll = await db.compensationPayroll.findUnique({
+    const payroll = await db.compensation_payroll.findUnique({
       where: { id: recordId },
       include: { project: true },
     })
     if (!payroll) return notFound('Payroll not found')
 
     // Polymorphic review tasks — fetched separately (no FK relation per spec §3.1)
-    const reviewTasks = await db.workflowReviewTask.findMany({
-      where: { reviewableType: 'CompensationPayroll', reviewableId: recordId },
+    const reviewTasks = await db.workflow_review_task.findMany({
+      where: { reviewable_type: 'compensation_payroll', reviewable_id: recordId },
     })
 
     // Compute guard context data
-    const batchTotal = Number(payroll.totalAward)
-    const ceiling = Number(payroll.project.totalBudgetCeiling)
+    const batchTotal = Number(payroll.total_award)
+    const ceiling = Number(payroll.project.total_budget_ceiling)
     const ctxData = {
       batchTotal,
       budgetCeiling: ceiling,
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
 
     // Persist state mutation
-    const updated = await db.compensationPayroll.update({
+    const updated = await db.compensation_payroll.update({
       where: { id: recordId },
       data: { state: result.newState },
     })
@@ -81,10 +81,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     for (const fx of sideEffects) {
       if (fx.type === 'spawn_review_tasks') {
         for (const role of fx.roles) {
-          const task = await db.workflowReviewTask.create({
+          const task = await db.workflow_review_task.create({
             data: {
-              reviewableType: recordType,
-              reviewableId: recordId,
+              reviewable_type: recordType,
+              reviewable_id: recordId,
               role,
               status: 'pending',
             },

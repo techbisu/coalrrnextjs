@@ -44,27 +44,27 @@ export class UrlSecurityService {
   /**
    * Signs a URL for secure one-time or time-limited access.
    */
-  static async signUrl(path: string, expiryMinutes: number, isOneTime = false, entityId?: string, action?: string): Promise<string> {
-    const expiresAt = new Date(Date.now() + expiryMinutes * 60000)
+  static async signUrl(path: string, expiryMinutes: number, is_one_time = false, entity_id?: string, action?: string): Promise<string> {
+    const expires_at = new Date(Date.now() + expiryMinutes * 60000)
     
     // Generate an HMAC over the path and expiry
-    const dataToSign = `${path}|${expiresAt.toISOString()}`
+    const dataToSign = `${path}|${expires_at.toISOString()}`
     const signature = crypto.createHmac('sha256', ENCRYPTION_KEY).update(dataToSign).digest('base64url')
 
     // Store in DB for tracking/one-time use
-    await db.signedUrlLog.create({
+    await db.signed_url_log.create({
       data: {
-        signatureHash: signature,
-        urlPath: path,
-        entityId,
+        signature_hash: signature,
+        url_path: path,
+        entity_id,
         action,
-        expiresAt,
-        isOneTime
+        expires_at,
+        is_one_time
       }
     })
 
     const separator = path.includes('?') ? '&' : '?'
-    return `${path}${separator}sig=${signature}&exp=${expiresAt.getTime()}`
+    return `${path}${separator}sig=${signature}&exp=${expires_at.getTime()}`
   }
 
   /**
@@ -76,11 +76,11 @@ export class UrlSecurityService {
     
     if (!signature || !exp) return false
 
-    const expiresAt = new Date(Number(exp))
-    if (expiresAt < new Date()) return false // Expired
+    const expires_at = new Date(Number(exp))
+    if (expires_at < new Date()) return false // Expired
 
     // Verify HMAC
-    const dataToSign = `${pathWithoutQuery}|${expiresAt.toISOString()}`
+    const dataToSign = `${pathWithoutQuery}|${expires_at.toISOString()}`
     const expectedSignature = crypto.createHmac('sha256', ENCRYPTION_KEY).update(dataToSign).digest('base64url')
     
     if (crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature)) === false) {
@@ -88,14 +88,14 @@ export class UrlSecurityService {
     }
 
     // Check database for consumption / revocation
-    const log = await db.signedUrlLog.findUnique({ where: { signatureHash: signature } })
+    const log = await db.signed_url_log.findUnique({ where: { signature_hash: signature } })
     if (!log) return false
-    if (log.isConsumed) return false
+    if (log.is_consumed) return false
     
-    if (log.isOneTime) {
-      await db.signedUrlLog.update({
+    if (log.is_one_time) {
+      await db.signed_url_log.update({
         where: { id: log.id },
-        data: { isConsumed: true, consumedAt: new Date() }
+        data: { is_consumed: true, consumed_at: new Date() }
       })
     }
 

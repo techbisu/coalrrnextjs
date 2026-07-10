@@ -14,7 +14,7 @@
  * Spec §4.2.2 — "Calculators validate their own DTO inputs at construction time".
  */
 export class InvalidCalculationInputException extends Error {
-  /** Machine-readable field path that failed validation, e.g. `landValue`. */
+  /** Machine-readable field path that failed validation, e.g. `land_value`. */
   readonly field: string;
 
   constructor(field: string, message: string) {

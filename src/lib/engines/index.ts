@@ -13,10 +13,10 @@
  * @example
  *   import { MoneyValue, CompensationInput, LandCompensationEngine } from "@/lib/engines";
  *   const input = new CompensationInput({
- *     landValue: MoneyValue.from("1000000"),
- *     assetValue: MoneyValue.from("50000"),
- *     yearsSinceNotification: 3,
- *     multiplicationFactor: "1.0000",
+ *     land_value: MoneyValue.from("1000000"),
+ *     asset_value: MoneyValue.from("50000"),
+ *     years_since_notification: 3,
+ *     multiplication_factor: "1.0000",
  *   });
  *   const result = new LandCompensationEngine().calculate(input);
  */

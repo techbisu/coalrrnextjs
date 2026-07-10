@@ -3,63 +3,62 @@
  */
 import { IUseCase, Result, Fail, Ok } from '@/core'
 import { IProposalRepository } from '@/domain/entities/proposal'
-import { EventBus } from '@/notifications/EventBus'
-import { AuditQueue } from '@/audit/services/AuditQueue'
+import { EventBus } from '@/core/notifications/EventBus'
+import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
 import { NotFoundException, ValidationException } from '@/core/errors'
-import { db } from '@/lib/db' // temporary dependency to fetch plot area
+import { IPlotRepository } from '@/domain/entities/plot'
 import { Area } from '@/domain/value-objects/Area'
 
 export interface AddPlotRequest {
   proposalId: string
-  plotId: string
-  annexureTag: 'A' | 'B' | 'C'
-  userId: string
+  plot_id: string
+  annexure_tag: 'A' | 'B' | 'C'
+  user_id: string
 }
 
 export interface AddPlotResponse {
   id: string
-  scheduleCode: string
-  totalAreaAcres: string
+  schedule_code: string
+  total_area_acres: string
   message: string
 }
 
 export class AddPlotToProposalUseCase implements IUseCase<AddPlotRequest, AddPlotResponse> {
   constructor(
-    private readonly proposalRepository: IProposalRepository
+    private readonly proposalRepository: IProposalRepository,
+    private readonly plotRepository: IPlotRepository
   ) {}
 
   async execute(request: AddPlotRequest): Promise<Result<AddPlotResponse>> {
     // 1. Find proposal
     const proposal = await this.proposalRepository.findById(request.proposalId)
     if (!proposal) {
-      return Fail(new NotFoundException('Proposal', request.proposalId))
+      return Fail('Proposal')
     }
 
     // 2. Validate plot availability
     const isAlreadyInActiveProposal = await this.proposalRepository.isPlotInActiveProposal(
-      request.plotId, 
+      request.plot_id, 
       request.proposalId
     )
     
     if (isAlreadyInActiveProposal) {
-      return Fail(new ValidationException('Plot unavailable', [
-        { field: 'plotId', message: 'Plot is already part of another active proposal' }
-      ]))
+      return Fail('Plot unavailable')
     }
 
-    // Get plot details (in a real app, this should use IPlotRepository)
-    const plot = await db.mstPlot.findUnique({ where: { id: request.plotId } })
+    // Get plot details using IPlotRepository
+    const plot = await this.plotRepository.findById(request.plot_id)
     if (!plot) {
-      return Fail(new NotFoundException('Plot', request.plotId))
+      return Fail('Plot')
     }
 
     // 3. Execute business behavior on aggregate
-    const plotAreaResult = Area.tryCreate(plot.areaAcres.toString(), 'ACRES')
-    if (plotAreaResult.isFailure) return Fail(plotAreaResult.error!)
+    const plotAreaResult = Area.tryCreate(plot.area_acres.toString(), 'ACRES')
+    if (plotAreaResult.isFailure) return Fail(String(plotAreaResult.error!))
 
-    const addResult = proposal.addPlot(request.plotId, (plotAreaResult as any).value)
+    const addResult = proposal.addPlot(request.plot_id, (plotAreaResult as any).value)
     if (addResult.isFailure) {
-      return Fail(addResult.error!)
+      return Fail(String(addResult.error!))
     }
 
     // 4. Persist aggregate state
@@ -68,28 +67,28 @@ export class AddPlotToProposalUseCase implements IUseCase<AddPlotRequest, AddPlo
     // 5. Persist the relationship (many-to-many junction table)
     await this.proposalRepository.addPlotToProposal(
       request.proposalId,
-      request.plotId,
-      request.annexureTag
+      request.plot_id,
+      request.annexure_tag
     )
 
     // 6. Audit logging
     AuditQueue.push({
-      action: 'ADD_PLOT_TO_PROPOSAL',
-      entityType: 'LandScheduleItem',
-      entityId: request.proposalId,
-      userId: request.userId,
-      details: JSON.stringify({
-        plotId: request.plotId,
-        annexureTag: request.annexureTag,
+      event_type: 'ADD_PLOT_TO_PROPOSAL',
+      entity_name: 'land_schedule_item',
+      entity_id: request.proposalId,
+      user_id: request.user_id,
+      remarks: JSON.stringify({
+        plot_id: request.plot_id,
+        annexure_tag: request.annexure_tag,
       }),
     })
 
     // 7. Return response
     return Ok({
       id: proposal.id,
-      scheduleCode: proposal.scheduleCode.value,
-      totalAreaAcres: proposal.totalArea.toDecimal().toString(),
-      message: `Plot ${plot.plotNumber} added to proposal ${proposal.scheduleCode.value}.`,
+      schedule_code: proposal.schedule_code.value,
+      total_area_acres: proposal.totalArea.toDecimal().toString(),
+      message: `Plot ${plot.plot_number} added to proposal ${proposal.schedule_code.value}.`,
     })
   }
 }

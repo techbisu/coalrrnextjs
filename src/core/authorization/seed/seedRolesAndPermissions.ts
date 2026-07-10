@@ -71,11 +71,11 @@ const PERMISSIONS = [
   { name: 'workflow.reject', module: 'workflow', group: 'Cross-Module Workflow' },
   { name: 'workflow.return', module: 'workflow', group: 'Cross-Module Workflow' },
   
-  { name: 'document.view', module: 'document', group: 'Document Engine' },
-  { name: 'document.generate', module: 'document', group: 'Document Engine' },
-  { name: 'document.preview', module: 'document', group: 'Document Engine' },
-  { name: 'document.download', module: 'document', group: 'Document Engine' },
-  { name: 'document.sign', module: 'document', group: 'Document Engine' },
+  { name: 'document.view', module: 'document', group: 'document Engine' },
+  { name: 'document.generate', module: 'document', group: 'document Engine' },
+  { name: 'document.preview', module: 'document', group: 'document Engine' },
+  { name: 'document.download', module: 'document', group: 'document Engine' },
+  { name: 'document.sign', module: 'document', group: 'document Engine' },
   
   { name: 'file.upload', module: 'file', group: 'File Management' },
   { name: 'file.download', module: 'file', group: 'File Management' },
@@ -115,17 +115,17 @@ export async function runAuthSeed() {
   // 1. Create Roles
   for (const name of ROLES) {
     await db.role.upsert({
-      where: { name_guardName: { name, guardName: 'web' } },
+      where: { name_guard_name: { name, guard_name: 'web' } },
       update: {},
-      create: { name, isSystem: true },
+      create: { name, is_system: true },
     })
   }
 
   // 2. Create Permissions
-  const createdPermissions = []
+  const createdPermissions: any[] = []
   for (const p of PERMISSIONS) {
     const perm = await db.permission.upsert({
-      where: { name_guardName: { name: p.name, guardName: 'web' } },
+      where: { name_guard_name: { name: p.name, guard_name: 'web' } },
       update: { module: p.module, group: p.group },
       create: { name: p.name, module: p.module, group: p.group },
     })
@@ -141,16 +141,16 @@ export async function runAuthSeed() {
   for (const role of eclRoles) {
     for (const perm of createdPermissions) {
       // Don't give public portal permissions to internal staff? Actually it's fine.
-      await db.roleHasPermission.upsert({
-        where: { roleId_permissionId: { permissionId: perm.id, roleId: role.id } },
+      await db.role_has_permission.upsert({
+        where: { role_id_permission_id: { permission_id: perm.id, role_id: role.id } },
         update: {},
-        create: { permissionId: perm.id, roleId: role.id }
+        create: { permission_id: perm.id, role_id: role.id }
       })
     }
   }
 
   // 3. Migrate Existing Users
-  // The system uses a 'role' string on User table. Map that to the new Role table.
+  // The system uses a 'role' string on user table. Map that to the new role table.
   const users = await db.user.findMany()
   const rolesMap = await db.role.findMany().then(rs => new Map(rs.map(r => [r.name.toLowerCase().replace(/[^a-z0-9]/g, ''), r.id])))
   
@@ -169,13 +169,13 @@ export async function runAuthSeed() {
     if (user.role === 'citizen') mappedName = 'Citizen'
 
     const searchKey = mappedName.toLowerCase().replace(/[^a-z0-9]/g, '')
-    const roleId = rolesMap.get(searchKey)
+    const role_id = rolesMap.get(searchKey)
 
-    if (roleId) {
-      await db.modelHasRole.upsert({
-        where: { roleId_modelType_modelId: { roleId, modelType: 'User', modelId: user.id } },
+    if (role_id) {
+      await db.model_has_role.upsert({
+        where: { role_id_model_type_model_id: { role_id, model_type: 'user', model_id: user.id } },
         update: {},
-        create: { roleId, modelType: 'User', modelId: user.id },
+        create: { role_id, model_type: 'user', model_id: user.id },
       })
       mappedCount++
     }

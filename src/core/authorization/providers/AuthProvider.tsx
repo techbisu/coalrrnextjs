@@ -11,8 +11,8 @@ export interface AuthUser {
   mobile: string | null
   name: string
   designation: string | null
-  collieryCode: string | null
-  plotId: string | null
+  colliery_code: string | null
+  plot_id: string | null
   roleLabel?: string
   roles: string[]
   permissions: string[]

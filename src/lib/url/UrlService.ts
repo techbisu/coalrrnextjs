@@ -58,8 +58,8 @@ export const routes = {
   },
 
   file: {
-    // For secure signing, call the Server Action `generateSignedDownloadUrl(fileId)` instead
-    download: (fileId: string) => `/api/files/${fileId}/download`
+    // For secure signing, call the Server Action `generateSignedDownloadUrl(file_id)` instead
+    download: (file_id: string) => `/api/files/${file_id}/download`
   }
 }
 

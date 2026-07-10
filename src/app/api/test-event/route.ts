@@ -5,21 +5,21 @@ import { EventBus } from '@/notifications/EventBus'
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await req.json()
+    const { user_id } = await req.json()
 
     // 1. Ensure event registry exists
-    const eventName = 'TEST_EVENT'
-    let event = await db.eventRegistry.findUnique({ where: { eventName } })
+    const event_name = 'TEST_EVENT'
+    let event = await db.event_registry.findUnique({ where: { event_name } })
     if (!event) {
-      event = await db.eventRegistry.create({
-        data: { eventName, module: 'system', description: 'A test event' }
+      event = await db.event_registry.create({
+        data: { event_name, module: 'system', description: 'A test event' }
       })
     }
 
     // 2. Ensure template exists
-    let template = await db.notificationTemplate.findUnique({ where: { code: 'TEST_IN_APP' } })
+    let template = await db.notification_template.findUnique({ where: { code: 'TEST_IN_APP' } })
     if (!template) {
-      template = await db.notificationTemplate.create({
+      template = await db.notification_template.create({
         data: {
           code: 'TEST_IN_APP',
           channel: 'IN_APP',
@@ -30,26 +30,26 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Ensure rule exists mapping event to template
-    let rule = await db.notificationRule.findFirst({
-      where: { eventId: event.id, templateId: template.id }
+    let rule = await db.notification_rule.findFirst({
+      where: { event_id: event.id, template_id: template.id }
     })
     if (!rule) {
-      rule = await db.notificationRule.create({
+      rule = await db.notification_rule.create({
         data: {
-          eventId: event.id,
-          templateId: template.id,
-          recipientResolver: 'EventUser' // Resolves to the user in payload.userId
+          event_id: event.id,
+          template_id: template.id,
+          recipient_resolver: 'EventUser' // Resolves to the user in payload.user_id
         }
       })
     }
 
     // 4. Fire the event!
     await EventBus.publish({
-      eventName: 'TEST_EVENT',
+      event_name: 'TEST_EVENT',
       module: 'system',
-      userId,
+      user_id,
       data: {
-        user: { name: 'Demo User' },
+        user: { name: 'Demo user' },
         module: 'Notification Engine'
       }
     })

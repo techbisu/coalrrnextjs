@@ -11,8 +11,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   try {
     const { id } = await params
-    const userPermissions = await db.modelHasPermission.findMany({
-      where: { modelId: id, modelType: 'User' },
+    const userPermissions = await db.model_has_permission.findMany({
+      where: { model_id: id, model_type: 'user' },
       include: { permission: true },
     })
     return ok(userPermissions.map((up) => up.permission))

@@ -7,9 +7,9 @@ import { TreePine, Landmark, Sprout, Building2 } from 'lucide-react'
 
 export interface PlotFeature {
   id: string
-  plotNumber: string
-  landType: 'forest' | 'got_patta' | 'tenancy' | 'debottar'
-  areaAcres: string
+  plot_number: string
+  land_type: 'forest' | 'got_patta' | 'tenancy' | 'debottar'
+  area_acres: string
   geometry?: number[][] // [[x,y], [x,y], ...] — simplified polygon
   selected?: boolean
 }
@@ -59,7 +59,7 @@ export function GISMapViewer({
   // Build a combined bounds from boundary + all plot geometries
   const allRings: number[][][] = []
   if (boundary?.coordinates) allRings.push(...boundary.coordinates)
-  for (const p of plots) if (p.geometry && p.geometry.length >= 3) allRings.push([p.geometry])
+  for (const p of plots) if (p.geometry && p.geometry.length >= 3) allRings.push(p.geometry as any)
   const bounds = computeBounds(allRings)
 
   const boundaryPath = boundary?.coordinates && boundary.coordinates[0]?.length > 0
@@ -89,7 +89,7 @@ export function GISMapViewer({
             <rect width={VIEW_W} height={VIEW_H} fill="url(#grid)" />
 
             {/* Boundary polygon */}
-            {boundaryPath && (
+            {boundaryPath && boundary && (
               <>
                 <path d={boundaryPath} fill={boundary.color ?? '#16a34a'} fillOpacity={0.08} stroke={boundary.color ?? '#16a34a'} strokeWidth={2.5} strokeDasharray="6 3" />
                 <text x={VIEW_W / 2} y={20} textAnchor="middle" className="fill-foreground text-[11px] font-medium">
@@ -101,7 +101,7 @@ export function GISMapViewer({
             {/* Plots */}
             {plots.map((plot) => {
               if (!plot.geometry || plot.geometry.length < 3) return null
-              const meta = LAND_TYPE_META[plot.landType] ?? LAND_TYPE_META.tenancy
+              const meta = LAND_TYPE_META[plot.land_type] ?? LAND_TYPE_META.tenancy
               const pts = projectCoords(plot.geometry, bounds)
               const d = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ') + ' Z'
               const isSelected = plot.id === selectedPlotId
@@ -123,7 +123,7 @@ export function GISMapViewer({
                     className="transition-all hover:fill-opacity-90"
                   />
                   <text x={cx} y={cy} textAnchor="middle" className="fill-foreground text-[10px] font-semibold pointer-events-none">
-                    {plot.plotNumber}
+                    {plot.plot_number}
                   </text>
                 </g>
               )

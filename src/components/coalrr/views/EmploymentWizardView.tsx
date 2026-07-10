@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -24,33 +24,33 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface NomineePool {
+interface nominee_pool {
   id: string
   projectName: string
-  nomineeName: string
-  pooledAcreage: string
+  nominee_name: string
+  pooled_acreage: string
   threshold: string
   hasCrossedThreshold: boolean
   remainingToThreshold: string
   contributionCount: number
-  exceptionFlags: string | null
+  exception_flags: string | null
   state: string
 }
 
-interface EmploymentApplication {
+interface employment_application {
   id: string
-  applicationCode: string
-  poolId: string
+  application_code: string
+  pool_id: string
   projectName: string
-  nomineeName: string
+  nominee_name: string
   state: string
   bioData: string | null
   selfDeclarationConfirmed: boolean
-  submittedAt: string | null
-  transparencyWindowEndsAt: string | null
+  submitted_at: string | null
+  transparency_window_ends_at: string | null
   hqApprovedAt: string | null
-  createdAt: string
-  updatedAt: string
+  entry_ts: string
+  updt_ts: string
 }
 
 interface BioDataForm {
@@ -65,23 +65,23 @@ interface BioDataForm {
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
 
-async function fetchPools(): Promise<NomineePool[]> {
+async function fetchPools(): Promise<nominee_pool[]> {
   const r = await fetch('/api/nominee-pools')
   if (!r.ok) throw new Error('Failed to load nominee pools')
   return r.json()
 }
 
-async function fetchPoolDetail(id: string): Promise<NomineePool> {
+async function fetchPoolDetail(id: string): Promise<nominee_pool> {
   const r = await fetch(`/api/nominee-pools/${id}`)
   if (!r.ok) throw new Error('Failed to load pool detail')
   return r.json()
 }
 
-async function createDraftApplication(poolId: string): Promise<EmploymentApplication> {
+async function createDraftApplication(pool_id: string): Promise<employment_application> {
   const r = await fetch('/api/employment/apply', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ poolId }),
+    body: JSON.stringify({ pool_id }),
   })
   const data = await r.json()
   if (!r.ok) throw new Error(data.error ?? 'Failed to create draft application')
@@ -91,7 +91,7 @@ async function createDraftApplication(poolId: string): Promise<EmploymentApplica
 async function updateApplication(
   id: string,
   payload: Record<string, unknown>,
-): Promise<EmploymentApplication> {
+): Promise<employment_application> {
   const r = await fetch(`/api/employment/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -102,7 +102,7 @@ async function updateApplication(
   return data
 }
 
-async function fetchApplication(id: string): Promise<EmploymentApplication> {
+async function fetchApplication(id: string): Promise<employment_application> {
   const r = await fetch(`/api/employment/${id}`)
   if (!r.ok) throw new Error('Failed to load application')
   return r.json()
@@ -153,13 +153,13 @@ const INITIAL_BIO_DATA: BioDataForm = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function buildTimelineNodes(app: EmploymentApplication, exceptionFlags: Record<string, unknown> | null): TimelineNode[] {
+function buildTimelineNodes(app: employment_application, exception_flags: Record<string, unknown> | null): TimelineNode[] {
   const nodes: TimelineNode[] = [
     {
       state: 'Submitted',
       label: 'Application Submitted',
       status: ['Submitted', 'MathVerification', 'CL4Checklist', 'HQApproval', 'TransparencyWindow', 'AppointmentLetter'].includes(app.state) ? 'done' : 'pending',
-      timestamp: app.submittedAt ?? undefined,
+      timestamp: app.submitted_at ?? undefined,
     },
     {
       state: 'MathVerification',
@@ -184,7 +184,7 @@ function buildTimelineNodes(app: EmploymentApplication, exceptionFlags: Record<s
       state: 'TransparencyWindow',
       label: 'Transparency Window (21 days)',
       status: ['TransparencyWindow', 'AppointmentLetter'].includes(app.state) ? (app.state === 'TransparencyWindow' ? 'current' : 'done') : app.state === 'HQApproval' ? 'current' : 'pending',
-      timestamp: app.transparencyWindowEndsAt ?? undefined,
+      timestamp: app.transparency_window_ends_at ?? undefined,
     },
     {
       state: 'AppointmentLetter',
@@ -194,7 +194,7 @@ function buildTimelineNodes(app: EmploymentApplication, exceptionFlags: Record<s
   ]
 
   // Insert conditional branch node for female nominee counseling (Form-XXIII)
-  if (exceptionFlags?.femaleNomineeCounseling) {
+  if (exception_flags?.femaleNomineeCounseling) {
     nodes.splice(4, 0, {
       state: 'FormXXIII_Counseling',
       label: 'Form-XXIII Female Counseling',
@@ -229,7 +229,7 @@ export function EmploymentWizardView() {
   const [selfDeclarationChecked, setSelfDeclarationChecked] = React.useState(false)
 
   // Upload state (step 3)
-  const [uploadedDocs, setUploadedDocs] = React.useState<Record<string, Array<{ fileName: string; fileSizeKb: number; mimeType: string; virusScanStatus: 'clean' | 'scanning'; uploadedAt: string }>>>({})
+  const [uploadedDocs, setUploadedDocs] = React.useState<Record<string, Array<{ file_name: string; file_size_kb: number; mime_type: string; virus_scan_status: 'clean' | 'scanning'; uploadedAt: string }>>>({})
 
   // ── Queries ──
 
@@ -253,11 +253,11 @@ export function EmploymentWizardView() {
   // ── Mutations ──
 
   const createAppMutation = useMutation({
-    mutationFn: (poolId: string) => createDraftApplication(poolId),
+    mutationFn: (pool_id: string) => createDraftApplication(pool_id),
     onSuccess: (app) => {
       setApplicationId(app.id)
       toast.success('Draft application created', {
-        description: `Reference: ${app.applicationCode}`,
+        description: `Reference: ${app.application_code}`,
       })
       qc.invalidateQueries({ queryKey: ['nominee-pools'] })
       qc.invalidateQueries({ queryKey: ['employment-application'] })
@@ -286,7 +286,7 @@ export function EmploymentWizardView() {
         state: 'Submitted',
       }),
     onSuccess: (app) => {
-      toast.success(`Application ${app.applicationCode} submitted`, {
+      toast.success(`Application ${app.application_code} submitted`, {
         description: 'Your employment application is now in the verification pipeline.',
       })
       qc.invalidateQueries({ queryKey: ['employment-application'] })
@@ -306,14 +306,14 @@ export function EmploymentWizardView() {
     toast.info('Step auto-saved', { description: `Draft persisted at step ${next + 1}` })
   }, [])
 
-  const handlePoolSelect = React.useCallback((poolId: string, hasCrossed: boolean) => {
+  const handlePoolSelect = React.useCallback((pool_id: string, hasCrossed: boolean) => {
     if (!hasCrossed) {
       toast.warning('Threshold not met', {
         description: 'Pooled acreage must reach 2.0000 acres before applying.',
       })
       return
     }
-    setSelectedPoolId(poolId)
+    setSelectedPoolId(pool_id)
     handleStepChange(1)
   }, [handleStepChange])
 
@@ -334,10 +334,10 @@ export function EmploymentWizardView() {
       [docKey]: [
         ...(prev[docKey] ?? []),
         {
-          fileName: file.name,
-          fileSizeKb: Math.round(file.size / 1024),
-          mimeType: file.type,
-          virusScanStatus: 'clean' as const,
+          file_name: file.name,
+          file_size_kb: Math.round(file.size / 1024),
+          mime_type: file.type,
+          virus_scan_status: 'clean' as const,
           uploadedAt: new Date().toISOString(),
         },
       ],
@@ -345,10 +345,10 @@ export function EmploymentWizardView() {
     toast.success(`Uploaded: ${file.name}`)
   }, [])
 
-  const handleDocRemove = React.useCallback((docKey: string, fileName: string) => {
+  const handleDocRemove = React.useCallback((docKey: string, file_name: string) => {
     setUploadedDocs((prev) => ({
       ...prev,
-      [docKey]: (prev[docKey] ?? []).filter((d) => d.fileName !== fileName),
+      [docKey]: (prev[docKey] ?? []).filter((d) => d.file_name !== file_name),
     }))
   }, [])
 
@@ -367,17 +367,17 @@ export function EmploymentWizardView() {
 
   // ── Derived state ──
 
-  const pooledAcreage = poolDetail ? Number(poolDetail.pooledAcreage) || 0 : 0
-  const thresholdPct = Math.min(100, (pooledAcreage / EMPLOYMENT_THRESHOLD) * 100)
-  const thresholdMet = pooledAcreage >= EMPLOYMENT_THRESHOLD
-  const hasExceptionFemale = poolDetail?.exceptionFlags
-    ? JSON.parse(poolDetail.exceptionFlags)?.femaleNomineeCounseling === true
+  const pooled_acreage = poolDetail ? Number(poolDetail.pooled_acreage) || 0 : 0
+  const thresholdPct = Math.min(100, (pooled_acreage / EMPLOYMENT_THRESHOLD) * 100)
+  const thresholdMet = pooled_acreage >= EMPLOYMENT_THRESHOLD
+  const hasExceptionFemale = poolDetail?.exception_flags
+    ? JSON.parse(poolDetail.exception_flags)?.femaleNomineeCounseling === true
     : false
 
   const isSubmitted = application?.state === 'Submitted' ||
     ['MathVerification', 'CL4Checklist', 'HQApproval', 'TransparencyWindow', 'AppointmentLetter'].includes(application?.state ?? '')
   const allRequiredDocsUploaded = DOCUMENT_CHECKLIST.every(
-    (d) => d.required === false || (uploadedDocs[d.key]?.length ?? 0) > 0,
+    (d) => !(d as any).required || (uploadedDocs[d.key]?.length ?? 0) > 0,
   )
   const bioDataValid = bioData.fullName.trim() !== '' &&
     bioData.dateOfBirth !== '' &&
@@ -430,12 +430,12 @@ export function EmploymentWizardView() {
   const [countdown, setCountdown] = React.useState<{ d: number; h: number; m: number; s: number } | null>(null)
 
   React.useEffect(() => {
-    if (!application?.transparencyWindowEndsAt || application.state !== 'TransparencyWindow') {
+    if (!application?.transparency_window_ends_at || application.state !== 'TransparencyWindow') {
       setCountdown(null)
       return
     }
     const tick = () => {
-      const diff = new Date(application.transparencyWindowEndsAt!).getTime() - Date.now()
+      const diff = new Date(application.transparency_window_ends_at!).getTime() - Date.now()
       if (diff <= 0) {
         setCountdown({ d: 0, h: 0, m: 0, s: 0 })
         return
@@ -450,7 +450,7 @@ export function EmploymentWizardView() {
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [application?.transparencyWindowEndsAt, application?.state])
+  }, [application?.transparency_window_ends_at, application?.state])
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -526,7 +526,7 @@ export function EmploymentWizardView() {
           <EligibilityStep
             pool={poolDetail}
             isLoading={poolLoading}
-            pooledAcreage={pooledAcreage}
+            pooled_acreage={pooled_acreage}
             thresholdPct={thresholdPct}
             thresholdMet={thresholdMet}
             creating={createAppMutation.isPending}
@@ -546,7 +546,7 @@ export function EmploymentWizardView() {
           />
         )}
 
-        {/* ─── Step 3: Document Upload (PUB-M10-03) ─── */}
+        {/* ─── Step 3: document Upload (PUB-M10-03) ─── */}
         {step === 3 && (
           <DocumentUploadStep
             uploadedDocs={uploadedDocs}
@@ -561,7 +561,7 @@ export function EmploymentWizardView() {
           <StatusTrackerStep
             application={application}
             isLoading={appLoading}
-            exceptionFlags={poolDetail?.exceptionFlags ?? null}
+            exception_flags={poolDetail?.exception_flags ?? null}
             countdown={countdown}
           />
         )}
@@ -628,10 +628,10 @@ function PoolSelectionStep({
   error,
   onSelect,
 }: {
-  pools: NomineePool[] | undefined
+  pools: nominee_pool[] | undefined
   isLoading: boolean
   error: Error | null
-  onSelect: (poolId: string, hasCrossed: boolean) => void
+  onSelect: (pool_id: string, hasCrossed: boolean) => void
 }) {
   if (isLoading) {
     return (
@@ -674,7 +674,7 @@ function PoolSelectionStep({
       >
         <div className="space-y-3">
           {pools.map((pool) => {
-            const pooled = Number(pool.pooledAcreage) || 0
+            const pooled = Number(pool.pooled_acreage) || 0
             const pct = Math.min(100, (pooled / EMPLOYMENT_THRESHOLD) * 100)
             const met = pool.hasCrossedThreshold
 
@@ -690,13 +690,13 @@ function PoolSelectionStep({
                       <StateBadge state={pool.state} />
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Nominee: <span className="font-medium text-foreground">{pool.nomineeName}</span>
+                      Nominee: <span className="font-medium text-foreground">{pool.nominee_name}</span>
                       {' · '}Contributions: {pool.contributionCount}
                     </p>
                     <div className="mt-2 space-y-1">
                       <div className="flex items-baseline justify-between text-xs">
                         <span className="text-muted-foreground">
-                          Pooled: <span className="font-mono font-semibold tabular-nums text-foreground">{formatNumber(pool.pooledAcreage, 4)}</span>{' '}
+                          Pooled: <span className="font-mono font-semibold tabular-nums text-foreground">{formatNumber(pool.pooled_acreage, 4)}</span>{' '}
                           / {formatNumber(EMPLOYMENT_THRESHOLD, 4)} acres
                         </span>
                         <span className={`font-medium tabular-nums ${met ? 'text-emerald-600' : 'text-amber-600'}`}>{pct.toFixed(1)}%</span>
@@ -740,16 +740,16 @@ function PoolSelectionStep({
 function EligibilityStep({
   pool,
   isLoading,
-  pooledAcreage,
+  pooled_acreage,
   thresholdPct,
   thresholdMet,
   creating,
   onStart,
   onBack,
 }: {
-  pool: NomineePool | undefined
+  pool: nominee_pool | undefined
   isLoading: boolean
-  pooledAcreage: number
+  pooled_acreage: number
   thresholdPct: number
   thresholdMet: boolean
   creating: boolean
@@ -787,7 +787,7 @@ function EligibilityStep({
           {/* Pool info */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <InfoTile label="Project" value={pool.projectName} />
-            <InfoTile label="Nominee" value={pool.nomineeName} />
+            <InfoTile label="Nominee" value={pool.nominee_name} />
             <InfoTile label="State" value={pool.state} />
             <InfoTile label="Contributions" value={String(pool.contributionCount)} />
           </div>
@@ -798,9 +798,9 @@ function EligibilityStep({
           <div className="space-y-3">
             <div className="flex items-baseline justify-between">
               <div>
-                <p className="text-3xl font-bold tabular-nums">{formatNumber(pooledAcreage, 4)}</p>
+                <p className="text-3xl font-bold tabular-nums">{formatNumber(pooled_acreage, 4)}</p>
                 <p className="text-xs text-muted-foreground">
-                  Your pooled land total: <span className="font-mono font-semibold">{formatNumber(pooledAcreage, 4)}</span>{' '}
+                  Your pooled land total: <span className="font-mono font-semibold">{formatNumber(pooled_acreage, 4)}</span>{' '}
                   / {formatNumber(EMPLOYMENT_THRESHOLD, 4)} acres
                 </p>
               </div>
@@ -826,7 +826,7 @@ function EligibilityStep({
                 ) : (
                   <span className="flex items-center gap-1.5">
                     <AlertCircle className="h-3.5 w-3.5" />
-                    ⚠ {formatNumber(EMPLOYMENT_THRESHOLD - pooledAcreage, 4)} acres short — application blocked
+                    ⚠ {formatNumber(EMPLOYMENT_THRESHOLD - pooled_acreage, 4)} acres short — application blocked
                   </span>
                 )}
               </span>
@@ -1016,7 +1016,7 @@ function FormVICaptureStep({
   )
 }
 
-// ─── Step 3: Document Upload (PUB-M10-03) ────────────────────────────────────
+// ─── Step 3: document Upload (PUB-M10-03) ────────────────────────────────────
 
 function DocumentUploadStep({
   uploadedDocs,
@@ -1024,9 +1024,9 @@ function DocumentUploadStep({
   onRemove,
   hasFemaleException,
 }: {
-  uploadedDocs: Record<string, Array<{ fileName: string; fileSizeKb: number; mimeType: string; virusScanStatus: 'clean' | 'scanning'; uploadedAt: string }>>
+  uploadedDocs: Record<string, Array<{ file_name: string; file_size_kb: number; mime_type: string; virus_scan_status: 'clean' | 'scanning'; uploadedAt: string }>>
   onUpload: (docKey: string, file: File) => void
-  onRemove: (docKey: string, fileName: string) => void
+  onRemove: (docKey: string, file_name: string) => void
   hasFemaleException: boolean
 }) {
   const allDocs = hasFemaleException
@@ -1036,7 +1036,7 @@ function DocumentUploadStep({
   return (
     <div className="space-y-4">
       <SectionCard
-        title="Document Upload"
+        title="document Upload"
         icon={Upload}
         description="PUB-M10-03 — Upload mandatory documents for verification"
       >
@@ -1072,11 +1072,11 @@ function DocumentUploadStep({
                   )}
                 </div>
                 <DocumentUploader
-                  checklistItemKey={doc.key}
+                  checklist_item_key={doc.key}
                   label=""
                   documents={uploadedDocs[doc.key] ?? []}
                   onUpload={(file) => onUpload(doc.key, file)}
-                  onRemove={(d) => onRemove(doc.key, d.fileName)}
+                  onRemove={(d) => onRemove(doc.key, d.file_name)}
                 />
               </div>
             ))}
@@ -1108,12 +1108,12 @@ function DocumentUploadStep({
 function StatusTrackerStep({
   application,
   isLoading,
-  exceptionFlags,
+  exception_flags,
   countdown,
 }: {
-  application: EmploymentApplication | undefined
+  application: employment_application | undefined
   isLoading: boolean
-  exceptionFlags: string | null
+  exception_flags: string | null
   countdown: { d: number; h: number; m: number; s: number } | null
 }) {
   if (isLoading) {
@@ -1137,7 +1137,7 @@ function StatusTrackerStep({
     )
   }
 
-  const flags = exceptionFlags ? JSON.parse(exceptionFlags) as Record<string, unknown> : null
+  const flags = exception_flags ? JSON.parse(exception_flags) as Record<string, unknown> : null
   const timelineNodes = buildTimelineNodes(application, flags)
 
   return (
@@ -1152,21 +1152,21 @@ function StatusTrackerStep({
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-sm font-semibold">{application.applicationCode}</span>
+                <span className="font-mono text-sm font-semibold">{application.application_code}</span>
                 <StateBadge state={application.state} />
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {application.projectName} · {application.nomineeName}
-                {application.submittedAt && (
-                  <> · Submitted {timeAgo(application.submittedAt)}</>
+                {application.projectName} · {application.nominee_name}
+                {application.submitted_at && (
+                  <> · Submitted {timeAgo(application.submitted_at)}</>
                 )}
               </p>
             </div>
-            {application.submittedAt && (
+            {application.submitted_at && (
               <div className="text-right">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Submitted On</p>
                 <p className="text-sm font-medium tabular-nums">
-                  {new Date(application.submittedAt).toLocaleDateString('en-IN', {
+                  {new Date(application.submitted_at).toLocaleDateString('en-IN', {
                     day: '2-digit',
                     month: 'short',
                     year: 'numeric',
@@ -1202,8 +1202,8 @@ function StatusTrackerStep({
               </div>
               <p className="mt-2 text-[11px] text-amber-700/70">
                 Window ends:{' '}
-                {application.transparencyWindowEndsAt
-                  ? new Date(application.transparencyWindowEndsAt).toLocaleDateString('en-IN', {
+                {application.transparency_window_ends_at
+                  ? new Date(application.transparency_window_ends_at).toLocaleDateString('en-IN', {
                       day: '2-digit',
                       month: 'short',
                       year: 'numeric',

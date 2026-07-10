@@ -22,7 +22,7 @@ export function AuthView() {
   const [loading, setLoading] = React.useState(false)
   const { setView } = useUiState()
   const [eclForm, setEclForm] = React.useState({ email: '', password: '' })
-  const [regForm, setRegForm] = React.useState({ aadhaarNumber: '', name: '', mobile: '', plotId: '', otp: '' })
+  const [regForm, setRegForm] = React.useState({ aadhaarNumber: '', name: '', mobile: '', plot_id: '', otp: '' })
   const [otpRequested, setOtpRequested] = React.useState(false)
   const [pubForm, setPubForm] = React.useState({ mobile: '', otp: '' })
   const [pubOtpRequested, setPubOtpRequested] = React.useState(false)

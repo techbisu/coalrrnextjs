@@ -1,61 +1,89 @@
-// GET  /api/schedules/[id] — fetch one schedule with items + checklist
-// PATCH /api/schedules/[id] — update proposal details
-import { ProposalService } from '@/modules/land-acquisition/services/ProposalService'
+/**
+ * Proposal Details API - Refactored to use Clean Architecture.
+ * Uses proper use cases for retrieval and updating.
+ */
+import { NextResponse } from 'next/server'
 import { authorizeApi } from '@/authorization/middleware/authorize'
-import { ok, badRequest, notFound, serverError, dec, iso, readJson } from '../../_lib'
+import { ok, notFound, serverError } from '../../_lib'
 import type { NextRequest } from 'next/server'
+import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories/PrismaProposalRepository'
+import { GetProposalDetailsUseCase, UpdateProposalUseCase } from '@/application/use-cases/proposal'
+import { validateBody } from '@/application/middleware/validation'
+import { UpdateProposalSchema } from '@/application/validators/schemas'
+import { apiRateLimiter, getClientIdentifier } from '@/infrastructure/security'
+import { NotFoundException, DomainException, ValidationException } from '@/core/errors'
 
-const service = new ProposalService()
 type Ctx = { params: Promise<{ id: string }> }
 
-export async function GET(_req: NextRequest, ctx: Ctx) {
+const proposalRepository = new PrismaProposalRepository()
+
+export async function GET(req: NextRequest, ctx: Ctx) {
   try {
     const auth = await authorizeApi('acquisition.view')
     if (auth.error) return auth.error
 
     const { id } = await ctx.params
-    const s = await service.getProposalById(id)
-    if (!s) return notFound('Schedule not found')
+    
+    const useCase = new GetProposalDetailsUseCase(proposalRepository)
+    const result = await useCase.execute({ proposalId: id })
 
-    return ok({
-      id: s.id, scheduleCode: s.scheduleCode, projectId: s.projectId, projectName: s.project.name,
-      projectBudgetCeiling: dec(s.project.totalBudgetCeiling), projectLandLimit: dec(s.project.totalLandLimitAcres),
-      acquisitionMode: s.acquisitionMode, state: s.state, proposalTitle: s.proposalTitle, description: s.description,
-      proposedBy: s.proposedBy, proposedByRole: s.proposedByRole, areaOffice: s.areaOffice, collieryCode: s.collieryCode,
-      adjacentColliery: s.adjacentColliery, totalAreaAcres: dec(s.totalAreaAcres), notificationDate: iso(s.notificationDate),
-      annexureA: s.annexureA, annexureB: s.annexureB, annexureC: s.annexureC,
-      modeSpecificChecklist: s.modeSpecificChecklist,
-      items: s.items.map((it: any) => ({ 
-        id: it.id, plotId: it.plotId, plotNumber: it.plot.plotNumber, 
-        mouza: it.plot.mouza?.name || 'Unknown', landType: it.plot.landType, 
-        areaAcres: dec(it.plot.areaAcres), annexureTag: it.annexureTag, isActive: it.isActive 
-      })),
-      createdAt: s.createdAt.toISOString(),
-    })
-  } catch (e) {
-    return serverError('Failed to load schedule', e instanceof Error ? e.message : String(e))
+    if (result.isFailure) {
+      if ((result.error as any) instanceof NotFoundException || String(result.error).includes('not found')) {
+        return notFound(String(result.error))
+      }
+      throw result.error
+    }
+
+    return ok(result.value)
+  } catch (e: any) {
+    console.error('GET /api/schedules/[id] error:', e)
+    return serverError('Failed to load schedule', e.message)
   }
 }
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(req)
+    const rateLimit = apiRateLimiter.check(clientId)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests', retryAfter: rateLimit.retryAfter },
+        { status: 429 }
+      )
+    }
+
     const auth = await authorizeApi('acquisition.edit')
     if (auth.error) return auth.error
 
     const { id } = await ctx.params
-    const body = await readJson<{ proposalTitle?: string; description?: string; areaOffice?: string; adjacentColliery?: string; notificationDate?: string }>(req)
-    if (!body) return badRequest('Invalid body')
     
-    const data: any = {}
-    if (body.proposalTitle !== undefined) data.proposalTitle = body.proposalTitle
-    if (body.description !== undefined) data.description = body.description
-    if (body.areaOffice !== undefined) data.areaOffice = body.areaOffice
-    if (body.adjacentColliery !== undefined) data.adjacentColliery = body.adjacentColliery
-    if (body.notificationDate !== undefined) data.notificationDate = body.notificationDate ? new Date(body.notificationDate) : null
+    // Validation
+    const bodyResult = await validateBody(req, UpdateProposalSchema)
+    if (!bodyResult.success) return bodyResult.error
 
-    const updated = await service.updateProposal(id, data)
-    return ok({ id: updated.id, savedAt: new Date().toISOString() })
-  } catch (e) {
-    return serverError('Failed to update schedule', e instanceof Error ? e.message : String(e))
+    const useCase = new UpdateProposalUseCase(proposalRepository)
+    const result = await useCase.execute({
+      proposalId: id,
+      ...bodyResult.data,
+      notification_date: bodyResult.data.notification_date ? new Date(bodyResult.data.notification_date) : undefined,
+      user_id: auth.user.id
+    })
+
+    if (result.isFailure) {
+      if ((result.error as any) instanceof NotFoundException || String(result.error).includes('not found')) return notFound(String(result.error))
+      if ((result.error as any) instanceof ValidationException) {
+        return NextResponse.json({ error: String(result.error), details: (result.error as any) }, { status: 400 })
+      }
+      if ((result.error as any) instanceof DomainException) {
+        return NextResponse.json({ error: String(result.error), code: String(result.error) }, { status: 400 })
+      }
+      throw result.error
+    }
+
+    return ok(result.value)
+  } catch (e: any) {
+    console.error('PATCH /api/schedules/[id] error:', e)
+    return serverError('Failed to update schedule', e.message)
   }
 }

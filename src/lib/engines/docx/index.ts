@@ -14,29 +14,29 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
- * Minimal view of a `CompensationPayroll` with its lines, sufficient for
+ * Minimal view of a `compensation_payroll` with its lines, sufficient for
  * Form-VII projection. The real Prisma model has more fields — projectors
  * pick only what each form needs, keeping the DTOs lean and stable.
  */
 export interface PayrollRecordForForm {
   id: string;
-  payrollCode: string;
-  projectId: string;
+  payroll_code: string;
+  project_id: string;
   state: string;
   lines: ReadonlyArray<{
-    landownerName: string;
-    plotReference: string;
-    landValue: string;
-    assetValue: string;
-    solatiumAmount: string;
-    escalationAmount: string;
-    totalAward: string;
+    landowner_name: string;
+    plot_reference: string;
+    land_value: string;
+    asset_value: string;
+    solatium_amount: string;
+    escalation_amount: string;
+    total_award: string;
   }>;
   /** Lookup fields typically denormalised for forms. */
   mouzaName?: string;
-  plotNumber?: string;
+  plot_number?: string;
   acquiringColliery?: string;
-  adjacentColliery?: string;
+  adjacent_colliery?: string;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -45,9 +45,9 @@ export interface PayrollRecordForForm {
 
 /** Row in the Form-VII signatory table. */
 export interface FormVIISignatoryRow {
-  readonly landownerName: string;
-  readonly plotReference: string;
-  readonly totalAward: string;
+  readonly landowner_name: string;
+  readonly plot_reference: string;
+  readonly total_award: string;
   readonly solatium: string;
   readonly escalation: string;
 }
@@ -60,9 +60,9 @@ export interface FormVIISignatoryRow {
 export interface FormVIIData {
   readonly formCode: "form_vii";
   readonly mouzaName: string;
-  readonly plotNumber: string;
+  readonly plot_number: string;
   readonly acquiringColliery: string;
-  readonly adjacentColliery: string;
+  readonly adjacent_colliery: string;
   readonly generatedAt: string; // ISO 8601
   readonly signatoryRows: ReadonlyArray<FormVIISignatoryRow>;
 }
@@ -85,7 +85,7 @@ export interface FormDataProjector<TData> {
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
- * Projects a `CompensationPayroll` into a `FormVIIData` DTO (spec §2.2).
+ * Projects a `compensation_payroll` into a `FormVIIData` DTO (spec §2.2).
  *
  * Form-VII is the consolidated award summary that accompanies Form-D ledger
  * publication. This projector extracts the signatory rows (one per landowner
@@ -98,16 +98,16 @@ export class FormVIIProjector implements FormDataProjector<FormVIIData> {
     return {
       formCode: "form_vii",
       mouzaName: record.mouzaName ?? "—",
-      plotNumber: record.plotNumber ?? "—",
+      plot_number: record.plot_number ?? "—",
       acquiringColliery: record.acquiringColliery ?? "—",
-      adjacentColliery: record.adjacentColliery ?? "—",
+      adjacent_colliery: record.adjacent_colliery ?? "—",
       generatedAt: new Date().toISOString(),
       signatoryRows: record.lines.map((line) => ({
-        landownerName: line.landownerName,
-        plotReference: line.plotReference,
-        totalAward: line.totalAward,
-        solatium: line.solatiumAmount,
-        escalation: line.escalationAmount,
+        landowner_name: line.landowner_name,
+        plot_reference: line.plot_reference,
+        total_award: line.total_award,
+        solatium: line.solatium_amount,
+        escalation: line.escalation_amount,
       })),
     };
   }
@@ -129,7 +129,7 @@ class StubProjector implements FormDataProjector<unknown> {
     return {
       formCode: this.formCode,
       recordId: record.id,
-      payrollCode: record.payrollCode,
+      payroll_code: record.payroll_code,
       generatedAt: new Date().toISOString(),
       note: "Stub projection — real DTO pending implementation.",
     };

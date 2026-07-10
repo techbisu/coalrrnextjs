@@ -6,3 +6,6 @@ export type { LockProjectRequest, LockProjectResponse } from './LockProjectUseCa
 
 export { GetProjectDashboardUseCase } from './GetProjectDashboardUseCase'
 export type { GetProjectDashboardRequest, GetProjectDashboardResponse, ProjectDashboardItem } from './GetProjectDashboardUseCase'
+
+export { UpdateProjectUseCase } from './UpdateProjectUseCase'
+export type { UpdateProjectRequest, UpdateProjectResponse } from './UpdateProjectUseCase'

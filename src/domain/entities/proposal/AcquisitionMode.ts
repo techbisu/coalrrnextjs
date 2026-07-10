@@ -51,7 +51,7 @@ export class AcquisitionMode extends ValueObject<AcquisitionModeType> {
     
     if (!validModes.includes(value as AcquisitionModeType)) {
       return Fail(new ValidationException('Invalid Acquisition Mode', [
-        { field: 'acquisitionMode', message: `Must be one of: ${validModes.join(', ')}` }
+        { field: 'acquisition_mode', message: `Must be one of: ${validModes.join(', ')}` }
       ]))
     }
 

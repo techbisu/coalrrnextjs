@@ -1,0 +1,8 @@
+{
+  "pinnedFiles": [
+    "ARCHITECTURE_REFACTORING_SUMMARY.md",
+    "IMPLEMENTATION_GUIDE.md",
+    "prisma/schema.prisma"
+  ],
+  "enforceConsistency": true
+}

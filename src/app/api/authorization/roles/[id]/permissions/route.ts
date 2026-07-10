@@ -1,7 +1,7 @@
 import { ok, badRequest, serverError, readJson } from '@/app/api/_lib'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { syncPermissionsSchema } from '@/authorization/validators'
-import { RoleService } from '@/authorization/services/RoleService'
+import { roleService } from '@/infrastructure/di/Container'
 import { db } from '@/lib/db'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -10,8 +10,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   try {
     const { id } = await params
-    const permissions = await db.roleHasPermission.findMany({
-      where: { roleId: id },
+    const permissions = await db.role_has_permission.findMany({
+      where: { role_id: id },
       include: { permission: true },
     })
     return ok(permissions.map((rp) => rp.permission))
@@ -37,7 +37,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       where: { id: { in: permissionIds } },
     })
 
-    await RoleService.syncPermissions(
+    await roleService.syncPermissions(
       id,
       perms.map((p) => p.name)
     )

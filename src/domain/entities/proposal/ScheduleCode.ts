@@ -20,17 +20,13 @@ export class ScheduleCode extends ValueObject<string> {
     return new ScheduleCode(code)
   }
 
-  static tryCreate(value: string): Result<ScheduleCode, ValidationException> {
+  static tryCreate(value: string): Result<ScheduleCode> {
     if (!value || value.trim().length === 0) {
-      return Fail(new ValidationException('Invalid Schedule Code', [
-        { field: 'scheduleCode', message: 'Schedule code cannot be empty' }
-      ]))
+      return Fail('Invalid Schedule Code')
     }
 
     if (!this.CODE_PATTERN.test(value)) {
-      return Fail(new ValidationException('Invalid Schedule Code', [
-        { field: 'scheduleCode', message: 'Schedule code must match format SCH-YYYY-NNN' }
-      ]))
+      return Fail('Invalid Schedule Code')
     }
 
     return { isSuccess: true, isFailure: false, value: new ScheduleCode(value), error: null }

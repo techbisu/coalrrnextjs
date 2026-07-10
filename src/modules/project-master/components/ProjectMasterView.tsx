@@ -25,47 +25,47 @@ import {
 import { Can } from '@/authorization/components/Can'
 
 interface ProjectData {
-  id: string; name: string; collieryCode: string
-  totalLandLimitAcres: string; totalBudgetCeiling: string; totalEmploymentQuota: number
-  boundary: string; statutoryClearances: string | null
-  lockedAt: string | null; isLocked: boolean
+  id: string; name: string; colliery_code: string
+  total_land_limit_acres: string; total_budget_ceiling: string; total_employment_quota: number
+  boundary: string; statutory_clearances: string | null
+  locked_at: string | null; isLocked: boolean
   payrollCount: number; totalDisbursed: string; budgetUtilization: string
-  plots: Array<{ id: string; plotNumber: string; mouza: string; landType: string; areaAcres: string; exhaustedAreaForJobs: string; remainingJobQuota: number }>
+  plots: Array<{ id: string; plot_number: string; mouza: string; land_type: string; area_acres: string; exhausted_area_for_jobs: string; remaining_job_quota: number }>
 }
 
 async function fetchProjects(): Promise<ProjectData[]> {
   const r = await fetch('/api/projects')
   if (!r.ok) throw new Error('Failed to load projects')
   const json = await r.json()
-  return json.data ?? json // Handle both raw array or wrapped { data: [] }
+  return json.data || json
 }
 
 // ─── Project form payload (shared by create + edit) ────────────────────────
 interface ProjectFormValues {
   name: string
-  collieryCode: string
-  totalLandLimitAcres: string
-  totalBudgetCeiling: string
-  totalEmploymentQuota: number
+  colliery_code: string
+  total_land_limit_acres: string
+  total_budget_ceiling: string
+  total_employment_quota: number
 }
 
 const EMPTY_FORM: ProjectFormValues = {
   name: '',
-  collieryCode: '',
-  totalLandLimitAcres: '',
-  totalBudgetCeiling: '',
-  totalEmploymentQuota: 0,
+  colliery_code: '',
+  total_land_limit_acres: '',
+  total_budget_ceiling: '',
+  total_employment_quota: 0,
 }
 
 // ─── Create / Edit dialog ──────────────────────────────────────────────────
 function ProjectFormDialog({
-  open, onOpenChange, mode, initial, projectId, onSaved,
+  open, onOpenChange, mode, initial, project_id, onSaved,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   mode: 'create' | 'edit'
   initial: ProjectFormValues
-  projectId?: string
+  project_id?: string
   onSaved?: (id: string) => void
 }) {
   const qc = useQueryClient()
@@ -81,8 +81,8 @@ function ProjectFormDialog({
   const mutation = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
       if (isEdit) {
-        if (!projectId) throw new Error('Missing project id for edit')
-        const r = await fetch(`/api/projects/${projectId}`, {
+        if (!project_id) throw new Error('Missing project id for edit')
+        const r = await fetch(`/api/projects/${project_id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(values),
@@ -112,9 +112,9 @@ function ProjectFormDialog({
 
   const submit = () => {
     if (!form.name.trim()) return toast.error('Name is required')
-    if (!form.collieryCode.trim()) return toast.error('Colliery code is required')
-    if (Number(form.totalLandLimitAcres) <= 0) return toast.error('Land limit must be > 0')
-    if (Number(form.totalBudgetCeiling) <= 0) return toast.error('Budget ceiling must be > 0')
+    if (!form.colliery_code.trim()) return toast.error('Colliery code is required')
+    if (Number(form.total_land_limit_acres) <= 0) return toast.error('Land limit must be > 0')
+    if (Number(form.total_budget_ceiling) <= 0) return toast.error('Budget ceiling must be > 0')
     mutation.mutate(form)
   }
 
@@ -142,8 +142,8 @@ function ProjectFormDialog({
           <div className="grid gap-1.5">
             <Label htmlFor="proj-colliery">Colliery code</Label>
             <Input
-              id="proj-colliery" value={form.collieryCode}
-              onChange={(e) => setForm({ ...form, collieryCode: e.target.value })}
+              id="proj-colliery" value={form.colliery_code}
+              onChange={(e) => setForm({ ...form, colliery_code: e.target.value })}
               placeholder="e.g. BHP/03" className="font-mono"
             />
           </div>
@@ -151,8 +151,8 @@ function ProjectFormDialog({
             <div className="grid gap-1.5">
               <Label htmlFor="proj-land">Land limit (acres)</Label>
               <Input
-                id="proj-land" inputMode="decimal" value={form.totalLandLimitAcres}
-                onChange={(e) => setForm({ ...form, totalLandLimitAcres: e.target.value })}
+                id="proj-land" inputMode="decimal" value={form.total_land_limit_acres}
+                onChange={(e) => setForm({ ...form, total_land_limit_acres: e.target.value })}
                 placeholder="450.0000"
               />
             </div>
@@ -160,8 +160,8 @@ function ProjectFormDialog({
               <Label htmlFor="proj-quota">Employment quota</Label>
               <Input
                 id="proj-quota" inputMode="numeric" type="number"
-                value={form.totalEmploymentQuota}
-                onChange={(e) => setForm({ ...form, totalEmploymentQuota: Number(e.target.value) || 0 })}
+                value={form.total_employment_quota}
+                onChange={(e) => setForm({ ...form, total_employment_quota: Number(e.target.value) || 0 })}
                 placeholder="0"
               />
             </div>
@@ -169,8 +169,8 @@ function ProjectFormDialog({
           <div className="grid gap-1.5">
             <Label htmlFor="proj-budget">Total budget ceiling (₹)</Label>
             <Input
-              id="proj-budget" inputMode="decimal" value={form.totalBudgetCeiling}
-              onChange={(e) => setForm({ ...form, totalBudgetCeiling: e.target.value })}
+              id="proj-budget" inputMode="decimal" value={form.total_budget_ceiling}
+              onChange={(e) => setForm({ ...form, total_budget_ceiling: e.target.value })}
               placeholder="18750000000"
             />
           </div>
@@ -314,9 +314,9 @@ export function ProjectMasterView() {
       const x = 84.05 + col * 0.03, y = 21.45 + row * 0.03
       return {
         id: p.id,
-        plotNumber: p.plotNumber,
-        landType: p.landType as PlotFeature['landType'],
-        areaAcres: p.areaAcres,
+        plot_number: p.plot_number,
+        land_type: p.land_type as PlotFeature['land_type'],
+        area_acres: p.area_acres,
         geometry: [[x, y], [x + 0.025, y], [x + 0.025, y + 0.025], [x, y + 0.025], [x, y]],
         selected: p.id === selectedPlotId,
       }
@@ -332,8 +332,8 @@ export function ProjectMasterView() {
   }, [project])
 
   const clearances = React.useMemo(() => {
-    if (!project?.statutoryClearances) return []
-    try { return JSON.parse(project.statutoryClearances) as Array<{ authority: string; referenceNo: string; issuedOn: string }> } catch { return [] }
+    if (!project?.statutory_clearances) return []
+    try { return JSON.parse(project.statutory_clearances) as Array<{ authority: string; referenceNo: string; issuedOn: string }> } catch { return [] }
   }, [project])
 
   if (isLoading) {
@@ -378,8 +378,8 @@ export function ProjectMasterView() {
             )}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Colliery code <span className="font-mono">{project.collieryCode}</span> · locked on{' '}
-            {project.lockedAt ? new Date(project.lockedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+            Colliery code <span className="font-mono">{project.colliery_code}</span> · locked on{' '}
+            {project.locked_at ? new Date(project.locked_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
           </p>
         </div>
 
@@ -419,7 +419,7 @@ export function ProjectMasterView() {
               <button
                 key={p.id}
                 type="button"
-                onClick={() => { selectProject(p.id); window.history.pushState(null, '', routes.project.details(p.collieryCode)); }}
+                onClick={() => { selectProject(p.id); window.history.pushState(null, '', routes.project.details(p.colliery_code)); }}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                   active
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
@@ -458,9 +458,9 @@ export function ProjectMasterView() {
 
       {/* Baseline stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Land Limit" value={`${formatNumber(project.totalLandLimitAcres, 4)} ac`} icon={MapPin} accent="emerald" />
-        <StatTile label="Budget Ceiling" value={formatINR(project.totalBudgetCeiling)} icon={IndianRupee} accent="amber" sublabel={`utilized ${project.budgetUtilization}%`} />
-        <StatTile label="Employment Quota" value={project.totalEmploymentQuota} icon={Users} accent="violet" sublabel="statutory jobs" />
+        <StatTile label="Land Limit" value={`${formatNumber(project.total_land_limit_acres, 4)} ac`} icon={MapPin} accent="emerald" />
+        <StatTile label="Budget Ceiling" value={formatINR(project.total_budget_ceiling)} icon={IndianRupee} accent="amber" sublabel={`utilized ${project.budgetUtilization}%`} />
+        <StatTile label="Employment Quota" value={project.total_employment_quota} icon={Users} accent="violet" sublabel="statutory jobs" />
         <StatTile label="Plots Registered" value={project.plots.length} icon={FileText} accent="teal" />
       </div>
 
@@ -501,12 +501,12 @@ export function ProjectMasterView() {
       <SectionCard title="Plot Schedule" icon={TreePine} description="Master land registry (LIS mirror) with exhausted-area-for-jobs denormalized column">
         <DataTable
           columns={[
-            { key: 'plotNumber', header: 'Plot', sortable: true, render: (r) => <span className="font-mono text-xs font-medium">{r.plotNumber}</span> },
+            { key: 'plot_number', header: 'Plot', sortable: true, render: (r) => <span className="font-mono text-xs font-medium">{r.plot_number}</span> },
             { key: 'mouza', header: 'Mouza', sortable: true },
-            { key: 'landType', header: 'Type', render: (r) => <Badge variant="outline" className="text-xs">{r.landType}</Badge> },
-            { key: 'areaAcres', header: 'Area (ac)', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{formatNumber(r.areaAcres, 4)}</span> },
-            { key: 'exhaustedAreaForJobs', header: 'Exhausted (jobs)', align: 'right', render: (r) => <span className="tabular-nums text-muted-foreground">{formatNumber(r.exhaustedAreaForJobs, 4)}</span> },
-            { key: 'remainingJobQuota', header: 'Job Quota', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{r.remainingJobQuota}</span> },
+            { key: 'land_type', header: 'Type', render: (r) => <Badge variant="outline" className="text-xs">{r.land_type}</Badge> },
+            { key: 'area_acres', header: 'Area (ac)', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{formatNumber(r.area_acres, 4)}</span> },
+            { key: 'exhausted_area_for_jobs', header: 'Exhausted (jobs)', align: 'right', render: (r) => <span className="tabular-nums text-muted-foreground">{formatNumber(r.exhausted_area_for_jobs, 4)}</span> },
+            { key: 'remaining_job_quota', header: 'Job Quota', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{r.remaining_job_quota}</span> },
           ] as Column<ProjectData['plots'][0]>[]}
           data={project.plots}
           getRowId={(r) => r.id}
@@ -522,7 +522,7 @@ export function ProjectMasterView() {
             <span className="text-sm">Disbursed vs. ceiling</span>
             <span className="text-sm tabular-nums">
               <span className="font-semibold">{formatINR(project.totalDisbursed)}</span>
-              <span className="text-muted-foreground"> / {formatINR(project.totalBudgetCeiling)}</span>
+              <span className="text-muted-foreground"> / {formatINR(project.total_budget_ceiling)}</span>
             </span>
           </div>
           <Progress value={Number(project.budgetUtilization)} className="h-3" indicatorClassName={Number(project.budgetUtilization) < 80 ? 'bg-emerald-500' : 'bg-rose-500'} />
@@ -546,13 +546,13 @@ export function ProjectMasterView() {
         open={editOpen}
         onOpenChange={setEditOpen}
         mode="edit"
-        projectId={project.id}
+        project_id={project.id}
         initial={{
           name: project.name,
-          collieryCode: project.collieryCode,
-          totalLandLimitAcres: project.totalLandLimitAcres,
-          totalBudgetCeiling: project.totalBudgetCeiling,
-          totalEmploymentQuota: project.totalEmploymentQuota,
+          colliery_code: project.colliery_code,
+          total_land_limit_acres: project.total_land_limit_acres,
+          total_budget_ceiling: project.total_budget_ceiling,
+          total_employment_quota: project.total_employment_quota,
         }}
       />
       <LockBaselineDialog open={lockOpen} onOpenChange={setLockOpen} project={project} />

@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+﻿import { Prisma } from '@prisma/client';
 import { AuditService } from '../services/AuditService';
 import { getAuditContext } from '@/lib/context/AuditContext';
 
@@ -9,7 +9,7 @@ function computeJsonDiff(oldObj: any, newObj: any) {
   const allKeys = new Set([...Object.keys(oldObj || {}), ...Object.keys(newObj || {})]);
 
   // Fields to ignore from auditing (e.g., timestamps)
-  const ignoredFields = new Set(['createdAt', 'updatedAt']);
+  const ignoredFields = new Set(['entry_ts', 'updt_ts']);
 
   for (const key of allKeys) {
     if (ignoredFields.has(key)) continue;

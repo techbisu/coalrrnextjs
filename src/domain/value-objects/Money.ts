@@ -33,19 +33,15 @@ export class Money extends ValueObject<MoneyProps> {
     return new Money({ amount: new Decimal(0), currency })
   }
 
-  static tryCreate(amount: number | string, currency: string = 'INR'): Result<Money, ValidationException> {
+  static tryCreate(amount: number | string, currency: string = 'INR'): Result<Money> {
     try {
       const decimal = new Decimal(amount)
       if (decimal.isNaN()) {
-        return Fail(new ValidationException('Invalid monetary value', [
-          { field: 'amount', message: 'Must be a valid number' }
-        ]))
+        return Fail('Invalid monetary value')
       }
       return { isSuccess: true, isFailure: false, value: new Money({ amount: decimal, currency }), error: null }
     } catch (e) {
-      return Fail(new ValidationException('Invalid monetary value', [
-        { field: 'amount', message: 'Must be a valid number' }
-      ]))
+      return Fail('Invalid monetary value')
     }
   }
 
@@ -114,7 +110,7 @@ export class Money extends ValueObject<MoneyProps> {
   }
 
   isPositive(): boolean {
-    return this._value.amount.isPositive()
+    return this._value.amount.greaterThan(0)
   }
 
   isNegative(): boolean {

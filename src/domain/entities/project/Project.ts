@@ -13,45 +13,45 @@ import { ProjectId } from './ProjectId'
 export interface ProjectProps {
   id: ProjectId
   name: string
-  collieryCode: string
+  colliery_code: string
   totalLandLimit: Area
-  totalBudgetCeiling: Money
-  totalEmploymentQuota: number
+  total_budget_ceiling: Money
+  total_employment_quota: number
   boundary?: string
-  statutoryClearances?: string
-  lockedAt: Date | null
+  statutory_clearances?: string
+  locked_at: Date | null
   lockedBy: string | null
-  createdAt: Date
-  updatedAt: Date
+  entry_ts: Date
+  updt_ts: Date
 }
 
 export interface CreateProjectProps {
   name: string
-  collieryCode: string
-  totalLandLimitAcres: number | string
-  totalBudgetCeiling: number | string
-  totalEmploymentQuota: number
+  colliery_code: string
+  total_land_limit_acres: number | string
+  total_budget_ceiling: number | string
+  total_employment_quota: number
   boundary?: string
 }
 
 export interface UpdateProjectProps {
   name?: string
-  collieryCode?: string
-  totalLandLimitAcres?: number | string
-  totalBudgetCeiling?: number | string
-  totalEmploymentQuota?: number
-  statutoryClearances?: string
+  colliery_code?: string
+  total_land_limit_acres?: number | string
+  total_budget_ceiling?: number | string
+  total_employment_quota?: number
+  statutory_clearances?: string
 }
 
 export class ProjectAlreadyLockedException extends DomainException {
-  constructor(projectId: string) {
-    super(`Project '${projectId}' is already locked and cannot be modified`, 'PROJECT_LOCKED')
+  constructor(project_id: string) {
+    super(`Project '${project_id}' is already locked and cannot be modified`, 'PROJECT_LOCKED')
   }
 }
 
 export class ProjectNotFoundException extends DomainException {
-  constructor(projectId: string) {
-    super(`Project '${projectId}' not found`, 'PROJECT_NOT_FOUND')
+  constructor(project_id: string) {
+    super(`Project '${project_id}' not found`, 'PROJECT_NOT_FOUND')
   }
 }
 
@@ -65,26 +65,26 @@ export class Project extends AggregateRoot<string> {
   private _statutoryClearances: string | undefined
   private _lockedAt: Date | null
   private _lockedBy: string | null
-  private _createdAt: Date
-  private _updatedAt: Date
+  private _entryTs: Date
+  private _updtTs: Date
 
   private constructor(props: ProjectProps) {
     super(props.id.value)
     this._name = props.name
-    this._collieryCode = props.collieryCode
+    this._collieryCode = props.colliery_code
     this._totalLandLimit = props.totalLandLimit
-    this._totalBudgetCeiling = props.totalBudgetCeiling
-    this._totalEmploymentQuota = props.totalEmploymentQuota
+    this._totalBudgetCeiling = props.total_budget_ceiling
+    this._totalEmploymentQuota = props.total_employment_quota
     this._boundary = props.boundary
-    this._statutoryClearances = props.statutoryClearances
-    this._lockedAt = props.lockedAt
+    this._statutoryClearances = props.statutory_clearances
+    this._lockedAt = props.locked_at
     this._lockedBy = props.lockedBy
-    this._createdAt = props.createdAt
-    this._updatedAt = props.updatedAt
+    this._entryTs = props.entry_ts
+    this._updtTs = props.updt_ts
   }
 
   // Factory method for creating new projects
-  static create(props: CreateProjectProps, id?: string): Result<Project, ValidationException> {
+  static create(props: CreateProjectProps, id?: string): Result<Project> {
     const errors: Array<{ field: string; message: string }> = []
 
     // Validate name
@@ -95,47 +95,54 @@ export class Project extends AggregateRoot<string> {
     }
 
     // Validate colliery code
-    if (!props.collieryCode || props.collieryCode.trim().length === 0) {
-      errors.push({ field: 'collieryCode', message: 'Colliery code is required' })
+    if (!props.colliery_code || props.colliery_code.trim().length === 0) {
+      errors.push({ field: 'colliery_code', message: 'Colliery code is required' })
     }
 
     // Validate land limit
-    const landLimitResult = Area.tryCreate(props.totalLandLimitAcres, 'ACRES')
+    const landLimitResult = Area.tryCreate(props.total_land_limit_acres, 'ACRES')
     if (landLimitResult.isFailure) {
-      errors.push({ field: 'totalLandLimitAcres', message: 'Land limit must be a positive number' })
+      errors.push({ field: 'total_land_limit_acres', message: 'Land limit must be a positive number' })
     }
 
     // Validate budget
-    const budgetResult = Money.tryCreate(props.totalBudgetCeiling)
+    const budgetResult = Money.tryCreate(props.total_budget_ceiling)
     if (budgetResult.isFailure) {
-      errors.push({ field: 'totalBudgetCeiling', message: 'Budget ceiling must be a positive number' })
+      errors.push({ field: 'total_budget_ceiling', message: 'Budget ceiling must be a valid number' })
+    } else if ((budgetResult as any).value.isNegative()) {
+      errors.push({ field: 'total_budget_ceiling', message: 'Budget ceiling must be a positive number' })
     }
 
     // Validate employment quota
-    if (props.totalEmploymentQuota < 0) {
-      errors.push({ field: 'totalEmploymentQuota', message: 'Employment quota cannot be negative' })
+    if (props.total_employment_quota < 0) {
+      errors.push({ field: 'total_employment_quota', message: 'Employment quota cannot be negative' })
     }
 
     if (errors.length > 0) {
-      return Fail(new ValidationException('Validation failed', errors))
+      return Fail('Validation failed')
     }
 
-    const projectId = id ? ProjectId.fromString(id) : ProjectId.create()
+    const project_id = id ? ProjectId.fromString(id) : ProjectId.create()
     const now = new Date()
 
     const project = new Project({
-      id: projectId,
+      id: project_id,
       name: props.name.trim(),
-      collieryCode: props.collieryCode.trim(),
+      colliery_code: props.colliery_code.trim(),
       totalLandLimit: (landLimitResult as any).value,
-      totalBudgetCeiling: (budgetResult as any).value,
-      totalEmploymentQuota: props.totalEmploymentQuota,
+      total_budget_ceiling: (budgetResult as any).value,
+      total_employment_quota: props.total_employment_quota,
       boundary: props.boundary ?? JSON.stringify({ type: 'MultiPolygon', coordinates: [], color: '#16a34a' }),
-      lockedAt: null,
+      locked_at: null,
       lockedBy: null,
-      createdAt: now,
-      updatedAt: now,
+      entry_ts: now,
+      updt_ts: now,
     })
+
+    project.addDomainEvent(createDomainEvent('PROJECT_CREATED', project.id.toString(), {
+      name: project.name,
+      colliery_code: project.colliery_code
+    }))
 
     return { isSuccess: true, isFailure: false, value: project, error: null }
   }
@@ -144,55 +151,55 @@ export class Project extends AggregateRoot<string> {
   static reconstitute(data: {
     id: string
     name: string
-    collieryCode: string
-    totalLandLimitAcres: string
-    totalBudgetCeiling: string
-    totalEmploymentQuota: number
+    colliery_code: string
+    total_land_limit_acres: string
+    total_budget_ceiling: string
+    total_employment_quota: number
     boundary?: string | null
-    statutoryClearances?: string | null
-    lockedAt?: Date | null
+    statutory_clearances?: string | null
+    locked_at?: Date | null
     lockedBy?: string | null
-    createdAt: Date
-    updatedAt: Date
+    entry_ts: Date
+    updt_ts: Date
   }): Project {
     return new Project({
       id: ProjectId.fromString(data.id),
       name: data.name,
-      collieryCode: data.collieryCode,
-      totalLandLimit: Area.fromAcres(data.totalLandLimitAcres),
-      totalBudgetCeiling: Money.fromINR(data.totalBudgetCeiling),
-      totalEmploymentQuota: data.totalEmploymentQuota,
+      colliery_code: data.colliery_code,
+      totalLandLimit: Area.fromAcres(data.total_land_limit_acres),
+      total_budget_ceiling: Money.fromINR(data.total_budget_ceiling),
+      total_employment_quota: data.total_employment_quota,
       boundary: data.boundary ?? undefined,
-      statutoryClearances: data.statutoryClearances ?? undefined,
-      lockedAt: data.lockedAt ?? null,
+      statutory_clearances: data.statutory_clearances ?? undefined,
+      locked_at: data.locked_at ?? null,
       lockedBy: data.lockedBy ?? null,
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
+      entry_ts: data.entry_ts,
+      updt_ts: data.updt_ts,
     })
   }
 
   // Business behaviors
-  lock(userId: string): Result<void, ProjectAlreadyLockedException> {
+  lock(user_id: string): Result<void> {
     if (this._lockedAt !== null) {
-      return Fail(new ProjectAlreadyLockedException(this.id))
+      return Fail(this.id.toString())
     }
 
     this._lockedAt = new Date()
-    this._lockedBy = userId
-    this._updatedAt = new Date()
+    this._lockedBy = user_id
+    this._updtTs = new Date()
 
-    this.addDomainEvent(createDomainEvent('PROJECT_LOCKED', this.id, {
-      lockedBy: userId,
-      lockedAt: this._lockedAt.toISOString(),
+    this.addDomainEvent(createDomainEvent('PROJECT_LOCKED', this.id.toString(), {
+      lockedBy: user_id,
+      locked_at: this._lockedAt.toISOString(),
       projectName: this._name,
     }))
 
     return { isSuccess: true, isFailure: false, value: undefined, error: null }
   }
 
-  update(props: UpdateProjectProps, userId: string): Result<void, ProjectAlreadyLockedException | ValidationException> {
+  update(props: UpdateProjectProps, user_id: string): Result<void> {
     if (this._lockedAt !== null) {
-      return Fail(new ProjectAlreadyLockedException(this.id))
+      return Fail(this.id.toString())
     }
 
     const errors: Array<{ field: string; message: string }> = []
@@ -205,49 +212,49 @@ export class Project extends AggregateRoot<string> {
       }
     }
 
-    if (props.collieryCode !== undefined) {
-      if (!props.collieryCode || props.collieryCode.trim().length === 0) {
-        errors.push({ field: 'collieryCode', message: 'Colliery code is required' })
+    if (props.colliery_code !== undefined) {
+      if (!props.colliery_code || props.colliery_code.trim().length === 0) {
+        errors.push({ field: 'colliery_code', message: 'Colliery code is required' })
       } else {
-        this._collieryCode = props.collieryCode.trim()
+        this._collieryCode = props.colliery_code.trim()
       }
     }
 
-    if (props.totalLandLimitAcres !== undefined) {
-      const landLimitResult = Area.tryCreate(props.totalLandLimitAcres, 'ACRES')
+    if (props.total_land_limit_acres !== undefined) {
+      const landLimitResult = Area.tryCreate(props.total_land_limit_acres, 'ACRES')
       if (landLimitResult.isFailure) {
-        errors.push({ field: 'totalLandLimitAcres', message: 'Land limit must be a positive number' })
+        errors.push({ field: 'total_land_limit_acres', message: 'Land limit must be a positive number' })
       } else {
         this._totalLandLimit = (landLimitResult as any).value
       }
     }
 
-    if (props.totalBudgetCeiling !== undefined) {
-      const budgetResult = Money.tryCreate(props.totalBudgetCeiling)
+    if (props.total_budget_ceiling !== undefined) {
+      const budgetResult = Money.tryCreate(props.total_budget_ceiling)
       if (budgetResult.isFailure) {
-        errors.push({ field: 'totalBudgetCeiling', message: 'Budget ceiling must be a positive number' })
+        errors.push({ field: 'total_budget_ceiling', message: 'Budget ceiling must be a valid number' })
       } else {
         this._totalBudgetCeiling = (budgetResult as any).value
       }
     }
 
-    if (props.totalEmploymentQuota !== undefined) {
-      if (props.totalEmploymentQuota < 0) {
-        errors.push({ field: 'totalEmploymentQuota', message: 'Employment quota cannot be negative' })
+    if (props.total_employment_quota !== undefined) {
+      if (props.total_employment_quota < 0) {
+        errors.push({ field: 'total_employment_quota', message: 'Employment quota cannot be negative' })
       } else {
-        this._totalEmploymentQuota = props.totalEmploymentQuota
+        this._totalEmploymentQuota = props.total_employment_quota
       }
     }
 
-    if (props.statutoryClearances !== undefined) {
-      this._statutoryClearances = props.statutoryClearances
+    if (props.statutory_clearances !== undefined) {
+      this._statutoryClearances = props.statutory_clearances
     }
 
     if (errors.length > 0) {
-      return Fail(new ValidationException('Validation failed', errors))
+      return Fail('Validation failed')
     }
 
-    this._updatedAt = new Date()
+    this._updtTs = new Date()
     return { isSuccess: true, isFailure: false, value: undefined, error: null }
   }
 
@@ -273,7 +280,7 @@ export class Project extends AggregateRoot<string> {
   }
 
   // Getters
-  get projectId(): ProjectId {
+  get project_id(): ProjectId {
     return ProjectId.fromString(this.id)
   }
 
@@ -281,7 +288,7 @@ export class Project extends AggregateRoot<string> {
     return this._name
   }
 
-  get collieryCode(): string {
+  get colliery_code(): string {
     return this._collieryCode
   }
 
@@ -289,11 +296,11 @@ export class Project extends AggregateRoot<string> {
     return this._totalLandLimit
   }
 
-  get totalBudgetCeiling(): Money {
+  get total_budget_ceiling(): Money {
     return this._totalBudgetCeiling
   }
 
-  get totalEmploymentQuota(): number {
+  get total_employment_quota(): number {
     return this._totalEmploymentQuota
   }
 
@@ -301,11 +308,11 @@ export class Project extends AggregateRoot<string> {
     return this._boundary
   }
 
-  get statutoryClearances(): string | undefined {
+  get statutory_clearances(): string | undefined {
     return this._statutoryClearances
   }
 
-  get lockedAt(): Date | null {
+  get locked_at(): Date | null {
     return this._lockedAt
   }
 
@@ -313,42 +320,42 @@ export class Project extends AggregateRoot<string> {
     return this._lockedBy
   }
 
-  get createdAt(): Date {
-    return this._createdAt
+  get entry_ts(): Date {
+    return this._entryTs
   }
 
-  get updatedAt(): Date {
-    return this._updatedAt
+  get updt_ts(): Date {
+    return this._updtTs
   }
 
   // Serialization for persistence
   toPersistence(): {
     id: string
     name: string
-    collieryCode: string
-    totalLandLimitAcres: string
-    totalBudgetCeiling: string
-    totalEmploymentQuota: number
+    colliery_code: string
+    total_land_limit_acres: string
+    total_budget_ceiling: string
+    total_employment_quota: number
     boundary: string | null
-    statutoryClearances: string | null
-    lockedAt: Date | null
+    statutory_clearances: string | null
+    locked_at: Date | null
     lockedBy: string | null
-    createdAt: Date
-    updatedAt: Date
+    entry_ts: Date
+    updt_ts: Date
   } {
     return {
       id: this.id,
       name: this._name,
-      collieryCode: this._collieryCode,
-      totalLandLimitAcres: this._totalLandLimit.toDecimal().toString(),
-      totalBudgetCeiling: this._totalBudgetCeiling.toDecimal().toString(),
-      totalEmploymentQuota: this._totalEmploymentQuota,
+      colliery_code: this._collieryCode,
+      total_land_limit_acres: this._totalLandLimit.toDecimal().toString(),
+      total_budget_ceiling: this._totalBudgetCeiling.toDecimal().toString(),
+      total_employment_quota: this._totalEmploymentQuota,
       boundary: this._boundary ?? null,
-      statutoryClearances: this._statutoryClearances ?? null,
-      lockedAt: this._lockedAt,
+      statutory_clearances: this._statutoryClearances ?? null,
+      locked_at: this._lockedAt,
       lockedBy: this._lockedBy,
-      createdAt: this._createdAt,
-      updatedAt: this._updatedAt,
+      entry_ts: this._entryTs,
+      updt_ts: this._updtTs,
     }
   }
 }

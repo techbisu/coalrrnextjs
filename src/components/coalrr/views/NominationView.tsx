@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -58,9 +58,9 @@ import {
 
 interface Claim {
   id: string
-  claimCode: string
-  plotNumber: string
-  ownShareAcres: string
+  claim_code: string
+  plot_number: string
+  own_share_acres: string
   state: string
   mouza: string | null
   nominated: boolean
@@ -68,35 +68,35 @@ interface Claim {
 
 interface NomineePoolSummary {
   id: string
-  nomineeName: string
-  nomineeAadhaarHash: string
-  pooledAcreage: string
+  nominee_name: string
+  nominee_aadhaar_hash: string
+  pooled_acreage: string
   contributionCount: number
   status: 'Pooling' | 'Threshold Met' | 'Application Submitted'
   threshold: string
   hasCrossedThreshold: boolean
-  createdAt: string
+  entry_ts: string
 }
 
 interface PoolContribution {
   id: string
-  claimantName: string
-  plotNumber: string
-  shareAcres: string
-  claimCode: string
+  claimant_name: string
+  plot_number: string
+  share_acres: string
+  claim_code: string
 }
 
 interface NomineePoolDetail {
   id: string
-  nomineeName: string
-  nomineeAadhaarHash: string
-  pooledAcreage: string
+  nominee_name: string
+  nominee_aadhaar_hash: string
+  pooled_acreage: string
   threshold: string
   hasCrossedThreshold: boolean
   contributionCount: number
   status: 'Pooling' | 'Threshold Met' | 'Application Submitted'
   contributions: PoolContribution[]
-  createdAt: string
+  entry_ts: string
 }
 
 // ─── API helpers ────────────────────────────────────────────────────────────
@@ -270,10 +270,10 @@ function PublicListView() {
     window.history.pushState(null, '', routes.nomination.details(claim.id))
   }
 
-  const handleTrack = (poolId: string) => {
-    setSelectedPoolId(poolId)
+  const handleTrack = (pool_id: string) => {
+    setSelectedPoolId(pool_id)
     setNominationView('tracking')
-    window.history.pushState(null, '', routes.nomination.details(poolId))
+    window.history.pushState(null, '', routes.nomination.details(pool_id))
   }
 
   return (
@@ -332,11 +332,11 @@ function PublicListView() {
                         className={idx % 2 === 1 ? 'bg-muted/20' : undefined}
                       >
                         <TableCell className="font-mono text-sm font-medium">
-                          {claim.claimCode}
+                          {claim.claim_code}
                         </TableCell>
-                        <TableCell className="text-sm">{claim.plotNumber}</TableCell>
+                        <TableCell className="text-sm">{claim.plot_number}</TableCell>
                         <TableCell className="text-right font-mono text-sm tabular-nums">
-                          {formatNumber(claim.ownShareAcres, 4)}
+                          {formatNumber(claim.own_share_acres, 4)}
                         </TableCell>
                         <TableCell>
                           <StateBadge state={claim.state} />
@@ -382,7 +382,7 @@ function PublicListView() {
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {pools.map((pool) => {
-                  const pooled = Number(pool.pooledAcreage) || 0
+                  const pooled = Number(pool.pooled_acreage) || 0
                   const pct = Math.min(100, (pooled / THRESHOLD_ACRES) * 100)
                   const meta = POOL_STATUS_META[pool.status] ?? POOL_STATUS_META.Pooling
 
@@ -395,7 +395,7 @@ function PublicListView() {
                     >
                       <div className="flex items-start justify-between">
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">{pool.nomineeName}</p>
+                          <p className="truncate text-sm font-semibold">{pool.nominee_name}</p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {pool.contributionCount} contribution{pool.contributionCount !== 1 ? 's' : ''}
                           </p>
@@ -408,7 +408,7 @@ function PublicListView() {
                       <div className="space-y-1.5">
                         <div className="flex items-baseline justify-between text-xs">
                           <span className="font-mono tabular-nums font-semibold">
-                            {formatNumber(pool.pooledAcreage, 4)} ac
+                            {formatNumber(pool.pooled_acreage, 4)} ac
                           </span>
                           <span className="text-muted-foreground">of {formatNumber(THRESHOLD_ACRES, 2)} ac</span>
                         </div>
@@ -452,20 +452,20 @@ function EclListView() {
 
   const columns: Column<NomineePoolSummary>[] = [
     {
-      key: 'nomineeName',
+      key: 'nominee_name',
       header: 'Nominee Name',
       sortable: true,
       render: (row) => (
-        <span className="font-medium">{row.nomineeName}</span>
+        <span className="font-medium">{row.nominee_name}</span>
       ),
     },
     {
-      key: 'pooledAcreage',
+      key: 'pooled_acreage',
       header: 'Pooled Acreage',
       sortable: true,
       align: 'right',
       render: (row) => (
-        <span className="font-mono tabular-nums">{formatNumber(row.pooledAcreage, 4)} ac</span>
+        <span className="font-mono tabular-nums">{formatNumber(row.pooled_acreage, 4)} ac</span>
       ),
     },
     {
@@ -561,8 +561,8 @@ function NominationFormView() {
    } = useUiState()
   const queryClient = useQueryClient()
 
-  const [nomineeAadhaarHash, setNomineeAadhaarHash] = React.useState('')
-  const [nomineeName, setNomineeName] = React.useState('')
+  const [nominee_aadhaar_hash, setNomineeAadhaarHash] = React.useState('')
+  const [nominee_name, setNomineeName] = React.useState('')
   const [relationship, setRelationship] = React.useState('')
   const [formError, setFormError] = React.useState<string | null>(null)
 
@@ -583,11 +583,11 @@ function NominationFormView() {
 
   const nominateMutation = useMutation({
     mutationFn: async (payload: {
-      nomineeAadhaarHash: string
-      nomineeName: string
+      nominee_aadhaar_hash: string
+      nominee_name: string
       relationship: string
       claimId: string
-      shareAcres: string
+      share_acres: string
     }) => {
       const r = await fetch('/api/nominate', {
         method: 'POST',
@@ -602,12 +602,12 @@ function NominationFormView() {
     },
     onSuccess: (data) => {
       toast.success('Nomination submitted successfully', {
-        description: `${nomineeName} now has ${selectedClaim?.ownShareAcres ?? '0'} acres pooled.`,
+        description: `${nominee_name} now has ${selectedClaim?.own_share_acres ?? '0'} acres pooled.`,
       })
       queryClient.invalidateQueries({ queryKey: ['claims'] })
       queryClient.invalidateQueries({ queryKey: ['nominee-pools'] })
-      if (data?.poolId) {
-        setSelectedPoolId(data.poolId)
+      if (data?.pool_id) {
+        setSelectedPoolId(data.pool_id)
         setNominationView('tracking')
       } else {
         setSelectedClaimForNomination(null)
@@ -630,8 +630,8 @@ function NominationFormView() {
   const isSubmitting = nominateMutation.isPending
   const canSubmit =
     selectedClaim &&
-    nomineeAadhaarHash.trim().length >= 4 &&
-    nomineeName.trim().length >= 2 &&
+    nominee_aadhaar_hash.trim().length >= 4 &&
+    nominee_name.trim().length >= 2 &&
     relationship.length > 0 &&
     !isSubmitting
 
@@ -641,11 +641,11 @@ function NominationFormView() {
 
     setFormError(null)
     nominateMutation.mutate({
-      nomineeAadhaarHash: nomineeAadhaarHash.trim(),
-      nomineeName: nomineeName.trim(),
+      nominee_aadhaar_hash: nominee_aadhaar_hash.trim(),
+      nominee_name: nominee_name.trim(),
       relationship,
       claimId: selectedClaim.id,
-      shareAcres: selectedClaim.ownShareAcres,
+      share_acres: selectedClaim.own_share_acres,
     })
   }
 
@@ -694,16 +694,16 @@ function NominationFormView() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <p className="text-xs text-muted-foreground">Claim Code</p>
-                <p className="mt-0.5 font-mono text-sm font-semibold">{selectedClaim.claimCode}</p>
+                <p className="mt-0.5 font-mono text-sm font-semibold">{selectedClaim.claim_code}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Plot Number</p>
-                <p className="mt-0.5 text-sm font-medium">{selectedClaim.plotNumber}</p>
+                <p className="mt-0.5 text-sm font-medium">{selectedClaim.plot_number}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Your Share</p>
                 <p className="mt-0.5 font-mono text-sm font-semibold tabular-nums">
-                  {formatNumber(selectedClaim.ownShareAcres, 4)} acres
+                  {formatNumber(selectedClaim.own_share_acres, 4)} acres
                 </p>
               </div>
               <div>
@@ -731,7 +731,7 @@ function NominationFormView() {
                     id="nominee-aadhaar"
                     type="text"
                     placeholder="Last 4+ digits of Aadhaar hash"
-                    value={nomineeAadhaarHash}
+                    value={nominee_aadhaar_hash}
                     onChange={(e) => setNomineeAadhaarHash(e.target.value)}
                     className="font-mono"
                     disabled={isSubmitting}
@@ -748,7 +748,7 @@ function NominationFormView() {
                     id="nominee-name"
                     type="text"
                     placeholder="As on Aadhaar"
-                    value={nomineeName}
+                    value={nominee_name}
                     onChange={(e) => setNomineeName(e.target.value)}
                     disabled={isSubmitting}
                   />
@@ -788,11 +788,11 @@ function NominationFormView() {
                   <p className="font-medium text-amber-900 dark:text-amber-200">
                     You are contributing{' '}
                     <span className="font-mono font-bold tabular-nums">
-                      {formatNumber(selectedClaim.ownShareAcres, 4)} acres
+                      {formatNumber(selectedClaim.own_share_acres, 4)} acres
                     </span>{' '}
                     toward{' '}
                     <span className="font-bold">
-                      {nomineeName.trim() || '[nominee name]'}
+                      {nominee_name.trim() || '[nominee name]'}
                     </span>
                     {'\u2019'}s employment eligibility
                   </p>
@@ -862,7 +862,7 @@ function TrackingView() {
 
   if (nominationView !== 'tracking') return null
 
-  const pooled = pool ? Number(pool.pooledAcreage) || 0 : 0
+  const pooled = pool ? Number(pool.pooled_acreage) || 0 : 0
   const remaining = Math.max(0, THRESHOLD_ACRES - pooled)
   const thresholdMet = pool?.hasCrossedThreshold ?? false
 
@@ -909,7 +909,7 @@ function TrackingView() {
           <PoolingGauge
             pooled={pooled}
             threshold={THRESHOLD_ACRES}
-            label={`${pool.nomineeName} — Pool Progress`}
+            label={`${pool.nominee_name} — Pool Progress`}
           />
 
           {/* Pool metadata */}
@@ -934,14 +934,14 @@ function TrackingView() {
             <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
               <p className="text-xs text-muted-foreground">Pooled Acreage</p>
               <p className="mt-1 font-mono text-lg font-semibold tabular-nums">
-                {formatNumber(pool.pooledAcreage, 4)} ac
+                {formatNumber(pool.pooled_acreage, 4)} ac
               </p>
             </div>
             <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
               <p className="text-xs text-muted-foreground">Created</p>
               <p className="mt-1 flex items-center gap-1 text-sm font-medium text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" />
-                {new Date(pool.createdAt).toLocaleDateString('en-IN', {
+                {new Date(pool.entry_ts).toLocaleDateString('en-IN', {
                   day: '2-digit',
                   month: 'short',
                   year: 'numeric',
@@ -987,13 +987,13 @@ function TrackingView() {
                           key={c.id}
                           className={idx % 2 === 1 ? 'bg-muted/20' : undefined}
                         >
-                          <TableCell className="text-sm font-medium">{c.claimantName}</TableCell>
+                          <TableCell className="text-sm font-medium">{c.claimant_name}</TableCell>
                           <TableCell className="font-mono text-xs text-muted-foreground">
-                            {c.claimCode}
+                            {c.claim_code}
                           </TableCell>
-                          <TableCell className="text-sm">{c.plotNumber}</TableCell>
+                          <TableCell className="text-sm">{c.plot_number}</TableCell>
                           <TableCell className="text-right font-mono text-sm tabular-nums font-medium">
-                            {formatNumber(c.shareAcres, 4)}
+                            {formatNumber(c.share_acres, 4)}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1007,7 +1007,7 @@ function TrackingView() {
                     Total pooled (decimal.js, no floats)
                   </span>
                   <span className="font-mono text-sm font-bold tabular-nums text-amber-700 dark:text-amber-300">
-                    {formatNumber(pool.pooledAcreage, 4)} ac
+                    {formatNumber(pool.pooled_acreage, 4)} ac
                   </span>
                 </div>
               </>
@@ -1027,7 +1027,7 @@ function TrackingView() {
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                   <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                    {pool.nomineeName} has crossed the 2.00-acre threshold and can proceed with the employment application.
+                    {pool.nominee_name} has crossed the 2.00-acre threshold and can proceed with the employment application.
                   </span>
                 </div>
                 <Button
@@ -1043,7 +1043,7 @@ function TrackingView() {
                 <div className="flex items-center gap-2">
                   <Clock className="h-5 w-5 text-amber-600" />
                   <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                    {formatNumber(remaining, 4)} acres still needed before {pool.nomineeName} can apply.
+                    {formatNumber(remaining, 4)} acres still needed before {pool.nominee_name} can apply.
                   </span>
                 </div>
                 <Button disabled className="gap-2 opacity-50">

@@ -1,6 +1,6 @@
 import { ProjectRepository } from '../repositories/ProjectRepository'
 import { IProjectMasterCreateDTO, IProjectMasterUpdateDTO } from '../types'
-import { AuditQueue } from '@/audit/services/AuditQueue'
+import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
 import { EventBus } from '@/notifications/EventBus'
 
 export class ProjectService {
@@ -8,58 +8,58 @@ export class ProjectService {
     return await ProjectRepository.findAll()
   }
 
-  static async createProject(data: IProjectMasterCreateDTO, userId: string) {
+  static async createProject(data: IProjectMasterCreateDTO, user_id: string) {
     const project = await ProjectRepository.create(data)
 
     AuditQueue.push({
-      action: 'CREATE_PROJECT',
-      entityType: 'MstProject',
-      entityId: project.id,
-      userId,
-      details: JSON.stringify(data)
+      event_type: 'CREATE_PROJECT',
+      module_name: 'mst_project',
+      entity_id: project.id,
+      user_id,
+      remarks: JSON.stringify(data)
     })
 
     return project
   }
 
-  static async updateProject(id: string, data: IProjectMasterUpdateDTO, userId: string) {
+  static async updateProject(id: string, data: IProjectMasterUpdateDTO, user_id: string) {
     const current = await ProjectRepository.findById(id)
     if (!current) throw new Error('Project not found')
-    if (current.lockedAt) throw new Error('Cannot edit a locked baseline')
+    if (current.locked_at) throw new Error('Cannot edit a locked baseline')
 
     const updated = await ProjectRepository.update(id, data)
 
     AuditQueue.push({
-      action: 'UPDATE_PROJECT',
-      entityType: 'MstProject',
-      entityId: id,
-      userId,
-      details: JSON.stringify(data)
+      event_type: 'UPDATE_PROJECT',
+      module_name: 'mst_project',
+      entity_id: id,
+      user_id,
+      remarks: JSON.stringify(data)
     })
 
     return updated
   }
 
-  static async lockProject(id: string, userId: string) {
+  static async lockProject(id: string, user_id: string) {
     const current = await ProjectRepository.findById(id)
     if (!current) throw new Error('Project not found')
-    if (current.lockedAt) throw new Error('Already locked')
+    if (current.locked_at) throw new Error('Already locked')
 
     const locked = await ProjectRepository.lock(id)
 
     AuditQueue.push({
-      action: 'LOCK_PROJECT_BASELINE',
-      entityType: 'MstProject',
-      entityId: id,
-      userId,
-      details: 'Baseline permanently locked.'
+      event_type: 'LOCK_PROJECT_BASELINE',
+      module_name: 'mst_project',
+      entity_id: id,
+      user_id,
+      remarks: 'Baseline permanently locked.'
     })
 
     EventBus.publish({
-      eventName: 'PROJECT_LOCKED',
+      event_name: 'PROJECT_LOCKED',
       module: 'project-master',
-      userId,
-      entityId: id,
+      user_id,
+      entity_id: id,
       data: { projectName: locked.name }
     })
 

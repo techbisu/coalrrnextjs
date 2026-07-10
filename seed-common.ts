@@ -30,33 +30,36 @@ const translations = {
   'shell.menu': 'Menu'
 };
 
-async function seed() {
+export async function seedCommonTranslations() {
   console.log('Seeding common translations...');
   
   const lang = await db.language.findUnique({ where: { code: 'en' } });
   if (!lang) throw new Error('English language not found. Run test-localization.ts first.');
 
-  const mod = await db.translationModule.upsert({
+  const mod = await db.translation_module.upsert({
     where: { name: 'common' },
     update: {},
     create: { name: 'common' },
   });
 
   for (const [keyPath, value] of Object.entries(translations)) {
-    const key = await db.translationKey.upsert({
-      where: { moduleId_key: { moduleId: mod.id, key: keyPath } },
+    const key = await db.translation_key.upsert({
+      where: { module_id_key: { module_id: mod.id, key: keyPath } },
       update: {},
-      create: { moduleId: mod.id, key: keyPath },
+      create: { module_id: mod.id, key: keyPath },
     });
 
-    await db.translationValue.upsert({
-      where: { translationKeyId_languageId: { translationKeyId: key.id, languageId: lang.id } },
+    await db.translation_value.upsert({
+      where: { translation_key_id_language_id: { translation_key_id: key.id, language_id: lang.id } },
       update: { value, status: 'approved' },
-      create: { translationKeyId: key.id, languageId: lang.id, value, status: 'approved' },
+      create: { translation_key_id: key.id, language_id: lang.id, value, status: 'approved' },
     });
   }
 
   console.log('✅ Common translations seeded successfully!');
 }
 
-seed().catch(console.error).finally(() => process.exit(0));
+// Allow standalone execution
+if (require.main === module || process.argv[1].includes('seed-common')) {
+  seedCommonTranslations().catch(console.error).finally(() => process.exit(0));
+}

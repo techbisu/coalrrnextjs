@@ -36,24 +36,20 @@ export class Area extends ValueObject<AreaProps> {
     return new Area({ value: new Decimal(0), unit })
   }
 
-  static tryCreate(value: number | string, unit: AreaUnit = 'ACRES'): Result<Area, ValidationException> {
+  static tryCreate(value: number | string, unit: AreaUnit = 'ACRES'): Result<Area> {
     try {
       const decimal = new Decimal(value)
       if (decimal.isNaN() || decimal.isNegative()) {
-        return Fail(new ValidationException('Invalid area value', [
-          { field: 'value', message: 'Must be a non-negative number' }
-        ]))
+        return Fail('Invalid area value')
       }
       return { isSuccess: true, isFailure: false, value: new Area({ value: decimal, unit }), error: null }
     } catch (e) {
-      return Fail(new ValidationException('Invalid area value', [
-        { field: 'value', message: 'Must be a valid number' }
-      ]))
+      return Fail('Invalid area value')
     }
   }
 
   // Getters
-  get value(): Decimal {
+  get numericValue(): Decimal {
     return this._value.value
   }
 

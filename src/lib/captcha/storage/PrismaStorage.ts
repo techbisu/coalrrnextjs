@@ -1,9 +1,9 @@
-import { db } from '@/lib/db'
-import { CaptchaChallenge } from '@prisma/client'
+﻿import { db } from '@/lib/db'
+import { captcha_challenge } from '@prisma/client'
 
 export class PrismaStorage {
-  async saveChallenge(data: Omit<CaptchaChallenge, 'id' | 'createdAt' | 'attempts'>): Promise<CaptchaChallenge> {
-    return await db.captchaChallenge.create({
+  async saveChallenge(data: Omit<captcha_challenge, 'id' | 'entry_ts' | 'attempts'>): Promise<captcha_challenge> {
+    return await db.captcha_challenge.create({
       data: {
         ...data,
         attempts: 0
@@ -11,14 +11,14 @@ export class PrismaStorage {
     })
   }
 
-  async getChallenge(id: string): Promise<CaptchaChallenge | null> {
-    return await db.captchaChallenge.findUnique({
+  async getChallenge(id: string): Promise<captcha_challenge | null> {
+    return await db.captcha_challenge.findUnique({
       where: { id }
     })
   }
 
-  async incrementAttempts(id: string): Promise<CaptchaChallenge> {
-    return await db.captchaChallenge.update({
+  async incrementAttempts(id: string): Promise<captcha_challenge> {
+    return await db.captcha_challenge.update({
       where: { id },
       data: {
         attempts: { increment: 1 }
@@ -28,7 +28,7 @@ export class PrismaStorage {
 
   async deleteChallenge(id: string): Promise<void> {
     try {
-      await db.captchaChallenge.delete({
+      await db.captcha_challenge.delete({
         where: { id }
       })
     } catch (e) {
@@ -37,9 +37,9 @@ export class PrismaStorage {
   }
 
   async expireOldChallenges(): Promise<void> {
-    await db.captchaChallenge.deleteMany({
+    await db.captcha_challenge.deleteMany({
       where: {
-        expiresAt: { lt: new Date() }
+        expires_at: { lt: new Date() }
       }
     })
   }

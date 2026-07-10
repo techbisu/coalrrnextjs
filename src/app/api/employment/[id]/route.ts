@@ -8,15 +8,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await readJson<Record<string, unknown>>(req)
     if (!body) return badRequest('Invalid JSON')
 
-    const app = await db.employmentApplication.findUnique({ where: { id } })
+    const app = await db.employment_application.findUnique({ where: { id } })
     if (!app) return notFound('Employment application not found')
 
     // Handle state transition or other field updates
     const data: Record<string, unknown> = {}
     if (body.state && typeof body.state === 'string') data.state = body.state
-    if (body.exceptionFlags && typeof body.exceptionFlags === 'string') data.exceptionFlags = body.exceptionFlags
+    if (body.exception_flags && typeof body.exception_flags === 'string') data.exception_flags = body.exception_flags
 
-    const updated = await db.employmentApplication.update({
+    const updated = await db.employment_application.update({
       where: { id },
       data
     })
@@ -30,15 +30,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const app = await db.employmentApplication.findUnique({
+    const app = await db.employment_application.findUnique({
       where: { id },
       include: {
         project: true,
-        nomineePool: {
+        nominee_pool: {
           include: {
             contributions: {
               include: {
-                formIClaim: {
+                form_i_claim: {
                   include: { plot: true }
                 }
               }

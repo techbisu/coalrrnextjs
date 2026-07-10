@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
-export function NotificationCenter({ userId }: { userId: string }) {
+export function NotificationCenter({ user_id }: { user_id: string }) {
   const qc = useQueryClient()
   const { data, isLoading } = useQuery({
-    queryKey: ['notifications', userId],
+    queryKey: ['notifications', user_id],
     queryFn: async () => {
-      const res = await fetch(`/api/notifications?userId=${userId}`)
+      const res = await fetch(`/api/notifications?user_id=${user_id}`)
       return res.json()
     },
     refetchInterval: 10000 // Poll every 10 seconds for real-time feel
@@ -25,17 +25,17 @@ export function NotificationCenter({ userId }: { userId: string }) {
         body: JSON.stringify({ id, action: 'mark_read' })
       })
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications', userId] })
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications', user_id] })
   })
 
   const markAllRead = useMutation({
     mutationFn: async () => {
       await fetch('/api/notifications', {
         method: 'PATCH',
-        body: JSON.stringify({ userId, action: 'mark_all_read' })
+        body: JSON.stringify({ user_id, action: 'mark_all_read' })
       })
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications', userId] })
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications', user_id] })
   })
 
   const notifications = data?.notifications || []
@@ -84,7 +84,7 @@ export function NotificationCenter({ userId }: { userId: string }) {
                     <div className="flex-1 space-y-1">
                       {payload.subject && <p className="text-sm font-medium">{payload.subject}</p>}
                       <p className="text-sm text-muted-foreground">{payload.body}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase">{new Date(n.createdAt).toLocaleString()}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">{new Date(n.entry_ts).toLocaleString()}</p>
                     </div>
                     {isUnread && (
                       <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 rounded-full" onClick={() => markRead.mutate(n.id)}>

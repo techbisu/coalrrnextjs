@@ -9,15 +9,15 @@ export interface IProjectRepository {
   findById(id: string): Promise<Project | null>
   findAll(options?: IQueryOptions): Promise<IPaginatedResult<Project>>
   findByName(name: string): Promise<Project | null>
-  findByCollieryCode(collieryCode: string, options?: IQueryOptions): Promise<IPaginatedResult<Project>>
+  findByCollieryCode(colliery_code: string, options?: IQueryOptions): Promise<IPaginatedResult<Project>>
   save(project: Project): Promise<void>
   delete(id: string): Promise<void>
   exists(id: string): Promise<boolean>
-  lock(id: string, userId: string): Promise<boolean>
+  lock(id: string, user_id: string): Promise<boolean>
 }
 
 export interface IProjectQueryOptions extends IQueryOptions {
-  collieryCode?: string
+  colliery_code?: string
   isLocked?: boolean
   search?: string
 }

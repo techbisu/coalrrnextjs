@@ -11,19 +11,19 @@ const previewAction = new MathPreviewAction()
 export async function POST(req: NextRequest) {
   try {
     const body = await readJson<{
-      landValue?: string
-      assetValue?: string
-      yearsSinceNotification?: number
-      multiplicationFactor?: string
+      land_value?: string
+      asset_value?: string
+      years_since_notification?: number
+      multiplication_factor?: string
     }>(req)
     if (!body) return badRequest('Invalid body')
 
     // Construct validates at construction time (per spec §4.2.2)
     const input = new CompensationInput({
-      landValue: MoneyValue.from(body.landValue ?? '0'),
-      assetValue: MoneyValue.from(body.assetValue ?? '0'),
-      yearsSinceNotification: body.yearsSinceNotification ?? 0,
-      multiplicationFactor: body.multiplicationFactor ?? '1.0000',
+      land_value: MoneyValue.from(body.land_value ?? '0'),
+      asset_value: MoneyValue.from(body.asset_value ?? '0'),
+      years_since_notification: body.years_since_notification ?? 0,
+      multiplication_factor: body.multiplication_factor ?? '1.0000',
     })
     const result = previewAction.preview(input)
     return ok(result)

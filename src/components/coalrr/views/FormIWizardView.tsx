@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -16,11 +16,11 @@ import {
 } from 'lucide-react'
 
 interface Claim {
-  id: string; claimCode: string; claimantName: string
-  plotId: string; plotNumber: string; mouza: string; landType: string
-  ownShareAcres: string; optedMonetaryInLieuOfEmployment: boolean
-  state: string; submittedAt: string | null; transparencyWindowEndsAt: string | null
-  daysRemaining: number | null; createdAt: string
+  id: string; claim_code: string; claimant_name: string
+  plot_id: string; plot_number: string; mouza: string; land_type: string
+  own_share_acres: string; opted_monetary_in_lieu_of_employment: boolean
+  state: string; submitted_at: string | null; transparency_window_ends_at: string | null
+  daysRemaining: number | null; entry_ts: string
 }
 
 async function fetchClaims(): Promise<Claim[]> {
@@ -29,7 +29,7 @@ async function fetchClaims(): Promise<Claim[]> {
   return r.json()
 }
 
-async function fetchPlots(): Promise<Array<{ id: string; plotNumber: string; mouza: string; areaAcres: string; landType: string }>> {
+async function fetchPlots(): Promise<Array<{ id: string; plot_number: string; mouza: string; area_acres: string; land_type: string }>> {
   const r = await fetch('/api/plots')
   if (!r.ok) throw new Error('Failed to load plots')
   return r.json()
@@ -60,13 +60,13 @@ export function FormIWizardView() {
         <DataTable
           loading={isLoading}
           columns={[
-            { key: 'claimCode', header: 'Code', sortable: true, render: (r) => <span className="font-mono text-xs font-medium">{r.claimCode}</span> },
-            { key: 'claimantName', header: 'Claimant', sortable: true, render: (r) => <span className="font-medium">{r.claimantName}</span> },
-            { key: 'plotNumber', header: 'Plot', render: (r) => <span className="font-mono text-xs">{r.plotNumber} · {r.mouza}</span> },
-            { key: 'ownShareAcres', header: 'Share (ac)', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{formatNumber(r.ownShareAcres, 4)}</span> },
+            { key: 'claim_code', header: 'Code', sortable: true, render: (r) => <span className="font-mono text-xs font-medium">{r.claim_code}</span> },
+            { key: 'claimant_name', header: 'Claimant', sortable: true, render: (r) => <span className="font-medium">{r.claimant_name}</span> },
+            { key: 'plot_number', header: 'Plot', render: (r) => <span className="font-mono text-xs">{r.plot_number} · {r.mouza}</span> },
+            { key: 'own_share_acres', header: 'Share (ac)', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{formatNumber(r.own_share_acres, 4)}</span> },
             { key: 'state', header: 'State', render: (r) => <StateBadge state={r.state} /> },
             { key: 'sla', header: '21-day SLA', align: 'right', render: (r) => {
-              if (!r.transparencyWindowEndsAt) return <span className="text-xs text-muted-foreground">—</span>
+              if (!r.transparency_window_ends_at) return <span className="text-xs text-muted-foreground">—</span>
               const days = r.daysRemaining ?? 0
               return (
                 <Badge variant="outline" className={days < 0 ? 'border-rose-300 bg-rose-100 text-rose-700' : days < 5 ? 'border-amber-300 bg-amber-100 text-amber-700' : 'border-emerald-300 bg-emerald-50 text-emerald-700'}>
@@ -85,19 +85,19 @@ export function FormIWizardView() {
   )
 }
 
-function Wizard({ plots, onDone }: { plots: Array<{ id: string; plotNumber: string; mouza: string; areaAcres: string; landType: string }>; onDone: () => void }) {
+function Wizard({ plots, onDone }: { plots: Array<{ id: string; plot_number: string; mouza: string; area_acres: string; land_type: string }>; onDone: () => void }) {
   const qc = useQueryClient()
   const [step, setStep] = React.useState(0)
   const [maxVisited, setMaxVisited] = React.useState(0)
   const [submitting, setSubmitting] = React.useState(false)
   const [form, setForm] = React.useState({
     aadhaarNumber: '',
-    claimantName: '',
-    plotId: '',
-    ownShareAcres: '',
-    optedMonetaryInLieuOfEmployment: false,
-    bankAccountNumber: '',
-    bankIfsc: '',
+    claimant_name: '',
+    plot_id: '',
+    own_share_acres: '',
+    opted_monetary_in_lieu_of_employment: false,
+    bank_account_number: '',
+    bank_ifsc: '',
   })
   const [otpRequested, setOtpRequested] = React.useState(false)
   const [otpVerified, setOtpVerified] = React.useState(false)
@@ -112,7 +112,7 @@ function Wizard({ plots, onDone }: { plots: Array<{ id: string; plotNumber: stri
     { key: 'review', title: 'Review', description: 'Submit claim', icon: CheckCircle2 },
   ]
 
-  const selectedPlot = plots.find((p) => p.id === form.plotId)
+  const selectedPlot = plots.find((p) => p.id === form.plot_id)
 
   const onStepChange = (next: number) => {
     setStep(next)
@@ -134,8 +134,8 @@ function Wizard({ plots, onDone }: { plots: Array<{ id: string; plotNumber: stri
       return data
     },
     onSuccess: (data) => {
-      toast.success(`Claim ${data.claimCode} submitted`, {
-        description: `Transparency window ends ${new Date(data.transparencyWindowEndsAt).toLocaleDateString('en-IN')}`,
+      toast.success(`Claim ${data.claim_code} submitted`, {
+        description: `Transparency window ends ${new Date(data.transparency_window_ends_at).toLocaleDateString('en-IN')}`,
       })
       qc.invalidateQueries({ queryKey: ['claims'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
@@ -182,7 +182,7 @@ function Wizard({ plots, onDone }: { plots: Array<{ id: string; plotNumber: stri
                 />
               </Field>
               <Field label="Claimant Name (as per Aadhaar)">
-                <Input value={form.claimantName} onChange={(e) => setForm({ ...form, claimantName: e.target.value })} placeholder="Full name" />
+                <Input value={form.claimant_name} onChange={(e) => setForm({ ...form, claimant_name: e.target.value })} placeholder="Full name" />
               </Field>
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
@@ -223,7 +223,7 @@ function Wizard({ plots, onDone }: { plots: Array<{ id: string; plotNumber: stri
                 <AlertCircle className="h-3 w-3" /> OTP verification required to proceed.
               </p>
             )}
-            <Button onClick={() => onStepChange(1)} disabled={!otpVerified || !form.claimantName}>Next: Plot →</Button>
+            <Button onClick={() => onStepChange(1)} disabled={!otpVerified || !form.claimant_name}>Next: Plot →</Button>
           </div>
         )}
 
@@ -231,28 +231,28 @@ function Wizard({ plots, onDone }: { plots: Array<{ id: string; plotNumber: stri
           <div className="space-y-4">
             <Field label="Select Plot" hint="Auto-fetched from State Revenue API (Path A) — manual fallback (Path B) on timeout">
               <select
-                value={form.plotId}
+                value={form.plot_id}
                 onChange={(e) => {
                   const plot = plots.find((p) => p.id === e.target.value)
-                  setForm({ ...form, plotId: e.target.value, ownShareAcres: plot ? plot.areaAcres : '' })
+                  setForm({ ...form, plot_id: e.target.value, own_share_acres: plot ? plot.area_acres : '' })
                 }}
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
               >
                 <option value="">— Select a plot —</option>
                 {plots.map((p) => (
-                  <option key={p.id} value={p.id}>{p.plotNumber} · {p.mouza} · {p.landType} · {formatNumber(p.areaAcres, 4)} ac</option>
+                  <option key={p.id} value={p.id}>{p.plot_number} · {p.mouza} · {p.land_type} · {formatNumber(p.area_acres, 4)} ac</option>
                 ))}
               </select>
             </Field>
             {selectedPlot && (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <InfoTile label="Plot" value={selectedPlot.plotNumber} />
+                <InfoTile label="Plot" value={selectedPlot.plot_number} />
                 <InfoTile label="Mouza" value={selectedPlot.mouza} />
-                <InfoTile label="Land Type" value={selectedPlot.landType} />
-                <InfoTile label="Total Area" value={`${formatNumber(selectedPlot.areaAcres, 4)} ac`} />
+                <InfoTile label="Land Type" value={selectedPlot.land_type} />
+                <InfoTile label="Total Area" value={`${formatNumber(selectedPlot.area_acres, 4)} ac`} />
               </div>
             )}
-            <Button onClick={() => onStepChange(2)} disabled={!form.plotId}>Next: Share & Bank →</Button>
+            <Button onClick={() => onStepChange(2)} disabled={!form.plot_id}>Next: Share & Bank →</Button>
           </div>
         )}
 
@@ -260,28 +260,28 @@ function Wizard({ plots, onDone }: { plots: Array<{ id: string; plotNumber: stri
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Own Share (acres)" hint="Cannot exceed plot total area — server validates">
-                <Input type="number" step="0.0001" value={form.ownShareAcres} onChange={(e) => setForm({ ...form, ownShareAcres: e.target.value })} />
+                <Input type="number" step="0.0001" value={form.own_share_acres} onChange={(e) => setForm({ ...form, own_share_acres: e.target.value })} />
               </Field>
               <Field label="Opt for monetary in lieu of employment?">
                 <div className="flex h-9 items-center gap-2">
                   <input
                     type="checkbox"
                     id="optEmp"
-                    checked={form.optedMonetaryInLieuOfEmployment}
-                    onChange={(e) => setForm({ ...form, optedMonetaryInLieuOfEmployment: e.target.checked })}
+                    checked={form.opted_monetary_in_lieu_of_employment}
+                    onChange={(e) => setForm({ ...form, opted_monetary_in_lieu_of_employment: e.target.checked })}
                     className="h-4 w-4 rounded border-border"
                   />
                   <Label htmlFor="optEmp" className="text-sm">Yes — accept cash instead of statutory job</Label>
                 </div>
               </Field>
               <Field label="Bank Account Number">
-                <Input value={form.bankAccountNumber} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value })} placeholder="SBIN0001234" />
+                <Input value={form.bank_account_number} onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })} placeholder="SBIN0001234" />
               </Field>
               <Field label="IFSC Code">
-                <Input value={form.bankIfsc} onChange={(e) => setForm({ ...form, bankIfsc: e.target.value.toUpperCase() })} placeholder="SBIN0001234" maxLength={11} />
+                <Input value={form.bank_ifsc} onChange={(e) => setForm({ ...form, bank_ifsc: e.target.value.toUpperCase() })} placeholder="SBIN0001234" maxLength={11} />
               </Field>
             </div>
-            <Button onClick={() => onStepChange(3)} disabled={!form.ownShareAcres || !form.bankAccountNumber}>Next: Documents →</Button>
+            <Button onClick={() => onStepChange(3)} disabled={!form.own_share_acres || !form.bank_account_number}>Next: Documents →</Button>
           </div>
         )}
 
@@ -295,30 +295,30 @@ function Wizard({ plots, onDone }: { plots: Array<{ id: string; plotNumber: stri
             </Alert>
             <div className="grid gap-4 sm:grid-cols-2">
               <DocumentUploader
-                checklistItemKey="MAG_AFFIDAVIT"
+                checklist_item_key="MAG_AFFIDAVIT"
                 label="Magistrate Affidavit (mandatory)"
                 documents={uploadedDocs.MAG_AFFIDAVIT ?? []}
                 onUpload={(file) => {
                   setUploadedDocs((prev) => ({
                     ...prev,
-                    MAG_AFFIDAVIT: [...(prev.MAG_AFFIDAVIT ?? []), { fileName: file.name, fileSizeKb: Math.round(file.size / 1024), mimeType: file.type, virusScanStatus: 'clean', uploadedBy: form.claimantName, createdAt: new Date().toISOString() }],
+                    MAG_AFFIDAVIT: [...(prev.MAG_AFFIDAVIT ?? []), { file_name: file.name, file_size_kb: Math.round(file.size / 1024), mime_type: file.type, virus_scan_status: 'clean', uploaded_by: form.claimant_name, entry_ts: new Date().toISOString() }],
                   }))
                   toast.success(`Uploaded: ${file.name}`)
                 }}
-                onRemove={(doc) => setUploadedDocs((prev) => ({ ...prev, MAG_AFFIDAVIT: (prev.MAG_AFFIDAVIT ?? []).filter((d) => d.fileName !== doc.fileName) }))}
+                onRemove={(doc) => setUploadedDocs((prev) => ({ ...prev, MAG_AFFIDAVIT: (prev.MAG_AFFIDAVIT ?? []).filter((d) => d.file_name !== doc.file_name) }))}
               />
               <DocumentUploader
-                checklistItemKey="LINK_DEED"
+                checklist_item_key="LINK_DEED"
                 label="Link Deed (title chain)"
                 documents={uploadedDocs.LINK_DEED ?? []}
                 onUpload={(file) => {
                   setUploadedDocs((prev) => ({
                     ...prev,
-                    LINK_DEED: [...(prev.LINK_DEED ?? []), { fileName: file.name, fileSizeKb: Math.round(file.size / 1024), mimeType: file.type, virusScanStatus: 'clean', uploadedBy: form.claimantName, createdAt: new Date().toISOString() }],
+                    LINK_DEED: [...(prev.LINK_DEED ?? []), { file_name: file.name, file_size_kb: Math.round(file.size / 1024), mime_type: file.type, virus_scan_status: 'clean', uploaded_by: form.claimant_name, entry_ts: new Date().toISOString() }],
                   }))
                   toast.success(`Uploaded: ${file.name}`)
                 }}
-                onRemove={(doc) => setUploadedDocs((prev) => ({ ...prev, LINK_DEED: (prev.LINK_DEED ?? []).filter((d) => d.fileName !== doc.fileName) }))}
+                onRemove={(doc) => setUploadedDocs((prev) => ({ ...prev, LINK_DEED: (prev.LINK_DEED ?? []).filter((d) => d.file_name !== doc.file_name) }))}
               />
             </div>
             <Button onClick={() => onStepChange(4)} disabled={(uploadedDocs.MAG_AFFIDAVIT?.length ?? 0) === 0}>Next: Review →</Button>
@@ -336,11 +336,11 @@ function Wizard({ plots, onDone }: { plots: Array<{ id: string; plotNumber: stri
             <div className="rounded-lg border border-border/60 bg-card p-4">
               <p className="mb-3 text-sm font-medium">Claim Summary</p>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <dt className="text-muted-foreground">Claimant</dt><dd className="font-medium">{form.claimantName}</dd>
-                <dt className="text-muted-foreground">Plot</dt><dd className="font-mono text-xs">{selectedPlot?.plotNumber} · {selectedPlot?.mouza}</dd>
-                <dt className="text-muted-foreground">Own share</dt><dd className="font-medium tabular-nums">{formatNumber(form.ownShareAcres, 4)} acres</dd>
-                <dt className="text-muted-foreground">Bank</dt><dd className="font-mono text-xs">{form.bankAccountNumber} · {form.bankIfsc}</dd>
-                <dt className="text-muted-foreground">Employment opt-out</dt><dd>{form.optedMonetaryInLieuOfEmployment ? 'Yes (cash)' : 'No (job)'}</dd>
+                <dt className="text-muted-foreground">Claimant</dt><dd className="font-medium">{form.claimant_name}</dd>
+                <dt className="text-muted-foreground">Plot</dt><dd className="font-mono text-xs">{selectedPlot?.plot_number} · {selectedPlot?.mouza}</dd>
+                <dt className="text-muted-foreground">Own share</dt><dd className="font-medium tabular-nums">{formatNumber(form.own_share_acres, 4)} acres</dd>
+                <dt className="text-muted-foreground">Bank</dt><dd className="font-mono text-xs">{form.bank_account_number} · {form.bank_ifsc}</dd>
+                <dt className="text-muted-foreground">Employment opt-out</dt><dd>{form.opted_monetary_in_lieu_of_employment ? 'Yes (cash)' : 'No (job)'}</dd>
                 <dt className="text-muted-foreground">Documents</dt><dd>{Object.values(uploadedDocs).flat().length} uploaded</dd>
               </dl>
             </div>

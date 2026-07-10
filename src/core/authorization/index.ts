@@ -1,7 +1,7 @@
 export { AuthorizationService } from './services/AuthorizationService'
 export { RoleService } from './services/RoleService'
 export { PermissionService } from './services/PermissionService'
-export { PolicyService } from './services/PolicyService'
+export { PolicyEngineInstance } from './policies/PolicyEngine'
 
 export { authorize, authorizeApi } from './middleware/authorize'
 

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -22,16 +22,16 @@ import {
 import { COMPENSATION_PAYROLL_STATES, COMPENSATION_PAYROLL_ORDERED_STATES } from '@/lib/engines'
 
 interface PayrollLine {
-  id: string; landownerName: string; plotReference: string
-  landValue: string; assetValue: string; solatiumAmount: string; escalationAmount: string
-  totalAward: string; yearsSinceNotification: number; formulaSnapshot: string; createdAt: string
+  id: string; landowner_name: string; plot_reference: string
+  land_value: string; asset_value: string; solatium_amount: string; escalation_amount: string
+  total_award: string; years_since_notification: number; formula_snapshot: string; entry_ts: string
 }
 interface PayrollDetail {
-  id: string; payrollCode: string; projectName: string; projectBudgetCeiling: string
-  multiplicationFactor: string; state: string; landownerCount: number; totalAward: string
+  id: string; payroll_code: string; projectName: string; projectBudgetCeiling: string
+  multiplication_factor: string; state: string; landowner_count: number; total_award: string
   lines: PayrollLine[]
-  reviewTasks: Array<{ id: string; role: string; status: string; decidedBy: string | null; decidedAt: string | null; comment: string | null; createdAt: string }>
-  createdAt: string
+  reviewTasks: Array<{ id: string; role: string; status: string; decided_by: string | null; decided_at: string | null; comment: string | null; entry_ts: string }>
+  entry_ts: string
 }
 
 async function fetchPayroll(id: string): Promise<PayrollDetail> {
@@ -40,7 +40,7 @@ async function fetchPayroll(id: string): Promise<PayrollDetail> {
   return r.json()
 }
 
-async function fetchPayrolls(): Promise<Array<{ id: string; payrollCode: string; state: string; totalAward: string; landownerCount: number }>> {
+async function fetchPayrolls(): Promise<Array<{ id: string; payroll_code: string; state: string; total_award: string; landowner_count: number }>> {
   const r = await fetch('/api/payrolls')
   if (!r.ok) throw new Error('Failed to load payrolls')
   return r.json()
@@ -67,15 +67,15 @@ export function PayrollBuilderView() {
           {payrollList?.map((p) => (
             <button
               key={p.id}
-              onClick={() => { selectPayroll(p.id); window.history.pushState(null, '', routes.payroll.details(p.payrollCode)); }}
+              onClick={() => { selectPayroll(p.id); window.history.pushState(null, '', routes.payroll.details(p.payroll_code)); }}
               className="rounded-lg border border-border/60 bg-card p-4 text-left transition hover:border-amber-300 hover:shadow-md"
             >
               <div className="flex items-center justify-between">
-                <span className="font-mono text-sm font-medium">{p.payrollCode}</span>
+                <span className="font-mono text-sm font-medium">{p.payroll_code}</span>
                 <StateBadge state={p.state} />
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">{p.landownerCount} landowners</p>
-              <p className="mt-1 text-lg font-bold tabular-nums">{formatINR(p.totalAward)}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{p.landowner_count} landowners</p>
+              <p className="mt-1 text-lg font-bold tabular-nums">{formatINR(p.total_award)}</p>
             </button>
           ))}
         </div>
@@ -98,10 +98,10 @@ export function PayrollBuilderView() {
           {payrollList.map((p) => (
             <button
               key={p.id}
-              onClick={() => { selectPayroll(p.id); window.history.pushState(null, '', routes.payroll.details(p.payrollCode)); }}
+              onClick={() => { selectPayroll(p.id); window.history.pushState(null, '', routes.payroll.details(p.payroll_code)); }}
               className={`rounded-full border px-3 py-1 text-xs transition ${p.id === selectedPayrollId ? 'border-amber-400 bg-amber-100 text-amber-800' : 'border-border bg-card hover:border-amber-300'}`}
             >
-              <span className="font-mono">{p.payrollCode}</span>
+              <span className="font-mono">{p.payroll_code}</span>
             </button>
           ))}
           <button
@@ -148,7 +148,7 @@ function Header({ payroll, onCreateClick }: { payroll?: PayrollDetail, onCreateC
         {payroll ? (
           <>
             <div className="text-right">
-              <p className="font-mono text-sm font-semibold">{payroll.payrollCode}</p>
+              <p className="font-mono text-sm font-semibold">{payroll.payroll_code}</p>
               <p className="text-xs text-muted-foreground">{payroll.projectName}</p>
             </div>
             <StateBadge state={payroll.state} size="md" />
@@ -166,7 +166,7 @@ function Header({ payroll, onCreateClick }: { payroll?: PayrollDetail, onCreateC
 
 function LineBuilder({ payroll }: { payroll: PayrollDetail }) {
   const qc = useQueryClient()
-  const [form, setForm] = React.useState({ landownerName: '', plotReference: '', landValue: '', assetValue: '', yearsSinceNotification: 2 })
+  const [form, setForm] = React.useState({ landowner_name: '', plot_reference: '', land_value: '', asset_value: '', years_since_notification: 2 })
   const isDrafting = payroll.state === 'Drafting'
 
   const addLine = useMutation({
@@ -181,8 +181,8 @@ function LineBuilder({ payroll }: { payroll: PayrollDetail }) {
       return data
     },
     onSuccess: (data) => {
-      toast.success(`Line added — total award ${formatINR(data.line.totalAward)}`)
-      setForm({ landownerName: '', plotReference: '', landValue: '', assetValue: '', yearsSinceNotification: 2 })
+      toast.success(`Line added — total award ${formatINR(data.line.total_award)}`)
+      setForm({ landowner_name: '', plot_reference: '', land_value: '', asset_value: '', years_since_notification: 2 })
       qc.invalidateQueries({ queryKey: ['payroll', payroll.id] })
       qc.invalidateQueries({ queryKey: ['payrolls'] })
     },
@@ -197,22 +197,22 @@ function LineBuilder({ payroll }: { payroll: PayrollDetail }) {
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Landowner Name">
-          <Input value={form.landownerName} onChange={(e) => setForm({ ...form, landownerName: e.target.value })} placeholder="e.g. Ramesh Kumar Sahoo" disabled={!isDrafting} />
+          <Input value={form.landowner_name} onChange={(e) => setForm({ ...form, landowner_name: e.target.value })} placeholder="e.g. Ramesh Kumar Sahoo" disabled={!isDrafting} />
         </Field>
         <Field label="Plot Reference">
-          <Input value={form.plotReference} onChange={(e) => setForm({ ...form, plotReference: e.target.value })} placeholder="e.g. P-101" disabled={!isDrafting} />
+          <Input value={form.plot_reference} onChange={(e) => setForm({ ...form, plot_reference: e.target.value })} placeholder="e.g. P-101" disabled={!isDrafting} />
         </Field>
         <Field label="Years Since Notification">
-          <Input type="number" min={0} max={10} value={form.yearsSinceNotification} onChange={(e) => setForm({ ...form, yearsSinceNotification: Number(e.target.value) })} disabled={!isDrafting} />
+          <Input type="number" min={0} max={10} value={form.years_since_notification} onChange={(e) => setForm({ ...form, years_since_notification: Number(e.target.value) })} disabled={!isDrafting} />
         </Field>
         <Field label="Land Value (₹)">
-          <Input type="number" value={form.landValue} onChange={(e) => setForm({ ...form, landValue: e.target.value })} placeholder="e.g. 3125000" disabled={!isDrafting} />
+          <Input type="number" value={form.land_value} onChange={(e) => setForm({ ...form, land_value: e.target.value })} placeholder="e.g. 3125000" disabled={!isDrafting} />
         </Field>
         <Field label="Asset Value (₹)">
-          <Input type="number" value={form.assetValue} onChange={(e) => setForm({ ...form, assetValue: e.target.value })} placeholder="e.g. 450000" disabled={!isDrafting} />
+          <Input type="number" value={form.asset_value} onChange={(e) => setForm({ ...form, asset_value: e.target.value })} placeholder="e.g. 450000" disabled={!isDrafting} />
         </Field>
         <div className="flex items-end">
-          <Button onClick={() => addLine.mutate()} disabled={!isDrafting || !form.landownerName || !form.landValue || !form.assetValue || addLine.isPending} className="w-full bg-emerald-600 hover:bg-emerald-700">
+          <Button onClick={() => addLine.mutate()} disabled={!isDrafting || !form.landowner_name || !form.land_value || !form.asset_value || addLine.isPending} className="w-full bg-emerald-600 hover:bg-emerald-700">
             {addLine.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Add Line
           </Button>
@@ -256,19 +256,19 @@ function LinesTable({ payroll }: { payroll: PayrollDetail }) {
     <SectionCard
       title="Compensation Lines"
       icon={FileText}
-      description={`${payroll.landownerCount} landowners · batch total ${formatINR(payroll.totalAward)}`}
-      action={<Badge variant="outline" className="font-mono text-xs">factor ×{formatNumber(payroll.multiplicationFactor, 4)}</Badge>}
+      description={`${payroll.landowner_count} landowners · batch total ${formatINR(payroll.total_award)}`}
+      action={<Badge variant="outline" className="font-mono text-xs">factor ×{formatNumber(payroll.multiplication_factor, 4)}</Badge>}
     >
       <DataTable
         columns={[
-          { key: 'landownerName', header: 'Landowner', sortable: true, render: (r) => <span className="font-medium">{r.landownerName}</span> },
-          { key: 'plotReference', header: 'Plot', render: (r) => <span className="font-mono text-xs">{r.plotReference}</span> },
-          { key: 'yearsSinceNotification', header: 'Yrs', align: 'right', sortable: true, render: (r) => <span className="tabular-nums text-muted-foreground">{r.yearsSinceNotification}</span> },
-          { key: 'landValue', header: 'Land', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{formatINR(r.landValue)}</span> },
-          { key: 'assetValue', header: 'Asset', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{formatINR(r.assetValue)}</span> },
-          { key: 'solatiumAmount', header: 'Solatium', align: 'right', render: (r) => <span className="tabular-nums text-violet-600">{formatINR(r.solatiumAmount)}</span> },
-          { key: 'escalationAmount', header: 'Escalation', align: 'right', render: (r) => <span className="tabular-nums text-amber-600">{formatINR(r.escalationAmount)}</span> },
-          { key: 'totalAward', header: 'Total', align: 'right', sortable: true, render: (r) => <span className="font-semibold tabular-nums text-emerald-700">{formatINR(r.totalAward)}</span> },
+          { key: 'landowner_name', header: 'Landowner', sortable: true, render: (r) => <span className="font-medium">{r.landowner_name}</span> },
+          { key: 'plot_reference', header: 'Plot', render: (r) => <span className="font-mono text-xs">{r.plot_reference}</span> },
+          { key: 'years_since_notification', header: 'Yrs', align: 'right', sortable: true, render: (r) => <span className="tabular-nums text-muted-foreground">{r.years_since_notification}</span> },
+          { key: 'land_value', header: 'Land', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{formatINR(r.land_value)}</span> },
+          { key: 'asset_value', header: 'Asset', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{formatINR(r.asset_value)}</span> },
+          { key: 'solatium_amount', header: 'Solatium', align: 'right', render: (r) => <span className="tabular-nums text-violet-600">{formatINR(r.solatium_amount)}</span> },
+          { key: 'escalation_amount', header: 'Escalation', align: 'right', render: (r) => <span className="tabular-nums text-amber-600">{formatINR(r.escalation_amount)}</span> },
+          { key: 'total_award', header: 'Total', align: 'right', sortable: true, render: (r) => <span className="font-semibold tabular-nums text-emerald-700">{formatINR(r.total_award)}</span> },
           { key: '_actions', header: '', align: 'right', render: (r) => (
             payroll.state === 'Drafting' ? (
               <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-rose-600" onClick={() => deleteLine.mutate(r.id)}>
@@ -284,7 +284,7 @@ function LinesTable({ payroll }: { payroll: PayrollDetail }) {
       {payroll.lines.length > 0 && (
         <div className="mt-3 flex items-center justify-between rounded-md bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
           <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300">Batch Total (authoritative — persisted in DB)</span>
-          <span className="text-lg font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{formatINR(payroll.totalAward)}</span>
+          <span className="text-lg font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{formatINR(payroll.total_award)}</span>
         </div>
       )}
     </SectionCard>
@@ -296,11 +296,11 @@ function LiveMathPreview({ payroll }: { payroll: PayrollDetail }) {
   const [preview, setPreview] = React.useState<MathPreviewResultLike | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | undefined>()
-  const [input, setInput] = React.useState({ landValue: '', assetValue: '', years: 2 })
+  const [input, setInput] = React.useState({ land_value: '', asset_value: '', years: 2 })
 
   // Debounced fetch
   React.useEffect(() => {
-    if (!input.landValue && !input.assetValue) { setPreview(null); setError(undefined); return }
+    if (!input.land_value && !input.asset_value) { setPreview(null); setError(undefined); return }
     setLoading(true)
     setError(undefined)
     const t = setTimeout(async () => {
@@ -308,7 +308,7 @@ function LiveMathPreview({ payroll }: { payroll: PayrollDetail }) {
         const r = await fetch('/api/math/preview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ landValue: input.landValue || '0', assetValue: input.assetValue || '0', yearsSinceNotification: input.years, multiplicationFactor: payroll.multiplicationFactor }),
+          body: JSON.stringify({ land_value: input.land_value || '0', asset_value: input.asset_value || '0', years_since_notification: input.years, multiplication_factor: payroll.multiplication_factor }),
         })
         const data = await r.json()
         if (!r.ok) throw new Error(data.error ?? 'Calculation failed')
@@ -321,16 +321,16 @@ function LiveMathPreview({ payroll }: { payroll: PayrollDetail }) {
       }
     }, 300)
     return () => clearTimeout(t)
-  }, [input, payroll.multiplicationFactor])
+  }, [input, payroll.multiplication_factor])
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
         <Field label="Land (₹)">
-          <Input type="number" value={input.landValue} onChange={(e) => setInput({ ...input, landValue: e.target.value })} placeholder="1000000" className="h-8" />
+          <Input type="number" value={input.land_value} onChange={(e) => setInput({ ...input, land_value: e.target.value })} placeholder="1000000" className="h-8" />
         </Field>
         <Field label="Asset (₹)">
-          <Input type="number" value={input.assetValue} onChange={(e) => setInput({ ...input, assetValue: e.target.value })} placeholder="50000" className="h-8" />
+          <Input type="number" value={input.asset_value} onChange={(e) => setInput({ ...input, asset_value: e.target.value })} placeholder="50000" className="h-8" />
         </Field>
       </div>
       <MathPreviewPanel result={preview} loading={loading} error={error} formula={preview?.formula} />
@@ -353,14 +353,14 @@ function ApprovalPanelView({ payroll, actorRole, onRoleChange }: { payroll: Payr
   const reviewTasks: ReviewTaskView[] = payroll.reviewTasks.map((r) => ({
     role: r.role,
     status: r.status as 'pending' | 'approved' | 'rejected',
-    decidedBy: r.decidedBy ?? undefined,
-    decidedAt: r.decidedAt ?? undefined,
+    decided_by: r.decided_by ?? undefined,
+    decided_at: r.decided_at ?? undefined,
     comment: r.comment ?? undefined,
   }))
 
   const transition = useMutation({
     mutationFn: async (transitionName: string) => {
-      const r = await fetch(`/api/workflow/CompensationPayroll/${payroll.id}`, {
+      const r = await fetch(`/api/workflow/compensation_payroll/${payroll.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transition: transitionName, actorRole }),
@@ -380,7 +380,7 @@ function ApprovalPanelView({ payroll, actorRole, onRoleChange }: { payroll: Payr
 
   return (
     <div className="space-y-3">
-      <SectionCard title="Actor Role" icon={ShieldCheck} description="Simulate acting as different approvers">
+      <SectionCard title="Actor role" icon={ShieldCheck} description="Simulate acting as different approvers">
         <select
           value={actorRole}
           onChange={(e) => onRoleChange(e.target.value)}
@@ -417,13 +417,13 @@ function TimelineView({ payroll }: { payroll: PayrollDetail }) {
     else if (isBranch && currentState === 'BoardEscalation') status = 'current'
 
     // Find a review task that matches this state for actor/timestamp
-    const taskForState = payroll.reviewTasks.find((rt) => rt.status === 'approved' && rt.decidedAt)
+    const taskForState = payroll.reviewTasks.find((rt) => rt.status === 'approved' && rt.decided_at)
     return {
       state,
       label: meta.label,
       status,
-      timestamp: status === 'done' && taskForState?.decidedAt ? new Date(taskForState.decidedAt).toLocaleDateString('en-IN') : undefined,
-      actor: status === 'done' && taskForState?.decidedBy ? taskForState.decidedBy : undefined,
+      timestamp: status === 'done' && taskForState?.decided_at ? new Date(taskForState.decided_at).toLocaleDateString('en-IN') : undefined,
+      actor: status === 'done' && taskForState?.decided_by ? taskForState.decided_by : undefined,
       note: status === 'current' ? meta.description : undefined,
       isBranch,
     }
@@ -442,7 +442,7 @@ function ChecklistView({ payroll }: { payroll: PayrollDetail }) {
     { key: 'cl-1.1', label: 'CL-1.1: Plot schedule verified against LIS', required: true, status: payroll.state === 'Drafting' ? 'pending' : 'complete', helpText: 'Cross-checked plot numbers, khata, area with master registry' },
     { key: 'cl-1.2', label: 'CL-1.2: Land valuation per PWD rate chart', required: true, status: payroll.lines.length > 0 ? 'complete' : 'pending', helpText: 'Within ±10% of PWD rate — substantiation gate' },
     { key: 'cl-1.3', label: 'CL-1.3: Asset valuation (homestead/trees/wells)', required: true, status: payroll.lines.length > 0 ? 'complete' : 'pending' },
-    { key: 'cl-1.4', label: 'CL-1.4: Multiplication factor documented', required: false, status: 'complete', documentId: 'doc-mf-001' },
+    { key: 'cl-1.4', label: 'CL-1.4: Multiplication factor documented', required: false, status: 'complete', document_id: 'doc-mf-001' },
     { key: 'cl-3',   label: 'CL-3: Bank account & IFSC verified', required: true, status: payroll.state === 'Drafting' ? 'in_progress' : 'complete' },
     { key: 'cl-5',   label: 'CL-5: Solatium & escalation computed (Math Engine)', required: true, status: payroll.lines.length > 0 ? 'complete' : 'pending', helpText: 'formula_snapshot JSONB attached per line' },
   ]
@@ -469,20 +469,20 @@ function CreatePayrollDialog({ open, onOpenChange, onSuccess }: { open: boolean,
     const r = await fetch('/api/projects'); 
     const data = await r.json();
     if (!r.ok) throw new Error(data?.error || 'Failed to fetch projects');
-    return Array.isArray(data) ? data : []; 
+    return data?.data && Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []); 
   } })
-  const [projectId, setProjectId] = React.useState('')
-  const [multiplicationFactor, setMultiplicationFactor] = React.useState('1.0000')
+  const [project_id, setProjectId] = React.useState('')
+  const [multiplication_factor, setMultiplicationFactor] = React.useState('1.0000')
   const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   const handleSubmit = async () => {
-    if (!projectId) return toast.error('Select a project')
+    if (!project_id) return toast.error('Select a project')
     setIsSubmitting(true)
     try {
       const r = await fetch('/api/payrolls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, multiplicationFactor })
+        body: JSON.stringify({ project_id, multiplication_factor })
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error)
@@ -505,26 +505,26 @@ function CreatePayrollDialog({ open, onOpenChange, onSuccess }: { open: boolean,
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Project</Label>
-            <Select value={projectId} onValueChange={setProjectId} disabled={isLoading}>
+            <Select value={project_id} onValueChange={setProjectId} disabled={isLoading}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a project..." />
               </SelectTrigger>
               <SelectContent>
                 {projects?.map((p: any) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.collieryCode})</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.colliery_code})</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
             <Label>Multiplication Factor</Label>
-            <Input value={multiplicationFactor} onChange={e => setMultiplicationFactor(e.target.value)} />
+            <Input value={multiplication_factor} onChange={e => setMultiplicationFactor(e.target.value)} />
             <p className="text-xs text-muted-foreground">Default is 1.0000. Adjust based on urban/rural statutory multiplier.</p>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || !projectId}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || !project_id}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create Payroll
           </Button>

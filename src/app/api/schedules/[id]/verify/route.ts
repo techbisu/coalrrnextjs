@@ -39,13 +39,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       const useCase = new SubmitProposalUseCase(proposalRepository)
       const result = await useCase.execute({
         proposalId: id,
-        userId: auth.user.id,
+        user_id: auth.user.id,
         comments: body.comments,
       })
 
       if (result.isFailure) {
-        if (result.error instanceof NotFoundException) return notFound(result.error.message)
-        if (result.error instanceof DomainException) return badRequest(result.error.message)
+        if ((result.error as any) instanceof NotFoundException || String(result.error).includes('not found')) return notFound(String(result.error))
+        if ((result.error as any) instanceof DomainException) return badRequest(String(result.error))
         throw result.error
       }
 

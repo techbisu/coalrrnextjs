@@ -1,4 +1,4 @@
-import { AuthorizationService } from '../services/AuthorizationService'
+import { authService } from '@/infrastructure/di/Container'
 import { getCurrentUser } from '@/lib/auth'
 import { unauthorized, forbidden } from '@/app/api/_lib'
 
@@ -7,12 +7,12 @@ import { unauthorized, forbidden } from '@/app/api/_lib'
  * Throws an error or returns a Next.js response.
  */
 export async function authorize(permission: string, providedUserId?: string) {
-  const userId = providedUserId || (await getCurrentUser())?.id
-  if (!userId) {
+  const user_id = providedUserId || (await getCurrentUser())?.id
+  if (!user_id) {
     throw new Error('Unauthorized')
   }
 
-  const hasAccess = await AuthorizationService.can(userId, permission)
+  const hasAccess = await authService.can(user_id, permission)
   if (!hasAccess) {
     throw new Error(`Forbidden: requires permission ${permission}`)
   }
@@ -26,7 +26,7 @@ export async function authorizeApi(permission: string) {
   const user = await getCurrentUser()
   if (!user) return { error: unauthorized() }
 
-  const hasAccess = await AuthorizationService.can(user.id, permission)
+  const hasAccess = await authService.can(user.id, permission)
   if (!hasAccess) return { error: forbidden() }
 
   return { user }

@@ -1,0 +1,7 @@
+{
+  "workspaceName": "COALRR-NextJS-Enterprise",
+  "executionMode": "PLANNING",
+  "reasoningDepth": "HIGH",
+  "allowedTools": ["read_file", "grep", "type_check", "test_run"],
+  "blockedCommands": ["prisma db push", "prisma migrate dev", "rm -rf"]
+}

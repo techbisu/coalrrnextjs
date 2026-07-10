@@ -4,27 +4,27 @@
 import { IUseCase, Result, Fail, Ok } from '@/core'
 import { Proposal, IProposalRepository } from '@/domain/entities/proposal'
 import { IProjectRepository } from '@/domain/entities/project'
-import { EventBus } from '@/notifications/EventBus'
-import { AuditQueue } from '@/audit/services/AuditQueue'
+import { EventBus } from '@/core/notifications/EventBus'
+import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
 import { ValidationException, NotFoundException } from '@/core/errors'
 
 export interface CreateProposalRequest {
-  projectId: string
-  acquisitionMode: string
-  proposalTitle: string
+  project_id: string
+  acquisition_mode: string
+  proposal_title: string
   description?: string
-  areaOffice?: string
-  adjacentColliery?: string
-  notificationDate?: Date
-  userId: string
-  userName: string
-  userRole: string
+  area_office?: string
+  adjacent_colliery?: string
+  notification_date?: Date
+  user_id: string
+  user_name: string
+  user_role: string
 }
 
 export interface CreateProposalResponse {
   id: string
-  scheduleCode: string
-  proposalTitle: string
+  schedule_code: string
+  proposal_title: string
   message: string
 }
 
@@ -36,33 +36,31 @@ export class CreateProposalUseCase implements IUseCase<CreateProposalRequest, Cr
 
   async execute(request: CreateProposalRequest): Promise<Result<CreateProposalResponse>> {
     // 1. Validate project exists and is locked
-    const project = await this.projectRepository.findById(request.projectId)
+    const project = await this.projectRepository.findById(request.project_id)
     if (!project) {
-      return Fail(new NotFoundException('Project', request.projectId))
+      return Fail('Project')
     }
 
     if (!project.isLocked()) {
-      return Fail(new ValidationException('Project must be locked', [
-        { field: 'projectId', message: 'Cannot create proposal against an unlocked project baseline' }
-      ]))
+      return Fail('Project must be locked')
     }
 
     // 2. Validate and create domain entity
     const proposalResult = Proposal.create({
-      projectId: request.projectId,
-      acquisitionMode: request.acquisitionMode,
-      proposalTitle: request.proposalTitle,
+      project_id: request.project_id,
+      acquisition_mode: request.acquisition_mode,
+      proposal_title: request.proposal_title,
       description: request.description,
-      proposedBy: request.userName,
-      proposedByRole: request.userRole,
-      areaOffice: request.areaOffice,
-      collieryCode: project.collieryCode,
-      adjacentColliery: request.adjacentColliery,
-      notificationDate: request.notificationDate,
+      proposed_by: request.user_name,
+      proposed_by_role: request.user_role,
+      area_office: request.area_office,
+      colliery_code: project.colliery_code,
+      adjacent_colliery: request.adjacent_colliery,
+      notification_date: request.notification_date,
     })
 
     if (proposalResult.isFailure) {
-      return Fail(proposalResult.error!)
+      return Fail(String(proposalResult.error!))
     }
 
     const proposal = proposalResult.value
@@ -74,33 +72,33 @@ export class CreateProposalUseCase implements IUseCase<CreateProposalRequest, Cr
     const domainEvents = proposal.clearDomainEvents()
     for (const event of domainEvents) {
       EventBus.publish({
-        eventName: event.eventType,
+        event_name: event.event_type,
         module: 'land-acquisition',
-        userId: request.userId,
-        entityId: event.aggregateId,
+        user_id: request.user_id,
+        entity_id: event.aggregateId,
         data: event.payload,
       })
     }
 
     // 5. Audit logging
     AuditQueue.push({
-      action: 'CREATE_PROPOSAL',
-      entityType: 'LandSchedule',
-      entityId: proposal.id,
-      userId: request.userId,
-      details: JSON.stringify({
-        scheduleCode: proposal.scheduleCode.value,
-        proposalTitle: proposal.proposalTitle,
-        projectId: proposal.projectId,
+      event_type: 'CREATE_PROPOSAL',
+      entity_name: 'land_schedule',
+      entity_id: proposal.id,
+      user_id: request.user_id,
+      remarks: JSON.stringify({
+        schedule_code: proposal.schedule_code.value,
+        proposal_title: proposal.proposal_title,
+        project_id: proposal.project_id,
       }),
     })
 
     // 6. Return response
     return Ok({
       id: proposal.id,
-      scheduleCode: proposal.scheduleCode.value,
-      proposalTitle: proposal.proposalTitle,
-      message: `Proposal "${proposal.scheduleCode.value}" created successfully.`,
+      schedule_code: proposal.schedule_code.value,
+      proposal_title: proposal.proposal_title,
+      message: `Proposal "${proposal.schedule_code.value}" created successfully.`,
     })
   }
 }

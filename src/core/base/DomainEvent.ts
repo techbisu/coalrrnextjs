@@ -5,7 +5,7 @@
 export interface DomainEvent {
   id: string
   occurredAt: Date
-  eventType: string
+  event_type: string
   aggregateId: string
   payload: Record<string, unknown>
 }
@@ -13,14 +13,14 @@ export interface DomainEvent {
 let eventCounter = 0
 
 export function createDomainEvent<T extends Record<string, unknown>>(
-  eventType: string,
+  event_type: string,
   aggregateId: string,
   payload: T
 ): DomainEvent {
   return {
-    id: `${eventType}-${aggregateId}-${Date.now()}-${++eventCounter}`,
+    id: `${event_type}-${aggregateId}-${Date.now()}-${++eventCounter}`,
     occurredAt: new Date(),
-    eventType,
+    event_type,
     aggregateId,
     payload,
   }

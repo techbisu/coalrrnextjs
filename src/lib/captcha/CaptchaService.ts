@@ -10,10 +10,10 @@ export class CaptchaService {
    * Retrieves or initializes the global CAPTCHA configuration.
    */
   static async getConfig() {
-    const config = await db.captchaConfig.upsert({
+    const config = await db.captcha_config.upsert({
       where: { id: 'global' },
       update: {},
-      create: { id: 'global', difficulty: 'difficult' },
+      create: { id: 'global', difficulty: 'medium' },
     })
     return config
   }
@@ -21,7 +21,7 @@ export class CaptchaService {
   /**
    * Generates a new CAPTCHA challenge based on current configuration.
    */
-  static async generate(purpose: string, ipAddress?: string, userAgent?: string) {
+  static async generate(purpose: string, ip_address?: string, user_agent?: string) {
     const config = await this.getConfig()
     
     // Choose provider (only math implemented currently)
@@ -32,28 +32,28 @@ export class CaptchaService {
       provider = new MathProvider() // Fallback
     }
 
-    const { challenge, expectedAnswer } = provider.generate(config.difficulty)
+    const { challenge, expected_answer } = provider.generate(config.difficulty)
 
     // Calculate expiration
-    const expiresAt = new Date()
-    expiresAt.setMinutes(expiresAt.getMinutes() + config.expirationMinutes)
+    const expires_at = new Date()
+    expires_at.setMinutes(expires_at.getMinutes() + config.expiration_minutes)
 
     // We can hash the answer before storing if desired. 
     // Since it's mathematical and single-use, storing plain string temporarily is generally safe, 
     // but hashing satisfies strict enterprise rules.
-    const hashedAnswer = crypto.createHash('sha256').update(expectedAnswer).digest('hex')
+    const hashedAnswer = crypto.createHash('sha256').update(expected_answer).digest('hex')
 
     // Store in DB
     const saved = await this.storage.saveChallenge({
-      expectedAnswer: hashedAnswer,
+      expected_answer: hashedAnswer,
       purpose,
-      expiresAt,
-      ipAddress: ipAddress || null,
-      userAgent: userAgent || null
+      expires_at,
+      ip_address: ip_address || null,
+      user_agent: user_agent || null
     })
 
     // Log Audit
-    await this.logAudit('Generated', purpose, ipAddress)
+    await this.logAudit('Generated', purpose, ip_address)
 
     // Trigger async cleanup
     this.storage.expireOldChallenges().catch(console.error)
@@ -61,14 +61,14 @@ export class CaptchaService {
     return {
       id: saved.id,
       challenge,
-      expiresAt
+      expires_at
     }
   }
 
   /**
    * Validates a submitted answer against a given CAPTCHA ID.
    */
-  static async validate(id: string, answer: string, ipAddress?: string): Promise<{ valid: boolean; reason?: string }> {
+  static async validate(id: string, answer: string, ip_address?: string): Promise<{ valid: boolean; reason?: string }> {
     const config = await this.getConfig()
     const challenge = await this.storage.getChallenge(id)
 
@@ -77,14 +77,14 @@ export class CaptchaService {
     }
 
     // Check expiration
-    if (new Date() > challenge.expiresAt) {
+    if (new Date() > challenge.expires_at) {
       await this.storage.deleteChallenge(id)
-      await this.logAudit('Expired', challenge.purpose, ipAddress)
+      await this.logAudit('Expired', challenge.purpose, ip_address)
       return { valid: false, reason: 'CAPTCHA expired' }
     }
 
     // Check attempts
-    if (challenge.attempts >= config.maxAttempts) {
+    if (challenge.attempts >= config.max_attempts) {
       await this.storage.deleteChallenge(id)
       return { valid: false, reason: 'Too many failed attempts. Please request a new CAPTCHA.' }
     }
@@ -92,15 +92,15 @@ export class CaptchaService {
     // Hash the incoming answer to compare
     const hashedIncoming = crypto.createHash('sha256').update(answer.trim()).digest('hex')
 
-    if (hashedIncoming === challenge.expectedAnswer) {
+    if (hashedIncoming === challenge.expected_answer) {
       // Success - delete it (one time use)
       await this.storage.deleteChallenge(id)
-      await this.logAudit('Validated', challenge.purpose, ipAddress)
+      await this.logAudit('Validated', challenge.purpose, ip_address)
       return { valid: true }
     } else {
       // Failed - increment attempts
       await this.storage.incrementAttempts(id)
-      await this.logAudit('Failed', challenge.purpose, ipAddress)
+      await this.logAudit('Failed', challenge.purpose, ip_address)
       return { valid: false, reason: 'Incorrect answer' }
     }
   }
@@ -108,19 +108,19 @@ export class CaptchaService {
   /**
    * Refreshes a CAPTCHA by deleting the old one and generating a new one.
    */
-  static async refresh(oldId: string, purpose: string, ipAddress?: string, userAgent?: string) {
+  static async refresh(oldId: string, purpose: string, ip_address?: string, user_agent?: string) {
     await this.storage.deleteChallenge(oldId)
-    await this.logAudit('Refreshed', purpose, ipAddress)
-    return await this.generate(purpose, ipAddress, userAgent)
+    await this.logAudit('Refreshed', purpose, ip_address)
+    return await this.generate(purpose, ip_address, user_agent)
   }
 
-  private static async logAudit(action: string, purpose: string, ipAddress?: string) {
+  private static async logAudit(action: string, purpose: string, ip_address?: string) {
     try {
-      await db.captchaAuditLog.create({
+      await db.captcha_audit_log.create({
         data: {
           action,
           purpose,
-          ipAddress: ipAddress || 'unknown',
+          ip_address: ip_address || 'unknown',
         }
       })
     } catch (e) {

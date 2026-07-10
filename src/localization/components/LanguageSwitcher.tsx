@@ -6,12 +6,12 @@ const LOCALE_COOKIE_NAME = 'NEXT_LOCALE';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 
-type Language = { code: string; name: string; nativeName: string };
+type language = { code: string; name: string; native_name: string };
 
 export function LanguageSwitcher() {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  const [languages, setLanguages] = useState<Language[]>([]);
+  const [languages, setLanguages] = useState<language[]>([]);
   const [currentLocale, setCurrentLocale] = useState('en');
 
   useEffect(() => {
@@ -43,12 +43,12 @@ export function LanguageSwitcher() {
     <div className="flex items-center gap-2">
       <Select value={currentLocale} onValueChange={onSelectChange} disabled={isPending}>
         <SelectTrigger className="w-[120px] h-8 text-xs">
-          <SelectValue placeholder="Language" />
+          <SelectValue placeholder="language" />
         </SelectTrigger>
         <SelectContent>
           {languages.map((lang) => (
             <SelectItem key={lang.code} value={lang.code}>
-              {lang.nativeName}
+              {lang.native_name}
             </SelectItem>
           ))}
           {languages.length === 0 && (

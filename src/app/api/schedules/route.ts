@@ -1,33 +1,26 @@
 // GET  /api/schedules — list land acquisition schedules
 // POST /api/schedules — create a new acquisition proposal
-import { ProposalService } from '@/modules/land-acquisition/services/ProposalService'
 import { authorizeApi } from '@/authorization/middleware/authorize'
-import { ok, badRequest, serverError, dec, iso, readJson } from '../_lib'
+import { ok, badRequest, serverError, readJson } from '../_lib'
 import { getCurrentUser } from '@/lib/auth'
 import type { NextRequest } from 'next/server'
-
-const service = new ProposalService()
+import { GetProposalsUseCase, CreateProposalUseCase } from '@/application/use-cases/proposal'
+import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories/PrismaProposalRepository'
+import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
 
 export async function GET() {
   try {
     const auth = await authorizeApi('acquisition.view')
     if (auth.error) return auth.error
 
-    const schedules = await service.getProposals()
-    return ok(schedules.map((s) => ({
-      id: s.id, scheduleCode: s.scheduleCode, projectId: s.projectId, projectName: s.project.name,
-      acquisitionMode: s.acquisitionMode, state: s.state, proposalTitle: s.proposalTitle,
-      description: s.description, proposedBy: s.proposedBy, proposedByRole: s.proposedByRole,
-      areaOffice: s.areaOffice, collieryCode: s.collieryCode, adjacentColliery: s.adjacentColliery,
-      totalAreaAcres: dec(s.totalAreaAcres), notificationDate: iso(s.notificationDate),
-      itemSummary: {
-        total: s.items.length,
-        annexureA: s.items.filter((i) => i.annexureTag === 'A').length,
-        annexureB: s.items.filter((i) => i.annexureTag === 'B').length,
-        annexureC: s.items.filter((i) => i.annexureTag === 'C').length,
-      },
-      createdAt: s.createdAt.toISOString(),
-    })))
+    const proposalRepo = new PrismaProposalRepository()
+    const projectRepo = new PrismaProjectRepository()
+    const useCase = new GetProposalsUseCase(proposalRepo, projectRepo)
+    
+    const result = await useCase.execute()
+    if (result.isFailure) return serverError('Failed to load schedules', String(result.error))
+
+    return ok(result.value)
   } catch (e) {
     return serverError('Failed to load schedules', e instanceof Error ? e.message : String(e))
   }
@@ -39,34 +32,33 @@ export async function POST(req: NextRequest) {
     if (auth.error) return auth.error
 
     const user = await getCurrentUser()
-    if (!user) return badRequest('User not found')
+    if (!user) return badRequest('user not found')
 
-    const body = await readJson<{ projectId?: string; acquisitionMode?: string; proposalTitle?: string; description?: string; areaOffice?: string; collieryCode?: string; adjacentColliery?: string; notificationDate?: string }>(req)
-    if (!body?.projectId || !body.acquisitionMode || !body.proposalTitle) return badRequest('projectId, acquisitionMode, proposalTitle required')
+    const body = await readJson<{ project_id?: string; acquisition_mode?: string; proposal_title?: string; description?: string; area_office?: string; colliery_code?: string; adjacent_colliery?: string; notification_date?: string }>(req)
+    if (!body?.project_id || !body.acquisition_mode || !body.proposal_title) return badRequest('project_id, acquisition_mode, proposal_title required')
     
-    const validModes = ['cba_act', 'direct_purchase', 'rfctlarr', 'patta']
-    if (!validModes.includes(body.acquisitionMode)) return badRequest(`acquisitionMode must be one of: ${validModes.join(', ')}`)
+    const proposalRepo = new PrismaProposalRepository()
+    const projectRepo = new PrismaProjectRepository()
+    const useCase = new CreateProposalUseCase(proposalRepo, projectRepo)
 
-    const schedule = await service.createProposal({
-      projectId: body.projectId,
-      acquisitionMode: body.acquisitionMode,
-      proposalTitle: body.proposalTitle,
+    const result = await useCase.execute({
+      project_id: body.project_id,
+      acquisition_mode: body.acquisition_mode,
+      proposal_title: body.proposal_title,
       description: body.description,
-      areaOffice: body.areaOffice,
-      collieryCode: body.collieryCode,
-      adjacentColliery: body.adjacentColliery,
-      notificationDate: body.notificationDate,
-      userName: user.name,
-      userRole: user.role,
+      area_office: body.area_office,
+      adjacent_colliery: body.adjacent_colliery,
+      notification_date: body.notification_date ? new Date(body.notification_date) : undefined,
+      user_id: user.id.toString(),
+      user_name: user.name,
+      user_role: user.role,
     })
 
-    return ok({ 
-      id: schedule.id, 
-      scheduleCode: schedule.scheduleCode, 
-      state: schedule.state, 
-      checklist: JSON.parse(schedule.modeSpecificChecklist ?? '{"items":[]}'), 
-      message: `Acquisition proposal ${schedule.scheduleCode} created.` 
-    }, { status: 201 })
+    if (result.isFailure) {
+      return badRequest(String(result.error) || 'Failed to create proposal')
+    }
+
+    return ok(result.value, { status: 201 })
   } catch (e) {
     return serverError('Failed to create schedule', e instanceof Error ? e.message : String(e))
   }

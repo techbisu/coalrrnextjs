@@ -21,7 +21,7 @@ export class LocalStorageProvider implements StorageProvider {
     }
   }
 
-  async upload(buffer: Buffer, originalName: string, mimeType: string): Promise<StorageUploadResult> {
+  async upload(buffer: Buffer, original_name: string, mime_type: string): Promise<StorageUploadResult> {
     await this.ensureDir();
     
     // Generate Checksum
@@ -31,25 +31,25 @@ export class LocalStorageProvider implements StorageProvider {
 
     // Prevent overwriting local files by appending a timestamp or using a UUID
     // But since FileService handles deduplication, we can just save it uniquely
-    const uniqueFileName = `${Date.now()}-${originalName.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const storagePath = path.join(this.uploadDir, uniqueFileName);
+    const uniqueFileName = `${Date.now()}-${original_name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const storage_path = path.join(this.uploadDir, uniqueFileName);
 
-    await fs.writeFile(storagePath, buffer);
+    await fs.writeFile(storage_path, buffer);
 
     return {
-      storagePath: uniqueFileName,
+      storage_path: uniqueFileName,
       checksum,
-      sizeBytes: buffer.length,
+      size_bytes: buffer.length,
     };
   }
 
-  async download(storagePath: string): Promise<Buffer> {
-    const fullPath = path.join(this.uploadDir, storagePath);
+  async download(storage_path: string): Promise<Buffer> {
+    const fullPath = path.join(this.uploadDir, storage_path);
     return await fs.readFile(fullPath);
   }
 
-  async delete(storagePath: string): Promise<void> {
-    const fullPath = path.join(this.uploadDir, storagePath);
+  async delete(storage_path: string): Promise<void> {
+    const fullPath = path.join(this.uploadDir, storage_path);
     try {
       await fs.unlink(fullPath);
     } catch (err: any) {
@@ -57,11 +57,11 @@ export class LocalStorageProvider implements StorageProvider {
     }
   }
 
-  async getSignedUrl(storagePath: string, bucket?: string, expiresInSeconds = 3600): Promise<string> {
+  async getSignedUrl(storage_path: string, bucket?: string, expiresInSeconds = 3600): Promise<string> {
     // Local storage doesn't natively support S3-like signed URLs directly to a bucket.
     // So we generate a secure token that our API route can decipher.
     // In a real app, you'd use a JWT or crypto signature.
-    const payload = JSON.stringify({ path: storagePath, exp: Date.now() + expiresInSeconds * 1000 });
+    const payload = JSON.stringify({ path: storage_path, exp: Date.now() + expiresInSeconds * 1000 });
     const token = Buffer.from(payload).toString('base64');
     
     return `/api/files/download-signed?token=${token}`;

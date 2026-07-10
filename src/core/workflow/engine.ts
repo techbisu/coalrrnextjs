@@ -24,7 +24,7 @@ import type {
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
- * State machine driver for COALRR records. Today only `CompensationPayroll`
+ * State machine driver for COALRR records. Today only `compensation_payroll`
  * has a fully modelled pipeline; other record types fall back to the same
  * catalogue (extensible by passing a different state map in the constructor).
  */
@@ -33,10 +33,10 @@ export class WorkflowEngine {
     private readonly stateMaps: Readonly<
       Partial<Record<RecordType, Readonly<Record<string, WorkflowStateMeta>>>>
     > = {
-      CompensationPayroll: COMPENSATION_PAYROLL_STATES,
-      FormIClaim: COMPENSATION_PAYROLL_STATES,
-      LandSchedule: COMPENSATION_PAYROLL_STATES,
-      EmploymentApplication: COMPENSATION_PAYROLL_STATES,
+      compensation_payroll: COMPENSATION_PAYROLL_STATES,
+      form_i_claim: COMPENSATION_PAYROLL_STATES,
+      land_schedule: COMPENSATION_PAYROLL_STATES,
+      employment_application: COMPENSATION_PAYROLL_STATES,
     },
   ) {}
 
@@ -59,7 +59,7 @@ export class WorkflowEngine {
 
   /**
    * Returns the transitions an actor is authorised to fire from the record's
-   * current state. Role-filtered so the UI only shows relevant buttons.
+   * current state. role-filtered so the UI only shows relevant buttons.
    */
   getAvailableTransitions(ctx: GuardContext): ReadonlyArray<Transition> {
     const meta = this.getStateMeta(ctx.recordType, ctx.currentState);

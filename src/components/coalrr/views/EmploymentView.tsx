@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -23,12 +23,12 @@ import {
 
 // ─── Types ─────────────────────────────────────────────────────
 interface EmploymentApp {
-  id: string; applicationCode: string; projectName: string; nomineeName: string
-  state: string; formIxBalanceAcres: string; formXBalanceJobs: number
+  id: string; application_code: string; projectName: string; nominee_name: string
+  state: string; form_ix_balance_acres: string; form_x_balance_jobs: number
   livePooledAcreage: string; threshold: string; hasCrossedThreshold: boolean
-  remainingToThreshold: string; applyButtonUnlocked: boolean; exceptionFlags: string | null
-  contributionCount: number; createdAt: string; updatedAt?: string | null
-  contributions: Array<{ shareAcres: string; claimantName: string; plotNumber: string }>
+  remainingToThreshold: string; apply_button_unlocked: boolean; exception_flags: string | null
+  contributionCount: number; entry_ts: string; updt_ts?: string | null
+  contributions: Array<{ share_acres: string; claimant_name: string; plot_number: string }>
 }
 
 const EMPLOYMENT_STATES = [
@@ -130,10 +130,10 @@ export function EmploymentView() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-sm font-semibold">{app.applicationCode}</span>
+                          <span className="font-mono text-sm font-semibold">{app.application_code}</span>
                           <Badge variant="outline" className={meta.color}>{meta.label}</Badge>
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">{app.projectName} · <span className="font-medium text-foreground">{app.nomineeName}</span></p>
+                        <p className="mt-1 text-sm text-muted-foreground">{app.projectName} · <span className="font-medium text-foreground">{app.nominee_name}</span></p>
                         <div className="mt-2 flex items-center gap-3">
                           <div className="flex items-center gap-1.5">
                             <Progress value={pct} className="h-2 w-24" indicatorClassName={app.hasCrossedThreshold ? 'bg-emerald-500' : 'bg-amber-500'} />
@@ -148,7 +148,7 @@ export function EmploymentView() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">{app.contributionCount} shares</span>
-                        <Button size="sm" onClick={() => { setSelectedId(app.id); window.history.pushState(null, '', `/employment/${app.applicationCode}`); }}><Eye className="mr-1.5 h-3.5 w-3.5" /> Open</Button>
+                        <Button size="sm" onClick={() => { setSelectedId(app.id); window.history.pushState(null, '', `/employment/${app.application_code}`); }}><Eye className="mr-1.5 h-3.5 w-3.5" /> Open</Button>
                       </div>
                     </div>
                   </div>
@@ -209,10 +209,10 @@ function EmploymentDetailView({ app, onBack }: { app: EmploymentApp; onBack: () 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-sm font-semibold">{app.applicationCode}</span>
+              <span className="font-mono text-sm font-semibold">{app.application_code}</span>
               <Badge variant="outline" className={STATE_META[app.state]?.color}>{STATE_META[app.state]?.label}</Badge>
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">{app.projectName} · nominee: <span className="font-medium text-foreground">{app.nomineeName}</span></p>
+            <p className="mt-1 text-sm text-muted-foreground">{app.projectName} · nominee: <span className="font-medium text-foreground">{app.nominee_name}</span></p>
           </div>
         </div>
       </div>
@@ -240,11 +240,11 @@ function EmploymentDetailView({ app, onBack }: { app: EmploymentApp; onBack: () 
               {!app.hasCrossedThreshold && <p className="mt-1 text-xs text-amber-700">{app.remainingToThreshold} ac remaining</p>}
             </SectionCard>
             <SectionCard title="Form-IX Balance" icon={FileText}>
-              <p className="text-2xl font-bold tabular-nums">{formatNumber(app.formIxBalanceAcres, 4)} <span className="text-sm font-normal text-muted-foreground">ac</span></p>
+              <p className="text-2xl font-bold tabular-nums">{formatNumber(app.form_ix_balance_acres, 4)} <span className="text-sm font-normal text-muted-foreground">ac</span></p>
               <p className="text-xs text-muted-foreground">Frozen snapshot</p>
             </SectionCard>
             <SectionCard title="Form-X Jobs" icon={Briefcase}>
-              <p className="text-2xl font-bold tabular-nums">{app.formXBalanceJobs}</p>
+              <p className="text-2xl font-bold tabular-nums">{app.form_x_balance_jobs}</p>
               <p className="text-xs text-muted-foreground">Remaining quota</p>
             </SectionCard>
           </div>
@@ -256,10 +256,10 @@ function EmploymentDetailView({ app, onBack }: { app: EmploymentApp; onBack: () 
                 <span>Total Project Area</span>
                 <span className="font-mono tabular-nums">17.7000 ac</span>
               </div>
-              <Progress value={Math.min(100, (Number(app.formIxBalanceAcres) / 17.7) * 100)} className="h-4" indicatorClassName="bg-emerald-500" />
+              <Progress value={Math.min(100, (Number(app.form_ix_balance_acres) / 17.7) * 100)} className="h-4" indicatorClassName="bg-emerald-500" />
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Exhausted for jobs</span>
-                <span className="font-mono font-semibold tabular-nums">{formatNumber(app.formIxBalanceAcres, 4)} ac</span>
+                <span className="font-mono font-semibold tabular-nums">{formatNumber(app.form_ix_balance_acres, 4)} ac</span>
               </div>
             </div>
           </SectionCard>
@@ -271,10 +271,10 @@ function EmploymentDetailView({ app, onBack }: { app: EmploymentApp; onBack: () 
                 <span>Total Employment Quota</span>
                 <span className="font-mono tabular-nums">115 jobs</span>
               </div>
-              <Progress value={Math.min(100, ((115 - app.formXBalanceJobs) / 115) * 100)} className="h-4" indicatorClassName="bg-amber-500" />
+              <Progress value={Math.min(100, ((115 - app.form_x_balance_jobs) / 115) * 100)} className="h-4" indicatorClassName="bg-amber-500" />
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Already Exhausted</span>
-                <span className="font-mono font-semibold tabular-nums">{115 - app.formXBalanceJobs} jobs</span>
+                <span className="font-mono font-semibold tabular-nums">{115 - app.form_x_balance_jobs} jobs</span>
               </div>
             </div>
           </SectionCard>
@@ -292,8 +292,8 @@ function EmploymentDetailView({ app, onBack }: { app: EmploymentApp; onBack: () 
             <div className="space-y-2">
               {app.contributions.map((c, i) => (
                 <div key={i} className="flex items-center justify-between rounded-md border border-border/60 bg-card px-3 py-2">
-                  <div className="min-w-0"><p className="truncate text-sm font-medium">{c.claimantName}</p><p className="font-mono text-[11px] text-muted-foreground">plot {c.plotNumber}</p></div>
-                  <Badge variant="outline" className="tabular-nums">{formatNumber(c.shareAcres, 4)} ac</Badge>
+                  <div className="min-w-0"><p className="truncate text-sm font-medium">{c.claimant_name}</p><p className="font-mono text-[11px] text-muted-foreground">plot {c.plot_number}</p></div>
+                  <Badge variant="outline" className="tabular-nums">{formatNumber(c.share_acres, 4)} ac</Badge>
                 </div>
               ))}
               <div className="flex items-center justify-between rounded-md bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
@@ -322,8 +322,8 @@ function EmploymentDetailView({ app, onBack }: { app: EmploymentApp; onBack: () 
                 ...item,
                 status: item.key === 'form_ix_x_clearance' ? 'complete' as ChecklistItemStatus : item.status,
               }))}
-              onItemUpdate={() => {}}
-              readOnly={['AwaitingHQ', 'Approved', 'TransparencyWindow', 'Completed'].includes(app.state)}
+              
+              
             />
           </SectionCard>
           {app.state === 'CL4Checklist' && (
@@ -340,21 +340,21 @@ function EmploymentDetailView({ app, onBack }: { app: EmploymentApp; onBack: () 
         <TabsContent value="hq" className="space-y-4 mt-4">
           <SectionCard title="Full Application Detail (Form-XI Composite)" icon={FileText}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div><p className="text-xs text-muted-foreground">Application Code</p><p className="font-mono text-sm font-semibold">{app.applicationCode}</p></div>
+              <div><p className="text-xs text-muted-foreground">Application Code</p><p className="font-mono text-sm font-semibold">{app.application_code}</p></div>
               <div><p className="text-xs text-muted-foreground">Project</p><p className="text-sm font-medium">{app.projectName}</p></div>
-              <div><p className="text-xs text-muted-foreground">Nominee</p><p className="text-sm font-medium">{app.nomineeName}</p></div>
+              <div><p className="text-xs text-muted-foreground">Nominee</p><p className="text-sm font-medium">{app.nominee_name}</p></div>
               <div><p className="text-xs text-muted-foreground">Pooled Acreage</p><p className="font-mono text-sm">{formatNumber(app.livePooledAcreage, 4)} ac</p></div>
-              <div><p className="text-xs text-muted-foreground">Form-IX Balance</p><p className="font-mono text-sm">{formatNumber(app.formIxBalanceAcres, 4)} ac</p></div>
-              <div><p className="text-xs text-muted-foreground">Form-X Jobs</p><p className="font-mono text-sm">{app.formXBalanceJobs} remaining</p></div>
+              <div><p className="text-xs text-muted-foreground">Form-IX Balance</p><p className="font-mono text-sm">{formatNumber(app.form_ix_balance_acres, 4)} ac</p></div>
+              <div><p className="text-xs text-muted-foreground">Form-X Jobs</p><p className="font-mono text-sm">{app.form_x_balance_jobs} remaining</p></div>
               <div><p className="text-xs text-muted-foreground">Contributions</p><p className="text-sm">{app.contributionCount} family shares</p></div>
               <div><p className="text-xs text-muted-foreground">State</p><Badge variant="outline" className={STATE_META[app.state]?.color}>{STATE_META[app.state]?.label}</Badge></div>
             </div>
           </SectionCard>
 
-          {app.exceptionFlags && (
+          {app.exception_flags && (
             <SectionCard title="Exception Flags" icon={AlertCircle}>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(JSON.parse(app.exceptionFlags)).map(([k, v]) => (
+                {Object.entries(JSON.parse(app.exception_flags)).map(([k, v]) => (
                   <Badge key={k} variant="outline" className={v ? 'border-amber-300 bg-amber-100 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-600'}>
                     {k}: {v ? 'triggered' : 'n/a'}
                   </Badge>

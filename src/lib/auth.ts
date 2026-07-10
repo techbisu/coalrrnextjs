@@ -16,55 +16,55 @@ export interface AuthUser {
   mobile: string | null
   name: string
   designation: string | null
-  collieryCode: string | null
-  plotId: string | null
+  colliery_code: string | null
+  plot_id: string | null
 }
 
-import { AuthorizationService } from '@/authorization/services/AuthorizationService'
+import { authService } from '@/infrastructure/di/Container'
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get(SESSION_COOKIE)?.value
   if (!token) return null
-  const session = await db.authSession.findUnique({
+  const session = await db.auth_session.findUnique({
     where: { token },
     include: { user: true },
   })
-  if (!session || session.expiresAt < new Date()) return null
+  if (!session || session.expires_at < new Date()) return null
   const u = session.user
   
   // Load full RBAC profile
-  const roles = await AuthorizationService.getUserRoles(u.id)
-  const permissions = await AuthorizationService.getUserPermissions(u.id)
+  const roles = await authService.getUserRoles(u.id)
+  const permissions = await authService.getUserPermissions(u.id)
   
   return {
     id: u.id, portal: u.portal as 'ecl' | 'public', role: u.role,
     roles, permissions,
     email: u.email, mobile: u.mobile, name: u.name,
-    designation: u.designation, collieryCode: u.collieryCode, plotId: u.plotId,
+    designation: u.designation, colliery_code: u.colliery_code, plot_id: u.plot_id,
   }
 }
 
-export async function createSession(userId: string): Promise<AuthUser> {
+export async function createSession(user_id: string): Promise<AuthUser> {
   const token = randomUUID()
-  const expiresAt = new Date(Date.now() + SESSION_TTL_MS)
-  await db.authSession.create({ data: { token, userId, expiresAt } })
+  const expires_at = new Date(Date.now() + SESSION_TTL_MS)
+  await db.auth_session.create({ data: { token, user_id, expires_at } })
   const cookieStore = await cookies()
   cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true, sameSite: 'lax', path: '/', expires: expiresAt,
+    httpOnly: true, sameSite: 'lax', path: '/', expires: expires_at,
   })
-  const u = await db.user.findUnique({ where: { id: userId } })
-  if (!u) throw new Error('User vanished')
+  const u = await db.user.findUnique({ where: { id: user_id } })
+  if (!u) throw new Error('user vanished')
     
   // Load full RBAC profile
-  const roles = await AuthorizationService.getUserRoles(u.id)
-  const permissions = await AuthorizationService.getUserPermissions(u.id)
+  const roles = await authService.getUserRoles(u.id)
+  const permissions = await authService.getUserPermissions(u.id)
 
   return {
     id: u.id, portal: u.portal as 'ecl' | 'public', role: u.role,
     roles, permissions,
     email: u.email, mobile: u.mobile, name: u.name,
-    designation: u.designation, collieryCode: u.collieryCode, plotId: u.plotId,
+    designation: u.designation, colliery_code: u.colliery_code, plot_id: u.plot_id,
   }
 }
 
@@ -72,7 +72,7 @@ export async function destroySession(): Promise<void> {
   const cookieStore = await cookies()
   const token = cookieStore.get(SESSION_COOKIE)?.value
   if (token) {
-    await db.authSession.deleteMany({ where: { token } }).catch(() => {})
+    await db.auth_session.deleteMany({ where: { token } }).catch(() => {})
   }
   cookieStore.delete(SESSION_COOKIE)
 }

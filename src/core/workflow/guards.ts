@@ -17,7 +17,7 @@ import type { GuardContext, GuardResult, TransitionGuard } from "./types";
 /**
  * Guards the project-budget ceiling (spec §1.3.3 / Module 1 baseline lock).
  *
- * Reads `ctx.data.totalAward` and `ctx.data.budgetCeiling` (both INR strings,
+ * Reads `ctx.data.total_award` and `ctx.data.budgetCeiling` (both INR strings,
  * or pre-built `MoneyValue`s). Allows the transition only if the cumulative
  * payroll total stays within the project's locked budget ceiling.
  *
@@ -29,13 +29,13 @@ export class WithinProjectBaselineGuard implements TransitionGuard {
 
   check(ctx: GuardContext): GuardResult {
     const data = ctx.data ?? {};
-    const total = toMoney(data.totalAward);
+    const total = toMoney(data.total_award);
     const ceiling = toMoney(data.budgetCeiling);
     if (!total || !ceiling) {
       return {
         ok: false,
         reason:
-          "Baseline guard requires `totalAward` and `budgetCeiling` in context data",
+          "Baseline guard requires `total_award` and `budgetCeiling` in context data",
       };
     }
     if (total.compareTo(ceiling) > 0) {
@@ -147,7 +147,7 @@ export class PlotNotAlreadyAcquiredGuard implements TransitionGuard {
 /**
  * Guards the 2.00-acre employment-quota gate (spec §1.3.3 / §9 / §10).
  *
- * Reads `ctx.data.pooledAcreage` (string or `AcreageValue`). Passes only when
+ * Reads `ctx.data.pooled_acreage` (string or `AcreageValue`). Passes only when
  * the nominee pool's cumulative acreage meets the statutory threshold.
  */
 export class ThresholdMetGuard implements TransitionGuard {
@@ -155,16 +155,16 @@ export class ThresholdMetGuard implements TransitionGuard {
   readonly threshold = EMPLOYMENT_GATE_ACRES;
 
   check(ctx: GuardContext): GuardResult {
-    const raw = ctx.data?.pooledAcreage;
+    const raw = ctx.data?.pooled_acreage;
     if (raw === undefined || raw === null) {
       return {
         ok: false,
-        reason: "Threshold guard requires `pooledAcreage` in context data",
+        reason: "Threshold guard requires `pooled_acreage` in context data",
       };
     }
     const pooled = toAcreage(raw);
     if (!pooled) {
-      return { ok: false, reason: "Invalid `pooledAcreage` value" };
+      return { ok: false, reason: "Invalid `pooled_acreage` value" };
     }
     if (!pooled.isGreaterThanOrEqualTo(this.threshold)) {
       return {

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { Button } from '@/components/ui/button'
@@ -9,16 +9,16 @@ import { UploadCloud, FileText, CheckCircle2, Loader2, X, ShieldCheck } from 'lu
 
 export interface UploadedDoc {
   id?: string
-  fileName: string
-  fileSizeKb: number
-  mimeType: string
-  virusScanStatus: 'clean' | 'scanning' | 'infected'
-  uploadedBy?: string
-  createdAt?: string
+  file_name: string
+  file_size_kb: number
+  mime_type: string
+  virus_scan_status: 'clean' | 'scanning' | 'infected'
+  uploaded_by?: string
+  entry_ts?: string
 }
 
 export interface DocumentUploaderProps {
-  checklistItemKey: string
+  checklist_item_key: string
   label?: string
   accept?: string
   maxSizeKb?: number
@@ -33,8 +33,8 @@ export interface DocumentUploaderProps {
 }
 
 export function DocumentUploader({
-  checklistItemKey,
-  label = 'Upload Document',
+  checklist_item_key,
+  label = 'Upload document',
   accept = '.pdf,.jpg,.jpeg,.png,.docx',
   maxSizeKb = 10240,
   documents,
@@ -70,7 +70,7 @@ export function DocumentUploader({
     <div className={cn('space-y-2', className)}>
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">{label}</span>
-        <Badge variant="outline" className="font-mono text-[10px]">{checklistItemKey}</Badge>
+        <Badge variant="outline" className="font-mono text-[10px]">{checklist_item_key}</Badge>
       </div>
 
       <div
@@ -124,22 +124,22 @@ export function DocumentUploader({
         <ul className="space-y-1">
           {documents.map((doc, i) => (
             <li
-              key={doc.id ?? `${doc.fileName}-${i}`}
+              key={doc.id ?? `${doc.file_name}-${i}`}
               className="flex items-center gap-2 rounded-md border border-border/60 bg-card px-2.5 py-1.5"
             >
               <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium">{doc.fileName}</p>
+                <p className="truncate text-xs font-medium">{doc.file_name}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  {(doc.fileSizeKb / 1024).toFixed(2)} MB · {doc.mimeType}
+                  {(doc.file_size_kb / 1024).toFixed(2)} MB · {doc.mime_type}
                 </p>
               </div>
-              {doc.virusScanStatus === 'clean' && (
+              {doc.virus_scan_status === 'clean' && (
                 <Badge variant="outline" className="gap-1 border-emerald-300 bg-emerald-50 px-1.5 text-[10px] text-emerald-700 dark:bg-emerald-950">
                   <ShieldCheck className="h-2.5 w-2.5" /> clean
                 </Badge>
               )}
-              {doc.virusScanStatus === 'scanning' && (
+              {doc.virus_scan_status === 'scanning' && (
                 <Badge variant="outline" className="gap-1 px-1.5 text-[10px]">
                   <Loader2 className="h-2.5 w-2.5 animate-spin" /> scanning
                 </Badge>

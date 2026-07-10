@@ -7,6 +7,18 @@ import { CreateProjectUseCase } from '@/application/use-cases/project/CreateProj
 import { IProjectRepository } from '@/domain'
 import { ValidationException } from '@/core/errors'
 
+// Mock EventBus and AuditQueue
+vi.mock('@/core/notifications/EventBus', () => ({
+  EventBus: {
+    publish: vi.fn(),
+  }
+}))
+vi.mock('@/core/audit/services/AuditQueue', () => ({
+  AuditQueue: {
+    push: vi.fn(),
+  }
+}))
+
 // Mock repository
 class MockProjectRepository implements IProjectRepository {
   findById = vi.fn()
@@ -31,11 +43,11 @@ describe('CreateProjectUseCase', () => {
   it('should create a valid project', async () => {
     const request = {
       name: 'Test Colliery Project',
-      collieryCode: 'TCL001',
-      totalLandLimitAcres: 1000,
-      totalBudgetCeiling: 5000000,
-      totalEmploymentQuota: 100,
-      userId: 'user-123',
+      colliery_code: 'TCL001',
+      total_land_limit_acres: 1000,
+      total_budget_ceiling: 5000000,
+      total_employment_quota: 100,
+      user_id: 'user-123',
     }
 
     const result = await useCase.execute(request)
@@ -49,11 +61,11 @@ describe('CreateProjectUseCase', () => {
   it('should fail with validation errors', async () => {
     const request = {
       name: '', // Invalid
-      collieryCode: 'TCL001',
-      totalLandLimitAcres: -100, // Invalid
-      totalBudgetCeiling: 5000000,
-      totalEmploymentQuota: 100,
-      userId: 'user-123',
+      colliery_code: 'TCL001',
+      total_land_limit_acres: -100, // Invalid
+      total_budget_ceiling: 5000000,
+      total_employment_quota: 100,
+      user_id: 'user-123',
     }
 
     const result = await useCase.execute(request)
@@ -66,11 +78,11 @@ describe('CreateProjectUseCase', () => {
   it('should persist the project through repository', async () => {
     const request = {
       name: 'Test Project',
-      collieryCode: 'TCL001',
-      totalLandLimitAcres: 1000,
-      totalBudgetCeiling: 5000000,
-      totalEmploymentQuota: 100,
-      userId: 'user-123',
+      colliery_code: 'TCL001',
+      total_land_limit_acres: 1000,
+      total_budget_ceiling: 5000000,
+      total_employment_quota: 100,
+      user_id: 'user-123',
     }
 
     await useCase.execute(request)
@@ -78,7 +90,7 @@ describe('CreateProjectUseCase', () => {
     expect(mockRepository.save).toHaveBeenCalledTimes(1)
     const savedProject = mockRepository.save.mock.calls[0][0]
     expect(savedProject.name).toBe('Test Project')
-    expect(savedProject.collieryCode).toBe('TCL001')
+    expect(savedProject.colliery_code).toBe('TCL001')
   })
 
   it('should handle repository errors', async () => {
@@ -86,11 +98,11 @@ describe('CreateProjectUseCase', () => {
 
     const request = {
       name: 'Test Project',
-      collieryCode: 'TCL001',
-      totalLandLimitAcres: 1000,
-      totalBudgetCeiling: 5000000,
-      totalEmploymentQuota: 100,
-      userId: 'user-123',
+      colliery_code: 'TCL001',
+      total_land_limit_acres: 1000,
+      total_budget_ceiling: 5000000,
+      total_employment_quota: 100,
+      user_id: 'user-123',
     }
 
     await expect(useCase.execute(request)).rejects.toThrow('Database error')

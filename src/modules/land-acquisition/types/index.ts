@@ -1,4 +1,4 @@
-export type AcquisitionMode = 'cba_act' | 'direct_purchase' | 'rfctlarr' | 'patta'
+﻿export type AcquisitionMode = 'cba_act' | 'direct_purchase' | 'rfctlarr' | 'patta'
 
 export const MODE_META: Record<AcquisitionMode, { label: string; checklistCode: string; color: string }> = {
   cba_act:         { label: 'CBA Act, 1957',      checklistCode: 'CL-1.1', color: 'border-rose-300 bg-rose-50 text-rose-700' },
@@ -25,33 +25,33 @@ export const LAND_TYPE_COLOR: Record<string, string> = {
 
 export interface ScheduleListItem {
   id: string
-  scheduleCode: string
-  projectId: string
+  schedule_code: string
+  project_id: string
   projectName: string
-  acquisitionMode: AcquisitionMode
+  acquisition_mode: AcquisitionMode
   state: string
-  proposalTitle: string
+  proposal_title: string
   description: string
-  totalAreaAcres: string
-  notificationDate: string | null
-  itemSummary: { total: number; annexureA: number; annexureB: number; annexureC: number }
-  createdAt: string
-  proposedBy: string
-  proposedByRole: string
-  areaOffice: string
-  collieryCode: string
-  adjacentColliery: string
+  total_area_acres: string
+  notification_date: string | null
+  itemSummary: { total: number; annexure_a: number; annexure_b: number; annexure_c: number }
+  entry_ts: string
+  proposed_by: string
+  proposed_by_role: string
+  area_office: string
+  colliery_code: string
+  adjacent_colliery: string
 }
 
 export interface ScheduleItem {
   id: string
-  plotId: string
-  plotNumber: string
+  plot_id: string
+  plot_number: string
   mouza: string
-  landType: string
-  areaAcres: string
-  annexureTag: 'A' | 'B' | 'C'
-  isActive: boolean
+  land_type: string
+  area_acres: string
+  annexure_tag: 'A' | 'B' | 'C'
+  is_active: boolean
 }
 
 export interface ModeChecklistPayload {
@@ -61,24 +61,24 @@ export interface ModeChecklistPayload {
 
 export interface ScheduleDetail {
   id: string
-  scheduleCode: string
-  projectId: string
+  schedule_code: string
+  project_id: string
   projectName: string
-  acquisitionMode: AcquisitionMode
+  acquisition_mode: AcquisitionMode
   state: string
-  proposalTitle: string
+  proposal_title: string
   description: string
-  proposedBy: string
-  proposedByRole: string
-  areaOffice: string
-  collieryCode: string
-  adjacentColliery: string
-  totalAreaAcres: string
-  notificationDate: string | null
-  annexureA: string
-  annexureB: string
-  annexureC: string
-  modeSpecificChecklist: string
+  proposed_by: string
+  proposed_by_role: string
+  area_office: string
+  colliery_code: string
+  adjacent_colliery: string
+  total_area_acres: string
+  notification_date: string | null
+  annexure_a: string
+  annexure_b: string
+  annexure_c: string
+  mode_specific_checklist: string
   items: ScheduleItem[]
-  createdAt: string
+  entry_ts: string
 }

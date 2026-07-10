@@ -15,8 +15,8 @@ import { StateBadge, DEFAULT_STATE_META } from './StateBadge'
 export interface ReviewTaskView {
   role: string
   status: 'pending' | 'approved' | 'rejected'
-  decidedBy?: string
-  decidedAt?: string
+  decided_by?: string
+  decided_at?: string
   comment?: string
 }
 
@@ -107,9 +107,9 @@ export function ApprovalPanel({
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium">{ROLE_LABELS[task.role] ?? task.role}</span>
                       </div>
-                      {task.decidedBy && (
+                      {task.decided_by && (
                         <p className="text-[11px] text-muted-foreground">
-                          by {task.decidedBy}{task.decidedAt ? ` · ${task.decidedAt}` : ''}
+                          by {task.decided_by}{task.decided_at ? ` · ${task.decided_at}` : ''}
                         </p>
                       )}
                       {task.comment && <p className="mt-0.5 text-[11px] italic text-muted-foreground">"{task.comment}"</p>}

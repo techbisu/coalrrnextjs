@@ -3,8 +3,8 @@
  */
 import { Result } from '../result/Result'
 
-export interface IUseCase<TRequest, TResponse> {
-  execute(request: TRequest): Promise<Result<TResponse>>
+export interface IUseCase<TRequest, TResponse, E = any> {
+  execute(request: TRequest): Promise<Result<TResponse, E>>
 }
 
 export interface ICommand<T> {

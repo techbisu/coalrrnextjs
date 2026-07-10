@@ -1,18 +1,18 @@
 export interface FileUploadParams {
   buffer: Buffer;
-  originalName: string;
-  mimeType: string;
-  sizeBytes: number;
-  ownerId?: string;
+  original_name: string;
+  mime_type: string;
+  size_bytes: number;
+  owner_id?: string;
   tags?: string[];
-  entityType?: string;
-  entityId?: string;
+  entity_type?: string;
+  entity_id?: string;
   module?: string;
 }
 
 export interface StorageUploadResult {
-  storagePath: string;
+  storage_path: string;
   bucket?: string;
   checksum: string;
-  sizeBytes: number;
+  size_bytes: number;
 }

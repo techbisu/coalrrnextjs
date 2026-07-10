@@ -10,9 +10,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ valid: false, reason: 'ID and answer are required' }, { status: 400 })
     }
 
-    const ipAddress = req.ip || req.headers.get('x-forwarded-for') || undefined
+    const ip_address = req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for') || undefined
 
-    const result = await CaptchaService.validate(id, answer, ipAddress)
+    const result = await CaptchaService.validate(id, answer, ip_address)
 
     // Note: Always returning 200 OK, but with { valid: false } inside the body for predictable client parsing
     return NextResponse.json(result, { status: 200 })

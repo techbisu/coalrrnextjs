@@ -1,24 +1,24 @@
-export interface IRole {
+﻿export interface IRole {
   id: string
   name: string
-  displayName: string | null
+  display_name: string | null
   description: string | null
-  guardName: string
-  isSystem: boolean
-  createdAt: Date
-  updatedAt: Date
+  guard_name: string
+  is_system: boolean
+  entry_ts: Date
+  updt_ts: Date
 }
 
 export interface IPermission {
   id: string
   name: string
-  displayName: string | null
+  display_name: string | null
   description: string | null
   module: string | null
   group: string | null
-  guardName: string
-  createdAt: Date
-  updatedAt: Date
+  guard_name: string
+  entry_ts: Date
+  updt_ts: Date
 }
 
 export interface CachedPermissions {
@@ -27,7 +27,7 @@ export interface CachedPermissions {
 }
 
 export interface IAuthorizationContext {
-  userId?: string
+  user_id?: string
   userRoles?: string[]
   userPermissions?: string[]
 }

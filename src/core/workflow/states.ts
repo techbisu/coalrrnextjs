@@ -1,7 +1,7 @@
 /**
  * Workflow Engine — State catalogue + transition graph (COALRR spec §2.3).
  *
- * Single source of truth for the `CompensationPayroll` workflow. Both the
+ * Single source of truth for the `compensation_payroll` workflow. Both the
  * workflow engine and the UI stepper read from this map; the API layer uses
  * it to validate transitions.
  */
@@ -112,7 +112,7 @@ const T_BOARD__DIRECTOR: Transition = {
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
- * Full state catalogue for the CompensationPayroll workflow.
+ * Full state catalogue for the compensation_payroll workflow.
  * `order` is the linear stepper position (BoardEscalation sits at order 3.5
  * visually because it branches off AreaVetting).
  */

@@ -51,20 +51,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     // Execute use case
     const useCase = new LockProjectUseCase(projectRepository)
     const result = await useCase.execute({
-      projectId: id,
-      userId: auth.user.id,
+      project_id: id,
+      user_id: auth.user.id,
     })
 
     if (result.isFailure) {
-      if (result.error instanceof NotFoundException) {
-        return notFound(result.error.message)
+      if ((result.error as any) instanceof NotFoundException || String(result.error).includes('not found')) {
+        return notFound(String(result.error))
       }
-      if (result.error instanceof ProjectAlreadyLockedException) {
-        return badRequest(result.error.message)
+      if ((result.error as any) instanceof ProjectAlreadyLockedException) {
+        return badRequest(String(result.error))
       }
-      if (result.error instanceof DomainException) {
+      if ((result.error as any) instanceof DomainException) {
         return NextResponse.json(
-          { error: result.error.message, code: result.error.code },
+          { error: String(result.error), code: String(result.error) },
           { status: 400 }
         )
       }

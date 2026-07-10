@@ -49,9 +49,9 @@ export async function GET(req: NextRequest) {
     const result = await useCase.execute(queryResult.data)
 
     if (result.isFailure) {
-      if (result.error instanceof ValidationException) {
+      if ((result.error as any) instanceof ValidationException) {
         return NextResponse.json(
-          { error: result.error.message, details: result.error.errors },
+          { error: String(result.error), details: (result.error as any) },
           { status: 400 }
         )
       }
@@ -98,19 +98,19 @@ export async function POST(req: NextRequest) {
     const useCase = new CreateProjectUseCase(projectRepository)
     const result = await useCase.execute({
       ...bodyResult.data,
-      userId: auth.user.id,
+      user_id: auth.user.id,
     })
 
     if (result.isFailure) {
-      if (result.error instanceof ValidationException) {
+      if ((result.error as any) instanceof ValidationException) {
         return NextResponse.json(
-          { error: result.error.message, details: result.error.errors },
+          { error: String(result.error), details: (result.error as any) },
           { status: 400 }
         )
       }
-      if (result.error instanceof DomainException) {
+      if ((result.error as any) instanceof DomainException) {
         return NextResponse.json(
-          { error: result.error.message, code: result.error.code },
+          { error: String(result.error), code: String(result.error) },
           { status: 400 }
         )
       }

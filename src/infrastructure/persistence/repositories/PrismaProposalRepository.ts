@@ -11,11 +11,11 @@ import Decimal from 'decimal.js'
 export class PrismaProposalRepository implements IProposalRepository {
   
   async findById(id: string): Promise<Proposal | null> {
-    const data = await db.landSchedule.findUnique({
+    const data = await db.land_schedule.findUnique({
       where: { id },
       include: {
         items: { 
-          where: { isActive: true }
+          where: { is_active: true }
         }
       }
     })
@@ -24,11 +24,11 @@ export class PrismaProposalRepository implements IProposalRepository {
 
     return Proposal.reconstitute({
       id: data.id,
-      scheduleCode: data.scheduleCode,
+      schedule_code: data.scheduleCode,
       projectId: data.projectId,
       acquisitionMode: data.acquisitionMode,
       state: data.state,
-      proposalTitle: data.proposalTitle ?? '',
+      proposal_title: data.proposalTitle ?? '',
       description: data.description ?? '',
       proposedBy: data.proposedBy ?? '',
       proposedByRole: data.proposedByRole ?? '',
@@ -52,7 +52,7 @@ export class PrismaProposalRepository implements IProposalRepository {
     const where: any = {}
     
     if (options?.projectId) {
-      where.projectId = options.projectId
+      where.projectId = options.project_id
     }
 
     if (options?.state) {
@@ -60,11 +60,11 @@ export class PrismaProposalRepository implements IProposalRepository {
     }
 
     if (options?.acquisitionMode) {
-      where.acquisitionMode = options.acquisitionMode
+      where.acquisitionMode = options.acquisition_mode
     }
     
     if (options?.collieryCode) {
-      where.collieryCode = options.collieryCode
+      where.collieryCode = options.colliery_code
     }
     
     if (options?.search) {
@@ -75,16 +75,16 @@ export class PrismaProposalRepository implements IProposalRepository {
     }
 
     const [data, total] = await Promise.all([
-      db.landSchedule.findMany({
+      db.land_schedule.findMany({
         where,
         skip,
         take: pageSize,
         orderBy: options?.orderBy ?? { createdAt: 'desc' },
         include: {
-          items: { where: { isActive: true } }
+          items: { where: { is_active: true } }
         }
       }),
-      db.landSchedule.count({ where }),
+      db.land_schedule.count({ where }),
     ])
 
     const proposals = data.map(p => Proposal.reconstitute({
@@ -118,20 +118,20 @@ export class PrismaProposalRepository implements IProposalRepository {
   }
 
   async findByScheduleCode(scheduleCode: string): Promise<Proposal | null> {
-    const data = await db.landSchedule.findFirst({
+    const data = await db.land_schedule.findFirst({
       where: { scheduleCode },
-      include: { items: { where: { isActive: true } } }
+      include: { items: { where: { is_active: true } } }
     })
 
     if (!data) return null
 
     return Proposal.reconstitute({
       id: data.id,
-      scheduleCode: data.scheduleCode,
+      schedule_code: data.scheduleCode,
       projectId: data.projectId,
       acquisitionMode: data.acquisitionMode,
       state: data.state,
-      proposalTitle: data.proposalTitle ?? '',
+      proposal_title: data.proposalTitle ?? '',
       description: data.description ?? '',
       proposedBy: data.proposedBy ?? '',
       proposedByRole: data.proposedByRole ?? '',
@@ -157,11 +157,11 @@ export class PrismaProposalRepository implements IProposalRepository {
     const exists = await this.exists(proposal.id)
     
     if (exists) {
-      await db.landSchedule.update({
+      await db.land_schedule.update({
         where: { id: data.id },
         data: {
           state: data.state,
-          proposalTitle: data.proposalTitle,
+          proposal_title: data.proposalTitle,
           description: data.description,
           areaOffice: data.areaOffice,
           adjacentColliery: data.adjacentColliery,
@@ -172,14 +172,14 @@ export class PrismaProposalRepository implements IProposalRepository {
         },
       })
     } else {
-      await db.landSchedule.create({
+      await db.land_schedule.create({
         data: {
           id: data.id,
-          scheduleCode: data.scheduleCode,
+          schedule_code: data.scheduleCode,
           projectId: data.projectId,
           acquisitionMode: data.acquisitionMode,
           state: data.state,
-          proposalTitle: data.proposalTitle,
+          proposal_title: data.proposalTitle,
           description: data.description,
           proposedBy: data.proposedBy,
           proposedByRole: data.proposedByRole,
@@ -195,45 +195,45 @@ export class PrismaProposalRepository implements IProposalRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await db.landSchedule.delete({ where: { id } })
+    await db.land_schedule.delete({ where: { id } })
   }
 
   async exists(id: string): Promise<boolean> {
-    const count = await db.landSchedule.count({ where: { id } })
+    const count = await db.land_schedule.count({ where: { id } })
     return count > 0
   }
 
-  async addPlotToProposal(proposalId: string, plotId: string, annexureTag: 'A' | 'B' | 'C'): Promise<void> {
-    await db.landScheduleItem.create({
+  async addPlotToProposal(proposalId: string, plotId: string, annexure_tag: 'A' | 'B' | 'C'): Promise<void> {
+    await db.land_schedule_item.create({
       data: {
         scheduleId: proposalId,
         plotId,
         annexureTag,
-        isActive: true
+        is_active: true
       }
     })
   }
 
   async removePlotFromProposal(proposalId: string, plotId: string): Promise<void> {
     // Soft delete pattern to maintain history
-    await db.landScheduleItem.updateMany({
+    await db.land_schedule_item.updateMany({
       where: {
         scheduleId: proposalId,
         plotId,
-        isActive: true
+        is_active: true
       },
       data: {
-        isActive: false
+        is_active: false
       }
     })
   }
 
-  async updatePlotAnnexure(proposalId: string, plotId: string, annexureTag: 'A' | 'B' | 'C'): Promise<void> {
-    await db.landScheduleItem.updateMany({
+  async updatePlotAnnexure(proposalId: string, plotId: string, annexure_tag: 'A' | 'B' | 'C'): Promise<void> {
+    await db.land_schedule_item.updateMany({
       where: {
         scheduleId: proposalId,
         plotId,
-        isActive: true
+        is_active: true
       },
       data: {
         annexureTag
@@ -244,7 +244,7 @@ export class PrismaProposalRepository implements IProposalRepository {
   async isPlotInActiveProposal(plotId: string, currentProposalId?: string): Promise<boolean> {
     const query: any = {
       plotId,
-      isActive: true,
+      is_active: true,
       schedule: {
         state: { not: 'Cancelled' }
       }
@@ -254,18 +254,18 @@ export class PrismaProposalRepository implements IProposalRepository {
       query.scheduleId = { not: currentProposalId }
     }
     
-    const count = await db.landScheduleItem.count({ where: query })
+    const count = await db.land_schedule_item.count({ where: query })
     return count > 0
   }
 
   // For dashboard/UI specific complex queries
   async getProposalDetailsWithPlots(id: string): Promise<any> {
-    return db.landSchedule.findUnique({
+    return db.land_schedule.findUnique({
       where: { id },
       include: {
         project: true,
         items: {
-          where: { isActive: true },
+          where: { is_active: true },
           include: { 
             plot: { 
               include: { mouza: true } 

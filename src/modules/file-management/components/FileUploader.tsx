@@ -6,14 +6,14 @@ import { UploadCloud, X, Loader2 } from 'lucide-react';
 
 interface FileUploaderProps {
   module: string;
-  entityType?: string;
-  entityId?: string;
+  entity_type?: string;
+  entity_id?: string;
   multiple?: boolean;
   maxFiles?: number;
   onUploadComplete?: (fileIds: string[]) => void;
 }
 
-export function FileUploader({ module, entityType, entityId, multiple = false, maxFiles = 10, onUploadComplete }: FileUploaderProps) {
+export function FileUploader({ module, entity_type, entity_id, multiple = false, maxFiles = 10, onUploadComplete }: FileUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -39,8 +39,8 @@ export function FileUploader({ module, entityType, entityId, multiple = false, m
         const formData = new FormData();
         formData.append('file', file);
         formData.append('module', module);
-        if (entityType) formData.append('entityType', entityType);
-        if (entityId) formData.append('entityId', entityId);
+        if (entity_type) formData.append('entity_type', entity_type);
+        if (entity_id) formData.append('entity_id', entity_id);
 
         const res = await fetch('/api/files/upload', {
           method: 'POST',
@@ -49,7 +49,7 @@ export function FileUploader({ module, entityType, entityId, multiple = false, m
         
         if (!res.ok) throw new Error('Upload failed');
         const data = await res.json();
-        uploadedIds.push(data.fileId);
+        uploadedIds.push(data.file_id);
       }
       
       setFiles([]);

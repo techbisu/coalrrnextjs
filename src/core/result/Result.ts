@@ -2,7 +2,7 @@
  * Result Pattern - Functional error handling without exceptions.
  * Used throughout the domain layer to return success/failure states.
  */
-export type Result<T, E = Error> = SuccessResult<T> | FailureResult<T, E>
+export type Result<T, E = string> = SuccessResult<T> | FailureResult<T, E>
 
 export interface SuccessResult<T> {
   isSuccess: true
@@ -28,7 +28,7 @@ export class ResultFactory {
     }
   }
 
-  static fail<T, E>(error: E): FailureResult<T, E> {
+  static fail<T = unknown, E = string>(error: E): FailureResult<T, E> {
     return {
       isSuccess: false,
       isFailure: true,
@@ -42,10 +42,11 @@ export class ResultFactory {
     if (failures.length > 0) {
       return ResultFactory.fail<T[], E>((failures[0] as FailureResult<T, E>).error)
     }
-    return ResultFactory.ok<T[], E>(results.map(r => (r as SuccessResult<T>).value))
+    return ResultFactory.ok<T[]>(results.map(r => (r as SuccessResult<T>).value))
   }
 }
 
 // Convenience exports
 export const Ok = ResultFactory.ok
 export const Fail = ResultFactory.fail
+export const Result = ResultFactory

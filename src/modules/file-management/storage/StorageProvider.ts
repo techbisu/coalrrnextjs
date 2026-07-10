@@ -9,20 +9,20 @@ export interface StorageProvider {
   /**
    * Upload a file buffer to storage and return the storage path and checksum
    */
-  upload(buffer: Buffer, originalName: string, mimeType: string): Promise<StorageUploadResult>;
+  upload(buffer: Buffer, original_name: string, mime_type: string): Promise<StorageUploadResult>;
 
   /**
    * Download a file from storage and return its buffer
    */
-  download(storagePath: string, bucket?: string): Promise<Buffer>;
+  download(storage_path: string, bucket?: string): Promise<Buffer>;
 
   /**
    * Delete a file from storage
    */
-  delete(storagePath: string, bucket?: string): Promise<void>;
+  delete(storage_path: string, bucket?: string): Promise<void>;
 
   /**
    * Generate a secure, short-lived URL for downloading/previewing (if supported)
    */
-  getSignedUrl(storagePath: string, bucket?: string, expiresInSeconds?: number): Promise<string>;
+  getSignedUrl(storage_path: string, bucket?: string, expiresInSeconds?: number): Promise<string>;
 }

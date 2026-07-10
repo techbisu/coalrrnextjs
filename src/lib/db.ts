@@ -1,6 +1,12 @@
 import { PrismaClient } from '@prisma/client'
 import { withAuditExtension } from '@/audit/extensions/PrismaAuditExtension'
 
+if (!(BigInt.prototype as any).toJSON) {
+  (BigInt.prototype as any).toJSON = function () {
+    return this.toString();
+  };
+}
+
 const globalForPrisma = globalThis as unknown as {
   prisma: ReturnType<typeof createExtendedClient> | undefined
 }

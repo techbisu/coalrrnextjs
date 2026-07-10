@@ -11,9 +11,18 @@ export default getRequestConfig(async () => {
 
   const messages = await LocalizationEngine.loadTranslations(locale);
 
+  // Provide minimum required namespaces if DB is completely empty
+  if (!messages.common) messages.common = { fallback: 'true' };
+
   return {
     locale,
     messages,
     timeZone: 'Asia/Kolkata',
+    getMessageFallback: ({namespace, key}) => key ? `${namespace}.${key}` : String(namespace),
+    onError: (error) => {
+      // Suppress missing message errors in console
+      if (error.code === 'MISSING_MESSAGE') return;
+      console.error(error);
+    }
   };
 });

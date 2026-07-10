@@ -3,37 +3,37 @@ import { fileService } from '@/modules/file-management/services/FileService';
 import { AuditService } from '@/audit/services/AuditService';
 
 export async function GET(request: Request, { params }: { params: Promise<{ fileId: string }> }) {
-  const fileId = (await params).fileId;
+  const file_id = (await params).fileId;
   const url = new URL(request.url);
   const token = url.searchParams.get('token');
 
   try {
-    // 1. Permission Check
+    // 1. permission Check
     // If token exists, validate token signature and expiry.
     // Otherwise, validate user session.
-    let userId = 'anonymous';
+    let user_id = 'anonymous';
     if (token) {
       // Validate token (mocked logic for Signed URLs)
       const payload = JSON.parse(Buffer.from(token, 'base64').toString('utf-8'));
       if (payload.exp < Date.now()) {
         return new NextResponse('Token Expired', { status: 403 });
       }
-      userId = 'guest-via-token';
+      user_id = 'guest-via-token';
     } else {
       // Validate active session
       // const session = await getSession();
       // if (!session) return new NextResponse('Unauthorized', { status: 401 });
-      userId = 'active-user'; 
+      user_id = 'active-user'; 
     }
 
     // 2. Fetch File
-    let { buffer, mimeType, originalName } = await fileService.getFileBuffer(fileId);
+    let { buffer, mime_type, original_name } = await fileService.getFileBuffer(file_id);
 
     // 3. Audit Logging
-    AuditService.log('DOWNLOAD', 'file-management', 'FileRecord', fileId, 'File downloaded securely', { userId });
+    AuditService.log('DOWNLOAD', 'file-management', 'file_record', file_id, 'File downloaded securely', { user_id });
 
     // 4. Dynamic Watermarking for PDFs
-    if (mimeType === 'application/pdf') {
+    if (mime_type === 'application/pdf') {
       try {
         const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
         const pdfDoc = await PDFDocument.load(buffer);
@@ -41,9 +41,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
         const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
         
         // Use real user details if authenticated, fallback for tokens
-        const downloaderName = userId === 'guest-via-token' ? 'External Guest' : 'Active User';
+        const downloaderName = user_id === 'guest-via-token' ? 'External Guest' : 'Active user';
         const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-        const footerText = `Downloaded By: ${downloaderName} | Date: ${timestamp} | File ID: ${fileId} | COALRR System`;
+        const footerText = `Downloaded By: ${downloaderName} | Date: ${timestamp} | File ID: ${file_id} | COALRR System`;
 
         for (const page of pages) {
           const { width } = page.getSize();
@@ -58,7 +58,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
           });
 
           // Draw QR code placeholder at the bottom right
-          page.drawText(`Verify: https://portal.company.com/verify/${fileId}`, {
+          page.drawText(`Verify: https://portal.company.com/verify/${file_id}`, {
              x: width - 200,
              y: 20,
              size: 8,
@@ -74,10 +74,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
     }
 
     // 5. Stream response
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
-        'Content-Type': mimeType,
-        'Content-Disposition': `inline; filename="${originalName}"`, 
+        'Content-Type': mime_type,
+        'Content-Disposition': `inline; filename="${original_name}"`, 
         'Cache-Control': 'private, max-age=3600',
       },
     });

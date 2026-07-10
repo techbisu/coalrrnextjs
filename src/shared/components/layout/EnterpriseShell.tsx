@@ -7,43 +7,15 @@ import {
   Inbox, ClipboardList, Home, UserPlus, Briefcase, UserCheck, Menu, X, Mountain, ChevronRight, Building2, LogOut
 } from 'lucide-react'
 import { useAuth } from '@/core/authorization/providers/AuthProvider'
-import { useUiState } from '@/providers/UiStateProvider'
-import { UrlParser } from '@/lib/url/UrlService'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { Separator } from '@/shared/components/ui/separator'
 import { cn } from '@/lib/utils'
 
-// Components
-import { AuthView } from '@/components/coalrr/views/AuthView'
-import { DashboardView } from '@/components/coalrr/views/DashboardView'
-import { ProjectMasterView } from '@/modules/project-master/components/ProjectMasterView'
-import { FormIWizardView } from '@/components/coalrr/views/FormIWizardView'
-import { PayrollBuilderView } from '@/components/coalrr/views/PayrollBuilderView'
-import { PaymentLedgerView } from '@/components/coalrr/views/PaymentLedgerView'
-import { NominationView } from '@/components/coalrr/views/NominationView'
-import { EmploymentView } from '@/components/coalrr/views/EmploymentView'
-import { EmploymentWizardView } from '@/components/coalrr/views/EmploymentWizardView'
-import { PafCensusView } from '@/components/coalrr/views/PafCensusView'
-import { RnrAssetView } from '@/components/coalrr/views/RnrAssetView'
-import { WorkflowInboxView } from '@/components/coalrr/views/WorkflowInboxView'
-import { AcquisitionView } from '@/modules/land-acquisition/components/AcquisitionView'
 import { LanguageSwitcher } from '@/localization/components/LanguageSwitcher'
 import { NotificationCenter } from '@/components/notifications/NotificationCenter'
-
-const VIEW_MAP: Record<string, React.ComponentType> = {
-  'dashboard': DashboardView,
-  'form-i-wizard': FormIWizardView,
-  'payroll-builder': PayrollBuilderView,
-  'payment-ledger': PaymentLedgerView,
-  'nomination': NominationView,
-  'employment': EmploymentView,
-  'employment-wizard': EmploymentWizardView,
-  'paf-census': PafCensusView,
-  'rnr-asset': RnrAssetView,
-  'workflow-inbox': WorkflowInboxView,
-}
+import { AuthView } from '@/components/coalrr/views/AuthView'
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard, Map, FileText, Calculator, Lock, Users, Inbox, ClipboardList,
@@ -75,21 +47,10 @@ export const ROUTE_MAP: Record<string, string> = {
 
 export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
   const { user, isLoading } = useAuth()
-  const { view, setView } = useUiState()
   const [sidebarOpen, setSidebarOpen] = React.useState(false)
   const t = useAppTranslation('common')
   const router = useRouter()
   const pathname = usePathname()
-
-  React.useEffect(() => {
-    // Only parse URL and setView if we are on the SPA catch-all and NO children are provided
-    if (!children) {
-      const parsed = UrlParser.parse(pathname)
-      if (parsed.view && Object.keys(VIEW_MAP).includes(parsed.view)) {
-        setView(parsed.view as any)
-      }
-    }
-  }, [pathname, setView, children])
 
   if (isLoading) {
     return (
@@ -104,32 +65,20 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
 
   if (!user) return <AuthView />
 
-  const visibleNav = NAV_ITEMS.filter((item) => item.portals.includes(user.portal))
-  const currentNav = NAV_ITEMS.find((n) => n.key === view)
-  if (!children && user.portal === 'public' && currentNav && !currentNav.portals.includes('public')) {
-    setView('form-i-wizard')
+  const getActiveState = (key: string) => {
+    const expectedPath = ROUTE_MAP[key] || `/${key}`
+    if (expectedPath === '/') return pathname === '/'
+    return pathname.startsWith(expectedPath)
   }
+
+  const visibleNav = NAV_ITEMS.filter((item) => item.portals.includes(user.portal))
+  const currentNav = NAV_ITEMS.find((n) => getActiveState(n.key))
 
   const handleNavClick = (key: string) => {
     const newPath = ROUTE_MAP[key] || `/${key}`
     setSidebarOpen(false)
     router.push(newPath)
-    if (!children) {
-      setView(key as any)
-    }
   }
-
-  // If children are provided, we don't care about VIEW_MAP.
-  // We determine 'active' state from the pathname.
-  const getActiveState = (key: string) => {
-    if (children) {
-      const expectedPath = ROUTE_MAP[key] || `/${key}`
-      return pathname.startsWith(expectedPath) || (expectedPath === '/' && pathname === '/')
-    }
-    return view === key
-  }
-
-  const ViewComponent = VIEW_MAP[view]
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -157,15 +106,15 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
         <div className="ml-auto flex items-center gap-2">
           <div className="hidden items-center gap-2 rounded-md border border-border/60 bg-card px-2.5 py-1 sm:flex">
             <div className={cn('flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold', user.portal === 'ecl' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700')}>
-              {(user.name || user.role || 'User').split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+              {(user.name || user.role || 'user').split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
             </div>
             <div className="text-left">
-              <p className="text-xs font-medium leading-tight">{user.name || 'User'}</p>
+              <p className="text-xs font-medium leading-tight">{user.name || 'user'}</p>
               <p className="text-[10px] text-muted-foreground leading-tight">{user.roleLabel ?? user.role}{user.designation ? ` · ${user.designation}` : ''}</p>
             </div>
           </div>
           <LanguageSwitcher />
-          <NotificationCenter userId={user.id} />
+          <NotificationCenter user_id={user.id} />
           <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => {
             fetch('/api/auth/logout', { method: 'POST' }).then(() => {
               window.location.href = '/'
@@ -209,7 +158,7 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
             </div>
             {user.portal === 'ecl' && (
               <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
-                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300"><Building2 className="h-3 w-3" /> {user.collieryCode ?? 'ECL'}</p>
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300"><Building2 className="h-3 w-3" /> {user.colliery_code ?? 'ECL'}</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">Logged in as <span className="font-medium text-foreground">{user.roleLabel ?? user.role}</span></p>
               </div>
             )}
@@ -218,7 +167,7 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
         {sidebarOpen && <div className="fixed inset-0 z-10 bg-black/30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
         <main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-7xl">
-            {children ? children : (ViewComponent ? <ViewComponent /> : <div className="py-20 text-center text-muted-foreground">Loading…</div>)}
+            {children}
           </div>
         </main>
       </div>

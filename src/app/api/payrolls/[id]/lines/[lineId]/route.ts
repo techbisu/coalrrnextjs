@@ -1,27 +1,24 @@
-// DELETE /api/payrolls/[id]/lines/[lineId] — remove a payroll line (only in Drafting)
-import { db } from '@/lib/db'
 import { ok, badRequest, notFound, serverError } from '../../../../_lib'
 import type { NextRequest } from 'next/server'
+import { PrismaPayrollsRepository } from '@/infrastructure/persistence/repositories/PrismaPayrollsRepository'
+import { DeletePayrollLineUseCase } from '@/application/use-cases/payrolls/DeletePayrollLineUseCase'
 
 type Ctx = { params: Promise<{ id: string; lineId: string }> }
+
+const repo = new PrismaPayrollsRepository()
+const deletePayrollLineUseCase = new DeletePayrollLineUseCase(repo)
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
   try {
     const { id, lineId } = await ctx.params
-    const payroll = await db.compensationPayroll.findUnique({ where: { id } })
-    if (!payroll) return notFound('Payroll not found')
-    if (payroll.state !== 'Drafting') return badRequest(`Cannot delete line from payroll in state ${payroll.state}`)
+    const result = await deletePayrollLineUseCase.execute({ id, lineId })
 
-    await db.compensationPayrollLine.delete({ where: { id: lineId } })
+    if (result.isFailure) {
+      if (String(result.error) === 'Payroll not found') return notFound('Payroll not found')
+      return badRequest(String(result.error))
+    }
 
-    const remaining = await db.compensationPayrollLine.findMany({ where: { payrollId: id } })
-    const batchTotal = remaining.reduce((s, l) => s + Number(l.totalAward), 0)
-    await db.compensationPayroll.update({
-      where: { id },
-      data: { landownerCount: remaining.length, totalAward: batchTotal.toFixed(2) },
-    })
-
-    return ok({ deleted: true, lineCount: remaining.length, batchTotal: batchTotal.toFixed(2) })
+    return ok(result.value)
   } catch (e) {
     return serverError('Failed to delete line', e instanceof Error ? e.message : String(e))
   }

@@ -16,11 +16,11 @@ import {
 } from 'lucide-react'
 
 interface LedgerEntry {
-  id: string; plotId: string; plotNumber?: string; mouza?: string
-  amountLand: string; amountRnr: string
-  payeeType: string; payeeName: string; rtgsUtrReference: string | null
-  rowHash: string | null; previousHash: string | null
-  state: string; paidAt: string; isImmutable: boolean
+  id: string; plot_id: string; plot_number?: string; mouza?: string
+  amount_land: string; amount_rnr: string
+  payee_type: string; payee_name: string; rtgs_utr_reference: string | null
+  row_hash: string | null; previous_hash: string | null
+  state: string; paid_at: string; isImmutable: boolean
 }
 
 async function fetchLedger(): Promise<LedgerEntry[]> {
@@ -29,10 +29,11 @@ async function fetchLedger(): Promise<LedgerEntry[]> {
   return r.json()
 }
 
-async function fetchProjects(): Promise<Array<{ id: string; name: string; plots: Array<{ id: string; plotNumber: string }> }>> {
+async function fetchProjects(): Promise<Array<{ id: string; name: string; plots: Array<{ id: string; plot_number: string }> }>> {
   const r = await fetch('/api/projects')
   if (!r.ok) throw new Error('Failed to load projects')
-  return r.json()
+  const json = await r.json()
+  return json?.data || json
 }
 
 export function PaymentLedgerView() {
@@ -44,7 +45,7 @@ export function PaymentLedgerView() {
   const project = projects?.[0]
   const selectedEntry = entries?.find((e) => e.id === selectedEntryId)
 
-  const totalDisbursed = entries?.reduce((s, e) => s + Number(e.amountLand) + Number(e.amountRnr), 0) ?? 0
+  const totalDisbursed = entries?.reduce((s, e) => s + Number(e.amount_land) + Number(e.amount_rnr), 0) ?? 0
   const immutableCount = entries?.filter((e) => e.isImmutable).length ?? 0
 
   return (
@@ -86,12 +87,12 @@ export function PaymentLedgerView() {
             <DataTable
               loading={isLoading}
               columns={[
-                { key: 'payeeName', header: 'Payee', sortable: true, render: (r) => <span className="font-medium">{r.payeeName}</span> },
-                { key: 'plotNumber', header: 'Plot', render: (r) => <span className="font-mono text-xs">{r.plotNumber}</span> },
-                { key: 'amountLand', header: 'Land', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{formatINR(r.amountLand)}</span> },
-                { key: 'amountRnr', header: 'R&R', align: 'right', render: (r) => <span className="tabular-nums">{formatINR(r.amountRnr)}</span> },
-                { key: 'total', header: 'Total', align: 'right', sortable: true, render: (r) => <span className="font-semibold tabular-nums text-emerald-700">{formatINR(String(Number(r.amountLand) + Number(r.amountRnr)))}</span> },
-                { key: 'paidAt', header: 'Paid', render: (r) => <span className="text-xs text-muted-foreground">{timeAgo(r.paidAt)}</span> },
+                { key: 'payee_name', header: 'Payee', sortable: true, render: (r) => <span className="font-medium">{r.payee_name}</span> },
+                { key: 'plot_number', header: 'Plot', render: (r) => <span className="font-mono text-xs">{r.plot_number}</span> },
+                { key: 'amount_land', header: 'Land', align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{formatINR(r.amount_land)}</span> },
+                { key: 'amount_rnr', header: 'R&R', align: 'right', render: (r) => <span className="tabular-nums">{formatINR(r.amount_rnr)}</span> },
+                { key: 'total', header: 'Total', align: 'right', sortable: true, render: (r) => <span className="font-semibold tabular-nums text-emerald-700">{formatINR(String(Number(r.amount_land) + Number(r.amount_rnr)))}</span> },
+                { key: 'paid_at', header: 'Paid', render: (r) => <span className="text-xs text-muted-foreground">{timeAgo(r.paid_at)}</span> },
                 { key: 'isImmutable', header: 'Status', align: 'center', render: (r) => r.isImmutable ? (
                   <Badge className="gap-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-100"><Lock className="h-2.5 w-2.5" /> sealed</Badge>
                 ) : (
@@ -106,20 +107,20 @@ export function PaymentLedgerView() {
           </SectionCard>
         </div>
 
-        <SectionCard title="Hash Detail" icon={Link2} description={selectedEntry ? selectedEntry.payeeName : 'Select a row to inspect'}>
+        <SectionCard title="Hash Detail" icon={Link2} description={selectedEntry ? selectedEntry.payee_name : 'Select a row to inspect'}>
           {selectedEntry ? (
             <div className="space-y-3 text-xs">
-              <HashRow label="row_hash (current)" value={selectedEntry.rowHash} color="emerald" />
-              <HashRow label="previous_hash" value={selectedEntry.previousHash} color="slate" />
+              <HashRow label="row_hash (current)" value={selectedEntry.row_hash} color="emerald" />
+              <HashRow label="previous_hash" value={selectedEntry.previous_hash} color="slate" />
               <div className="rounded-md border border-border/60 bg-muted/30 p-2.5">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Canonical row input</p>
                 <p className="mt-1 break-all font-mono text-[10px] text-muted-foreground">
-                  {selectedEntry.plotId}|{selectedEntry.amountLand}|{selectedEntry.amountRnr}|{selectedEntry.payeeType}|{selectedEntry.payeeName}|{selectedEntry.rtgsUtrReference ?? ''}|{selectedEntry.previousHash ?? 'GENESIS'}
+                  {selectedEntry.plot_id}|{selectedEntry.amount_land}|{selectedEntry.amount_rnr}|{selectedEntry.payee_type}|{selectedEntry.payee_name}|{selectedEntry.rtgs_utr_reference ?? ''}|{selectedEntry.previous_hash ?? 'GENESIS'}
                 </p>
               </div>
-              {selectedEntry.rtgsUtrReference && (
+              {selectedEntry.rtgs_utr_reference && (
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <ShieldCheck className="h-3 w-3 text-emerald-600" /> RTGS UTR: <span className="font-mono">{selectedEntry.rtgsUtrReference}</span>
+                  <ShieldCheck className="h-3 w-3 text-emerald-600" /> RTGS UTR: <span className="font-mono">{selectedEntry.rtgs_utr_reference}</span>
                 </div>
               )}
             </div>
@@ -156,22 +157,22 @@ function HashRow({ label, value, color }: { label: string; value: string | null;
   )
 }
 
-function AppendForm({ project, onDone }: { project: { id: string; name: string; plots: Array<{ id: string; plotNumber: string }> } | undefined; onDone: () => void }) {
-  const [form, setForm] = React.useState({ plotId: '', amountLand: '', amountRnr: '', payeeName: '', rtgsUtrReference: '' })
+function AppendForm({ project, onDone }: { project: { id: string; name: string; plots: Array<{ id: string; plot_number: string }> } | undefined; onDone: () => void }) {
+  const [form, setForm] = React.useState({ plot_id: '', amount_land: '', amount_rnr: '', payee_name: '', rtgs_utr_reference: '' })
   const append = useMutation({
     mutationFn: async () => {
       const r = await fetch('/api/ledger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, projectId: project?.id }),
+        body: JSON.stringify({ ...form, project_id: project?.id }),
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error)
       return data
     },
     onSuccess: (data) => {
-      toast.success('Ledger entry sealed', { description: `Hash: ${data.rowHash?.slice(0, 16)}…` })
-      setForm({ plotId: '', amountLand: '', amountRnr: '', payeeName: '', rtgsUtrReference: '' })
+      toast.success('Ledger entry sealed', { description: `Hash: ${data.row_hash?.slice(0, 16)}…` })
+      setForm({ plot_id: '', amount_land: '', amount_rnr: '', payee_name: '', rtgs_utr_reference: '' })
       onDone()
     },
     onError: (e: Error) => toast.error(e.message),
@@ -183,30 +184,30 @@ function AppendForm({ project, onDone }: { project: { id: string; name: string; 
     <div className="space-y-2">
       <div>
         <Label className="text-xs">Plot</Label>
-        <select value={form.plotId} onChange={(e) => setForm({ ...form, plotId: e.target.value })} className="mt-0.5 h-8 w-full rounded-md border border-border bg-background px-2 text-xs">
+        <select value={form.plot_id} onChange={(e) => setForm({ ...form, plot_id: e.target.value })} className="mt-0.5 h-8 w-full rounded-md border border-border bg-background px-2 text-xs">
           <option value="">— select —</option>
-          {project.plots.map((p) => <option key={p.id} value={p.id}>{p.plotNumber}</option>)}
+          {project.plots.map((p) => <option key={p.id} value={p.id}>{p.plot_number}</option>)}
         </select>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label className="text-xs">Land (₹)</Label>
-          <Input type="number" value={form.amountLand} onChange={(e) => setForm({ ...form, amountLand: e.target.value })} className="h-8 text-xs" placeholder="0.00" />
+          <Input type="number" value={form.amount_land} onChange={(e) => setForm({ ...form, amount_land: e.target.value })} className="h-8 text-xs" placeholder="0.00" />
         </div>
         <div>
           <Label className="text-xs">R&R (₹)</Label>
-          <Input type="number" value={form.amountRnr} onChange={(e) => setForm({ ...form, amountRnr: e.target.value })} className="h-8 text-xs" placeholder="0.00" />
+          <Input type="number" value={form.amount_rnr} onChange={(e) => setForm({ ...form, amount_rnr: e.target.value })} className="h-8 text-xs" placeholder="0.00" />
         </div>
       </div>
       <div>
         <Label className="text-xs">Payee</Label>
-        <Input value={form.payeeName} onChange={(e) => setForm({ ...form, payeeName: e.target.value })} className="h-8 text-xs" placeholder="Beneficiary name" />
+        <Input value={form.payee_name} onChange={(e) => setForm({ ...form, payee_name: e.target.value })} className="h-8 text-xs" placeholder="Beneficiary name" />
       </div>
       <div>
         <Label className="text-xs">RTGS UTR</Label>
-        <Input value={form.rtgsUtrReference} onChange={(e) => setForm({ ...form, rtgsUtrReference: e.target.value.toUpperCase() })} className="h-8 text-xs font-mono" placeholder="UTRXXXXXXXXXX" />
+        <Input value={form.rtgs_utr_reference} onChange={(e) => setForm({ ...form, rtgs_utr_reference: e.target.value.toUpperCase() })} className="h-8 text-xs font-mono" placeholder="UTRXXXXXXXXXX" />
       </div>
-      <Button onClick={() => append.mutate()} disabled={append.isPending || !form.plotId || !form.amountLand || !form.payeeName} className="w-full bg-emerald-600 hover:bg-emerald-700" size="sm">
+      <Button onClick={() => append.mutate()} disabled={append.isPending || !form.plot_id || !form.amount_land || !form.payee_name} className="w-full bg-emerald-600 hover:bg-emerald-700" size="sm">
         {append.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
         Seal & Append
       </Button>

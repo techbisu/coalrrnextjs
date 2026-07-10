@@ -1,6 +1,6 @@
 import { ok, serverError } from '@/app/api/_lib'
 import { authorizeApi } from '@/authorization/middleware/authorize'
-import { PermissionService } from '@/authorization/services/PermissionService'
+import { permissionService } from '@/infrastructure/di/Container'
 
 export async function GET() {
   const authRole = await authorizeApi('role.manage')
@@ -11,7 +11,7 @@ export async function GET() {
   }
 
   try {
-    const matrix = await PermissionService.getMatrix()
+    const matrix = await permissionService.getMatrix()
     return ok(matrix)
   } catch (error: any) {
     return serverError(error.message)

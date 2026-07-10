@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -9,20 +9,20 @@ import { FilePreview } from './FilePreview';
 
 interface AttachedFile {
   id: string;
-  originalName: string;
-  mimeType: string;
-  createdAt: string;
-  sizeBytes: number;
+  original_name: string;
+  mime_type: string;
+  entry_ts: string;
+  size_bytes: number;
 }
 
 interface FileManagerProps {
-  entityType: string;
-  entityId: string;
-  moduleName: string;
+  entity_type: string;
+  entity_id: string;
+  module_name: string;
   initialFiles?: AttachedFile[];
 }
 
-export function FileManager({ entityType, entityId, moduleName, initialFiles = [] }: FileManagerProps) {
+export function FileManager({ entity_type, entity_id, module_name, initialFiles = [] }: FileManagerProps) {
   const [files, setFiles] = useState<AttachedFile[]>(initialFiles);
   const [previewFile, setPreviewFile] = useState<AttachedFile | null>(null);
 
@@ -40,12 +40,12 @@ export function FileManager({ entityType, entityId, moduleName, initialFiles = [
     window.location.reload();
   };
 
-  const handleDelete = async (fileId: string) => {
+  const handleDelete = async (file_id: string) => {
     if (!confirm('Are you sure you want to delete this file?')) return;
     
     // Call the delete API
-    // await fetch(`/api/files/${fileId}`, { method: 'DELETE' });
-    setFiles(files.filter(f => f.id !== fileId));
+    // await fetch(`/api/files/${file_id}`, { method: 'DELETE' });
+    setFiles(files.filter(f => f.id !== file_id));
   };
 
   return (
@@ -61,9 +61,9 @@ export function FileManager({ entityType, entityId, moduleName, initialFiles = [
                 {files.map(file => (
                   <div key={file.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
                     <div>
-                      <p className="font-medium">{file.originalName}</p>
+                      <p className="font-medium">{file.original_name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {formatBytes(file.sizeBytes)} • {new Date(file.createdAt).toLocaleDateString()}
+                        {formatBytes(file.size_bytes)} • {new Date(file.entry_ts).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="flex gap-2">
@@ -91,9 +91,9 @@ export function FileManager({ entityType, entityId, moduleName, initialFiles = [
             <div className="pt-4 border-t mt-6">
               <h4 className="font-medium mb-4">Upload New Files</h4>
               <FileUploader 
-                module={moduleName} 
-                entityType={entityType} 
-                entityId={entityId} 
+                module={module_name} 
+                entity_type={entity_type} 
+                entity_id={entity_id} 
                 multiple 
                 onUploadComplete={handleUploadComplete} 
               />
@@ -105,14 +105,14 @@ export function FileManager({ entityType, entityId, moduleName, initialFiles = [
       {previewFile && (
         <Card className="fixed inset-4 md:inset-10 z-50 overflow-hidden flex flex-col shadow-2xl">
           <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30">
-            <CardTitle>{previewFile.originalName}</CardTitle>
+            <CardTitle>{previewFile.original_name}</CardTitle>
             <Button variant="ghost" onClick={() => setPreviewFile(null)}>Close</Button>
           </CardHeader>
           <CardContent className="flex-1 p-0 overflow-auto bg-black/5">
             <FilePreview 
-              fileId={previewFile.id} 
-              mimeType={previewFile.mimeType} 
-              originalName={previewFile.originalName} 
+              file_id={previewFile.id} 
+              mime_type={previewFile.mime_type} 
+              original_name={previewFile.original_name} 
               className="h-full"
             />
           </CardContent>

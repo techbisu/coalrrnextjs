@@ -1,73 +1,68 @@
-import { db } from '@/lib/db'
-import { RoleRepository } from '../repositories/RoleRepository'
+import { IRoleRepository } from '../interfaces/IRoleRepository'
+import { IPermissionRepository } from '../interfaces/IPermissionRepository'
 import { PermissionCache } from '../cache/PermissionCache'
 
 export class RoleService {
-  static async create(data: any) {
-    return RoleRepository.create(data)
+  constructor(
+    private roleRepo: IRoleRepository,
+    private permissionRepo: IPermissionRepository
+  ) {}
+
+  async create(data: any) {
+    return this.roleRepo.create(data)
   }
 
-  static async update(id: string, data: any) {
-    const role = await RoleRepository.findById(id)
-    if (!role) throw new Error('Role not found')
-    if (role.isSystem) throw new Error('Cannot modify system roles')
-    return RoleRepository.update(id, data)
+  async update(id: string, data: any) {
+    const role = await this.roleRepo.findById(id)
+    if (!role) throw new Error('role not found')
+    if (role.is_system) throw new Error('Cannot modify system roles')
+    return this.roleRepo.update(id, data)
   }
 
-  static async delete(id: string) {
-    const role = await RoleRepository.findById(id)
-    if (!role) throw new Error('Role not found')
-    if (role.isSystem) throw new Error('Cannot delete system roles')
+  async delete(id: string) {
+    const role = await this.roleRepo.findById(id)
+    if (!role) throw new Error('role not found')
+    if (role.is_system) throw new Error('Cannot delete system roles')
     
     // Invalidate cache for all users with this role before deleting
-    const users = await db.modelHasRole.findMany({ where: { roleId: id } })
-    await RoleRepository.delete(id)
-    for (const u of users) {
-      await PermissionCache.invalidate(u.modelId)
+    const users = await this.roleRepo.getUsersByRoleId(id)
+    await this.roleRepo.delete(id)
+    for (const user_id of users) {
+      await PermissionCache.invalidate(user_id)
     }
   }
 
-  static async assignToUser(userId: string, roleName: string) {
-    const role = await RoleRepository.findByName(roleName)
-    if (!role) throw new Error(`Role ${roleName} not found`)
+  async assignToUser(user_id: string, roleName: string) {
+    const role = await this.roleRepo.findByName(roleName)
+    if (!role) throw new Error(`role ${roleName} not found`)
     
-    await db.modelHasRole.upsert({
-      where: { roleId_modelType_modelId: { roleId: role.id, modelType: 'User', modelId: userId } },
-      create: { roleId: role.id, modelType: 'User', modelId: userId },
-      update: {}
-    })
-    
-    await PermissionCache.invalidate(userId)
+    await this.roleRepo.assignToUser(user_id, role.id)
+    await PermissionCache.invalidate(user_id)
   }
 
-  static async syncUserRoles(userId: string, roleNames: string[]) {
-    // Delete existing
-    await db.modelHasRole.deleteMany({ where: { modelId: userId, modelType: 'User' } })
-    
+  async syncUserRoles(user_id: string, roleNames: string[]) {
     if (roleNames.length > 0) {
-      const roles = await db.role.findMany({ where: { name: { in: roleNames } } })
-      await db.modelHasRole.createMany({
-        data: roles.map(r => ({ roleId: r.id, modelType: 'User', modelId: userId }))
-      })
+      const roles = await this.roleRepo.findRolesByNames(roleNames)
+      await this.roleRepo.syncUserRoles(user_id, roles.map(r => r.id))
+    } else {
+      await this.roleRepo.syncUserRoles(user_id, [])
     }
     
-    await PermissionCache.invalidate(userId)
+    await PermissionCache.invalidate(user_id)
   }
 
-  static async syncPermissions(roleId: string, permissionNames: string[]) {
-    await db.roleHasPermission.deleteMany({ where: { roleId } })
-    
+  async syncPermissions(role_id: string, permissionNames: string[]) {
     if (permissionNames.length > 0) {
-      const perms = await db.permission.findMany({ where: { name: { in: permissionNames } } })
-      await db.roleHasPermission.createMany({
-        data: perms.map(p => ({ roleId, permissionId: p.id }))
-      })
+      const perms = await this.permissionRepo.findPermissionsByNames(permissionNames)
+      await this.roleRepo.syncPermissions(role_id, perms.map(p => p.id))
+    } else {
+      await this.roleRepo.syncPermissions(role_id, [])
     }
     
     // Cache invalidation for users holding this role
-    const users = await db.modelHasRole.findMany({ where: { roleId } })
-    for (const u of users) {
-      await PermissionCache.invalidate(u.modelId)
+    const users = await this.roleRepo.getUsersByRoleId(role_id)
+    for (const user_id of users) {
+      await PermissionCache.invalidate(user_id)
     }
   }
 }

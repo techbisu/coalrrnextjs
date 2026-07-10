@@ -129,7 +129,7 @@ export class Proposal extends AggregateRoot<string> {
   }
 
   // Factory method for creating new proposals
-  static create(props: CreateProposalProps, id?: string): Result<Proposal, ValidationException> {
+  static create(props: CreateProposalProps, id?: string): Result<Proposal> {
     const errors: Array<{ field: string; message: string }> = []
 
     // Validate title
@@ -156,7 +156,7 @@ export class Proposal extends AggregateRoot<string> {
     }
 
     if (errors.length > 0) {
-      return Fail(new ValidationException('Validation failed', errors))
+      return Fail(`'Validation failed', errors`)
     }
 
     const proposalId = id ? ProposalId.fromString(id) : ProposalId.create()
@@ -239,9 +239,9 @@ export class Proposal extends AggregateRoot<string> {
   }
 
   // Business behaviors
-  update(props: UpdateProposalProps): Result<void, ProposalNotEditableException | ValidationException> {
+  update(props: UpdateProposalProps): Result<void> {
     if (!this._state.canBeEdited()) {
-      return Fail(new ProposalNotEditableException(this.id, this._state.value))
+      return Fail('Invalid state')
     }
 
     const errors: Array<{ field: string; message: string }> = []
@@ -273,20 +273,20 @@ export class Proposal extends AggregateRoot<string> {
     }
 
     if (errors.length > 0) {
-      return Fail(new ValidationException('Validation failed', errors))
+      return Fail(`'Validation failed', errors`)
     }
 
     this._updatedAt = new Date()
     return { isSuccess: true, isFailure: false, value: undefined, error: null }
   }
 
-  submit(): Result<void, ProposalNotSubmittableException> {
+  submit(): Result<void> {
     if (!this._state.canBeSubmitted()) {
-      return Fail(new ProposalNotSubmittableException(this.id, `Cannot submit from state ${this._state.value}`))
+      return Fail('Cannot submit from state')
     }
 
     if (!this._checklist.areAllRequiredItemsComplete()) {
-      return Fail(new ProposalNotSubmittableException(this.id, 'All required checklist items must be complete'))
+      return Fail('All required checklist items must be complete')
     }
 
     this._state = ProposalState.AREA_VETTING
@@ -300,9 +300,9 @@ export class Proposal extends AggregateRoot<string> {
     return { isSuccess: true, isFailure: false, value: undefined, error: null }
   }
 
-  approve(approvedBy: string): Result<void, InvalidProposalTransitionException> {
+  approve(approvedBy: string): Result<void> {
     if (!this._state.canBeApproved()) {
-      return Fail(new InvalidProposalTransitionException(this._state.value, 'Approved'))
+      return Fail('Already approved')
     }
 
     this._state = ProposalState.APPROVED
@@ -316,9 +316,9 @@ export class Proposal extends AggregateRoot<string> {
     return { isSuccess: true, isFailure: false, value: undefined, error: null }
   }
 
-  reject(rejectedBy: string, reason: string): Result<void, InvalidProposalTransitionException> {
+  reject(rejectedBy: string, reason: string): Result<void> {
     if (!this._state.canBeRejected()) {
-      return Fail(new InvalidProposalTransitionException(this._state.value, 'Rejected'))
+      return Fail('Already rejected')
     }
 
     const previousState = this._state
@@ -335,9 +335,9 @@ export class Proposal extends AggregateRoot<string> {
     return { isSuccess: true, isFailure: false, value: undefined, error: null }
   }
 
-  cancel(): Result<void, InvalidProposalTransitionException> {
+  cancel(): Result<void> {
     if (!this._state.canBeCancelled()) {
-      return Fail(new InvalidProposalTransitionException(this._state.value, 'Cancelled'))
+      return Fail(`this._state.value, 'Cancelled'`)
     }
 
     this._state = ProposalState.CANCELLED
@@ -353,14 +353,14 @@ export class Proposal extends AggregateRoot<string> {
   updateChecklistItem(
     itemKey: string,
     status: 'pending' | 'in_progress' | 'complete' | 'not_applicable'
-  ): Result<void, ProposalNotEditableException | ChecklistItemNotFoundException> {
+  ): Result<void> {
     if (!this._state.canUpdateChecklist()) {
-      return Fail(new ProposalNotEditableException(this.id, this._state.value))
+      return Fail('Invalid state')
     }
 
     const item = this._checklist.getItem(itemKey)
     if (!item) {
-      return Fail(new ChecklistItemNotFoundException(itemKey))
+      return Fail(`itemKey`)
     }
 
     this._checklist = this._checklist.updateItemStatus(itemKey, status)
@@ -369,9 +369,9 @@ export class Proposal extends AggregateRoot<string> {
     return { isSuccess: true, isFailure: false, value: undefined, error: null }
   }
 
-  addPlot(plotId: string, plotArea: Area): Result<void, ProposalNotEditableException> {
+  addPlot(plotId: string, plotArea: Area): Result<void> {
     if (!this._state.canAddPlots()) {
-      return Fail(new ProposalNotEditableException(this.id, this._state.value))
+      return Fail('Invalid state')
     }
 
     if (!this._plotIds.includes(plotId)) {
@@ -383,9 +383,9 @@ export class Proposal extends AggregateRoot<string> {
     return { isSuccess: true, isFailure: false, value: undefined, error: null }
   }
 
-  removePlot(plotId: string, plotArea: Area): Result<void, ProposalNotEditableException> {
+  removePlot(plotId: string, plotArea: Area): Result<void> {
     if (!this._state.canRemovePlots()) {
-      return Fail(new ProposalNotEditableException(this.id, this._state.value))
+      return Fail('Invalid state')
     }
 
     const index = this._plotIds.indexOf(plotId)

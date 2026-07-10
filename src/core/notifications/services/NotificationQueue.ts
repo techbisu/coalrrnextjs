@@ -1,5 +1,5 @@
 import { NotificationJob } from '../types'
-import { db } from '@/lib/db'
+import { NotificationConfig } from '../NotificationConfig'
 import { MockEmailProvider, MockSmsProvider, MockPushProvider, InAppProvider } from '../providers/MockProviders'
 
 const providers = {
@@ -32,26 +32,27 @@ class NotificationQueueManager {
         const result = await provider.deliver(job)
 
         if (result.success) {
-          await db.notificationLog.update({
-            where: { id: job.logId },
-            data: { status: 'DELIVERED', deliveredAt: new Date() }
+          await NotificationConfig.storage.updateNotificationLog(job.logId, { 
+            status: 'DELIVERED', 
+            delivered_at: new Date() 
           })
         } else {
-          throw new Error(result.error ?? 'Provider failed')
+          throw new Error('Provider failed')
         }
       } catch (error: any) {
-        if (job.retryCount < this.MAX_RETRIES) {
-          job.retryCount++
-          await db.notificationLog.update({
-            where: { id: job.logId },
-            data: { retryCount: job.retryCount, status: 'QUEUED', failureReason: error.message }
+        if (job.retry_count < this.MAX_RETRIES) {
+          job.retry_count++
+          await NotificationConfig.storage.updateNotificationLog(job.logId, { 
+            retry_count: job.retry_count, 
+            status: 'QUEUED', 
+            failure_reason: error.message 
           })
           // Requeue for retry (in a real system, use delayed backoff)
           this.queue.push(job)
         } else {
-          await db.notificationLog.update({
-            where: { id: job.logId },
-            data: { status: 'FAILED', failureReason: error.message }
+          await NotificationConfig.storage.updateNotificationLog(job.logId, { 
+            status: 'FAILED', 
+            failure_reason: error.message 
           })
         }
       }

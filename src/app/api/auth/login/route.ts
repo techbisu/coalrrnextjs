@@ -10,11 +10,11 @@ export async function POST(req: NextRequest) {
     const body = await readJson<{ portal?: 'ecl' | 'public'; email?: string; password?: string; mobile?: string; otp?: string }>(req)
     if (body?.portal === 'ecl') {
       if (!body.email || !body.password) return badRequest('email and password required for ECL portal')
-      const passwordHash = createHash('sha256').update(body.password).digest('hex')
+      const password_hash = createHash('sha256').update(body.password).digest('hex')
       const user = await db.user.findUnique({ where: { email: body.email } })
-      if (!user || user.portal !== 'ecl' || user.passwordHash !== passwordHash) return badRequest('Invalid email or password')
+      if (!user || user.portal !== 'ecl' || user.password_hash !== password_hash) return badRequest('Invalid email or password')
       const authUser = await createSession(user.id)
-      return ok({ user: { id: authUser.id, name: authUser.name, portal: authUser.portal, role: authUser.role, email: authUser.email, designation: authUser.designation, collieryCode: authUser.collieryCode }, message: `Welcome back, ${authUser.name}` })
+      return ok({ user: { id: authUser.id, name: authUser.name, portal: authUser.portal, role: authUser.role, email: authUser.email, designation: authUser.designation, colliery_code: authUser.colliery_code }, message: `Welcome back, ${authUser.name}` })
     }
     if (body?.portal === 'public') {
       if (!body.mobile || !body.otp) return badRequest('mobile and otp required for public portal')
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       const user = await db.user.findUnique({ where: { mobile: body.mobile } })
       if (!user || user.portal !== 'public') return badRequest('Mobile number not registered. Please register first.')
       const authUser = await createSession(user.id)
-      return ok({ user: { id: authUser.id, name: authUser.name, portal: authUser.portal, role: authUser.role, mobile: authUser.mobile, plotId: authUser.plotId }, message: `Welcome, ${authUser.name}` })
+      return ok({ user: { id: authUser.id, name: authUser.name, portal: authUser.portal, role: authUser.role, mobile: authUser.mobile, plot_id: authUser.plot_id }, message: `Welcome, ${authUser.name}` })
     }
     return badRequest('portal must be "ecl" or "public"')
   } catch (e) {
