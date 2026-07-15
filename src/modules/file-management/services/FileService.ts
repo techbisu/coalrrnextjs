@@ -4,10 +4,19 @@ import { StorageProvider } from '../storage/StorageProvider';
 import { FileUploadParams } from '../types';
 import crypto from 'crypto';
 import { AuditService } from '@/audit/services/AuditService';
+import { S3StorageProvider } from '../storage/S3StorageProvider';
+import { ClamAVScanner } from '../security/ClamAVScanner';
+import { IVirusScanner } from '../security/IVirusScanner';
 
 export class FileService {
   // We can inject different providers based on config, but default to local for now
-  private storage: StorageProvider = localStorageProvider;
+  private storage: StorageProvider;
+  private scanner: IVirusScanner;
+
+  constructor() {
+    this.storage = process.env.STORAGE_PROVIDER === 'S3' ? new S3StorageProvider() : localStorageProvider;
+    this.scanner = new ClamAVScanner();
+  }
 
   private generateChecksum(buffer: Buffer): string {
     return crypto.createHash('sha256').update(buffer).digest('hex');
@@ -17,6 +26,14 @@ export class FileService {
    * Main entrypoint for uploading files. Handles deduplication.
    */
   async uploadFile(params: FileUploadParams) {
+    // 0. Security: Virus Scan
+    if (process.env.ENABLE_VIRUS_SCAN === 'true') {
+      const isClean = await this.scanner.scanBuffer(params.buffer);
+      if (!isClean) {
+        throw new Error('Upload rejected: Virus detected');
+      }
+    }
+
     const checksum = this.generateChecksum(params.buffer);
 
     // 1. Duplicate Detection Check
@@ -49,7 +66,7 @@ export class FileService {
               bucket: uploadResult.bucket,
               mime_type: params.mime_type,
               extension: params.original_name.split('.').pop() || '',
-              size_bytes: uploadResult.size_bytes,
+              size_bytes: BigInt(uploadResult.size_bytes),
               entry_by: params.owner_id,
             }
           }
@@ -86,6 +103,49 @@ export class FileService {
       }
     }
 
+    return existingFile;
+  }
+
+  /**
+   * Updates an existing file by creating a new version.
+   */
+  async updateFile(file_id: string, params: Omit<FileUploadParams, 'entity_type' | 'entity_id' | 'module'>) {
+    const existingFile = await db.file_record.findUnique({
+      where: { id: file_id },
+      include: { versions: { orderBy: { version_number: 'desc' }, take: 1 } },
+    });
+
+    if (!existingFile) throw new Error('File not found');
+
+    const newVersionNumber = (existingFile.versions[0]?.version_number || 0) + 1;
+    const checksum = this.generateChecksum(params.buffer);
+
+    // Upload to Storage
+    const uploadResult = await this.storage.upload(params.buffer, params.original_name, params.mime_type);
+
+    // Add new version
+    await db.file_version.create({
+      data: {
+        file_id: file_id,
+        version_number: newVersionNumber,
+        storage_provider: this.storage.name,
+        storage_path: uploadResult.storage_path,
+        bucket: uploadResult.bucket,
+        mime_type: params.mime_type,
+        extension: params.original_name.split('.').pop() || '',
+        size_bytes: BigInt(uploadResult.size_bytes),
+        entry_by: params.owner_id,
+      }
+    });
+
+    // Update checksum on main record
+    await db.file_record.update({
+      where: { id: file_id },
+      data: { checksum, updt_ts: new Date() }
+    });
+
+    AuditService.log('UPDATE', 'file-management', 'file_record', file_id, `File updated to version ${newVersionNumber}`, { user_id: params.owner_id });
+    
     return existingFile;
   }
 

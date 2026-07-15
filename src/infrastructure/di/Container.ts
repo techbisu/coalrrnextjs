@@ -1,12 +1,9 @@
 import { PrismaRoleRepository } from '../persistence/repositories/PrismaRoleRepository'
 import { PrismaPermissionRepository } from '../persistence/repositories/PrismaPermissionRepository'
-import { PrismaAuditRepository } from '../persistence/repositories/PrismaAuditRepository'
 
 import { AuthorizationService } from '@/core/authorization/services/AuthorizationService'
 import { RoleService } from '@/core/authorization/services/RoleService'
 import { PermissionService } from '@/core/authorization/services/PermissionService'
-import { AuditQueueManager } from '@/core/audit/services/AuditQueue'
-import { AuditService } from '@/core/audit/services/AuditService'
 
 import { PrismaNomineePoolRepository } from '../persistence/repositories/PrismaNomineePoolRepository'
 import { GetNomineePoolsUseCase } from '@/application/use-cases/employment/GetNomineePoolsUseCase'
@@ -57,12 +54,21 @@ import { AddPayrollLineUseCase } from '@/application/use-cases/payrolls/AddPayro
 import { DeletePayrollLineUseCase } from '@/application/use-cases/payrolls/DeletePayrollLineUseCase'
 
 import { PrismaNotificationStorage } from '../persistence/repositories/PrismaNotificationStorage'
+import { GetSystemConfigsUseCase } from '@/modules/admin/settings/application/use-cases/GetSystemConfigsUseCase'
+import { UpdateSystemConfigUseCase } from '@/modules/admin/settings/application/use-cases/UpdateSystemConfigUseCase'
+import { PrismaSystemConfigRepository } from '@/modules/admin/settings/infrastructure/persistence/PrismaSystemConfigRepository'
 import { NotificationConfig } from '@/core/notifications/NotificationConfig'
+
+import { PrismaGenericMasterRepository } from '../../modules/admin/master-data/infrastructure/persistence/PrismaGenericMasterRepository'
+import { GetMasterDataUseCase } from '../../modules/admin/master-data/application/use-cases/GetMasterDataUseCase'
+import { CreateMasterDataUseCase } from '../../modules/admin/master-data/application/use-cases/CreateMasterDataUseCase'
+import { UpdateMasterDataUseCase } from '../../modules/admin/master-data/application/use-cases/UpdateMasterDataUseCase'
+import { PrismaDocumentTemplateRepository } from '../../modules/document-engine/infrastructure/persistence/PrismaDocumentTemplateRepository'
+import { PrismaDocumentInstanceRepository } from '../../modules/document-engine/infrastructure/persistence/PrismaDocumentInstanceRepository'
 
 // Instantiate Repositories
 const roleRepository = new PrismaRoleRepository()
 const permissionRepository = new PrismaPermissionRepository()
-const auditRepository = new PrismaAuditRepository()
 const nomineePoolRepository = new PrismaNomineePoolRepository()
 const claimRepository = new PrismaClaimRepository()
 const plotRepository = new PrismaPlotRepository()
@@ -72,6 +78,12 @@ const ledgerEntryRepository = new PrismaLedgerEntryRepository()
 const rnrPayrollRepository = new PrismaRnrPayrollRepository()
 const payrollsRepository = new PrismaPayrollsRepository()
 const notificationStorage = new PrismaNotificationStorage()
+const genericMasterRepository = new PrismaGenericMasterRepository()
+const documentTemplateRepository = new PrismaDocumentTemplateRepository()
+const documentInstanceRepository = new PrismaDocumentInstanceRepository()
+
+// Settings Module
+const systemConfigRepository = new PrismaSystemConfigRepository()
 
 // Initialize Global Configs
 NotificationConfig.initialize(notificationStorage)
@@ -81,7 +93,6 @@ const globalForDI = globalThis as unknown as {
   authService: AuthorizationService | undefined
   roleService: RoleService | undefined
   permissionService: PermissionService | undefined
-  auditQueue: AuditQueueManager | undefined
   getNomineePoolsUseCase: GetNomineePoolsUseCase | undefined
   getNomineePoolDetailUseCase: GetNomineePoolDetailUseCase | undefined
   getClaimsUseCase: GetClaimsUseCase | undefined
@@ -113,13 +124,34 @@ const globalForDI = globalThis as unknown as {
   updatePayrollFactorUseCase: UpdatePayrollFactorUseCase | undefined
   addPayrollLineUseCase: AddPayrollLineUseCase | undefined
   deletePayrollLineUseCase: DeletePayrollLineUseCase | undefined
+
+  getMasterDataUseCase: GetMasterDataUseCase | undefined
+  createMasterDataUseCase: CreateMasterDataUseCase | undefined
+  updateMasterDataUseCase: UpdateMasterDataUseCase | undefined
+  documentTemplateRepository: PrismaDocumentTemplateRepository | undefined
+  documentInstanceRepository: PrismaDocumentInstanceRepository | undefined
+  getSystemConfigsUseCase: GetSystemConfigsUseCase | undefined
+  updateSystemConfigUseCase: UpdateSystemConfigUseCase | undefined
+}
+
+import { Audit } from '@/core/audit'
+
+export const auditQueue = {
+  push: (payload: any) => {
+    Audit.activity({
+      event: payload.action || 'UNKNOWN',
+      module: payload.module_name || 'unknown',
+      description: payload.remarks,
+      entityType: payload.entity_name,
+      entityId: payload.entity_id,
+      metadata: { user_id: payload.user_id, ...payload }
+    }).catch(console.error);
+  }
 }
 
 export const authService = globalForDI.authService ?? new AuthorizationService(roleRepository, permissionRepository)
 export const roleService = globalForDI.roleService ?? new RoleService(roleRepository, permissionRepository)
 export const permissionService = globalForDI.permissionService ?? new PermissionService(permissionRepository)
-export const auditQueue = globalForDI.auditQueue ?? new AuditQueueManager(auditRepository)
-AuditService.setQueue(auditQueue)
 
 export const getNomineePoolsUseCase = globalForDI.getNomineePoolsUseCase ?? new GetNomineePoolsUseCase(nomineePoolRepository)
 export const getNomineePoolDetailUseCase = globalForDI.getNomineePoolDetailUseCase ?? new GetNomineePoolDetailUseCase(nomineePoolRepository)
@@ -153,11 +185,19 @@ export const updatePayrollFactorUseCase = globalForDI.updatePayrollFactorUseCase
 export const addPayrollLineUseCase = globalForDI.addPayrollLineUseCase ?? new AddPayrollLineUseCase(payrollsRepository)
 export const deletePayrollLineUseCase = globalForDI.deletePayrollLineUseCase ?? new DeletePayrollLineUseCase(payrollsRepository)
 
+export const getMasterDataUseCase = globalForDI.getMasterDataUseCase ?? new GetMasterDataUseCase(genericMasterRepository)
+export const createMasterDataUseCase = globalForDI.createMasterDataUseCase ?? new CreateMasterDataUseCase(genericMasterRepository)
+export const updateMasterDataUseCase = globalForDI.updateMasterDataUseCase ?? new UpdateMasterDataUseCase(genericMasterRepository)
+export const documentTemplateRepositoryExport = globalForDI.documentTemplateRepository ?? documentTemplateRepository
+export const documentInstanceRepositoryExport = globalForDI.documentInstanceRepository ?? documentInstanceRepository
+
+export const getSystemConfigsUseCase = globalForDI.getSystemConfigsUseCase ?? new GetSystemConfigsUseCase(systemConfigRepository)
+export const updateSystemConfigUseCase = globalForDI.updateSystemConfigUseCase ?? new UpdateSystemConfigUseCase(systemConfigRepository)
+
 if (process.env.NODE_ENV !== 'production') {
   globalForDI.authService = authService
   globalForDI.roleService = roleService
   globalForDI.permissionService = permissionService
-  globalForDI.auditQueue = auditQueue
   globalForDI.getNomineePoolsUseCase = getNomineePoolsUseCase
   globalForDI.getNomineePoolDetailUseCase = getNomineePoolDetailUseCase
   globalForDI.getClaimsUseCase = getClaimsUseCase
@@ -189,4 +229,12 @@ if (process.env.NODE_ENV !== 'production') {
   globalForDI.updatePayrollFactorUseCase = updatePayrollFactorUseCase
   globalForDI.addPayrollLineUseCase = addPayrollLineUseCase
   globalForDI.deletePayrollLineUseCase = deletePayrollLineUseCase
+
+  globalForDI.getMasterDataUseCase = getMasterDataUseCase
+  globalForDI.createMasterDataUseCase = createMasterDataUseCase
+  globalForDI.updateMasterDataUseCase = updateMasterDataUseCase
+  globalForDI.documentTemplateRepository = documentTemplateRepositoryExport
+  globalForDI.documentInstanceRepository = documentInstanceRepositoryExport
+  globalForDI.getSystemConfigsUseCase = getSystemConfigsUseCase
+  globalForDI.updateSystemConfigUseCase = updateSystemConfigUseCase
 }

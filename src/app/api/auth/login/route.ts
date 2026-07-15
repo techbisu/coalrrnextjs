@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       const user = await db.user.findUnique({ where: { email: body.email } })
       if (!user || user.portal !== 'ecl' || user.password_hash !== password_hash) return badRequest('Invalid email or password')
       const authUser = await createSession(user.id)
-      return ok({ user: { id: authUser.id, name: authUser.name, portal: authUser.portal, role: authUser.role, email: authUser.email, designation: authUser.designation, colliery_code: authUser.colliery_code }, message: `Welcome back, ${authUser.name}` })
+      return ok({ user: { id: authUser.id, name: authUser.name, portal: authUser.portal, role: authUser.role, email: authUser.email, designation: authUser.designation, mine_cd: authUser.mine_cd }, message: `Welcome back, ${authUser.name}` })
     }
     if (body?.portal === 'public') {
       if (!body.mobile || !body.otp) return badRequest('mobile and otp required for public portal')

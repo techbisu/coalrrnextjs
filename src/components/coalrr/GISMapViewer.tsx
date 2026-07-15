@@ -15,7 +15,7 @@ export interface PlotFeature {
 }
 
 export interface GISMapViewerProps {
-  boundary?: { coordinates: number[][][]; color?: string }
+  boundary?: { coordinates: any[]; color?: string }
   plots?: PlotFeature[]
   selectedPlotId?: string
   onPlotSelect?: (id: string) => void
@@ -56,19 +56,33 @@ function computeBounds(allCoords: number[][][]): { minX: number; minY: number; m
 export function GISMapViewer({
   boundary, plots = [], selectedPlotId, onPlotSelect, className, height = 360,
 }: GISMapViewerProps) {
+  // Normalize boundary coordinates to support both Polygon (3D) and MultiPolygon (4D)
+  const boundaryRings: number[][][] = []
+  if (boundary?.coordinates && Array.isArray(boundary.coordinates)) {
+    // If the first element's first element is an array of numbers, it's a Polygon
+    // If it's an array of arrays, it's a MultiPolygon
+    const isMulti = boundary.coordinates.length > 0 && Array.isArray(boundary.coordinates[0][0]?.[0])
+    if (isMulti) {
+      for (const polygon of boundary.coordinates) {
+        boundaryRings.push(...polygon)
+      }
+    } else {
+      boundaryRings.push(...boundary.coordinates)
+    }
+  }
+
   // Build a combined bounds from boundary + all plot geometries
-  const allRings: number[][][] = []
-  if (boundary?.coordinates) allRings.push(...boundary.coordinates)
+  const allRings: number[][][] = [...boundaryRings]
   for (const p of plots) if (p.geometry && p.geometry.length >= 3) allRings.push(p.geometry as any)
   const bounds = computeBounds(allRings)
 
-  const boundaryPath = boundary?.coordinates && boundary.coordinates[0]?.length > 0
-    ? (() => {
-        const projected = projectCoords(boundary.coordinates[0], bounds)
+  const boundaryPath = boundaryRings.length > 0
+    ? boundaryRings.map(ring => {
+        const projected = projectCoords(ring, bounds)
         return projected.length > 0
           ? projected.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ') + ' Z'
-          : null
-      })()
+          : ''
+      }).join(' ')
     : null
 
   return (

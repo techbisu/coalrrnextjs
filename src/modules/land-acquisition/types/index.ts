@@ -1,4 +1,4 @@
-﻿export type AcquisitionMode = 'cba_act' | 'direct_purchase' | 'rfctlarr' | 'patta'
+export type AcquisitionMode = 'cba_act' | 'direct_purchase' | 'rfctlarr' | 'patta'
 
 export const MODE_META: Record<AcquisitionMode, { label: string; checklistCode: string; color: string }> = {
   cba_act:         { label: 'CBA Act, 1957',      checklistCode: 'CL-1.1', color: 'border-rose-300 bg-rose-50 text-rose-700' },
@@ -39,7 +39,7 @@ export interface ScheduleListItem {
   proposed_by: string
   proposed_by_role: string
   area_office: string
-  colliery_code: string
+  mine_cd: string
   adjacent_colliery: string
 }
 
@@ -64,6 +64,9 @@ export interface ScheduleDetail {
   schedule_code: string
   project_id: string
   projectName: string
+  projectBudgetCeiling: string
+  projectLandLimit: string
+  projectEmploymentQuota: string
   acquisition_mode: AcquisitionMode
   state: string
   proposal_title: string
@@ -71,7 +74,7 @@ export interface ScheduleDetail {
   proposed_by: string
   proposed_by_role: string
   area_office: string
-  colliery_code: string
+  mine_cd: string
   adjacent_colliery: string
   total_area_acres: string
   notification_date: string | null

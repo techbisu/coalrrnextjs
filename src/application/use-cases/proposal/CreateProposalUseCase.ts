@@ -47,16 +47,16 @@ export class CreateProposalUseCase implements IUseCase<CreateProposalRequest, Cr
 
     // 2. Validate and create domain entity
     const proposalResult = Proposal.create({
-      project_id: request.project_id,
-      acquisition_mode: request.acquisition_mode,
-      proposal_title: request.proposal_title,
+      projectId: request.project_id,
+      acquisitionMode: request.acquisition_mode,
+      proposalTitle: request.proposal_title,
       description: request.description,
-      proposed_by: request.user_name,
-      proposed_by_role: request.user_role,
-      area_office: request.area_office,
-      colliery_code: project.colliery_code,
-      adjacent_colliery: request.adjacent_colliery,
-      notification_date: request.notification_date,
+      proposedBy: request.user_name,
+      proposedByRole: request.user_role,
+      areaOffice: request.area_office,
+      collieryCode: project.mine_cd,
+      adjacentColliery: request.adjacent_colliery,
+      notificationDate: request.notification_date,
     })
 
     if (proposalResult.isFailure) {
@@ -87,18 +87,18 @@ export class CreateProposalUseCase implements IUseCase<CreateProposalRequest, Cr
       entity_id: proposal.id,
       user_id: request.user_id,
       remarks: JSON.stringify({
-        schedule_code: proposal.schedule_code.value,
-        proposal_title: proposal.proposal_title,
-        project_id: proposal.project_id,
+        schedule_code: proposal.scheduleCode.value,
+        proposal_title: proposal.proposalTitle,
+        project_id: proposal.projectId,
       }),
     })
 
     // 6. Return response
     return Ok({
       id: proposal.id,
-      schedule_code: proposal.schedule_code.value,
-      proposal_title: proposal.proposal_title,
-      message: `Proposal "${proposal.schedule_code.value}" created successfully.`,
+      schedule_code: proposal.scheduleCode.value,
+      proposal_title: proposal.proposalTitle,
+      message: `Proposal "${proposal.scheduleCode.value}" created successfully.`,
     })
   }
 }

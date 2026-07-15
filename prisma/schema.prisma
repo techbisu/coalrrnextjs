@@ -1,7 +1,3 @@
-// COALRR - Coal Land Acquisition, Rehabilitation & Resettlement Platform
-// Prisma Schema — PostgreSQL (original spec)
-// Money/area stored as Decimal — NEVER floats (per spec §2.1.2)
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,73 +5,824 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["master", "public"]
 }
 
-// ═══════════════════════════════════════════════════════════════
-// AUTH — Users for both ECL Internal Portal & Public Citizen Portal
-// ═══════════════════════════════════════════════════════════════
-model user {
-  id            String         @id @default(cuid())
-  portal        String // "ecl" | "public"
-  role          String // ECL: unit_office | area_office | gm_planning | gm_finance | director | cmd | board | citizen
-  email         String?        @unique
-  mobile        String?        @unique
-  aadhaar_hash  String?        @unique
-  name          String
-  password_hash String?
-  designation   String?
-  colliery_code String?
-  plot_id       String?
-  verified_at   DateTime?
-  entry_ts      DateTime       @default(now())
-  updt_ts       DateTime       @updatedAt
-  sessions      auth_session[]
+model acqu_mode {
+  acq_mode_id       BigInt  @id(map: "aquisition_method_pkey")
+  aquisition_method String  @db.VarChar(50)
+  entry_by          String? @db.VarChar(10)
+  updt_by           String? @db.VarChar(10)
+  entry_ts          BigInt? @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts           BigInt? @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts            BigInt?
+
+  @@schema("master")
+}
+
+model area_master {
+  area_cd       String   @id @db.VarChar(30)
+  area_en       String   @db.VarChar(255)
+  area_loc_vern String?  @db.VarChar(255)
+  is_active     Boolean? @default(true)
+  state_lgd     BigInt?
+  entry_by      String?  @db.VarChar(10)
+  updt_by       String?  @db.VarChar(10)
+  entry_ts      BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts       BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts        BigInt?
+  area_remarks  String?
+
+  @@schema("master")
+}
+
+model block_master {
+  block_lgd      BigInt   @id
+  block_en       String   @db.VarChar(255)
+  block_loc_vern String?  @db.VarChar(255)
+  district_lgd   BigInt
+  is_active      Boolean? @default(true)
+  entry_by       String?  @db.VarChar(10)
+  updt_by        String?  @db.VarChar(10)
+  entry_ts       BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts        BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts         BigInt?
+  state_lgd      BigInt?
+
+  @@schema("master")
+}
+
+model cast_master {
+  cast_id   BigInt  @id
+  cast_type String  @db.VarChar(255)
+  entry_by  String? @db.VarChar(10)
+  updt_by   String? @db.VarChar(10)
+  entry_ts  BigInt? @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts   BigInt? @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts    BigInt?
+
+  @@schema("master")
+}
+
+model chk_master_new {
+  chk_id           Int      @id
+  chk_description  String?
+  chk_type         String?  @db.VarChar(15)
+  chk_sub_type     String?  @db.VarChar(15)
+  chk_inp_type     String?  @db.VarChar(50)
+  acq_mode_id      BigInt?
+  entry_by         String?  @db.VarChar(10)
+  updt_by          String?  @db.VarChar(10)
+  entry_ts         BigInt?
+  updt_ts          BigInt?
+  is_initial       Boolean?
+  noti_type        String?  @db.VarChar(30)
+  chk_inp_instruc  String?
+  local_vernacular String?
+
+  @@schema("master")
+}
+
+model district_master {
+  district_lgd      BigInt   @id
+  district_en       String   @db.VarChar(255)
+  district_loc_vern String?  @db.VarChar(255)
+  state_lgd         BigInt
+  is_active         Boolean? @default(true)
+  entry_by          String?  @db.VarChar(10)
+  updt_by           String?  @db.VarChar(10)
+  entry_ts          BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts           BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts            BigInt?
+
+  @@schema("master")
+}
+
+model landclass_master {
+  landc_id     BigInt   @id
+  landt_id     BigInt?
+  land_class   String   @db.VarChar(255)
+  entry_by     String?  @db.VarChar(10)
+  updt_by      String?  @db.VarChar(10)
+  entry_ts     BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts      BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts       BigInt?
+  loc_vern     String?  @db.VarChar(30)
+  district_lgd BigInt?
+  is_active    Boolean? @default(true)
+
+  @@schema("master")
+}
+
+model landtype_master {
+  landt_id  BigInt  @id
+  land_type String  @db.VarChar(255)
+  entry_by  String? @db.VarChar(10)
+  updt_by   String? @db.VarChar(10)
+  entry_ts  BigInt? @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts   BigInt? @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts    BigInt?
+
+  @@schema("master")
+}
+
+model mine_master {
+  mine_cd       String   @id @db.VarChar(30)
+  mine_en       String   @db.VarChar(255)
+  mine_loc_vern String?  @db.VarChar(255)
+  area_cd       String?  @db.VarChar(30)
+  area_coverd   Decimal? @db.Decimal
+  area_aquired  Decimal? @db.Decimal
+  entry_by      String?  @db.VarChar(10)
+  updt_by       String?  @db.VarChar(10)
+  entry_ts      BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts       BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts        BigInt?
+  is_active     Boolean  @default(true)
+  state_lgd     BigInt?
+  mine_remarks  String?
+
+  @@schema("master")
+}
+
+model mouza_master {
+  mouza_lgd      BigInt     @id
+  mouza_en       String     @db.VarChar(255)
+  mouza_loc_vern String?    @db.VarChar(255)
+  block_lgd      BigInt
+  is_active      Boolean?   @default(true)
+  jl_no          String?    @db.VarChar(3)
+  entry_by       String?    @db.VarChar(10)
+  updt_by        String?    @db.VarChar(10)
+  entry_ts       BigInt?    @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts        BigInt?    @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts         BigInt?
+  state_lgd      BigInt?
+  district_lgd   BigInt?
+  gis_enable     Boolean    @default(false)
+  halka_no       String?    @db.VarChar(2)
+  mstPlots       mst_plot[]
+
+  @@schema("master")
+}
+
+model owner_type_master {
+  owner_type_id BigInt  @id
+  owner_type    String  @db.VarChar(255)
+  entry_by      String? @db.VarChar(10)
+  updt_by       String? @db.VarChar(10)
+  entry_ts      BigInt? @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts       BigInt? @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts        BigInt?
+
+  @@schema("master")
+}
+
+model present_land_use {
+  id               BigInt @id
+  present_land_use String @db.VarChar(50)
+
+  @@schema("master")
+}
+
+model ps_master {
+  ps_lgd       BigInt   @id
+  ps_en        String   @db.VarChar(255)
+  ps_loc_vern  String?  @db.VarChar(255)
+  district_lgd BigInt
+  is_active    Boolean? @default(true)
+  entry_by     String?  @db.VarChar(10)
+  updt_by      String?  @db.VarChar(10)
+  entry_ts     BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts      BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts       BigInt?
+  state_lgd    BigInt?
+
+  @@schema("master")
+}
+
+model state_master {
+  state_lgd      BigInt   @id
+  state_en       String   @db.VarChar(255)
+  state_loc_vern String?  @db.VarChar(255)
+  short_code     String?  @db.VarChar(20)
+  is_active      Boolean? @default(true)
+  entry_by       String?  @db.VarChar(10)
+  updt_by        String?  @db.VarChar(10)
+  entry_ts       BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts        BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts         BigInt?
+
+  @@schema("master")
+}
+
+model vill_master {
+  village_lgd   BigInt   @id(map: "village_master_pkey")
+  village_name  String   @db.VarChar(255)
+  vill_loc_vern String   @db.VarChar(255)
+  block_lgd     BigInt
+  ps_lgd        BigInt
+  entry_by      String?  @db.VarChar(10)
+  updt_by       String?  @db.VarChar(10)
+  entry_ts      BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts       BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  del_ts        BigInt?
+  is_active     Boolean? @default(true)
+  district_lgd  BigInt?
+  state_lgd     BigInt?
+  vill_cd       String?  @db.VarChar(50)
+
+  @@schema("master")
+}
+
+model audit_change {
+  id           String    @id
+  audit_log_id String
+  field_name   String?
+  old_value    String?
+  new_value    String?
+  json_diff    String?
+  entry_ts     DateTime  @default(now())
+  updt_ts      DateTime
+  entry_by     String?
+  updt_by      String?
+  audit_log    audit_log @relation(fields: [audit_log_id], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+model audit_download {
+  id          String   @id
+  user_id     String?
+  file_type   String
+  file_name   String
+  entity_type String?
+  entity_id   String?
+  ip_address  String?
+  entry_ts    DateTime @default(now())
+  updt_ts     DateTime
+  entry_by    String?
+  updt_by     String?
+
+  @@schema("public")
+}
+
+model audit_log {
+  id             String         @id
+  event_type     String
+  module_name    String
+  entity_name    String?
+  entity_id      String?
+  user_id        String?
+  user_role      String?
+  ip_address     String?
+  user_agent     String?
+  request_url    String?
+  request_method String?
+  remarks        String?
+  entry_ts       DateTime       @default(now())
+  session_id     String?
+  updt_ts        DateTime
+  entry_by       String?
+  updt_by        String?
+  audit_change   audit_change[]
+  audit_session  audit_session? @relation(fields: [session_id], references: [id])
+
+  @@schema("public")
+}
+
+model audit_security {
+  id          String   @id
+  event_type  String
+  ip_address  String?
+  user_id     String?
+  request_url String?
+  payload     String?
+  severity    String   @default("HIGH")
+  entry_ts    DateTime @default(now())
+  updt_ts     DateTime
+  entry_by    String?
+  updt_by     String?
+
+  @@schema("public")
+}
+
+model audit_session {
+  id           String      @id
+  user_id      String?
+  status       String
+  locked_by    String?
+  attempts     Int         @default(0)
+  max_attempts Int         @default(3)
+  ip_address   String?
+  user_agent   String?
+  entry_ts     DateTime    @default(now())
+  updt_ts      DateTime
+  entry_by     String?
+  updt_by      String?
+  audit_log    audit_log[]
+
+  @@schema("public")
 }
 
 model auth_session {
-  id         String   @id @default(cuid())
+  id         String   @id
   token      String   @unique
   user_id    String
-  user       user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   expires_at DateTime
   entry_ts   DateTime @default(now())
+  updt_ts    DateTime
+  entry_by   String?
+  updt_by    String?
+  user       user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@schema("public")
 }
 
-// ═══════════════════════════════════════════════════════════════
-// MODULE 1 — Project Master & GIS (locked baseline)
-// ═══════════════════════════════════════════════════════════════
-model mst_project {
-  id                     String    @id @default(cuid())
-  name                   String
-  colliery_code          String
-  total_land_limit_acres Decimal   @db.Decimal(10, 4) // acreage threshold
-  total_budget_ceiling   Decimal   @db.Decimal(15, 2) // INR paise precision
-  total_employment_quota Int
-  boundary               String // JSON: simplified PostGIS MultiPolygon
-  statutory_clearances   String? // JSONB: DGMS/Forest/Env clearances
-  locked_at              DateTime? // NULL = editable, NOT NULL = sealed baseline
-  entry_ts               DateTime  @default(now())
-  updt_ts                DateTime  @updatedAt
+model background_job {
+  id           String   @id
+  job_type     String
+  payload      String
+  status       String
+  locked_by    String?
+  attempts     Int      @default(0)
+  max_attempts Int      @default(3)
+  entry_ts     DateTime @default(now())
+  updt_ts      DateTime
+  entry_by     String?
+  updt_by      String?
 
-  land_schedules          land_schedule[]
-  payrolls                compensation_payroll[]
-  rnr_payrolls            rnr_asset_payroll[]
-  employment_applications employment_application[]
-  ledger_entries          form_d_ledger_entry[]
+  @@schema("public")
+}
+
+model captcha_audit_log {
+  id         String   @id
+  action     String
+  ip_address String?
+  purpose    String
+  timestamp  DateTime @default(now())
+  entry_ts   DateTime @default(now())
+  updt_ts    DateTime
+  entry_by   String?
+  updt_by    String?
+
+  @@schema("public")
+}
+
+model captcha_challenge {
+  id              String   @id
+  expected_answer String
+  purpose         String
+  expires_at      DateTime
+  attempts        Int      @default(0)
+  ip_address      String?
+  user_agent      String?
+  entry_ts        DateTime @default(now())
+  updt_ts         DateTime
+  entry_by        String?
+  updt_by         String?
+
+  @@schema("public")
+}
+
+model captcha_config {
+  id                      String   @id @default("global")
+  provider                String   @default("math")
+  difficulty              String   @default("difficult")
+  expiration_minutes      Int      @default(5)
+  max_attempts            Int      @default(3)
+  adaptive_captcha        Boolean  @default(true)
+  show_after_failed_login Int      @default(3)
+  updt_ts                 DateTime
+  entry_ts                DateTime @default(now())
+  entry_by                String?
+  updt_by                 String?
+
+  @@schema("public")
+}
+
+model compensation_payroll {
+  id                        String                      @id
+  project_id                String
+  payroll_code              String
+  multiplication_factor     Decimal                     @default(1.0000) @db.Decimal(6, 4)
+  state                     String                      @default("Drafting")
+  landowner_count           Int                         @default(0)
+  total_award               Decimal                     @default(0.00) @db.Decimal(15, 2)
+  meta                      String?
+  entry_ts                  DateTime                    @default(now())
+  updt_ts                   DateTime
+  entry_by                  String?
+  updt_by                   String?
+  mst_project               mst_project                 @relation(fields: [project_id], references: [id])
+  compensation_payroll_line compensation_payroll_line[]
+
+  @@schema("public")
+}
+
+model compensation_payroll_line {
+  id                       String               @id
+  payroll_id               String
+  landowner_name           String
+  plot_reference           String
+  land_value               Decimal              @db.Decimal(15, 2)
+  asset_value              Decimal              @db.Decimal(15, 2)
+  solatium_amount          Decimal              @default(0.00) @db.Decimal(15, 2)
+  escalation_amount        Decimal              @default(0.00) @db.Decimal(15, 2)
+  total_award              Decimal              @default(0.00) @db.Decimal(15, 2)
+  years_since_notification Int                  @default(0)
+  formula_snapshot         String
+  entry_ts                 DateTime             @default(now())
+  updt_ts                  DateTime
+  entry_by                 String?
+  updt_by                  String?
+  compensation_payroll     compensation_payroll @relation(fields: [payroll_id], references: [id])
+
+  @@schema("public")
+}
+
+model document {
+  id                 String   @id
+  vaultable_type     String
+  vaultable_id       String
+  checklist_item_key String
+  file_name          String
+  storage_path       String
+  mime_type          String
+  file_size_kb       Int
+  virus_scan_status  String   @default("clean")
+  uploaded_by        String
+  entry_ts           DateTime @default(now())
+  updt_ts            DateTime
+  entry_by           String?
+  updt_by            String?
+
+  @@schema("public")
+}
+
+model document_audit_log {
+  id                   String   @id
+  document_instance_id String
+  action               String
+  role                 String?
+  user_id              String?
+  user_name            String?
+  ip_address           String?
+  browser              String?
+  entry_ts             DateTime @default(now())
+  updt_ts              DateTime @default(now())
+  entry_by             String?
+  updt_by              String?
+
+  @@schema("public")
+}
+
+model document_instance {
+  id                       String            @id
+  template_code            String
+  application_id           String
+  document_id              String?
+  status                   String            @default("DRAFT")
+  form_data                Json?
+  generated_docx_path      String?
+  generated_pdf_path       String?
+  generated_docx_id        String?
+  generated_pdf_id         String?
+  resolver_fields_json     Json?
+  resolver_tables_json     Json?
+  resolver_signatures_json Json?
+  final_fields_json        Json?
+  signature_data_json      Json?
+  resolver_version         String?
+  entry_ts                 DateTime          @default(now())
+  updt_ts                  DateTime          @default(now())
+  entry_by                 String?
+  updt_by                  String?
+  document_template        document_template @relation(fields: [template_code], references: [template_code])
+
+  @@schema("public")
+}
+
+model document_template {
+  id                      String                    @id
+  template_code           String                    @unique
+  template_name           String
+  description             String?
+  storage_path            String
+  config                  Json?
+  is_active               Boolean                   @default(true)
+  entry_ts                DateTime                  @default(now())
+  updt_ts                 DateTime                  @default(now())
+  entry_by                String?
+  updt_by                 String?
+  document_instance       document_instance[]
+  document_template_field document_template_field[]
+
+  @@schema("public")
+}
+
+model document_template_field {
+  id                String            @id
+  template_code     String
+  field_key         String
+  field_type        String
+  label             String
+  options           Json?
+  show_if           Json?
+  is_required       Boolean           @default(false)
+  display_order     Int               @default(0)
+  is_active         Boolean           @default(true)
+  entry_ts          DateTime          @default(now())
+  updt_ts           DateTime          @default(now())
+  entry_by          String?
+  updt_by           String?
+  document_template document_template @relation(fields: [template_code], references: [template_code], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+model download_log {
+  id            String   @id
+  file_type     String
+  document_id   String?
+  storage_path  String
+  downloaded_by String?
+  user_name     String?
+  ip_address    String?
+  browser       String?
+  entry_ts      DateTime @default(now())
+  updt_ts       DateTime
+  entry_by      String?
+  updt_by       String?
+
+  @@schema("public")
+}
+
+model employment_application {
+  id                    String       @id
+  application_code      String
+  project_id            String
+  nominee_pool_id       String
+  form_ix_balance_acres Decimal      @db.Decimal(10, 4)
+  form_x_balance_jobs   Int
+  state                 String       @default("Drafting")
+  exception_flags       String?
+  entry_ts              DateTime     @default(now())
+  updt_ts               DateTime
+  entry_by              String?
+  updt_by               String?
+  nominee_pool          nominee_pool @relation(fields: [nominee_pool_id], references: [id])
+  mst_project           mst_project  @relation(fields: [project_id], references: [id])
+
+  @@schema("public")
+}
+
+model event_registry {
+  id                String              @id
+  event_name        String              @unique
+  module            String
+  description       String?
+  entry_ts          DateTime            @default(now())
+  updt_ts           DateTime
+  entry_by          String?
+  updt_by           String?
+  notification_rule notification_rule[]
+
+  @@schema("public")
+}
+
+model file_attachment {
+  id          String      @id
+  file_id     String
+  entity_type String
+  entity_id   String
+  module      String?
+  attached_by String?
+  entry_ts    DateTime    @default(now())
+  updt_ts     DateTime
+  entry_by    String?
+  updt_by     String?
+  file_record file_record @relation(fields: [file_id], references: [id], onDelete: Cascade)
+
+  @@unique([file_id, entity_type, entity_id])
+  @@schema("public")
+}
+
+model file_record {
+  id              String            @id
+  original_name   String
+  owner_id        String?
+  tags            String?
+  status          String            @default("ACTIVE")
+  checksum        String?           @unique
+  entry_ts        DateTime          @default(now())
+  updt_ts         DateTime
+  entry_by        String?
+  updt_by         String?
+  file_attachment file_attachment[]
+  file_version    file_version[]
+
+  @@schema("public")
+}
+
+model file_version {
+  id               String      @id
+  file_id          String
+  version_number   Int         @default(1)
+  storage_provider String
+  storage_path     String
+  bucket           String?
+  mime_type        String
+  extension        String?
+  size_bytes       BigInt
+  checksum         String?
+  entry_by         String?
+  entry_ts         DateTime    @default(now())
+  updt_ts          DateTime
+  updt_by          String?
+  file_record      file_record @relation(fields: [file_id], references: [id], onDelete: Cascade)
+
+  @@unique([file_id, version_number])
+  @@schema("public")
+}
+
+model form_d_ledger_entry {
+  id                 String      @id
+  project_id         String
+  plot_id            String
+  amount_land        Decimal     @db.Decimal(15, 2)
+  amount_rnr         Decimal     @db.Decimal(15, 2)
+  payee_type         String
+  payee_name         String
+  rtgs_utr_reference String?
+  row_hash           String?
+  previous_hash      String?
+  paid_at            DateTime    @default(now())
+  state              String      @default("pending")
+  entry_ts           DateTime    @default(now())
+  updt_ts            DateTime
+  entry_by           String?
+  updt_by            String?
+  mst_plot           mst_plot    @relation(fields: [plot_id], references: [id])
+  mst_project        mst_project @relation(fields: [project_id], references: [id])
+
+  @@schema("public")
+}
+
+model form_i_claim {
+  id                                   String                      @id
+  claim_code                           String
+  plot_id                              String
+  citizen_id_hash                      String
+  claimant_name                        String
+  own_share_acres                      Decimal                     @db.Decimal(10, 4)
+  opted_monetary_in_lieu_of_employment Boolean                     @default(false)
+  bank_account_number                  String?
+  bank_ifsc                            String?
+  state                                String                      @default("Drafting")
+  submitted_at                         DateTime?
+  transparency_window_ends_at          DateTime?
+  meta                                 String?
+  entry_ts                             DateTime                    @default(now())
+  updt_ts                              DateTime
+  entry_by                             String?
+  updt_by                              String?
+  mst_plot                             mst_plot                    @relation(fields: [plot_id], references: [id])
+  nominee_pool_contribution            nominee_pool_contribution[]
+
+  @@unique([citizen_id_hash, plot_id])
+  @@schema("public")
+}
+
+model grievance {
+  id               String    @id
+  grievance_code   String
+  related_type     String
+  related_id       String
+  complainant_name String
+  description      String
+  sla_due_at       DateTime
+  resolution       String?
+  resolved_at      DateTime?
+  entry_ts         DateTime  @default(now())
+  updt_ts          DateTime
+  entry_by         String?
+  updt_by          String?
+
+  @@schema("public")
+}
+
+model land_schedule {
+  id                      String               @id
+  project_id              String
+  schedule_code           String
+  acquisition_mode        String
+  state                   String               @default("Drafting")
+  mode_specific_checklist String?
+  meta                    String?
+  proposal_title          String?
+  description             String?
+  proposed_by             String?
+  proposed_by_role        String?
+  area_office             String?
+  mine_cd                 String?
+  adjacent_colliery       String?
+  total_area_acres        Decimal              @default(0.0000) @db.Decimal(10, 4)
+  annexure_a              String?
+  annexure_b              String?
+  annexure_c              String?
+  notification_date       DateTime?
+  entry_ts                DateTime             @default(now())
+  updt_ts                 DateTime
+  entry_by                String?
+  updt_by                 String?
+  mst_project             mst_project          @relation(fields: [project_id], references: [id])
+  land_schedule_item      land_schedule_item[]
+
+  @@schema("public")
+}
+
+model land_schedule_item {
+  id            String        @id
+  schedule_id   String
+  plot_id       String
+  annexure_tag  String?
+  is_active     Boolean       @default(true)
+  entry_ts      DateTime      @default(now())
+  updt_ts       DateTime
+  entry_by      String?
+  updt_by       String?
+  mst_plot      mst_plot      @relation(fields: [plot_id], references: [id])
+  land_schedule land_schedule @relation(fields: [schedule_id], references: [id])
+
+  @@schema("public")
+}
+
+model language {
+  id                String              @id
+  code              String              @unique
+  name              String
+  native_name       String
+  direction         String              @default("LTR")
+  flag              String?
+  is_default        Boolean             @default(false)
+  is_active         Boolean             @default(true)
+  sort_order        Int                 @default(0)
+  entry_ts          DateTime            @default(now())
+  updt_ts           DateTime
+  entry_by          String?
+  updt_by           String?
+  translation_value translation_value[]
+
+  @@schema("public")
+}
+
+model model_has_permission {
+  permission_id String
+  model_type    String     @default("user")
+  model_id      String
+  entry_ts      DateTime   @default(now())
+  updt_ts       DateTime
+  entry_by      String?
+  updt_by       String?
+  permission    permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@id([permission_id, model_type, model_id])
+  @@index([model_type, model_id])
+  @@schema("public")
+}
+
+model model_has_role {
+  role_id    String
+  model_type String   @default("user")
+  model_id   String
+  entry_ts   DateTime @default(now())
+  updt_ts    DateTime
+  entry_by   String?
+  updt_by    String?
+  role       role     @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@id([role_id, model_type, model_id])
+  @@index([model_type, model_id])
+  @@schema("public")
 }
 
 model mst_mouza {
-  id       String     @id @default(cuid())
+  id       String   @id
   name     String
   district String
   state    String
-  plots    mst_plot[]
-  entry_ts DateTime   @default(now())
+  entry_ts DateTime @default(now())
+  updt_ts  DateTime
+  entry_by String?
+  updt_by  String?
+
+  @@schema("public")
 }
 
 model mst_plot {
   id                      String   @id @default(cuid())
-  mouza_id                String
+  mouza_lgd               BigInt   @default(0)
   plot_number             String
   khata_number            String?
   land_type               String // forest | got_patta | tenancy | debottar
@@ -86,678 +833,84 @@ model mst_plot {
   entry_ts                DateTime @default(now())
   updt_ts                 DateTime @updatedAt
 
-  mouza               mst_mouza             @relation(fields: [mouza_id], references: [id])
+  mouza               mouza_master          @relation(fields: [mouza_lgd], references: [mouza_lgd])
   land_schedule_items land_schedule_item[]
   form_i_claims       form_i_claim[]
   paf_census_records  paf_census_record[]
   ledger_entries      form_d_ledger_entry[]
+  entry_by            String?
+  updt_by             String?
 
-  @@unique([mouza_id, plot_number])
+  @@unique([mouza_lgd, plot_number])
+  @@schema("public")
 }
 
-// ═══════════════════════════════════════════════════════════════
-// MODULE 2 — Land Acquisition & Checklists
-// ═══════════════════════════════════════════════════════════════
-model land_schedule {
-  id                      String    @id @default(cuid())
-  project_id              String
-  schedule_code           String
-  acquisition_mode        String // cba_act | direct_purchase | rfctlarr | patta
-  state                   String    @default("Drafting")
-  mode_specific_checklist String?
-  meta                    String?
-  proposal_title          String?
-  description             String?
-  proposed_by             String?
-  proposed_by_role        String?
-  area_office             String?
-  colliery_code           String?
-  adjacent_colliery       String?
-  total_area_acres        Decimal   @default("0.0000") @db.Decimal(10, 4)
-  annexure_a              String?
-  annexure_b              String?
-  annexure_c              String?
-  notification_date       DateTime?
-  entry_ts                DateTime  @default(now())
-  updt_ts                 DateTime  @updatedAt
+model mst_project {
+  id                     String                   @id
+  name                   String
+  mine_cd                String
+  total_land_limit_acres Decimal                  @db.Decimal(10, 4)
+  total_budget_ceiling   Decimal                  @db.Decimal(15, 2)
+  total_employment_quota Int
+  boundary               String
+  statutory_clearances   String?
+  locked_at              DateTime?
+  entry_ts               DateTime                 @default(now())
+  updt_ts                DateTime
+  entry_by               String?
+  updt_by                String?
+  area_cd                String?
+  state_lgd              BigInt?
+  pr_doc_id              String?
+  compensation_payroll   compensation_payroll[]
+  employment_application employment_application[]
+  form_d_ledger_entry    form_d_ledger_entry[]
+  land_schedule          land_schedule[]
+  rnr_asset_payroll      rnr_asset_payroll[]
 
-  project mst_project          @relation(fields: [project_id], references: [id])
-  items   land_schedule_item[]
+  @@schema("public")
 }
 
-model land_schedule_item {
-  id           String   @id @default(cuid())
-  schedule_id  String
-  plot_id      String
-  annexure_tag String? // A | B | C
-  is_active    Boolean  @default(true)
-  entry_ts     DateTime @default(now())
-
-  schedule land_schedule @relation(fields: [schedule_id], references: [id])
-  plot     mst_plot      @relation(fields: [plot_id], references: [id])
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MODULE 3 — Public Portal Form-I Claim (landowner registry)
-// ═══════════════════════════════════════════════════════════════
-model form_i_claim {
-  id                                   String    @id @default(cuid())
-  claim_code                           String // e.g. FORM1-2026-0001
-  plot_id                              String
-  citizen_id_hash                      String // SHA-256 of Aadhaar (never raw)
-  claimant_name                        String
-  own_share_acres                      Decimal   @db.Decimal(10, 4)
-  opted_monetary_in_lieu_of_employment Boolean   @default(false)
-  bank_account_number                  String?
-  bank_ifsc                            String?
-  state                                String    @default("Drafting")
-  submitted_at                         DateTime?
-  transparency_window_ends_at          DateTime? // submittedAt + 21 days
-  meta                                 String?
-  entry_ts                             DateTime  @default(now())
-  updt_ts                              DateTime  @updatedAt
-
-  plot                       mst_plot                    @relation(fields: [plot_id], references: [id])
-  nominee_pool_contributions nominee_pool_contribution[]
-
-  @@unique([citizen_id_hash, plot_id])
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MODULE 4 — Land Compensation Payroll (Form 1A/1B)
-// ═══════════════════════════════════════════════════════════════
-model compensation_payroll {
-  id                    String   @id @default(cuid())
-  project_id            String
-  payroll_code          String // e.g. PR-2026-0412
-  multiplication_factor Decimal  @default("1.0000") @db.Decimal(6, 4) // NUMERIC(6,4)
-  state                 String   @default("Drafting")
-  landowner_count       Int      @default(0)
-  total_award           Decimal  @default("0.00") @db.Decimal(15, 2)
-  meta                  String?
-  entry_ts              DateTime @default(now())
-  updt_ts               DateTime @updatedAt
-
-  project mst_project                 @relation(fields: [project_id], references: [id])
-  lines   compensation_payroll_line[]
-}
-
-model compensation_payroll_line {
-  id                       String   @id @default(cuid())
-  payroll_id               String
-  landowner_name           String
-  plot_reference           String
-  land_value               Decimal  @db.Decimal(15, 2)
-  asset_value              Decimal  @db.Decimal(15, 2)
-  solatium_amount          Decimal  @default("0.00") @db.Decimal(15, 2)
-  escalation_amount        Decimal  @default("0.00") @db.Decimal(15, 2)
-  total_award              Decimal  @default("0.00") @db.Decimal(15, 2)
-  years_since_notification Int      @default(0)
-  formula_snapshot         String // JSONB: audit trail of calculator + inputs
-  entry_ts                 DateTime @default(now())
-
-  payroll compensation_payroll @relation(fields: [payroll_id], references: [id])
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MODULE 6 — PAF Census (simplified)
-// ═══════════════════════════════════════════════════════════════
-model paf_census_record {
-  id                      String   @id @default(cuid())
-  paf_id                  String // printed ID card number
-  claimant_name           String
-  category_of_entitlement String // homestead | shop | agricultural | etc.
-  sc_st_obc_category      String?
-  plot_id                 String?
-  photo_identity_card_doc String?
-  entry_ts                DateTime @default(now())
-
-  plot mst_plot? @relation(fields: [plot_id], references: [id])
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MODULE 7 — R&R Asset Payroll (homestead/cattle shed/allowances)
-// ═══════════════════════════════════════════════════════════════
-model rnr_asset_payroll {
-  id           String   @id @default(cuid())
-  project_id   String
-  payroll_code String
-  state        String   @default("Drafting")
-  total_value  Decimal  @default("0.00") @db.Decimal(15, 2)
-  entry_ts     DateTime @default(now())
-  updt_ts      DateTime @updatedAt
-
-  project mst_project              @relation(fields: [project_id], references: [id])
-  lines   rnr_asset_payroll_line[]
-}
-
-model rnr_asset_payroll_line {
-  id                 String   @id @default(cuid())
-  payroll_id         String
-  beneficiary_name   String
-  entitlement_type   String // homestead | shifting_allowance | cattle_shed | subsistence_grant
-  valuation_amount   Decimal  @db.Decimal(15, 2)
-  pwd_rate_reference String?
-  formula_snapshot   String
-  entry_ts           DateTime @default(now())
-
-  payroll rnr_asset_payroll @relation(fields: [payroll_id], references: [id])
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MODULE 8 — Immutable Payment Ledger (Form-D, hash-chained)
-// ═══════════════════════════════════════════════════════════════
-model form_d_ledger_entry {
-  id                 String   @id @default(cuid())
-  project_id         String
-  plot_id            String
-  amount_land        Decimal  @db.Decimal(15, 2)
-  amount_rnr         Decimal  @db.Decimal(15, 2)
-  payee_type         String // individual | legal_tribunal
-  payee_name         String
-  rtgs_utr_reference String?
-  row_hash           String? // SHA-256 chain (NULL until countersigned)
-  previous_hash      String?
-  paid_at            DateTime @default(now())
-  state              String   @default("pending") // pending | approved
-  entry_ts           DateTime @default(now())
-
-  project mst_project @relation(fields: [project_id], references: [id])
-  plot    mst_plot    @relation(fields: [plot_id], references: [id])
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MODULE 9 — Nominee Package Deal (2.00-acre pooling gate)
-// ═══════════════════════════════════════════════════════════════
 model nominee_pool {
-  id                    String   @id @default(cuid())
-  nominee_aadhaar_hash  String   @unique
-  nominee_name          String
-  pooled_acreage        Decimal  @default("0.0000") @db.Decimal(10, 4)
-  apply_button_unlocked Boolean  @default(false)
-  entry_ts              DateTime @default(now())
-  updt_ts               DateTime @updatedAt
+  id                        String                      @id
+  nominee_aadhaar_hash      String                      @unique
+  nominee_name              String
+  pooled_acreage            Decimal                     @default(0.0000) @db.Decimal(10, 4)
+  apply_button_unlocked     Boolean                     @default(false)
+  entry_ts                  DateTime                    @default(now())
+  updt_ts                   DateTime
+  entry_by                  String?
+  updt_by                   String?
+  employment_application    employment_application[]
+  nominee_pool_contribution nominee_pool_contribution[]
 
-  contributions           nominee_pool_contribution[]
-  employment_applications employment_application[]
+  @@schema("public")
 }
 
 model nominee_pool_contribution {
-  id              String   @id @default(cuid())
+  id              String       @id
   pool_id         String
   form_i_claim_id String
-  share_acres     Decimal  @db.Decimal(10, 4)
-  entry_ts        DateTime @default(now())
-
-  pool         nominee_pool @relation(fields: [pool_id], references: [id])
-  form_i_claim form_i_claim @relation(fields: [form_i_claim_id], references: [id])
+  share_acres     Decimal      @db.Decimal(10, 4)
+  entry_ts        DateTime     @default(now())
+  updt_ts         DateTime
+  entry_by        String?
+  updt_by         String?
+  form_i_claim    form_i_claim @relation(fields: [form_i_claim_id], references: [id])
+  nominee_pool    nominee_pool @relation(fields: [pool_id], references: [id])
 
   @@unique([pool_id, form_i_claim_id])
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MODULE 10 — Employment Verification (Form-V/VI/IX/X/XI)
-// ═══════════════════════════════════════════════════════════════
-model employment_application {
-  id                    String   @id @default(cuid())
-  application_code      String
-  project_id            String
-  nominee_pool_id       String
-  form_ix_balance_acres Decimal  @db.Decimal(10, 4) // point-in-time snapshot (frozen at approval)
-  form_x_balance_jobs   Int // point-in-time snapshot
-  state                 String   @default("Drafting")
-  exception_flags       String? // JSONB: female_nominee_counseling etc.
-  entry_ts              DateTime @default(now())
-  updt_ts               DateTime @updatedAt
-
-  project      mst_project  @relation(fields: [project_id], references: [id])
-  nominee_pool nominee_pool @relation(fields: [nominee_pool_id], references: [id])
-}
-
-// ═══════════════════════════════════════════════════════════════
-// GENERIC — Workflow Review Tasks (parallel approval fan-out)
-// ═══════════════════════════════════════════════════════════════
-model workflow_review_task {
-  id              String    @id @default(cuid())
-  reviewable_type String // compensation_payroll | form_i_claim | land_schedule | employment_application
-  reviewable_id   String
-  role            String // gm_planning | gm_finance | gm_safety | director | cmd
-  status          String    @default("pending") // pending | approved | rejected
-  decided_by      String?
-  decided_at      DateTime?
-  comment         String?
-  entry_ts        DateTime  @default(now())
-  updt_ts         DateTime  @updatedAt
-  // Polymorphic — no hard FK (reviewableId points to one of several tables).
-  // Backed by application-level integrity (see WorkflowEngine).
-}
-
-// ═══════════════════════════════════════════════════════════════
-// GENERIC — document Vault (polymorphic)
-// ═══════════════════════════════════════════════════════════════
-model document {
-  id                 String   @id @default(cuid())
-  vaultable_type     String // land_schedule | form_i_claim | compensation_payroll | employment_application
-  vaultable_id       String
-  checklist_item_key String
-  file_name          String
-  storage_path       String
-  mime_type          String
-  file_size_kb       Int
-  virus_scan_status  String   @default("clean") // clean | scanning | infected
-  uploaded_by        String
-  entry_ts           DateTime @default(now())
-  // Polymorphic — no hard FK
-}
-
-// ═══════════════════════════════════════════════════════════════
-// DOCUMENT ENGINE — Enterprise Reusable Framework
-// ═══════════════════════════════════════════════════════════════
-
-model doc_template {
-  id                String   @id @default(cuid())
-  template_code     String   @unique
-  name              String
-  description       String?
-  storage_path      String // Path to the base .docx file
-  config            String // JSONB: { dynamicForm: true, workflow: true, signature: true, preview: true, versioning: true, audit: true }
-  dynamic_questions String? // JSONB: Array of questions for dynamic form
-  workflow_config   String? // JSONB: Approval chain definitions
-  entry_ts          DateTime @default(now())
-  updt_ts           DateTime @updatedAt
-
-  instances doc_instance[]
-}
-
-model doc_instance {
-  id          String   @id @default(cuid())
-  document_id String   @unique // e.g., DOC-2026-000245
-  template_id String
-  entity_type String // form_i_claim, compensation_payroll, etc.
-  entity_id   String
-  status      String   @default("Draft") // Draft, PendingApproval, Approved, Rejected, Signed
-  entry_ts    DateTime @default(now())
-  updt_ts     DateTime @updatedAt
-
-  template        doc_template         @relation(fields: [template_id], references: [id])
-  versions        doc_version[]
-  dynamic_answers doc_dynamic_answer[]
-  workflow_steps  doc_workflow_step[]
-  signatures      doc_signature[]
-}
-
-model doc_version {
-  id             String   @id @default(cuid())
-  instance_id    String
-  version_number Int
-  docx_file_id   String?
-  pdf_file_id    String?
-  generated_by   String
-  metadata       String? // JSONB
-  entry_ts       DateTime @default(now())
-
-  instance doc_instance @relation(fields: [instance_id], references: [id], onDelete: Cascade)
-}
-
-model doc_dynamic_answer {
-  id           String   @id @default(cuid())
-  instance_id  String
-  question_key String
-  answer_value String
-  entry_ts     DateTime @default(now())
-
-  instance doc_instance @relation(fields: [instance_id], references: [id], onDelete: Cascade)
-
-  @@unique([instance_id, question_key])
-}
-
-model doc_workflow_step {
-  id          String    @id @default(cuid())
-  instance_id String
-  role        String // DEO, AO, GM, etc.
-  status      String    @default("Pending") // Pending, Approved, Rejected, Returned
-  comments    String?
-  acted_by    String?
-  acted_at    DateTime?
-  entry_ts    DateTime  @default(now())
-
-  instance doc_instance @relation(fields: [instance_id], references: [id], onDelete: Cascade)
-}
-
-model doc_signature {
-  id                 String   @id @default(cuid())
-  instance_id        String
-  role               String
-  signer_name        String
-  signer_designation String
-  signature_date     DateTime @default(now())
-  metadata           String? // JSONB
-
-  instance doc_instance @relation(fields: [instance_id], references: [id], onDelete: Cascade)
-}
-
-model doc_audit_log {
-  id          String   @id @default(cuid())
-  document_id String
-  action      String // Generated, Previewed, Downloaded, Approved, Signed
-  user_id     String?
-  user_name   String?
-  role        String?
-  ip_address  String?
-  browser     String?
-  entry_ts    DateTime @default(now())
-}
-
-model download_log {
-  id            String   @id @default(cuid())
-  file_type     String // DOCX, PDF
-  document_id   String?
-  storage_path  String
-  downloaded_by String?
-  user_name     String?
-  ip_address    String?
-  browser       String?
-  entry_ts      DateTime @default(now())
-}
-
-// ═══════════════════════════════════════════════════════════════
-// GENERIC — Grievances (21-day transparency window objections)
-// ═══════════════════════════════════════════════════════════════
-model grievance {
-  id               String    @id @default(cuid())
-  grievance_code   String
-  related_type     String // form_i_claim | employment_application
-  related_id       String
-  complainant_name String
-  description      String
-  sla_due_at       DateTime
-  resolution       String? // NULL=open | dismissed | disputed
-  resolved_at      DateTime?
-  entry_ts         DateTime  @default(now())
-  // Polymorphic — no hard FK
-}
-
-// ═══════════════════════════════════════════════════════════════
-// CAPTCHA SERVICE — Enterprise Framework
-// ═══════════════════════════════════════════════════════════════
-
-model captcha_challenge {
-  id              String   @id @default(uuid())
-  expected_answer String // Hashed or plain (since it deletes after use/expiration)
-  purpose         String
-  expires_at      DateTime
-  attempts        Int      @default(0)
-  ip_address      String?
-  user_agent      String?
-  entry_ts        DateTime @default(now())
-}
-
-model captcha_config {
-  id                      String   @id @default("global") // singleton
-  provider                String   @default("math")
-  difficulty              String   @default("difficult")
-  expiration_minutes      Int      @default(5)
-  max_attempts            Int      @default(3)
-  adaptive_captcha        Boolean  @default(true)
-  show_after_failed_login Int      @default(3)
-  updt_ts                 DateTime @updatedAt
-}
-
-model captcha_audit_log {
-  id         String   @id @default(uuid())
-  action     String // Generated, Validated, Failed, Expired, Refreshed
-  ip_address String?
-  purpose    String
-  timestamp  DateTime @default(now())
-}
-
-// ═══════════════════════════════════════════════════════════════
-// LOCALIZATION & TRANSLATION ENGINE
-// ═══════════════════════════════════════════════════════════════
-
-model language {
-  id          String   @id @default(cuid())
-  code        String   @unique // e.g., 'en', 'bn', 'hi'
-  name        String
-  native_name String
-  direction   String   @default("LTR") // LTR or RTL
-  flag        String?
-  is_default  Boolean  @default(false)
-  is_active   Boolean  @default(true)
-  sort_order  Int      @default(0)
-  entry_ts    DateTime @default(now())
-  updt_ts     DateTime @updatedAt
-
-  translation_values translation_value[]
-}
-
-model translation_module {
-  id          String   @id @default(cuid())
-  name        String   @unique // e.g., 'common', 'auth', 'dashboard'
-  description String?
-  entry_ts    DateTime @default(now())
-  updt_ts     DateTime @updatedAt
-
-  translation_keys translation_key[]
-}
-
-model translation_key {
-  id          String   @id @default(cuid())
-  module_id   String
-  key         String // e.g., 'save', 'cancel' (without module prefix)
-  description String?
-  entry_ts    DateTime @default(now())
-  updt_ts     DateTime @updatedAt
-
-  module             translation_module  @relation(fields: [module_id], references: [id], onDelete: Cascade)
-  translation_values translation_value[]
-
-  @@unique([module_id, key])
-}
-
-model translation_value {
-  id                 String   @id @default(cuid())
-  translation_key_id String
-  language_id        String
-  value              String
-  status             String   @default("draft") // draft, approved, rejected
-  version            Int      @default(1)
-  entry_by           String?
-  approved_by        String?
-  entry_ts           DateTime @default(now())
-  updt_ts            DateTime @updatedAt
-
-  translation_key translation_key       @relation(fields: [translation_key_id], references: [id], onDelete: Cascade)
-  language        language              @relation(fields: [language_id], references: [id], onDelete: Cascade)
-  history         translation_history[]
-
-  @@unique([translation_key_id, language_id])
-}
-
-model translation_history {
-  id                   String   @id @default(cuid())
-  translation_value_id String
-  value                String
-  status               String
-  version              Int
-  changed_by           String?
-  change_reason        String?
-  entry_ts             DateTime @default(now())
-
-  translation_value translation_value @relation(fields: [translation_value_id], references: [id], onDelete: Cascade)
-}
-
-// ═══════════════════════════════════════════════════════════════
-// AUDIT LOG & ACTIVITY TRACKING FRAMEWORK
-// ═══════════════════════════════════════════════════════════════
-
-model audit_log {
-  id             String   @id @default(cuid())
-  event_type     String // CREATE, UPDATE, DELETE, LOGIN, EXPORT, etc.
-  module_name    String // e.g., 'authentication', 'workflow', 'documents'
-  entity_name    String? // Table name (e.g., 'user', 'mst_plot')
-  entity_id      String? // Primary key of the affected record
-  user_id        String? // The user who performed the action
-  user_role      String?
-  ip_address     String?
-  user_agent     String?
-  request_url    String?
-  request_method String?
-  remarks        String? // Business reason or custom note
-  entry_ts       DateTime @default(now())
-
-  // Relations
-  changes    audit_change[]
-  session    audit_session? @relation(fields: [session_id], references: [id])
-  session_id String?
-}
-
-model audit_change {
-  id           String   @id @default(cuid())
-  audit_log_id String
-  field_name   String? // If it's a single field change, or "JSON_DIFF" if storing entire diff
-  old_value    String? // JSONB string of old data
-  new_value    String? // JSONB string of new data
-  json_diff    String? // JSONB string of the computed diff
-  entry_ts     DateTime @default(now())
-
-  audit_log audit_log @relation(fields: [audit_log_id], references: [id], onDelete: Cascade)
-}
-
-model audit_session {
-  id         String   @id @default(cuid())
-  user_id    String?
-  status     String
-  locked_by  String?
-  attempts   Int      @default(0)
-  max_attempts Int    @default(3) // LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT, EXPIRED
-  ip_address String?
-  user_agent String?
-  entry_ts   DateTime @default(now())
-
-  logs audit_log[]
-}
-
-model audit_security {
-  id          String   @id @default(cuid())
-  event_type  String // SQL_INJECTION_ATTEMPT, BRUTE_FORCE, UNAUTHORIZED_ACCESS, CSRF_FAILURE
-  ip_address  String?
-  user_id     String?
-  request_url String?
-  payload     String? // JSONB
-  severity    String   @default("HIGH") // LOW, MEDIUM, HIGH, CRITICAL
-  entry_ts    DateTime @default(now())
-}
-
-model audit_download {
-  id          String   @id @default(cuid())
-  user_id     String?
-  file_type   String // PDF, CSV, EXCEL, DOCX
-  file_name   String
-  entity_type String?
-  entity_id   String?
-  ip_address  String?
-  entry_ts    DateTime @default(now())
-}
-
-// ═══════════════════════════════════════════════════════════════
-// GLOBAL FILE MANAGEMENT FRAMEWORK
-// ═══════════════════════════════════════════════════════════════
-
-model file_record {
-  id            String   @id @default(cuid())
-  original_name String
-  owner_id      String? // user who originally uploaded it
-  tags          String? // JSONB array of tags
-  status        String   @default("ACTIVE") // ACTIVE, ARCHIVED, SOFT_DELETED
-  checksum      String?  @unique // Global deduplication checksum (e.g. SHA-256)
-  entry_ts      DateTime @default(now())
-  updt_ts       DateTime @updatedAt
-
-  versions    file_version[]
-  attachments file_attachment[]
-}
-
-model file_version {
-  id               String   @id @default(cuid())
-  file_id          String
-  version_number   Int      @default(1)
-  storage_provider String // e.g. "LOCAL", "S3", "AZURE"
-  storage_path     String // Physical path or key in the bucket
-  bucket           String? // If applicable
-  mime_type        String
-  extension        String?
-  size_bytes       BigInt
-  checksum         String? // Checksum of this specific version
-  entry_by         String?
-  entry_ts         DateTime @default(now())
-
-  file file_record @relation(fields: [file_id], references: [id], onDelete: Cascade)
-
-  @@unique([file_id, version_number])
-}
-
-model file_attachment {
-  id          String   @id @default(cuid())
-  file_id     String
-  entity_type String // e.g., "mst_project", "form_i_claim", "Workflow"
-  entity_id   String
-  module      String?
-  attached_by String?
-  entry_ts    DateTime @default(now())
-
-  file file_record @relation(fields: [file_id], references: [id], onDelete: Cascade)
-
-  @@unique([file_id, entity_type, entity_id])
-}
-
-// ═══════════════════════════════════════════════════════════════
-// NOTIFICATION & EVENT FRAMEWORK
-// ═══════════════════════════════════════════════════════════════
-
-model event_registry {
-  id          String              @id @default(cuid())
-  event_name  String              @unique // e.g. PROPOSAL_APPROVED
-  module      String
-  description String?
-  entry_ts    DateTime            @default(now())
-  rules       notification_rule[]
-}
-
-model notification_template {
-  id        String              @id @default(cuid())
-  code      String              @unique // e.g. TPL_PROPOSAL_APPROVED_EMAIL
-  channel   String // EMAIL | SMS | IN_APP | PUSH
-  subject   String? // For emails
-  body      String // The liquid/handlebars template
-  language  String              @default("en")
-  is_active Boolean             @default(true)
-  entry_ts  DateTime            @default(now())
-  updt_ts   DateTime            @updatedAt
-  rules     notification_rule[]
-}
-
-model notification_rule {
-  id                 String   @id @default(cuid())
-  event_id           String
-  template_id        String
-  recipient_resolver String // e.g. "ProposalOwner", "role:Deo", "SpecificUser:123"
-  priority           String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT, CRITICAL
-  is_active          Boolean  @default(true)
-  entry_ts           DateTime @default(now())
-
-  event    event_registry        @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  template notification_template @relation(fields: [template_id], references: [id], onDelete: Restrict)
+  @@schema("public")
 }
 
 model notification_log {
-  id                String    @id @default(cuid())
-  event_id          String? // The original event name that triggered this
-  recipient_id      String? // user ID (if internal)
-  recipient_contact String // Email, phone number, or user ID
-  channel           String // EMAIL | SMS | IN_APP | PUSH
-  payload           String // JSONB string containing the final compiled message (subject, body, etc.)
-  status            String // PENDING | QUEUED | SENT | DELIVERED | FAILED | READ
+  id                String    @id
+  event_id          String?
+  recipient_id      String?
+  recipient_contact String
+  channel           String
+  payload           String
+  status            String
   priority          String    @default("NORMAL")
   failure_reason    String?
   retry_count       Int       @default(0)
@@ -765,112 +918,297 @@ model notification_log {
   delivered_at      DateTime?
   read_at           DateTime?
   entry_ts          DateTime  @default(now())
-  updt_ts           DateTime  @updatedAt
+  updt_ts           DateTime
+  entry_by          String?
+  updt_by           String?
+
+  @@schema("public")
 }
 
 model notification_preference {
-  id                String   @id @default(cuid())
+  id                String   @id
   user_id           String
-  channel           String // EMAIL | SMS | IN_APP | PUSH
+  channel           String
   is_enabled        Boolean  @default(true)
-  quiet_hours_start String? // e.g. "22:00"
-  quiet_hours_end   String? // e.g. "08:00"
+  quiet_hours_start String?
+  quiet_hours_end   String?
   entry_ts          DateTime @default(now())
-  updt_ts           DateTime @updatedAt
+  updt_ts           DateTime
+  entry_by          String?
+  updt_by           String?
 
   @@unique([user_id, channel])
+  @@schema("public")
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SECURE URL FRAMEWORK
-// ═══════════════════════════════════════════════════════════════
-model signed_url_log {
-  id             String    @id @default(cuid())
-  signature_hash String    @unique
-  url_path       String
-  entity_id      String?
-  action         String? // e.g., "DOWNLOAD", "APPROVE"
-  expires_at     DateTime
-  is_one_time    Boolean   @default(false)
-  is_consumed    Boolean   @default(false)
-  consumed_at    DateTime?
-  entry_ts       DateTime  @default(now())
+model notification_rule {
+  id                    String                @id
+  event_id              String
+  template_id           String
+  recipient_resolver    String
+  priority              String                @default("NORMAL")
+  is_active             Boolean               @default(true)
+  entry_ts              DateTime              @default(now())
+  updt_ts               DateTime
+  entry_by              String?
+  updt_by               String?
+  event_registry        event_registry        @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  notification_template notification_template @relation(fields: [template_id], references: [id])
+
+  @@schema("public")
 }
 
-// ═══════════════════════════════════════════════════════════════
-// AUTHORIZATION FRAMEWORK (Spatie-compatible)
-// ═══════════════════════════════════════════════════════════════
+model notification_template {
+  id                String              @id
+  code              String              @unique
+  channel           String
+  subject           String?
+  body              String
+  language          String              @default("en")
+  is_active         Boolean             @default(true)
+  entry_ts          DateTime            @default(now())
+  updt_ts           DateTime
+  entry_by          String?
+  updt_by           String?
+  notification_rule notification_rule[]
 
-model role {
-  id           String   @id @default(cuid())
-  name         String // e.g. "Administrator", "Unit Office"
-  display_name String?
-  description  String?
-  guard_name   String   @default("web")
-  is_system    Boolean  @default(false)
-  entry_ts     DateTime @default(now())
-  updt_ts      DateTime @updatedAt
+  @@schema("public")
+}
 
-  permissions role_has_permission[]
-  users       model_has_role[]
+model paf_census_record {
+  id                      String    @id
+  paf_id                  String
+  claimant_name           String
+  category_of_entitlement String
+  sc_st_obc_category      String?
+  plot_id                 String?
+  photo_identity_card_doc String?
+  entry_ts                DateTime  @default(now())
+  updt_ts                 DateTime
+  entry_by                String?
+  updt_by                 String?
+  mst_plot                mst_plot? @relation(fields: [plot_id], references: [id])
 
-  @@unique([name, guard_name])
+  @@schema("public")
 }
 
 model permission {
-  id           String   @id @default(cuid())
-  name         String // e.g. "proposal.view"
-  display_name String?
-  description  String?
-  module       String? // e.g. "proposal", "workflow"
-  group        String? // e.g. "Dashboard", "Finance"
-  guard_name   String   @default("web")
-  entry_ts     DateTime @default(now())
-  updt_ts      DateTime @updatedAt
-
-  roles        role_has_permission[]
-  direct_users model_has_permission[]
+  id                   String                 @id
+  name                 String
+  display_name         String?
+  description          String?
+  module               String?
+  group                String?
+  guard_name           String                 @default("web")
+  entry_ts             DateTime               @default(now())
+  updt_ts              DateTime
+  entry_by             String?
+  updt_by              String?
+  model_has_permission model_has_permission[]
+  role_has_permission  role_has_permission[]
 
   @@unique([name, guard_name])
+  @@schema("public")
+}
+
+model rnr_asset_payroll {
+  id                     String                   @id
+  project_id             String
+  payroll_code           String
+  state                  String                   @default("Drafting")
+  total_value            Decimal                  @default(0.00) @db.Decimal(15, 2)
+  entry_ts               DateTime                 @default(now())
+  updt_ts                DateTime
+  entry_by               String?
+  updt_by                String?
+  mst_project            mst_project              @relation(fields: [project_id], references: [id])
+  rnr_asset_payroll_line rnr_asset_payroll_line[]
+
+  @@schema("public")
+}
+
+model rnr_asset_payroll_line {
+  id                 String            @id
+  payroll_id         String
+  beneficiary_name   String
+  entitlement_type   String
+  valuation_amount   Decimal           @db.Decimal(15, 2)
+  pwd_rate_reference String?
+  formula_snapshot   String
+  entry_ts           DateTime          @default(now())
+  updt_ts            DateTime
+  entry_by           String?
+  updt_by            String?
+  rnr_asset_payroll  rnr_asset_payroll @relation(fields: [payroll_id], references: [id])
+
+  @@schema("public")
+}
+
+model role {
+  id                  String                @id
+  name                String
+  display_name        String?
+  description         String?
+  guard_name          String                @default("web")
+  is_system           Boolean               @default(false)
+  entry_ts            DateTime              @default(now())
+  updt_ts             DateTime
+  entry_by            String?
+  updt_by             String?
+  model_has_role      model_has_role[]
+  role_has_permission role_has_permission[]
+
+  @@unique([name, guard_name])
+  @@schema("public")
 }
 
 model role_has_permission {
   role_id       String
   permission_id String
-  role          role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  entry_ts      DateTime   @default(now())
+  updt_ts       DateTime
+  entry_by      String?
+  updt_by       String?
   permission    permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  role          role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
 
   @@id([role_id, permission_id])
+  @@schema("public")
 }
 
-model model_has_role {
-  role_id    String
-  model_type String @default("user")
-  model_id   String
-  role       role   @relation(fields: [role_id], references: [id], onDelete: Cascade)
+model signed_url_log {
+  id             String    @id
+  signature_hash String    @unique
+  url_path       String
+  entity_id      String?
+  action         String?
+  expires_at     DateTime
+  is_one_time    Boolean   @default(false)
+  is_consumed    Boolean   @default(false)
+  consumed_at    DateTime?
+  entry_ts       DateTime  @default(now())
+  updt_ts        DateTime
+  entry_by       String?
+  updt_by        String?
 
-  @@id([role_id, model_type, model_id])
-  @@index([model_type, model_id])
+  @@schema("public")
 }
 
-model model_has_permission {
-  permission_id String
-  model_type    String     @default("user")
-  model_id      String
-  permission    permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+model translation_history {
+  id                   String            @id
+  translation_value_id String
+  value                String
+  status               String
+  version              Int
+  changed_by           String?
+  change_reason        String?
+  entry_ts             DateTime          @default(now())
+  updt_ts              DateTime
+  entry_by             String?
+  updt_by              String?
+  translation_value    translation_value @relation(fields: [translation_value_id], references: [id], onDelete: Cascade)
 
-  @@id([permission_id, model_type, model_id])
-  @@index([model_type, model_id])
+  @@schema("public")
 }
 
-model background_job {
-  id         String   @id @default(cuid())
-  job_type   String
-  payload    String   @db.Text
-  status     String
-  locked_by  String?
-  attempts   Int      @default(0)
-  max_attempts Int    @default(3)
-  entry_ts   DateTime @default(now())
-  updt_ts    DateTime @updatedAt
+model translation_key {
+  id                 String              @id
+  module_id          String
+  key                String
+  description        String?
+  entry_ts           DateTime            @default(now())
+  updt_ts            DateTime
+  entry_by           String?
+  updt_by            String?
+  translation_module translation_module  @relation(fields: [module_id], references: [id], onDelete: Cascade)
+  translation_value  translation_value[]
+
+  @@unique([module_id, key])
+  @@schema("public")
+}
+
+model translation_module {
+  id              String            @id
+  name            String            @unique
+  description     String?
+  entry_ts        DateTime          @default(now())
+  updt_ts         DateTime
+  entry_by        String?
+  updt_by         String?
+  translation_key translation_key[]
+
+  @@schema("public")
+}
+
+model translation_value {
+  id                  String                @id
+  translation_key_id  String
+  language_id         String
+  value               String
+  status              String                @default("draft")
+  version             Int                   @default(1)
+  entry_by            String?
+  approved_by         String?
+  entry_ts            DateTime              @default(now())
+  updt_ts             DateTime
+  updt_by             String?
+  translation_history translation_history[]
+  language            language              @relation(fields: [language_id], references: [id], onDelete: Cascade)
+  translation_key     translation_key       @relation(fields: [translation_key_id], references: [id], onDelete: Cascade)
+
+  @@unique([translation_key_id, language_id])
+  @@schema("public")
+}
+
+model user {
+  id            String         @id
+  portal        String
+  role          String
+  email         String?        @unique
+  mobile        String?        @unique
+  aadhaar_hash  String?        @unique
+  name          String
+  password_hash String?
+  designation   String?
+  mine_cd       String?
+  plot_id       String?
+  verified_at   DateTime?
+  entry_ts      DateTime       @default(now())
+  updt_ts       DateTime
+  entry_by      String?
+  updt_by       String?
+  auth_session  auth_session[]
+
+  @@schema("public")
+}
+
+model workflow_review_task {
+  id              String    @id
+  reviewable_type String
+  reviewable_id   String
+  role            String
+  status          String    @default("pending")
+  decided_by      String?
+  decided_at      DateTime?
+  comment         String?
+  entry_ts        DateTime  @default(now())
+  updt_ts         DateTime
+  entry_by        String?
+  updt_by         String?
+
+  @@schema("public")
+}
+
+model sys_config {
+  id          String   @id @default(cuid())
+  category    String
+  key         String   @unique
+  value       String
+  type        String
+  description String?
+  is_secret   Boolean  @default(false)
+  entry_ts    DateTime @default(now())
+  updt_ts     DateTime @updatedAt
+
+  @@schema("public")
 }

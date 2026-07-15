@@ -9,7 +9,17 @@ import Decimal from 'decimal.js'
 export interface ProjectDashboardItem {
   id: string
   name: string
-  colliery_code: string
+  mine_cd: string
+  state_lgd?: string
+  area_cd?: string | null
+  mouza_lgds?: string[]
+  pr_docs?: Array<{
+    id: string
+    file_name: string
+    file_size_kb: number
+    mime_type: string
+    virus_scan_status: 'clean' | 'scanning' | 'infected'
+  }>
   total_land_limit_acres: string
   total_budget_ceiling: string
   total_employment_quota: number
@@ -29,6 +39,8 @@ export interface ProjectDashboardItem {
     exhausted_area_for_jobs: string
     remaining_job_quota: number
   }>
+  breachedProposals: Array<{ id: string; schedule_code: string }>
+  boardApprovals: Array<{ id: string; date: string; remarks: string; file_id?: string; file_name?: string }>
 }
 
 export interface GetProjectDashboardRequest {
@@ -63,7 +75,7 @@ export class GetProjectDashboardUseCase implements IUseCase<GetProjectDashboardR
       const searchLower = request.search.toLowerCase()
       filtered = dashboardData.filter(d => 
         d.project.name.toLowerCase().includes(searchLower) ||
-        d.project.colliery_code.toLowerCase().includes(searchLower)
+        d.project.mine_cd.toLowerCase().includes(searchLower)
       )
     }
 
@@ -77,7 +89,11 @@ export class GetProjectDashboardUseCase implements IUseCase<GetProjectDashboardR
     const projects: ProjectDashboardItem[] = paged.map(d => ({
       id: d.project.id.toString(),
       name: d.project.name,
-      colliery_code: d.project.colliery_code,
+      mine_cd: d.project.mine_cd,
+      state_lgd: d.project.state_lgd?.toString(),
+      area_cd: d.project.area_cd,
+      mouza_lgds: d.mouza_lgds,
+      pr_docs: d.pr_docs,
       total_land_limit_acres: d.project.totalLandLimit.toDecimal().toString(),
       total_budget_ceiling: d.project.total_budget_ceiling.toDecimal().toString(),
       total_employment_quota: d.project.total_employment_quota,
@@ -89,6 +105,8 @@ export class GetProjectDashboardUseCase implements IUseCase<GetProjectDashboardR
       totalDisbursed: d.totalDisbursed.toFixed(2),
       budgetUtilization: d.budgetUtilization.toFixed(1),
       plots: d.plots,
+      breachedProposals: d.breachedProposals,
+      boardApprovals: d.boardApprovals,
     }))
 
     return {

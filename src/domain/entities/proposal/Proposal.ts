@@ -280,7 +280,7 @@ export class Proposal extends AggregateRoot<string> {
     return { isSuccess: true, isFailure: false, value: undefined, error: null }
   }
 
-  submit(): Result<void> {
+  submit(isLimitBreached: boolean = false): Result<void> {
     if (!this._state.canBeSubmitted()) {
       return Fail('Cannot submit from state')
     }
@@ -289,12 +289,38 @@ export class Proposal extends AggregateRoot<string> {
       return Fail('All required checklist items must be complete')
     }
 
-    this._state = ProposalState.AREA_VETTING
-    this._updatedAt = new Date()
+    if (isLimitBreached) {
+      this._state = ProposalState.LIMIT_BREACHED
+      this._updatedAt = new Date()
+      this.addDomainEvent(createDomainEvent('PROPOSAL_LIMIT_BREACHED', this.id, {
+        scheduleCode: this._scheduleCode.value,
+        totalAreaAcres: this._totalArea.toDecimal().toString(),
+      }))
+    } else {
+      this._state = ProposalState.AREA_VETTING
+      this._updatedAt = new Date()
+      this.addDomainEvent(createDomainEvent('PROPOSAL_SUBMITTED', this.id, {
+        scheduleCode: this._scheduleCode.value,
+        proposalTitle: this._proposalTitle,
+      }))
+    }
 
-    this.addDomainEvent(createDomainEvent('PROPOSAL_SUBMITTED', this.id, {
+    return { isSuccess: true, isFailure: false, value: undefined, error: null }
+  }
+
+  approveBoardDeviation(approvedBy: string): Result<void> {
+    if (!this._state.isLimitBreached()) {
+      return Fail('Proposal is not in LIMIT_BREACHED state');
+    }
+
+    this._state = ProposalState.BOARD_APPROVED;
+    // Automatically transition to AREA_VETTING to continue standard flow
+    this._state = ProposalState.AREA_VETTING;
+    this._updatedAt = new Date();
+
+    this.addDomainEvent(createDomainEvent('PROPOSAL_BOARD_APPROVED', this.id, {
       scheduleCode: this._scheduleCode.value,
-      proposalTitle: this._proposalTitle,
+      approvedBy,
     }))
 
     return { isSuccess: true, isFailure: false, value: undefined, error: null }

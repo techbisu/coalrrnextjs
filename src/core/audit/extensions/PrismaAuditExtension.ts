@@ -1,111 +1,90 @@
-﻿import { Prisma } from '@prisma/client';
-import { AuditService } from '../services/AuditService';
-import { getAuditContext } from '@/lib/context/AuditContext';
+import { Prisma } from '@prisma/client'
+import { getCurrentUser } from '@/lib/auth'
+import { Audit } from '@/core/audit'
 
-// Deep diff utility
-function computeJsonDiff(oldObj: any, newObj: any) {
-  const diff: Record<string, { old: any; new: any }> = {};
+const EXCLUDED_MODELS = ['audit_logs', 'audit_changes', 'audit_sessions', 'auth_session', 'user', 'audit_api_logs', 'audit_security_logs', 'audit_download_logs', 'audit_exception_logs', 'audit_login_attempts'];
 
-  const allKeys = new Set([...Object.keys(oldObj || {}), ...Object.keys(newObj || {})]);
-
-  // Fields to ignore from auditing (e.g., timestamps)
-  const ignoredFields = new Set(['entry_ts', 'updt_ts']);
-
-  for (const key of allKeys) {
-    if (ignoredFields.has(key)) continue;
-
-    const oldVal = oldObj?.[key];
-    const newVal = newObj?.[key];
-
-    // Simple strict inequality check (for deep objects/arrays, would need lodash.isEqual)
-    // For Prisma models, primitive equality is usually sufficient for fields
-    if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
-      diff[key] = { old: oldVal, new: newVal };
-    }
-  }
-
-  return diff;
-}
-
-export const withAuditExtension = Prisma.defineExtension((client) => {
-  return client.$extends({
-    name: 'AuditExtension',
-    query: {
-      $allModels: {
-        async create({ model, args, query }) {
-          const result = await query(args);
-          
-          const context = getAuditContext();
-          AuditService.logChange(
-            'CREATE',
-            'database', // Could be inferred from context if provided
-            model,
-            (result as any).id || 'unknown',
-            null,
-            result,
-            null,
-            context
-          );
-          
-          return result;
-        },
+export const withAuditExtension = Prisma.defineExtension({
+  name: 'PrismaAuditExtension',
+  query: {
+    $allModels: {
+      async create({ model, operation, args, query }) {
+        let userId = 'system';
+        try {
+          const u = await getCurrentUser();
+          if (u) userId = u.id;
+        } catch(e) {}
         
-        async update({ model, args, query }) {
-          // 1. Fetch the old record
-          const id = (args.where as any).id;
-          let oldRecord = null;
-          if (id) {
-            oldRecord = await (client as any)[model].findUnique({ where: { id } });
-          }
-
-          // 2. Perform the update
-          const result = await query(args);
-
-          // 3. Diff and log
-          const context = getAuditContext();
-          const diff = computeJsonDiff(oldRecord, result);
-          
-          AuditService.logChange(
-            'UPDATE',
-            'database', 
-            model,
-            (result as any).id || id || 'unknown',
-            oldRecord,
-            result,
-            diff,
-            context
-          );
-
-          return result;
-        },
-
-        async delete({ model, args, query }) {
-          // 1. Fetch the old record (since it's being deleted)
-          const id = (args.where as any).id;
-          let oldRecord = null;
-          if (id) {
-            oldRecord = await (client as any)[model].findUnique({ where: { id } });
-          }
-
-          // 2. Perform the delete
-          const result = await query(args);
-
-          // 3. Log
-          const context = getAuditContext();
-          AuditService.logChange(
-            'DELETE',
-            'database',
-            model,
-            (result as any).id || id || 'unknown',
-            oldRecord,
-            null,
-            null,
-            context
-          );
-
-          return result;
+        if (args.data) {
+           (args.data as any).entry_by = userId;
+           (args.data as any).updt_by = userId;
         }
+        
+        const result = await query(args);
+        
+        if (!EXCLUDED_MODELS.includes(model)) {
+          Audit.activity({
+            event: 'CREATE',
+            module: 'system',
+            entityType: model,
+            entityId: (result as any).id || (result as any).code || 'unknown',
+            description: `Created new ${model}`,
+            metadata: { user_id: userId, newData: result }
+          }).catch(console.error);
+        }
+        
+        return result;
+      },
+      
+      async update({ model, operation, args, query }) {
+        let userId = 'system';
+        try {
+          const u = await getCurrentUser();
+          if (u) userId = u.id;
+        } catch(e) {}
+        
+        if (args.data) {
+           (args.data as any).updt_by = userId;
+        }
+        
+        const result = await query(args);
+        
+        if (!EXCLUDED_MODELS.includes(model)) {
+          Audit.activity({
+            event: 'UPDATE',
+            module: 'system',
+            entityType: model,
+            entityId: (result as any).id || (result as any).code || 'unknown',
+            description: `Updated ${model}`,
+            metadata: { user_id: userId, newData: result }
+          }).catch(console.error);
+        }
+        
+        return result;
+      },
+      
+      async delete({ model, operation, args, query }) {
+        let userId = 'system';
+        try {
+          const u = await getCurrentUser();
+          if (u) userId = u.id;
+        } catch(e) {}
+        
+        const result = await query(args);
+        
+        if (!EXCLUDED_MODELS.includes(model)) {
+          Audit.activity({
+            event: 'DELETE',
+            module: 'system',
+            entityType: model,
+            entityId: (result as any).id || (result as any).code || 'unknown',
+            description: `Deleted ${model}`,
+            metadata: { user_id: userId, oldData: result }
+          }).catch(console.error);
+        }
+        
+        return result;
       }
     }
-  });
-});
+  }
+})

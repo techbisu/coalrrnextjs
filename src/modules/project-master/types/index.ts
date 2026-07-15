@@ -1,7 +1,10 @@
-﻿export interface IProjectMaster {
+export interface IProjectMaster {
   id: string;
   name: string;
-  colliery_code: string;
+  mine_cd: string | null;
+  area_cd: string | null;
+  state_lgd: bigint | null;
+  pr_doc_id: string | null;
   total_land_limit_acres: string; // Stored as Decimal, passed as string
   total_budget_ceiling: string;
   total_employment_quota: number;
@@ -15,7 +18,11 @@
 
 export interface IProjectMasterCreateDTO {
   name: string;
-  colliery_code: string;
+  mine_cd?: string;
+  area_cd?: string;
+  state_lgd?: bigint;
+  pr_doc_id?: string;
+  mouza_lgds?: bigint[];
   total_land_limit_acres: string;
   total_budget_ceiling: string;
   total_employment_quota: number;

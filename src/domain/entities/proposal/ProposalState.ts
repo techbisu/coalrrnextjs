@@ -5,7 +5,7 @@ import { ValueObject } from '@/core/base/ValueObject'
 import { Result, Fail } from '@/core/result/Result'
 import { ValidationException } from '@/core/errors'
 
-export type ProposalStateType = 'Drafting' | 'AreaVetting' | 'Approved' | 'Rejected' | 'Cancelled'
+export type ProposalStateType = 'Drafting' | 'AreaVetting' | 'Approved' | 'Rejected' | 'Cancelled' | 'LimitBreached' | 'BoardApproved'
 
 export class ProposalState extends ValueObject<ProposalStateType> {
   private constructor(value: ProposalStateType) {
@@ -17,9 +17,11 @@ export class ProposalState extends ValueObject<ProposalStateType> {
   static APPROVED = new ProposalState('Approved')
   static REJECTED = new ProposalState('Rejected')
   static CANCELLED = new ProposalState('Cancelled')
+  static LIMIT_BREACHED = new ProposalState('LimitBreached')
+  static BOARD_APPROVED = new ProposalState('BoardApproved')
 
   static tryCreate(value: string): Result<ProposalState, ValidationException> {
-    const validStates: ProposalStateType[] = ['Drafting', 'AreaVetting', 'Approved', 'Rejected', 'Cancelled']
+    const validStates: ProposalStateType[] = ['Drafting', 'AreaVetting', 'Approved', 'Rejected', 'Cancelled', 'LimitBreached', 'BoardApproved']
     
     if (!validStates.includes(value as ProposalStateType)) {
       return Fail(new ValidationException('Invalid Proposal State', [
@@ -59,6 +61,15 @@ export class ProposalState extends ValueObject<ProposalStateType> {
     return this._value === 'Cancelled'
   }
 
+
+  isLimitBreached(): boolean {
+    return this._value === 'LimitBreached'
+  }
+
+  isBoardApproved(): boolean {
+    return this._value === 'BoardApproved'
+  }
+
   // Business rules
   canBeEdited(): boolean {
     return this._value === 'Drafting'
@@ -95,11 +106,13 @@ export class ProposalState extends ValueObject<ProposalStateType> {
   // Valid transitions
   canTransitionTo(newState: ProposalState): boolean {
     const transitions: Record<ProposalStateType, ProposalStateType[]> = {
-      Drafting: ['AreaVetting', 'Cancelled'],
+      Drafting: ['AreaVetting', 'Cancelled', 'LimitBreached'],
       AreaVetting: ['Approved', 'Rejected', 'Drafting'],
       Approved: ['Rejected'],
       Rejected: ['Drafting'],
       Cancelled: [],
+      LimitBreached: ['BoardApproved', 'Cancelled'],
+      BoardApproved: ['AreaVetting'],
     }
 
     return transitions[this._value]?.includes(newState.value) ?? false

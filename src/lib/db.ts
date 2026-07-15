@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { withAuditExtension } from '@/audit/extensions/PrismaAuditExtension'
+import { withAuditExtension } from '@/core/audit/extensions/PrismaAuditExtension'
 
 if (!(BigInt.prototype as any).toJSON) {
   (BigInt.prototype as any).toJSON = function () {

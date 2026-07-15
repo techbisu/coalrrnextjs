@@ -1,8 +1,3 @@
-/**
- * Prisma Proposal Repository - Concrete implementation of IProposalRepository.
- * This belongs in the infrastructure layer and handles all database operations.
- * NO BUSINESS LOGIC HERE - only persistence concerns.
- */
 import { db } from '@/lib/db'
 import { Proposal, IProposalRepository, IProposalQueryOptions } from '@/domain'
 import { IPaginatedResult } from '@/core/interfaces'
@@ -24,23 +19,23 @@ export class PrismaProposalRepository implements IProposalRepository {
 
     return Proposal.reconstitute({
       id: data.id,
-      schedule_code: data.scheduleCode,
-      projectId: data.projectId,
-      acquisitionMode: data.acquisitionMode,
+      scheduleCode: data.schedule_code,
+      projectId: data.project_id,
+      acquisitionMode: data.acquisition_mode,
       state: data.state,
-      proposal_title: data.proposalTitle ?? '',
+      proposalTitle: data.proposal_title ?? '',
       description: data.description ?? '',
-      proposedBy: data.proposedBy ?? '',
-      proposedByRole: data.proposedByRole ?? '',
-      areaOffice: data.areaOffice ?? '',
-      collieryCode: data.collieryCode ?? '',
-      adjacentColliery: data.adjacentColliery ?? '',
-      totalAreaAcres: data.totalAreaAcres.toString(),
-      notificationDate: data.notificationDate,
-      modeSpecificChecklist: data.modeSpecificChecklist ?? '{"items":[]}',
-      plotIds: data.items.map(item => item.plotId),
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
+      proposedBy: data.proposed_by ?? '',
+      proposedByRole: data.proposed_by_role ?? '',
+      areaOffice: data.area_office ?? '',
+      collieryCode: data.mine_cd ?? '',
+      adjacentColliery: data.adjacent_colliery ?? '',
+      totalAreaAcres: data.total_area_acres.toString(),
+      notificationDate: data.notification_date,
+      modeSpecificChecklist: data.mode_specific_checklist ?? '{"items":[]}',
+      plotIds: data.items.map(item => item.plot_id),
+      createdAt: data.entry_ts,
+      updatedAt: data.updt_ts,
     })
   }
 
@@ -50,76 +45,51 @@ export class PrismaProposalRepository implements IProposalRepository {
     const skip = (page - 1) * pageSize
 
     const where: any = {}
-    
-    if (options?.projectId) {
-      where.projectId = options.project_id
-    }
+    if (options?.project_id) where.project_id = options.project_id
+    if (options?.state) where.state = options.state
 
-    if (options?.state) {
-      where.state = options.state
-    }
-
-    if (options?.acquisitionMode) {
-      where.acquisitionMode = options.acquisition_mode
-    }
-    
-    if (options?.collieryCode) {
-      where.collieryCode = options.colliery_code
-    }
-    
-    if (options?.search) {
-      where.OR = [
-        { scheduleCode: { contains: options.search, mode: 'insensitive' } },
-        { proposalTitle: { contains: options.search, mode: 'insensitive' } },
-      ]
-    }
-
-    const [data, total] = await Promise.all([
+    const [items, total] = await Promise.all([
       db.land_schedule.findMany({
         where,
         skip,
         take: pageSize,
-        orderBy: options?.orderBy ?? { createdAt: 'desc' },
-        include: {
-          items: { where: { is_active: true } }
-        }
+        orderBy: { entry_ts: 'desc' },
+        include: { items: { where: { is_active: true } } }
       }),
-      db.land_schedule.count({ where }),
+      db.land_schedule.count({ where })
     ])
 
-    const proposals = data.map(p => Proposal.reconstitute({
-      id: p.id,
-      scheduleCode: p.scheduleCode,
-      projectId: p.projectId,
-      acquisitionMode: p.acquisitionMode,
-      state: p.state,
-      proposalTitle: p.proposalTitle ?? '',
-      description: p.description ?? '',
-      proposedBy: p.proposedBy ?? '',
-      proposedByRole: p.proposedByRole ?? '',
-      areaOffice: p.areaOffice ?? '',
-      collieryCode: p.collieryCode ?? '',
-      adjacentColliery: p.adjacentColliery ?? '',
-      totalAreaAcres: p.totalAreaAcres.toString(),
-      notificationDate: p.notificationDate,
-      modeSpecificChecklist: p.modeSpecificChecklist ?? '{"items":[]}',
-      plotIds: p.items.map(item => item.plotId),
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
-    }))
-
     return {
-      data: proposals,
+      data: items.map(data => Proposal.reconstitute({
+        id: data.id,
+        scheduleCode: data.schedule_code,
+        projectId: data.project_id,
+        acquisitionMode: data.acquisition_mode,
+        state: data.state,
+        proposalTitle: data.proposal_title ?? '',
+        description: data.description ?? '',
+        proposedBy: data.proposed_by ?? '',
+        proposedByRole: data.proposed_by_role ?? '',
+        areaOffice: data.area_office ?? '',
+        collieryCode: data.mine_cd ?? '',
+        adjacentColliery: data.adjacent_colliery ?? '',
+        totalAreaAcres: data.total_area_acres.toString(),
+        notificationDate: data.notification_date,
+        modeSpecificChecklist: data.mode_specific_checklist ?? '{"items":[]}',
+        plotIds: data.items.map(item => item.plot_id),
+        createdAt: data.entry_ts,
+        updatedAt: data.updt_ts,
+      })),
       total,
       page,
       pageSize,
-      totalPages: Math.ceil(total / pageSize),
+      totalPages: Math.ceil(total / pageSize)
     }
   }
 
   async findByScheduleCode(scheduleCode: string): Promise<Proposal | null> {
     const data = await db.land_schedule.findFirst({
-      where: { scheduleCode },
+      where: { schedule_code: scheduleCode },
       include: { items: { where: { is_active: true } } }
     })
 
@@ -127,28 +97,28 @@ export class PrismaProposalRepository implements IProposalRepository {
 
     return Proposal.reconstitute({
       id: data.id,
-      schedule_code: data.scheduleCode,
-      projectId: data.projectId,
-      acquisitionMode: data.acquisitionMode,
+      scheduleCode: data.schedule_code,
+      projectId: data.project_id,
+      acquisitionMode: data.acquisition_mode,
       state: data.state,
-      proposal_title: data.proposalTitle ?? '',
+      proposalTitle: data.proposal_title ?? '',
       description: data.description ?? '',
-      proposedBy: data.proposedBy ?? '',
-      proposedByRole: data.proposedByRole ?? '',
-      areaOffice: data.areaOffice ?? '',
-      collieryCode: data.collieryCode ?? '',
-      adjacentColliery: data.adjacentColliery ?? '',
-      totalAreaAcres: data.totalAreaAcres.toString(),
-      notificationDate: data.notificationDate,
-      modeSpecificChecklist: data.modeSpecificChecklist ?? '{"items":[]}',
-      plotIds: data.items.map(item => item.plotId),
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
+      proposedBy: data.proposed_by ?? '',
+      proposedByRole: data.proposed_by_role ?? '',
+      areaOffice: data.area_office ?? '',
+      collieryCode: data.mine_cd ?? '',
+      adjacentColliery: data.adjacent_colliery ?? '',
+      totalAreaAcres: data.total_area_acres.toString(),
+      notificationDate: data.notification_date,
+      modeSpecificChecklist: data.mode_specific_checklist ?? '{"items":[]}',
+      plotIds: data.items.map(item => item.plot_id),
+      createdAt: data.entry_ts,
+      updatedAt: data.updt_ts,
     })
   }
 
   async findByProjectId(projectId: string, options?: IProposalQueryOptions): Promise<IPaginatedResult<Proposal>> {
-    return this.findAll({ ...options, projectId })
+    return this.findAll({ ...options, project_id: projectId } as any)
   }
 
   async save(proposal: Proposal): Promise<void> {
@@ -163,12 +133,12 @@ export class PrismaProposalRepository implements IProposalRepository {
           state: data.state,
           proposal_title: data.proposalTitle,
           description: data.description,
-          areaOffice: data.areaOffice,
-          adjacentColliery: data.adjacentColliery,
-          totalAreaAcres: new Decimal(data.totalAreaAcres),
-          notificationDate: data.notificationDate,
-          modeSpecificChecklist: data.modeSpecificChecklist,
-          updatedAt: new Date(),
+          area_office: data.areaOffice,
+          adjacent_colliery: data.adjacentColliery,
+          total_area_acres: new Decimal(data.totalAreaAcres),
+          notification_date: data.notificationDate,
+          mode_specific_checklist: data.modeSpecificChecklist,
+          updt_ts: new Date(),
         },
       })
     } else {
@@ -176,19 +146,19 @@ export class PrismaProposalRepository implements IProposalRepository {
         data: {
           id: data.id,
           schedule_code: data.scheduleCode,
-          projectId: data.projectId,
-          acquisitionMode: data.acquisitionMode,
+          project_id: data.projectId,
+          acquisition_mode: data.acquisitionMode,
           state: data.state,
           proposal_title: data.proposalTitle,
           description: data.description,
-          proposedBy: data.proposedBy,
-          proposedByRole: data.proposedByRole,
-          areaOffice: data.areaOffice,
-          collieryCode: data.collieryCode,
-          adjacentColliery: data.adjacentColliery,
-          totalAreaAcres: new Decimal(data.totalAreaAcres),
-          notificationDate: data.notificationDate,
-          modeSpecificChecklist: data.modeSpecificChecklist,
+          proposed_by: data.proposedBy,
+          proposed_by_role: data.proposedByRole,
+          area_office: data.areaOffice,
+          mine_cd: data.collieryCode,
+          adjacent_colliery: data.adjacentColliery,
+          total_area_acres: new Decimal(data.totalAreaAcres),
+          notification_date: data.notificationDate,
+          mode_specific_checklist: data.modeSpecificChecklist,
         },
       })
     }
@@ -203,24 +173,22 @@ export class PrismaProposalRepository implements IProposalRepository {
     return count > 0
   }
 
-  async addPlotToProposal(proposalId: string, plotId: string, annexure_tag: 'A' | 'B' | 'C'): Promise<void> {
+  async addPlotToProposal(scheduleId: string, plotId: string, annexureTag?: string): Promise<void> {
     await db.land_schedule_item.create({
       data: {
-        scheduleId: proposalId,
-        plotId,
-        annexureTag,
+        schedule_id: scheduleId,
+        plot_id: plotId,
+        annexure_tag: annexureTag,
         is_active: true
       }
     })
   }
 
-  async removePlotFromProposal(proposalId: string, plotId: string): Promise<void> {
-    // Soft delete pattern to maintain history
+  async removePlotFromProposal(scheduleId: string, plotId: string): Promise<void> {
     await db.land_schedule_item.updateMany({
       where: {
-        scheduleId: proposalId,
-        plotId,
-        is_active: true
+        schedule_id: scheduleId,
+        plot_id: plotId,
       },
       data: {
         is_active: false
@@ -228,48 +196,40 @@ export class PrismaProposalRepository implements IProposalRepository {
     })
   }
 
-  async updatePlotAnnexure(proposalId: string, plotId: string, annexure_tag: 'A' | 'B' | 'C'): Promise<void> {
+  async isPlotInActiveProposal(plotId: string): Promise<boolean> {
+    const count = await db.land_schedule_item.count({
+      where: {
+        plot_id: plotId,
+        is_active: true
+      }
+    })
+    return count > 0
+  }
+
+  async updatePlotAnnexure(scheduleId: string, plotId: string, annexureTag: string): Promise<void> {
     await db.land_schedule_item.updateMany({
       where: {
-        scheduleId: proposalId,
-        plotId,
-        is_active: true
+        schedule_id: scheduleId,
+        plot_id: plotId,
       },
       data: {
-        annexureTag
+        annexure_tag: annexureTag
       }
     })
   }
 
-  async isPlotInActiveProposal(plotId: string, currentProposalId?: string): Promise<boolean> {
-    const query: any = {
-      plotId,
-      is_active: true,
-      schedule: {
-        state: { not: 'Cancelled' }
-      }
-    }
-    
-    if (currentProposalId) {
-      query.scheduleId = { not: currentProposalId }
-    }
-    
-    const count = await db.land_schedule_item.count({ where: query })
-    return count > 0
-  }
-
-  // For dashboard/UI specific complex queries
   async getProposalDetailsWithPlots(id: string): Promise<any> {
-    return db.land_schedule.findUnique({
+    return await db.land_schedule.findUnique({
       where: { id },
       include: {
         project: true,
         items: {
-          where: { is_active: true },
-          include: { 
-            plot: { 
-              include: { mouza: true } 
-            } 
+          include: {
+            plot: {
+              include: {
+                mouza: true
+              }
+            }
           }
         }
       }

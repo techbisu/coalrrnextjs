@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Get Proposal Details Use Case - Data retrieval for the UI.
  */
 import { IUseCase, Result, Fail, Ok } from '@/core'
@@ -17,6 +17,7 @@ export interface GetProposalDetailsResponse {
   projectName: string
   projectBudgetCeiling: string
   projectLandLimit: string
+  projectEmploymentQuota: string
   acquisition_mode: string
   state: string
   proposal_title: string
@@ -24,7 +25,7 @@ export interface GetProposalDetailsResponse {
   proposed_by: string
   proposed_by_role: string
   area_office: string
-  colliery_code: string
+  mine_cd: string
   adjacent_colliery: string
   total_area_acres: string
   notification_date: string | null
@@ -64,6 +65,7 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
       projectName: data.project.name,
       projectBudgetCeiling: data.project.total_budget_ceiling.toString(),
       projectLandLimit: data.project.total_land_limit_acres.toString(),
+      projectEmploymentQuota: data.project.total_employment_quota.toString(),
       acquisition_mode: data.acquisition_mode,
       state: data.state,
       proposal_title: data.proposal_title ?? '',
@@ -71,7 +73,7 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
       proposed_by: data.proposed_by ?? '',
       proposed_by_role: data.proposed_by_role ?? '',
       area_office: data.area_office ?? '',
-      colliery_code: data.colliery_code ?? '',
+      mine_cd: data.mine_cd ?? '',
       adjacent_colliery: data.adjacent_colliery ?? '',
       total_area_acres: data.total_area_acres.toString(),
       notification_date: data.notification_date ? data.notification_date.toISOString() : null,

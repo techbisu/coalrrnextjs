@@ -511,7 +511,7 @@ function CreatePayrollDialog({ open, onOpenChange, onSuccess }: { open: boolean,
               </SelectTrigger>
               <SelectContent>
                 {projects?.map((p: any) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.colliery_code})</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>{p.name} ({p.mine_cd})</SelectItem>
                 ))}
               </SelectContent>
             </Select>

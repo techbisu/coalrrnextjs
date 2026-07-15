@@ -86,9 +86,9 @@ export class AddPlotToProposalUseCase implements IUseCase<AddPlotRequest, AddPlo
     // 7. Return response
     return Ok({
       id: proposal.id,
-      schedule_code: proposal.schedule_code.value,
+      schedule_code: proposal.scheduleCode.value,
       total_area_acres: proposal.totalArea.toDecimal().toString(),
-      message: `Plot ${plot.plot_number} added to proposal ${proposal.schedule_code.value}.`,
+      message: `Plot ${plot.plot_number} added to proposal ${proposal.scheduleCode.value}.`,
     })
   }
 }

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { UploadCloud, X, Loader2 } from 'lucide-react';
+import { uploadFileAction } from '../actions';
 
 interface FileUploaderProps {
   module: string;
@@ -42,22 +43,18 @@ export function FileUploader({ module, entity_type, entity_id, multiple = false,
         if (entity_type) formData.append('entity_type', entity_type);
         if (entity_id) formData.append('entity_id', entity_id);
 
-        const res = await fetch('/api/files/upload', {
-          method: 'POST',
-          body: formData,
-        });
+        const res = await uploadFileAction(formData);
         
-        if (!res.ok) throw new Error('Upload failed');
-        const data = await res.json();
-        uploadedIds.push(data.file_id);
+        if (!res.success) throw new Error(res.error || 'Upload failed');
+        uploadedIds.push(res.fileRecord?.id as string);
       }
       
       setFiles([]);
       if (onUploadComplete) onUploadComplete(uploadedIds);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Upload failed');
+      alert(error.message || 'Upload failed');
     } finally {
       setUploading(false);
     }

@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { MathProvider } from './providers/MathProvider'
 import { PrismaStorage } from './storage/PrismaStorage'
 import crypto from 'crypto'
+import { Prisma } from '@prisma/client'
 
 export class CaptchaService {
   private static storage = new PrismaStorage()
@@ -44,13 +45,15 @@ export class CaptchaService {
     const hashedAnswer = crypto.createHash('sha256').update(expected_answer).digest('hex')
 
     // Store in DB
-    const saved = await this.storage.saveChallenge({
+    const payload: Prisma.captcha_challengeCreateInput = {
       expected_answer: hashedAnswer,
       purpose,
       expires_at,
       ip_address: ip_address || null,
       user_agent: user_agent || null
-    })
+    }
+
+    const saved = await this.storage.saveChallenge(payload)
 
     // Log Audit
     await this.logAudit('Generated', purpose, ip_address)

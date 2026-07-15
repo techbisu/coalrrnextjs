@@ -19,7 +19,7 @@ export class PrismaPlotRepository implements IPlotRepository {
   async findAllPlots(): Promise<any[]> {
     return db.mst_plot.findMany({
       include: { mouza: true, form_i_claims: true },
-      orderBy: [{ mouza: { name: 'asc' } }, { plot_number: 'asc' }],
+      orderBy: [{ mouza: { mouza_en: 'asc' } }, { plot_number: 'asc' }],
     })
   }
 }

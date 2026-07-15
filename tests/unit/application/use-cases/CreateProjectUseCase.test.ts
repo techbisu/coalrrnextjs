@@ -24,11 +24,13 @@ class MockProjectRepository implements IProjectRepository {
   findById = vi.fn()
   findAll = vi.fn()
   findByName = vi.fn()
-  findByCollieryCode = vi.fn()
+  findByMineCode = vi.fn()
   save = vi.fn()
   delete = vi.fn()
   exists = vi.fn()
   lock = vi.fn()
+  updateProjectMouzas = vi.fn()
+  syncProjectDocuments = vi.fn()
 }
 
 describe('CreateProjectUseCase', () => {
@@ -43,7 +45,7 @@ describe('CreateProjectUseCase', () => {
   it('should create a valid project', async () => {
     const request = {
       name: 'Test Colliery Project',
-      colliery_code: 'TCL001',
+      mine_cd: 'TCL001',
       total_land_limit_acres: 1000,
       total_budget_ceiling: 5000000,
       total_employment_quota: 100,
@@ -61,7 +63,7 @@ describe('CreateProjectUseCase', () => {
   it('should fail with validation errors', async () => {
     const request = {
       name: '', // Invalid
-      colliery_code: 'TCL001',
+      mine_cd: 'TCL001',
       total_land_limit_acres: -100, // Invalid
       total_budget_ceiling: 5000000,
       total_employment_quota: 100,
@@ -78,7 +80,7 @@ describe('CreateProjectUseCase', () => {
   it('should persist the project through repository', async () => {
     const request = {
       name: 'Test Project',
-      colliery_code: 'TCL001',
+      mine_cd: 'TCL001',
       total_land_limit_acres: 1000,
       total_budget_ceiling: 5000000,
       total_employment_quota: 100,
@@ -90,7 +92,7 @@ describe('CreateProjectUseCase', () => {
     expect(mockRepository.save).toHaveBeenCalledTimes(1)
     const savedProject = mockRepository.save.mock.calls[0][0]
     expect(savedProject.name).toBe('Test Project')
-    expect(savedProject.colliery_code).toBe('TCL001')
+    expect(savedProject.mine_cd).toBe('TCL001')
   })
 
   it('should handle repository errors', async () => {
@@ -98,7 +100,7 @@ describe('CreateProjectUseCase', () => {
 
     const request = {
       name: 'Test Project',
-      colliery_code: 'TCL001',
+      mine_cd: 'TCL001',
       total_land_limit_acres: 1000,
       total_budget_ceiling: 5000000,
       total_employment_quota: 100,

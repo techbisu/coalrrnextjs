@@ -11,7 +11,7 @@ type Ctx = { params: Promise<{ id: string; plotId: string }> }
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await authorizeApi('proposal.edit')
+    const auth = await authorizeApi('acquisition.edit')
     if (auth.error) return auth.error
 
     const user = await getCurrentUser()
@@ -40,7 +40,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await authorizeApi('proposal.edit')
+    const auth = await authorizeApi('acquisition.edit')
     if (auth.error) return auth.error
 
     const user = await getCurrentUser()

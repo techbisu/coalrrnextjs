@@ -1,83 +1,124 @@
-import { AuditQueueManager, AuditEventPayload } from './AuditQueue';
-
-export interface AuditContext {
-  user_id?: string;
-  user_role?: string;
-  ip_address?: string;
-  user_agent?: string;
-  request_url?: string;
-  request_method?: string;
-}
+import { AuditActivityOptions, AuditUpdateOptions } from "../types";
+import { auditRepository } from "../repositories/AuditRepository";
+import { generateDiff } from "../utils/diff";
+import { AuditEventBuilder } from "../utils/AuditEventBuilder";
 
 export class AuditService {
-  private static queue: AuditQueueManager | null = null;
-
-  static setQueue(queue: AuditQueueManager) {
-    this.queue = queue;
-  }
-
-  /**
-   * General purpose log for custom business events (e.g. Export, Download)
-   */
-  static log(
-    event_type: string,
-    module_name: string,
-    entity_name?: string,
-    entity_id?: string,
-    remarks?: string,
-    context?: AuditContext
-  ) {
-    this.queue?.push({
-      event_type,
-      module_name,
-      entity_name,
-      entity_id,
-      remarks,
-      ...context,
+  static async log(event: string, module: string, entityType: string, entityId: string, description: string, metadata?: any) {
+    await Audit.activity({
+      event,
+      module,
+      entityType,
+      entityId,
+      description,
+      metadata
     });
   }
 
-  /**
-   * Log an explicit database change (called by Prisma Interceptor)
-   */
-  static logChange(
-    event_type: 'CREATE' | 'UPDATE' | 'DELETE',
-    module_name: string,
-    entity_name: string,
-    entity_id: string,
-    oldData: Record<string, any> | null,
-    newData: Record<string, any> | null,
-    json_diff: Record<string, { old: any; new: any }> | null,
-    context?: AuditContext,
-    remarks?: string
-  ) {
-    const replacer = (k: string, v: any) => typeof v === 'bigint' ? v.toString() : v;
+  async activity(options: AuditActivityOptions) {
+    const builder = new AuditEventBuilder()
+      .withEvent(options.event)
+      .withModule(options.module)
+      .withAction("ACTIVITY")
+      .withDescription(options.description || "");
 
-    const changes: any[] = [];
-    if (json_diff && Object.keys(json_diff).length > 0) {
-      changes.push({
-        field_name: 'JSON_DIFF',
-        old_value: oldData ? JSON.stringify(oldData, replacer) : null,
-        new_value: newData ? JSON.stringify(newData, replacer) : null,
-        json_diff: JSON.stringify(json_diff, replacer),
-      });
-    } else if (event_type === 'DELETE' || event_type === 'CREATE') {
-      // For create/delete where we just store the whole snapshot
-      changes.push({
-        field_name: 'SNAPSHOT',
-        old_value: oldData ? JSON.stringify(oldData, replacer) : null,
-        new_value: newData ? JSON.stringify(newData, replacer) : null,
-      });
+    if (options.entityType && options.entityId) {
+      builder.withEntity(options.entityType, options.entityId);
     }
 
-    this.queue?.push({
-      event_type,
-      module_name,
-      entity_name,
-      entity_id,
-      remarks,
-      changes,
-      ...context,
+    if (options.metadata) {
+      builder.withMetadata(options.metadata);
+    }
+    
+    if (options.severity) {
+      builder.withStatus("SUCCESS", options.severity);
+    }
+
+    const payload = builder.build();
+    await auditRepository.saveLog(payload);
+  }
+
+  async create(options: Omit<AuditUpdateOptions, "oldData">) {
+    const diff = generateDiff({}, options.newData, options.ignoredFields);
+    
+    const changes = diff.map(d => ({
+      table_name: options.entity,
+      record_id: options.entityId,
+      field_name: d.field_name,
+      old_value: d.old_value,
+      new_value: d.new_value,
+      change_type: d.change_type as any
+    }));
+
+    const builder = new AuditEventBuilder()
+      .withEvent("CREATE")
+      .withModule(options.module)
+      .withAction(options.action || "CREATE")
+      .withEntity(options.entity, options.entityId)
+      .withDescription(options.description || `Created ${options.entity}`)
+      .withChanges(changes);
+
+    await auditRepository.saveLog(builder.build());
+  }
+
+  async update(options: AuditUpdateOptions) {
+    const diff = generateDiff(options.oldData, options.newData, options.ignoredFields);
+    
+    if (diff.length === 0) {
+      return; // No changes to audit
+    }
+
+    const changes = diff.map(d => ({
+      table_name: options.entity,
+      record_id: options.entityId,
+      field_name: d.field_name,
+      old_value: d.old_value,
+      new_value: d.new_value,
+      change_type: d.change_type as any
+    }));
+
+    const builder = new AuditEventBuilder()
+      .withEvent("UPDATE")
+      .withModule(options.module)
+      .withAction(options.action || "UPDATE")
+      .withEntity(options.entity, options.entityId)
+      .withDescription(options.description || `Updated ${options.entity}`)
+      .withChanges(changes);
+
+    await auditRepository.saveLog(builder.build());
+  }
+
+  async delete(options: Omit<AuditUpdateOptions, "newData">) {
+    const diff = generateDiff(options.oldData, {}, options.ignoredFields);
+    
+    const changes = diff.map(d => ({
+      table_name: options.entity,
+      record_id: options.entityId,
+      field_name: d.field_name,
+      old_value: d.old_value,
+      new_value: d.new_value,
+      change_type: d.change_type as any
+    }));
+
+    const builder = new AuditEventBuilder()
+      .withEvent("DELETE")
+      .withModule(options.module)
+      .withAction(options.action || "DELETE")
+      .withEntity(options.entity, options.entityId)
+      .withDescription(options.description || `Deleted ${options.entity}`)
+      .withChanges(changes);
+
+    await auditRepository.saveLog(builder.build());
+  }
+
+  async login(userId: string, status: "SUCCESS" | "FAILED", ipAddress?: string, userAgent?: string) {
+    await auditRepository.saveLoginAttempt({
+      user_id: userId,
+      status,
+      ip_address: ipAddress,
+      user_agent: userAgent,
     });
   }
 }
+
+export const Audit = new AuditService();

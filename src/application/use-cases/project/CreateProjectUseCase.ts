@@ -9,7 +9,11 @@ import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
 
 export interface CreateProjectRequest {
   name: string
-  colliery_code: string
+  mine_cd: string
+  area_cd?: string
+  state_lgd?: bigint
+  pr_doc_id?: string | null
+  mouza_lgds?: bigint[]
   total_land_limit_acres: number | string
   total_budget_ceiling: number | string
   total_employment_quota: number
@@ -20,7 +24,7 @@ export interface CreateProjectRequest {
 export interface CreateProjectResponse {
   id: string
   name: string
-  colliery_code: string
+  mine_cd: string
   message: string
 }
 
@@ -33,7 +37,10 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
     // 1. Validate and create domain entity
     const projectResult = Project.create({
       name: request.name,
-      colliery_code: request.colliery_code,
+      mine_cd: request.mine_cd,
+      area_cd: request.area_cd,
+      state_lgd: request.state_lgd,
+      pr_doc_id: request.pr_doc_id,
       total_land_limit_acres: request.total_land_limit_acres,
       total_budget_ceiling: request.total_budget_ceiling,
       total_employment_quota: request.total_employment_quota,
@@ -46,8 +53,13 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
 
     const project = projectResult.value
 
-    // 2. Persist
+    // 2. Persist (Repository should also handle mouza_lgds if needed in the future, 
+    // but right now it's not strictly part of the Project aggregate root yet, we can do it via a service or repository update method)
     await this.projectRepository.save(project)
+    if (request.mouza_lgds && request.mouza_lgds.length > 0) {
+      await this.projectRepository.updateProjectMouzas(project.id.toString(), request.mouza_lgds)
+    }
+
 
     // 3. Publish events
     const domainEvents = project.clearDomainEvents()
@@ -70,7 +82,7 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
       user_id: request.user_id,
       remarks: JSON.stringify({
         name: project.name,
-        colliery_code: project.colliery_code,
+        mine_cd: project.mine_cd,
       }),
     })
 
@@ -81,7 +93,7 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
       value: {
         id: project.id.toString(),
         name: project.name,
-        colliery_code: project.colliery_code,
+        mine_cd: project.mine_cd,
         message: `Project "${project.name}" created successfully.`,
       },
       error: null,

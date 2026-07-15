@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { Button } from '@/components/ui/button'
@@ -73,46 +73,24 @@ export function DocumentUploader({
         <Badge variant="outline" className="font-mono text-[10px]">{checklist_item_key}</Badge>
       </div>
 
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => !disabled && inputRef.current?.click()}
-        onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !disabled) inputRef.current?.click() }}
-        onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragOver(true) }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault()
-          setDragOver(false)
-          if (!disabled) handleFiles(e.dataTransfer.files)
-        }}
-        className={cn(
-          'flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed px-4 py-6 text-center transition',
-          dragOver ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/30' : 'border-border bg-muted/20 hover:border-amber-300 hover:bg-amber-50/40',
-          disabled && 'cursor-not-allowed opacity-60',
-          !disabled && 'cursor-pointer',
-        )}
-      >
+      <div className="flex flex-col gap-2">
         <input
           ref={inputRef}
           type="file"
           accept={accept}
-          className="hidden"
-          onChange={(e) => handleFiles(e.target.files)}
+          disabled={disabled || uploading}
+          onChange={(e) => {
+            handleFiles(e.target.files)
+            e.target.value = ''
+          }}
+          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground file:mr-4 file:rounded-md file:border-0 file:bg-amber-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-amber-900 hover:file:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:file:bg-amber-900/30 dark:file:text-amber-200 dark:hover:file:bg-amber-900/50"
         />
-        {uploading ? (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
-            <p className="text-xs text-muted-foreground">Uploading & virus-scanning…</p>
-            <Progress value={uploadProgress} className="mt-1 h-1 w-40" indicatorClassName="bg-amber-500" />
-          </>
-        ) : (
-          <>
-            <UploadCloud className={cn('h-6 w-6', dragOver ? 'text-amber-600' : 'text-muted-foreground/70')} />
-            <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Click to upload</span> or drag &amp; drop
-            </p>
-            <p className="text-[10px] text-muted-foreground/70">PDF / JPG / PNG / DOCX · max {Math.round(maxSizeKb / 1024)} MB</p>
-          </>
+        {uploading && (
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+            <p className="text-xs text-muted-foreground">Uploading...</p>
+            <Progress value={uploadProgress} className="h-1 flex-1" indicatorClassName="bg-amber-500" />
+          </div>
         )}
       </div>
 

@@ -4,8 +4,7 @@ import * as React from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Map, FileText, Calculator, Lock, Users,
-  Inbox, ClipboardList, Home, UserPlus, Briefcase, UserCheck, Menu, X, Mountain, ChevronRight, Building2, LogOut
-} from 'lucide-react'
+  Inbox, ClipboardList, Home, UserPlus, Briefcase, UserCheck, Menu, X, Mountain, ChevronRight, Building2, LogOut, Settings,  Database, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/core/authorization/providers/AuthProvider'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 import { Button } from '@/shared/components/ui/button'
@@ -19,7 +18,7 @@ import { AuthView } from '@/components/coalrr/views/AuthView'
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard, Map, FileText, Calculator, Lock, Users, Inbox, ClipboardList,
-  Home, UserPlus, Briefcase, UserCheck,
+  Home, UserPlus, Briefcase, UserCheck, Settings, ShieldCheck, Database,
 }
 
 const NAV_ITEMS = [
@@ -34,6 +33,12 @@ const NAV_ITEMS = [
   { key: 'payment-ledger', icon: 'Lock', portals: ['ecl'], module: 'Module 4' },
   { key: 'employment', icon: 'Briefcase', portals: ['ecl', 'public'], module: 'Module 5' },
   { key: 'workflow-inbox', icon: 'Inbox', portals: ['ecl'], module: 'Core' },
+  { key: 'admin-settings', icon: 'Settings', portals: ['ecl'], module: 'Admin' },
+  { key: 'admin-audit', icon: 'ClipboardList', portals: ['ecl'], module: 'Admin' },
+  { key: 'admin-users', icon: 'Users', portals: ['ecl'], module: 'Admin' },
+  { key: 'admin-roles', icon: 'ShieldCheck', portals: ['ecl'], module: 'Admin' },
+  { key: 'admin-permissions', icon: 'Lock', portals: ['ecl'], module: 'Admin' },
+  { key: 'admin-master', icon: 'Database', portals: ['ecl'], module: 'Admin' },
 ]
 
 export const ROUTE_MAP: Record<string, string> = {
@@ -42,7 +47,13 @@ export const ROUTE_MAP: Record<string, string> = {
   'payroll-builder': '/payrolls',
   'form-i-wizard': '/claims',
   'project-master': '/projects',
-  'workflow-inbox': '/workflows'
+  'workflow-inbox': '/workflows',
+  'admin-settings': '/admin/settings',
+  'admin-audit': '/admin/audit-logs',
+  'admin-users': '/admin/users',
+  'admin-roles': '/admin/roles',
+  'admin-permissions': '/admin/permissions',
+  'admin-master': '/admin/master-data',
 }
 
 export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
@@ -158,7 +169,7 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
             </div>
             {user.portal === 'ecl' && (
               <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
-                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300"><Building2 className="h-3 w-3" /> {user.colliery_code ?? 'ECL'}</p>
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300"><Building2 className="h-3 w-3" /> {user.mine_cd ?? 'ECL'}</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">Logged in as <span className="font-medium text-foreground">{user.roleLabel ?? user.role}</span></p>
               </div>
             )}

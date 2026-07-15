@@ -9,15 +9,17 @@ export interface IProjectRepository {
   findById(id: string): Promise<Project | null>
   findAll(options?: IQueryOptions): Promise<IPaginatedResult<Project>>
   findByName(name: string): Promise<Project | null>
-  findByCollieryCode(colliery_code: string, options?: IQueryOptions): Promise<IPaginatedResult<Project>>
+  findByMineCode(mine_cd: string, options?: IQueryOptions): Promise<IPaginatedResult<Project>>
   save(project: Project): Promise<void>
+  updateProjectMouzas(projectId: string, mouzaLgds: bigint[]): Promise<void>
+  syncProjectDocuments(projectId: string, fileIds: string[], userId: string): Promise<void>
   delete(id: string): Promise<void>
   exists(id: string): Promise<boolean>
   lock(id: string, user_id: string): Promise<boolean>
 }
 
 export interface IProjectQueryOptions extends IQueryOptions {
-  colliery_code?: string
+  mine_cd?: string
   isLocked?: boolean
   search?: string
 }

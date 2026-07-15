@@ -16,13 +16,14 @@ export interface AuthUser {
   mobile: string | null
   name: string
   designation: string | null
-  colliery_code: string | null
+  mine_cd: string | null
   plot_id: string | null
 }
 
 import { authService } from '@/infrastructure/di/Container'
+import { cache } from 'react'
 
-export async function getCurrentUser(): Promise<AuthUser | null> {
+export const getCurrentUser = cache(async function (): Promise<AuthUser | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get(SESSION_COOKIE)?.value
   if (!token) return null
@@ -41,9 +42,9 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     id: u.id, portal: u.portal as 'ecl' | 'public', role: u.role,
     roles, permissions,
     email: u.email, mobile: u.mobile, name: u.name,
-    designation: u.designation, colliery_code: u.colliery_code, plot_id: u.plot_id,
+    designation: u.designation, mine_cd: u.mine_cd, plot_id: u.plot_id,
   }
-}
+})
 
 export async function createSession(user_id: string): Promise<AuthUser> {
   const token = randomUUID()
@@ -64,7 +65,7 @@ export async function createSession(user_id: string): Promise<AuthUser> {
     id: u.id, portal: u.portal as 'ecl' | 'public', role: u.role,
     roles, permissions,
     email: u.email, mobile: u.mobile, name: u.name,
-    designation: u.designation, colliery_code: u.colliery_code, plot_id: u.plot_id,
+    designation: u.designation, mine_cd: u.mine_cd, plot_id: u.plot_id,
   }
 }
 

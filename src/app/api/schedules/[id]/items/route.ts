@@ -11,7 +11,7 @@ type Ctx = { params: Promise<{ id: string }> }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await authorizeApi('proposal.edit')
+    const auth = await authorizeApi('acquisition.edit')
     if (auth.error) return auth.error
 
     const user = await getCurrentUser()

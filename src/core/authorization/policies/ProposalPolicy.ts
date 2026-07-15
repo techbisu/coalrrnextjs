@@ -7,7 +7,7 @@ export const ProposalPolicy: IPolicy = {
   
   edit: async (user, proposal) => {
     // Context-based authorization rule: only unit_office or area_office can edit
-    // In a real system, you might check if user.colliery_code === proposal.colliery_code
+    // In a real system, you might check if user.mine_cd === proposal.mine_cd
     return true
   },
   

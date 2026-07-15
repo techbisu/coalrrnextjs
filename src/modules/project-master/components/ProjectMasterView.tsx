@@ -1,9 +1,14 @@
 'use client'
 
 import * as React from 'react'
+import { useForm } from 'react-hook-form'
+import { MasterCascade } from '@/core/master-lookup/components/MasterCascade'
+import { MasterFormLookup } from '@/core/master-lookup/components/MasterFormLookup'
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { SectionCard, StatTile, GISMapViewer, DataTable } from '@/components/coalrr'
+import { SectionCard, StatTile, GISMapViewer, DataTable, DocumentUploader } from '@/components/coalrr'
 import type { Column, PlotFeature } from '@/components/coalrr'
+import type { UploadedDoc } from '@/components/coalrr'
 import { formatINR, formatNumber,  } from '@/lib/utils/formatters'
 import { useAuth } from '@/authorization/providers/AuthProvider'
 import { useUiState } from '@/providers/UiStateProvider'
@@ -20,17 +25,35 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { toast } from 'sonner'
 import {
   Building2, MapPin, Lock, ShieldCheck, IndianRupee, Users, FileText, TreePine,
-  Plus, Pencil, AlertTriangle, CheckCircle2, Loader2,
+  Plus, Pencil, AlertTriangle, CheckCircle2, Loader2, FileWarning, Download,
 } from 'lucide-react'
 import { Can } from '@/authorization/components/Can'
 
 interface ProjectData {
-  id: string; name: string; colliery_code: string
+  id: string; name: string; mine_cd: string
+  area_cd?: string; state_lgd?: bigint; mouza_lgds?: string[]; pr_docs?: UploadedDoc[]
   total_land_limit_acres: string; total_budget_ceiling: string; total_employment_quota: number
   boundary: string; statutory_clearances: string | null
   locked_at: string | null; isLocked: boolean
   payrollCount: number; totalDisbursed: string; budgetUtilization: string
   plots: Array<{ id: string; plot_number: string; mouza: string; land_type: string; area_acres: string; exhausted_area_for_jobs: string; remaining_job_quota: number }>
+}
+
+interface FormXXIIApproval {
+  proposal_id: string
+  schedule_code: string
+  proposal_title: string | null
+  state: string
+  instance_id: string | null
+  instance_status: string | null
+  file: {
+    file_id: string
+    original_name: string
+    attached_at: string
+    attached_by: string | null
+    mime_type: string | null
+    size_bytes: string | null
+  } | null
 }
 
 async function fetchProjects(): Promise<ProjectData[]> {
@@ -43,15 +66,21 @@ async function fetchProjects(): Promise<ProjectData[]> {
 // ─── Project form payload (shared by create + edit) ────────────────────────
 interface ProjectFormValues {
   name: string
-  colliery_code: string
-  total_land_limit_acres: string
-  total_budget_ceiling: string
+  mine_cd: string
+  area_cd?: string
+  state_lgd?: string
+  pr_doc_id?: string | null
+  pr_docs?: UploadedDoc[]
+  total_land_limit_acres: string | number
+  total_budget_ceiling: string | number
   total_employment_quota: number
+  mouza_lgds?: string[]
 }
 
 const EMPTY_FORM: ProjectFormValues = {
   name: '',
-  colliery_code: '',
+  mine_cd: '',
+  area_cd: '',
   total_land_limit_acres: '',
   total_budget_ceiling: '',
   total_employment_quota: 0,
@@ -59,7 +88,7 @@ const EMPTY_FORM: ProjectFormValues = {
 
 // ─── Create / Edit dialog ──────────────────────────────────────────────────
 function ProjectFormDialog({
-  open, onOpenChange, mode, initial, project_id, onSaved,
+  open, onOpenChange, mode, initial, project_id, onSaved, user
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
@@ -67,25 +96,78 @@ function ProjectFormDialog({
   initial: ProjectFormValues
   project_id?: string
   onSaved?: (id: string) => void
+  user?: any
 }) {
   const qc = useQueryClient()
-  const [form, setForm] = React.useState<ProjectFormValues>(initial)
-
-  // Re-sync when dialog reopens / target changes
-  React.useEffect(() => {
-    if (open) setForm(initial)
-  }, [open, initial])
-
   const isEdit = mode === 'edit'
+
+  const [uploadedDocs, setUploadedDocs] = React.useState<UploadedDoc[]>(initial.pr_docs || [])
+  
+  const handleDocUpload = React.useCallback(async (file: File) => {
+    try {
+       const formData = new FormData();
+       formData.append('file', file);
+       const res = await fetch('/api/files/upload', {
+         method: 'POST',
+         body: formData,
+       });
+       if (!res.ok) throw new Error('Upload failed');
+       const data = await res.json();
+       const newDoc: UploadedDoc = {
+         id: data.file_id,
+         file_name: file.name,
+         file_size_kb: Math.round(file.size / 1024),
+         mime_type: file.type,
+         virus_scan_status: 'clean'
+       };
+       setUploadedDocs(prev => [...prev, newDoc]);
+       toast.success(`Uploaded: ${file.name}`);
+    } catch (err) {
+       toast.error('Failed to upload file');
+    }
+  }, [])
+  
+  const handleDocRemove = React.useCallback((doc: UploadedDoc) => {
+    setUploadedDocs(prev => prev.filter(d => d.id !== doc.id));
+  }, [])
+
+  
+  const form = useForm<ProjectFormValues>({
+    defaultValues: {
+      ...initial,
+      state_lgd: user?.state_lgd || initial.state_lgd,
+      area_cd: user?.area_cd || initial.area_cd,
+    }
+  })
+
+  React.useEffect(() => {
+    if (open) {
+      form.reset({
+        ...initial,
+        state_lgd: user?.state_lgd || initial.state_lgd,
+        area_cd: user?.area_cd || initial.area_cd,
+      })
+    }
+  }, [open, initial, form, user])
 
   const mutation = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
+      // Cast bigints to string for JSON serialization if necessary
+      const payload = {
+        ...values,
+        state_lgd: values.state_lgd ? String(values.state_lgd) : undefined,
+        mouza_lgds: values.mouza_lgds 
+          ? (Array.isArray(values.mouza_lgds) ? values.mouza_lgds.map(String) : [String(values.mouza_lgds)])
+          : [],
+        pr_doc_id: uploadedDocs.length > 0 ? uploadedDocs[0].id : null,
+      }
+
       if (isEdit) {
         if (!project_id) throw new Error('Missing project id for edit')
         const r = await fetch(`/api/projects/${project_id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(values),
+          body: JSON.stringify(payload),
         })
         const json = await r.json()
         if (!r.ok) throw new Error(json?.error ?? 'Failed to update project')
@@ -94,7 +176,7 @@ function ProjectFormDialog({
         const r = await fetch('/api/projects', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(values),
+          body: JSON.stringify(payload),
         })
         const json = await r.json()
         if (!r.ok) throw new Error(json?.error ?? 'Failed to create project')
@@ -110,17 +192,13 @@ function ProjectFormDialog({
     onError: (e: Error) => toast.error(e.message),
   })
 
-  const submit = () => {
-    if (!form.name.trim()) return toast.error('Name is required')
-    if (!form.colliery_code.trim()) return toast.error('Colliery code is required')
-    if (Number(form.total_land_limit_acres) <= 0) return toast.error('Land limit must be > 0')
-    if (Number(form.total_budget_ceiling) <= 0) return toast.error('Budget ceiling must be > 0')
-    mutation.mutate(form)
-  }
+  const onSubmit = form.handleSubmit((data) => {
+    mutation.mutate(data)
+  })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Project Baseline' : 'New Project'}</DialogTitle>
           <DialogDescription>
@@ -130,65 +208,130 @@ function ProjectFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 py-2">
-          <div className="grid gap-1.5">
-            <Label htmlFor="proj-name">Project name</Label>
-            <Input
-              id="proj-name" value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g. Bhubaneswari OCP Phase-III"
-            />
+        <form onSubmit={onSubmit} className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label>Project name</Label>
+            <Input {...form.register('name')} placeholder="e.g. Bhubaneswari OCP Phase-III" required />
           </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="proj-colliery">Colliery code</Label>
-            <Input
-              id="proj-colliery" value={form.colliery_code}
-              onChange={(e) => setForm({ ...form, colliery_code: e.target.value })}
-              placeholder="e.g. BHP/03" className="font-mono"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="proj-land">Land limit (acres)</Label>
-              <Input
-                id="proj-land" inputMode="decimal" value={form.total_land_limit_acres}
-                onChange={(e) => setForm({ ...form, total_land_limit_acres: e.target.value })}
-                placeholder="450.0000"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="proj-quota">Employment quota</Label>
-              <Input
-                id="proj-quota" inputMode="numeric" type="number"
-                value={form.total_employment_quota}
-                onChange={(e) => setForm({ ...form, total_employment_quota: Number(e.target.value) || 0 })}
-                placeholder="0"
-              />
-            </div>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="proj-budget">Total budget ceiling (₹)</Label>
-            <Input
-              id="proj-budget" inputMode="decimal" value={form.total_budget_ceiling}
-              onChange={(e) => setForm({ ...form, total_budget_ceiling: e.target.value })}
-              placeholder="18750000000"
-            />
-          </div>
-        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={mutation.isPending}>
-            {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isEdit ? 'Save Changes' : 'Create Project'}
-          </Button>
-        </DialogFooter>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label>State</Label>
+              <MasterFormLookup
+                control={form.control as any}
+                name="state_lgd"
+                master="state_master"
+                placeholder="Select State..."
+                disabled={!!user?.state_lgd}
+                searchable
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label>Area</Label>
+              <MasterCascade
+                control={form.control as any}
+                chain={[
+                  {
+                    master: 'area_master',
+                    name: 'area_cd',
+                    dependsOnField: 'state_lgd',
+                    dependsOnParam: 'state_lgd',
+                    placeholder: 'Select Area...',
+                    searchable: true
+                  }
+                ]}
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label>Mine / Colliery</Label>
+              <MasterCascade
+                control={form.control as any}
+                chain={[
+                  {
+                    master: 'mine_master',
+                    name: 'mine_cd',
+                    dependsOnField: 'area_cd',
+                    dependsOnParam: 'area_cd',
+                    placeholder: 'Select Mine...',
+                    searchable: true
+                  }
+                ]}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Mapped Mouzas</Label>
+              <MasterFormLookup
+                control={form.control as any}
+                name="mouza_lgds"
+                master="mouza_master"
+                placeholder="Select Mouzas..."
+                searchable
+                isMulti
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label>Land limit (acres)</Label>
+              <Input
+                {...form.register('total_land_limit_acres')}
+                inputMode="decimal"
+                placeholder="450.0000"
+                required
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Employment quota</Label>
+              <Input
+                {...form.register('total_employment_quota', { valueAsNumber: true })}
+                type="number"
+                inputMode="numeric"
+                placeholder="0"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Total budget ceiling (₹)</Label>
+            <Input
+              {...form.register('total_budget_ceiling')}
+              inputMode="decimal"
+              placeholder="18750000000"
+              required
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Approved PR Document</Label>
+            <DocumentUploader
+              checklist_item_key="PR-DOCS"
+              label="Upload document"
+              documents={uploadedDocs}
+              onUpload={handleDocUpload}
+              onRemove={handleDocRemove}
+            />
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={mutation.isPending}>
+              {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isEdit ? 'Save Changes' : 'Create Project'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
 }
+
 
 // ─── Lock baseline confirmation dialog ─────────────────────────────────────
 function LockBaselineDialog({
@@ -284,6 +427,82 @@ function LockBaselineDialog({
 }
 
 // ─── Main view ─────────────────────────────────────────────────────────────
+// ─── Form-XXII Approvals Section ──────────────────────────────────────────
+function FormXXIISection({ projectId }: { projectId: string }) {
+  const { data, isLoading } = useQuery<{ approvals: FormXXIIApproval[] }>({
+    queryKey: ['project-form-xxii', projectId],
+    queryFn: async () => {
+      const r = await fetch(`/api/projects/${projectId}/form-xxii`)
+      if (!r.ok) throw new Error('Failed to load Form-XXII approvals')
+      const json = await r.json()
+      return json.data ?? json
+    },
+    enabled: !!projectId,
+  })
+
+  const approvals = data?.approvals ?? []
+  if (!isLoading && approvals.length === 0) return null
+
+  return (
+    <SectionCard
+      title="Board Deviation Approvals (Form-XXII)"
+      icon={FileWarning}
+      description="Proposals that exceeded project limits and received formal Board approval"
+    >
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading approvals…
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {approvals.map((a) => (
+            <li
+              key={a.proposal_id}
+              className="flex flex-col gap-2 rounded-lg border border-green-200 bg-green-50/40 p-3 sm:flex-row sm:items-start sm:justify-between"
+            >
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
+                  <span className="font-mono text-xs font-semibold text-green-800">{a.schedule_code}</span>
+                  <Badge variant="outline" className="text-[10px] border-green-300 text-green-700 bg-white">
+                    {a.state}
+                  </Badge>
+                </div>
+                {a.proposal_title && (
+                  <p className="text-sm text-foreground truncate">{a.proposal_title}</p>
+                )}
+                {a.file && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Uploaded {new Date(a.file.attached_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                    {a.file.size_bytes && (
+                      <> · {(Number(a.file.size_bytes) / 1024).toFixed(1)} KB</>
+                    )}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {a.file && (
+                  <Button variant="outline" size="sm" asChild className="h-8 text-green-700 border-green-300 hover:bg-green-50 bg-white">
+                    <a href={`/api/files/${a.file.file_id}/download`} target="_blank" rel="noreferrer">
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      {a.file.original_name}
+                    </a>
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" asChild className="h-8 text-muted-foreground hover:text-foreground">
+                  <a href={`/proposals?schedule_id=${a.proposal_id}`}>
+                    View Proposal →
+                  </a>
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </SectionCard>
+  )
+}
+
 export function ProjectMasterView() {
   const { selectedProjectId, selectProject } = useUiState()
   const { data, isLoading } = useQuery({ queryKey: ['projects'], queryFn: fetchProjects })
@@ -354,7 +573,7 @@ export function ProjectMasterView() {
             </Button>
           </Can>
         </div>
-        <ProjectFormDialog
+        <ProjectFormDialog 
           open={createOpen}
           onOpenChange={setCreateOpen}
           mode="create"
@@ -378,7 +597,7 @@ export function ProjectMasterView() {
             )}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Colliery code <span className="font-mono">{project.colliery_code}</span> · locked on{' '}
+            Colliery code <span className="font-mono">{project.mine_cd}</span> · locked on{' '}
             {project.locked_at ? new Date(project.locked_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
           </p>
         </div>
@@ -419,7 +638,7 @@ export function ProjectMasterView() {
               <button
                 key={p.id}
                 type="button"
-                onClick={() => { selectProject(p.id); window.history.pushState(null, '', routes.project.details(p.colliery_code)); }}
+                onClick={() => { selectProject(p.id); window.history.pushState(null, '', routes.project.details(p.mine_cd)); }}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                   active
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
@@ -534,22 +753,29 @@ export function ProjectMasterView() {
         </div>
       </SectionCard>
 
+      {/* Form-XXII Board Approvals */}
+      <FormXXIISection projectId={project.id} />
+
       {/* Dialogs */}
-      <ProjectFormDialog
+      <ProjectFormDialog 
         open={createOpen}
         onOpenChange={setCreateOpen}
         mode="create"
         initial={EMPTY_FORM}
         onSaved={(id) => selectProject(id)}
       />
-      <ProjectFormDialog
+      <ProjectFormDialog 
         open={editOpen}
         onOpenChange={setEditOpen}
         mode="edit"
         project_id={project.id}
         initial={{
           name: project.name,
-          colliery_code: project.colliery_code,
+          mine_cd: project.mine_cd,
+          state_lgd: project.state_lgd ? String(project.state_lgd) : undefined,
+          area_cd: project.area_cd || undefined,
+          mouza_lgds: project.mouza_lgds?.map(String) || [],
+          pr_docs: project.pr_docs as any || [],
           total_land_limit_acres: project.total_land_limit_acres,
           total_budget_ceiling: project.total_budget_ceiling,
           total_employment_quota: project.total_employment_quota,

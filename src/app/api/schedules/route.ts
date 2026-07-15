@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     const user = await getCurrentUser()
     if (!user) return badRequest('user not found')
 
-    const body = await readJson<{ project_id?: string; acquisition_mode?: string; proposal_title?: string; description?: string; area_office?: string; colliery_code?: string; adjacent_colliery?: string; notification_date?: string }>(req)
+    const body = await readJson<{ project_id?: string; acquisition_mode?: string; proposal_title?: string; description?: string; area_office?: string; mine_cd?: string; adjacent_colliery?: string; notification_date?: string }>(req)
     if (!body?.project_id || !body.acquisition_mode || !body.proposal_title) return badRequest('project_id, acquisition_mode, proposal_title required')
     
     const proposalRepo = new PrismaProposalRepository()

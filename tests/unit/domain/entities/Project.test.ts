@@ -11,7 +11,7 @@ describe('Project Entity', () => {
     it('should create a valid project', () => {
       const result = Project.create({
         name: 'Test Colliery Project',
-        colliery_code: 'TCL001',
+        mine_cd: 'TCL001',
         total_land_limit_acres: 1000,
         total_budget_ceiling: 5000000,
         total_employment_quota: 100,
@@ -19,14 +19,14 @@ describe('Project Entity', () => {
 
       expect(result.isSuccess).toBe(true)
       expect(result.value?.name).toBe('Test Colliery Project')
-      expect(result.value?.colliery_code).toBe('TCL001')
+      expect(result.value?.mine_cd).toBe('TCL001')
       expect(result.value?.isLocked()).toBe(false)
     })
 
     it('should fail with empty name', () => {
       const result = Project.create({
         name: '',
-        colliery_code: 'TCL001',
+        mine_cd: 'TCL001',
         total_land_limit_acres: 1000,
         total_budget_ceiling: 5000000,
         total_employment_quota: 100,
@@ -40,7 +40,7 @@ describe('Project Entity', () => {
     it('should fail with negative land limit', () => {
       const result = Project.create({
         name: 'Test Project',
-        colliery_code: 'TCL001',
+        mine_cd: 'TCL001',
         total_land_limit_acres: -100,
         total_budget_ceiling: 5000000,
         total_employment_quota: 100,
@@ -52,7 +52,7 @@ describe('Project Entity', () => {
     it('should fail with negative budget', () => {
       const result = Project.create({
         name: 'Test Project',
-        colliery_code: 'TCL001',
+        mine_cd: 'TCL001',
         total_land_limit_acres: 1000,
         total_budget_ceiling: -5000000,
         total_employment_quota: 100,
@@ -64,7 +64,7 @@ describe('Project Entity', () => {
     it('should fail with multiple validation errors', () => {
       const result = Project.create({
         name: '',
-        colliery_code: '',
+        mine_cd: '',
         total_land_limit_acres: -100,
         total_budget_ceiling: -5000000,
         total_employment_quota: -10,
@@ -80,7 +80,7 @@ describe('Project Entity', () => {
     it('should lock an unlocked project', () => {
       const projectResult = Project.create({
         name: 'Test Project',
-        colliery_code: 'TCL001',
+        mine_cd: 'TCL001',
         total_land_limit_acres: 1000,
         total_budget_ceiling: 5000000,
         total_employment_quota: 100,
@@ -98,7 +98,7 @@ describe('Project Entity', () => {
     it('should fail to lock an already locked project', () => {
       const projectResult = Project.create({
         name: 'Test Project',
-        colliery_code: 'TCL001',
+        mine_cd: 'TCL001',
         total_land_limit_acres: 1000,
         total_budget_ceiling: 5000000,
         total_employment_quota: 100,
@@ -116,7 +116,7 @@ describe('Project Entity', () => {
     it('should emit domain event when locked', () => {
       const projectResult = Project.create({
         name: 'Test Project',
-        colliery_code: 'TCL001',
+        mine_cd: 'TCL001',
         total_land_limit_acres: 1000,
         total_budget_ceiling: 5000000,
         total_employment_quota: 100,
@@ -136,7 +136,7 @@ describe('Project Entity', () => {
     it('should update unlocked project', () => {
       const projectResult = Project.create({
         name: 'Test Project',
-        colliery_code: 'TCL001',
+        mine_cd: 'TCL001',
         total_land_limit_acres: 1000,
         total_budget_ceiling: 5000000,
         total_employment_quota: 100,
@@ -159,7 +159,7 @@ describe('Project Entity', () => {
     it('should fail to update locked project', () => {
       const projectResult = Project.create({
         name: 'Test Project',
-        colliery_code: 'TCL001',
+        mine_cd: 'TCL001',
         total_land_limit_acres: 1000,
         total_budget_ceiling: 5000000,
         total_employment_quota: 100,
@@ -182,7 +182,7 @@ describe('Project Entity', () => {
     it('should correctly identify if project can be edited', () => {
       const projectResult = Project.create({
         name: 'Test Project',
-        colliery_code: 'TCL001',
+        mine_cd: 'TCL001',
         total_land_limit_acres: 1000,
         total_budget_ceiling: 5000000,
         total_employment_quota: 100,

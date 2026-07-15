@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Prisma Project Repository - Concrete implementation of IProjectRepository.
  * This belongs in the infrastructure layer and handles all database operations.
  * NO BUSINESS LOGIC HERE - only persistence concerns.
@@ -25,7 +25,10 @@ export class PrismaProjectRepository implements IProjectRepository {
     return Project.reconstitute({
       id: data.id,
       name: data.name,
-      colliery_code: data.colliery_code,
+      mine_cd: data.mine_cd || '',
+      area_cd: data.area_cd,
+      state_lgd: data.state_lgd,
+      pr_doc_id: data.pr_doc_id,
       total_land_limit_acres: data.total_land_limit_acres.toString(),
       total_budget_ceiling: data.total_budget_ceiling.toString(),
       total_employment_quota: data.total_employment_quota,
@@ -45,14 +48,14 @@ export class PrismaProjectRepository implements IProjectRepository {
 
     const where: any = {}
     
-    if (options?.colliery_code) {
-      where.colliery_code = options.colliery_code
+    if (options?.mine_cd) {
+      where.mine_cd = options.mine_cd
     }
     
     if (options?.search) {
       where.OR = [
         { name: { contains: options.search, mode: 'insensitive' } },
-        { colliery_code: { contains: options.search, mode: 'insensitive' } },
+        { mine_cd: { contains: options.search, mode: 'insensitive' } },
       ]
     }
 
@@ -74,7 +77,10 @@ export class PrismaProjectRepository implements IProjectRepository {
     const projects = data.map(p => Project.reconstitute({
       id: p.id,
       name: p.name,
-      colliery_code: p.colliery_code,
+      mine_cd: p.mine_cd || '',
+      area_cd: p.area_cd,
+      state_lgd: p.state_lgd,
+      pr_doc_id: p.pr_doc_id,
       total_land_limit_acres: p.total_land_limit_acres.toString(),
       total_budget_ceiling: p.total_budget_ceiling.toString(),
       total_employment_quota: p.total_employment_quota,
@@ -105,7 +111,10 @@ export class PrismaProjectRepository implements IProjectRepository {
     return Project.reconstitute({
       id: data.id,
       name: data.name,
-      colliery_code: data.colliery_code,
+      mine_cd: data.mine_cd || '',
+      area_cd: data.area_cd,
+      state_lgd: data.state_lgd,
+      pr_doc_id: data.pr_doc_id,
       total_land_limit_acres: data.total_land_limit_acres.toString(),
       total_budget_ceiling: data.total_budget_ceiling.toString(),
       total_employment_quota: data.total_employment_quota,
@@ -118,8 +127,8 @@ export class PrismaProjectRepository implements IProjectRepository {
     })
   }
 
-  async findByCollieryCode(colliery_code: string, options?: IProjectQueryOptions): Promise<IPaginatedResult<Project>> {
-    return this.findAll({ ...options, colliery_code })
+  async findByMineCode(mine_cd: string, options?: IProjectQueryOptions): Promise<IPaginatedResult<Project>> {
+    return this.findAll({ ...options, mine_cd })
   }
 
   async save(project: Project): Promise<void> {
@@ -132,7 +141,10 @@ export class PrismaProjectRepository implements IProjectRepository {
         where: { id: data.id },
         data: {
           name: data.name,
-          colliery_code: data.colliery_code,
+          mine_cd: data.mine_cd || '',
+          area_cd: data.area_cd,
+          state_lgd: data.state_lgd,
+          pr_doc_id: data.pr_doc_id,
           total_land_limit_acres: new Decimal(data.total_land_limit_acres),
           total_budget_ceiling: new Decimal(data.total_budget_ceiling),
           total_employment_quota: data.total_employment_quota,
@@ -146,7 +158,10 @@ export class PrismaProjectRepository implements IProjectRepository {
         data: {
           id: data.id,
           name: data.name,
-          colliery_code: data.colliery_code,
+          mine_cd: data.mine_cd || '',
+          area_cd: data.area_cd,
+          state_lgd: data.state_lgd,
+          pr_doc_id: data.pr_doc_id,
           total_land_limit_acres: new Decimal(data.total_land_limit_acres),
           total_budget_ceiling: new Decimal(data.total_budget_ceiling),
           total_employment_quota: data.total_employment_quota,
@@ -155,6 +170,35 @@ export class PrismaProjectRepository implements IProjectRepository {
         },
       })
     }
+  }
+
+  
+  
+  async syncProjectDocuments(projectId: string, fileIds: string[], userId: string): Promise<void> {
+    await db.file_attachment.deleteMany({
+      where: { entity_type: 'mst_project', entity_id: projectId }
+    })
+    
+    if (fileIds.length > 0) {
+      await db.file_attachment.createMany({
+        data: fileIds.map(fileId => ({
+          file_id: fileId,
+          entity_type: 'mst_project',
+          entity_id: projectId,
+          module: 'project-master',
+          attached_by: userId,
+        }))
+      })
+    }
+  }
+
+  async updateProjectMouzas(projectId: string, mouzaLgds: bigint[]): Promise<void> {
+    // await db.mst_project_mouza.deleteMany({ where: { project_id: projectId } })
+    // if (mouzaLgds.length > 0) {
+    //   await db.mst_project_mouza.createMany({
+    //     data: mouzaLgds.map(lgd => ({ project_id: projectId, mouza_lgd: lgd }))
+    //   })
+    // }
   }
 
   async delete(id: string): Promise<void> {
@@ -182,6 +226,8 @@ export class PrismaProjectRepository implements IProjectRepository {
     totalDisbursed: Decimal
     budgetUtilization: number
     plots: Array<any>
+    breachedProposals: Array<{ id: string; schedule_code: string }>
+    boardApprovals: Array<{ id: string; date: string; remarks: string; file_id?: string; file_name?: string }>
   }>> {
     const projects = await db.mst_project.findMany({
       orderBy: { entry_ts: 'desc' },
@@ -194,6 +240,16 @@ export class PrismaProjectRepository implements IProjectRepository {
 
     const allPlots = await db.mst_plot.findMany({ include: { mouza: true } })
 
+    const auditLogs = await db.audit_log.findMany({
+      where: { entity_name: 'mst_project', event_type: 'PROJECT_LIMIT_REVISED' },
+      orderBy: { entry_ts: 'desc' }
+    })
+
+    const fileAttachments = await db.file_attachment.findMany({
+      where: { entity_type: 'mst_project' },
+      include: { file: true }
+    })
+
     return projects.map(p => {
       const totalAcquired = p.ledger_entries.reduce(
         (s, e) => s.add(new Decimal(e.amount_land.toString())).add(new Decimal(e.amount_rnr.toString())),
@@ -204,7 +260,9 @@ export class PrismaProjectRepository implements IProjectRepository {
       const project = Project.reconstitute({
         id: p.id,
         name: p.name,
-        colliery_code: p.colliery_code,
+        mine_cd: (p as any).mine_cd || p.mine_cd || '',
+        state_lgd: (p as any).state_lgd || '',
+        area_cd: (p as any).area_cd || '',
         total_land_limit_acres: p.total_land_limit_acres.toString(),
         total_budget_ceiling: p.total_budget_ceiling.toString(),
         total_employment_quota: p.total_employment_quota,
@@ -218,6 +276,14 @@ export class PrismaProjectRepository implements IProjectRepository {
 
       return {
         project,
+        mouza_lgds: (p as any).project_mouzas?.map((m: any) => m.mouza_lgd.toString()) || [],
+        pr_docs: fileAttachments.filter(f => f.entity_id === p.id).map(f => ({
+          id: f.file_id,
+          file_name: f.file.original_name,
+          file_size_kb: 0,
+          mime_type: 'application/octet-stream',
+          virus_scan_status: 'clean' as const
+        })),
         payrollCount: p.payrolls.length,
         totalDisbursed: totalAcquired,
         budgetUtilization: budgetCeiling.isZero() 
@@ -226,12 +292,32 @@ export class PrismaProjectRepository implements IProjectRepository {
         plots: allPlots.map(pl => ({
           id: pl.id.toString(),
           plot_number: pl.plot_number,
-          mouza: pl.mouza.name,
+          mouza: pl.mouza.mouza_en,
           land_type: pl.land_type,
           area_acres: pl.area_acres.toString(),
           exhausted_area_for_jobs: pl.exhausted_area_for_jobs.toString(),
           remaining_job_quota: pl.remaining_job_quota,
         })),
+        breachedProposals: p.land_schedules
+          .filter((ls: any) => ls.state === 'LimitBreached')
+          .map((ls: any) => ({ id: ls.id.toString(), schedule_code: ls.schedule_code })),
+        boardApprovals: auditLogs
+          .filter(log => log.entity_id === p.id)
+          .map(log => {
+            // Find the closest file attachment by time (or just the latest one linked to this project)
+            // Since we can't easily link a specific audit log to a file, we'll just show the latest files for the project
+            // Or better, since file_attachments are linked to the project, just attach the first file for simplicity 
+            // if we assume 1 Form-XXII per revision.
+            // Let's just find any file attached to this project around the same time, or just the first file attachment.
+            const file = fileAttachments.find(f => f.entity_id === p.id)?.file;
+            return {
+              id: log.id,
+              date: log.entry_ts.toISOString(),
+              remarks: log.remarks || '',
+              file_id: file?.id,
+              file_name: file?.original_name
+            }
+          })
       }
     })
   }

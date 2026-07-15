@@ -8,7 +8,11 @@ import { z } from 'zod'
 
 export const CreateProjectSchema = z.object({
   name: z.string().min(1, 'Project name is required').max(500, 'Name must be less than 500 characters'),
-  colliery_code: z.string().min(1, 'Colliery code is required').max(50, 'Colliery code must be less than 50 characters'),
+  mine_cd: z.string().min(1, 'Colliery code is required').max(50, 'Colliery code must be less than 50 characters'),
+  area_cd: z.string().optional(),
+  state_lgd: z.coerce.bigint().optional(),
+  pr_doc_id: z.string().nullable().optional(),
+  mouza_lgds: z.array(z.coerce.bigint()).optional(),
   total_land_limit_acres: z.coerce.number().positive('Land limit must be positive'),
   total_budget_ceiling: z.coerce.number().positive('Budget ceiling must be positive'),
   total_employment_quota: z.coerce.number().int('Employment quota must be an integer').nonnegative('Employment quota cannot be negative'),
@@ -17,7 +21,11 @@ export const CreateProjectSchema = z.object({
 
 export const UpdateProjectSchema = z.object({
   name: z.string().min(1).max(500).optional(),
-  colliery_code: z.string().min(1).max(50).optional(),
+  mine_cd: z.string().min(1).max(50).optional(),
+  area_cd: z.string().optional(),
+  state_lgd: z.coerce.bigint().optional(),
+  pr_doc_id: z.string().nullable().optional(),
+  mouza_lgds: z.array(z.coerce.bigint()).optional(),
   total_land_limit_acres: z.coerce.number().positive().optional(),
   total_budget_ceiling: z.coerce.number().positive().optional(),
   total_employment_quota: z.coerce.number().int().nonnegative().optional(),

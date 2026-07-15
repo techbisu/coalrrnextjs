@@ -30,7 +30,7 @@ export class ListLedgerEntriesUseCase implements IUseCase<void, LedgerEntryDTO[]
         id: e.id,
         plot_id: e.plot_id,
         plot_number: e.plot?.plot_number,
-        mouza: e.plot?.mouza?.name,
+        mouza: e.plot?.mouza?.mouza_en,
         amount_land: e.amount_land.toString(),
         amount_rnr: e.amount_rnr.toString(),
         payee_type: e.payee_type,

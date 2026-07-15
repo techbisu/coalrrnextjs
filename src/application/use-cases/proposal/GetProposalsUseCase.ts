@@ -16,7 +16,7 @@ export class GetProposalsUseCase implements IUseCase<GetProposalsRequest, any[]>
       const result = await this.proposalRepo.findAll(request)
       
       // Fetch projects to map project names (simple batching)
-      const projectIds = [...new Set(result.data.map(p => p.project_id))]
+      const projectIds = [...new Set(result.data.map((p: Proposal) => p.projectId))]
       const projectMap = new Map<string, string>()
       
       for (const pid of projectIds) {
@@ -37,14 +37,14 @@ export class GetProposalsUseCase implements IUseCase<GetProposalsRequest, any[]>
 
         return {
           id: p.id,
-          schedule_code: p.schedule_code.value,
-          project_id: p.project_id.toString(),
-          projectName: projectMap.get(p.project_id.toString()) || `Project ${p.project_id}`,
-          acquisition_mode: p.acquisition_mode.value,
+          schedule_code: p.scheduleCode.value,
+          project_id: p.projectId.toString(),
+          projectName: projectMap.get(p.projectId.toString()) || `Project ${p.projectId}`,
+          acquisition_mode: p.acquisitionMode.value,
           state: p.state.value,
-          proposal_title: p.proposal_title,
+          proposal_title: p.proposalTitle,
           description: p.description,
-          proposed_by: p.proposed_by,
+          proposed_by: p.proposedBy,
           proposedByRole: p.proposedByRole,
           areaOffice: p.areaOffice,
           collieryCode: p.collieryCode,
@@ -52,7 +52,7 @@ export class GetProposalsUseCase implements IUseCase<GetProposalsRequest, any[]>
           total_area_acres: p.totalArea.toDecimal().toString(),
           notificationDate: p.notificationDate,
           itemSummary,
-          entryTs: p.entryTs,
+          entryTs: p.createdAt,
         }
       })
 

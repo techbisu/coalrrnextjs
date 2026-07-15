@@ -1,4 +1,4 @@
-﻿// GET /api/dashboard — aggregate KPI data for the main dashboard
+// GET /api/dashboard — aggregate KPI data for the main dashboard
 import { db } from '@/lib/db'
 import { ok, dec, iso, serverError } from '../_lib'
 import type { NextRequest } from 'next/server'
@@ -88,7 +88,7 @@ export async function GET(_req: NextRequest) {
       projects: projects.map((p) => ({
         id: p.id,
         name: p.name,
-        colliery_code: p.colliery_code,
+        mine_cd: p.mine_cd,
         total_land_limit_acres: dec(p.total_land_limit_acres),
         total_budget_ceiling: dec(p.total_budget_ceiling),
         total_employment_quota: p.total_employment_quota,
@@ -99,7 +99,7 @@ export async function GET(_req: NextRequest) {
       plots: plots.map((p) => ({
         id: p.id,
         plot_number: p.plot_number,
-        mouza: p.mouza.name,
+        mouza: p.mouza.mouza_en,
         land_type: p.land_type,
         area_acres: dec(p.area_acres),
         exhausted_area_for_jobs: dec(p.exhausted_area_for_jobs),

@@ -23,7 +23,7 @@ interface DashboardData {
     totalBudget: string; totalSpent: string; budgetUtilization: string
     totalAcreage: string; totalAwardPending: string
   }
-  projects: Array<{ id: string; name: string; colliery_code: string; total_land_limit_acres: string; total_budget_ceiling: string; total_employment_quota: number; locked_at: string | null; scheduleCount: number; payrollCount: number }>
+  projects: Array<{ id: string; name: string; mine_cd: string; total_land_limit_acres: string; total_budget_ceiling: string; total_employment_quota: number; locked_at: string | null; scheduleCount: number; payrollCount: number }>
   plots: Array<{ id: string; plot_number: string; mouza: string; land_type: string; area_acres: string; exhausted_area_for_jobs: string; remaining_job_quota: number }>
   payrolls: Array<{ id: string; payroll_code: string; projectName: string; state: string; landowner_count: number; total_award: string; lineCount: number; entry_ts: string }>
   ledger_entries: Array<{ id: string; payee_name: string; amount_land: string; amount_rnr: string; rtgs_utr_reference: string | null; row_hash: string | null; paid_at: string }>

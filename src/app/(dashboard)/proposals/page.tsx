@@ -63,7 +63,7 @@ export default async function ProposalsPage({ searchParams }: PageProps) {
       proposed_by: s.proposed_by,
       proposed_by_role: s.proposed_by_role,
       area_office: s.area_office,
-      colliery_code: s.colliery_code,
+      mine_cd: s.mine_cd,
       adjacent_colliery: s.adjacent_colliery,
       total_area_acres: s.total_area_acres.toString(),
       notification_date: s.notification_date?.toISOString(),

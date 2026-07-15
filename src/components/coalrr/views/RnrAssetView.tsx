@@ -113,7 +113,7 @@ interface RnrPayroll {
 interface ProjectOption {
   id: string
   name: string
-  colliery_code: string
+  mine_cd: string
 }
 
 interface PafRecord {
@@ -400,7 +400,7 @@ export function RnrAssetView() {
                 <SelectContent>
                   {projects?.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} ({p.colliery_code})
+                      {p.name} ({p.mine_cd})
                     </SelectItem>
                   ))}
                 </SelectContent>

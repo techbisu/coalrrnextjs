@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Download, Trash2, Eye } from 'lucide-react';
 import { FileUploader } from './FileUploader';
 import { FilePreview } from './FilePreview';
+import { deleteFileAction } from '../actions';
 
 interface AttachedFile {
   id: string;
@@ -43,9 +44,12 @@ export function FileManager({ entity_type, entity_id, module_name, initialFiles 
   const handleDelete = async (file_id: string) => {
     if (!confirm('Are you sure you want to delete this file?')) return;
     
-    // Call the delete API
-    // await fetch(`/api/files/${file_id}`, { method: 'DELETE' });
-    setFiles(files.filter(f => f.id !== file_id));
+    const res = await deleteFileAction(file_id);
+    if (res.success) {
+      setFiles(files.filter(f => f.id !== file_id));
+    } else {
+      alert('Failed to delete file');
+    }
   };
 
   return (

@@ -1,8 +1,8 @@
-﻿import { db } from '@/lib/db'
-import { captcha_challenge } from '@prisma/client'
+import { db } from '@/lib/db'
+import { PrismaClient, captcha_challenge, Prisma } from '@prisma/client'
 
 export class PrismaStorage {
-  async saveChallenge(data: Omit<captcha_challenge, 'id' | 'entry_ts' | 'attempts'>): Promise<captcha_challenge> {
+  async saveChallenge(data: Prisma.captcha_challengeCreateInput): Promise<captcha_challenge> {
     return await db.captcha_challenge.create({
       data: {
         ...data,

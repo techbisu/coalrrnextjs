@@ -39,9 +39,9 @@ export class UpdateProposalUseCase implements IUseCase<UpdateProposalRequest, Up
     const updateResult = proposal.update({
       proposalTitle: request.proposalTitle,
       description: request.description,
-      area_office: request.area_office,
-      adjacent_colliery: request.adjacent_colliery,
-      notification_date: request.notification_date
+      areaOffice: request.area_office,
+      adjacentColliery: request.adjacent_colliery,
+      notificationDate: request.notification_date,
     })
 
     if (updateResult.isFailure) {

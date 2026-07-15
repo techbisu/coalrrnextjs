@@ -7,6 +7,7 @@ import { authorizeApi } from '@/authorization/middleware/authorize'
 import { ok, badRequest, serverError, notFound } from '../../../_lib'
 import type { NextRequest } from 'next/server'
 import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories/PrismaProposalRepository'
+import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
 import { SubmitProposalUseCase } from '@/application/use-cases/proposal'
 import { apiRateLimiter, getClientIdentifier } from '@/infrastructure/security'
 import { DomainException, NotFoundException } from '@/core/errors'
@@ -14,6 +15,7 @@ import { DomainException, NotFoundException } from '@/core/errors'
 type Ctx = { params: Promise<{ id: string }> }
 
 const proposalRepository = new PrismaProposalRepository()
+const projectRepository = new PrismaProjectRepository()
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
@@ -27,7 +29,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       )
     }
 
-    const auth = await authorizeApi('proposal.verify')
+    const auth = await authorizeApi('acquisition.edit')
     if (auth.error) return auth.error
 
     const { id } = await ctx.params
@@ -36,7 +38,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     // Handle different actions with respective use cases
     if (body.action === 'submit') {
-      const useCase = new SubmitProposalUseCase(proposalRepository)
+      const useCase = new SubmitProposalUseCase(proposalRepository, projectRepository)
       const result = await useCase.execute({
         proposalId: id,
         user_id: auth.user.id,

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import mammoth from 'mammoth';
 
 interface FilePreviewProps {
   file_id: string;
@@ -30,11 +31,13 @@ export function FilePreview({ file_id, mime_type, original_name, className = '' 
 
     if (mime_type === 'application/pdf') {
       return (
-        <iframe 
-          src={downloadUrl} 
-          className="w-full h-[600px] border-0"
-          onLoad={() => setLoading(false)}
-        />
+        <div className="w-full h-full flex flex-col items-center bg-white overflow-hidden">
+          <iframe 
+            src={`${downloadUrl}#toolbar=0&navpanes=0&scrollbar=0`} 
+            className="w-full h-full border-0"
+            onLoad={() => setLoading(false)}
+          />
+        </div>
       );
     }
 
@@ -49,6 +52,22 @@ export function FilePreview({ file_id, mime_type, original_name, className = '' 
         </video>
       );
     }
+
+
+
+    if (mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mime_type === 'application/msword') {
+      const docxPreviewUrl = `${downloadUrl}?preview=true#toolbar=0&navpanes=0&scrollbar=0`;
+      return (
+        <div className="w-full h-full p-2 md:p-4 bg-slate-100 flex flex-col items-center overflow-hidden">
+          <iframe 
+            src={docxPreviewUrl} 
+            className="w-full max-w-5xl bg-white shadow-xl rounded-sm border border-slate-200 flex-1 mb-8"
+            onLoad={() => setLoading(false)}
+          />
+        </div>
+      );
+    }
+
 
     // Fallback for unsupported preview types (DOCX, ZIP, etc)
     setLoading(false);
@@ -69,7 +88,7 @@ export function FilePreview({ file_id, mime_type, original_name, className = '' 
   };
 
   return (
-    <div className={`relative w-full rounded-lg overflow-hidden flex items-center justify-center bg-black/5 ${className}`}>
+    <div className={`relative w-full h-full rounded-lg overflow-hidden flex flex-col bg-slate-100 ${className}`}>
       {loading && mime_type !== 'application/pdf' && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />

@@ -187,6 +187,24 @@ export const COMPENSATION_PAYROLL_STATES: Readonly<
     isTerminal: true,
     allowedTransitions: [],
   },
+  LimitBreached: {
+    label: "Limit Breached (Form-XXII)",
+    description: "Proposal exceeded project limits. Pending Board approval.",
+    color: "bg-red-100 text-red-700 border-red-300",
+    icon: "AlertTriangle",
+    order: 3.5,
+    isTerminal: false,
+    allowedTransitions: [],
+  },
+  BoardApproved: {
+    label: "Board Approved",
+    description: "Board has approved the deviation.",
+    color: "bg-green-100 text-green-700 border-green-300",
+    icon: "CheckCircle",
+    order: 3.6,
+    isTerminal: false,
+    allowedTransitions: [],
+  },
   BoardEscalation: {
     label: "Board Escalation",
     description:

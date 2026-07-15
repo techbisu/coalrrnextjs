@@ -27,7 +27,7 @@ async function main() {
   await db.rnr_asset_payroll.deleteMany()
   await db.document.deleteMany()
   await db.mst_plot.deleteMany()
-  await db.mst_mouza.deleteMany()
+  await db.mouza_master.deleteMany()
   await db.mst_project.deleteMany()
   await db.language.deleteMany()
   await db.translation_value.deleteMany()
@@ -106,11 +106,11 @@ async function main() {
   console.log(`  ✓ Project: ${project.name}`)
 
   // ─── Master Mouza & Plots ────────────────────────────────────
-  const mouza = await db.mst_mouza.create({
-    data: { name: 'Hingula', district: 'Angul', state: 'Odisha' },
+  const mouza = await db.mouza_master.create({
+    data: { mouza_lgd: 111n, mouza_en: 'Hingula', state_lgd: 21n, district_lgd: 367n, block_lgd: 1n, is_active: true },
   })
-  const mouza2 = await db.mst_mouza.create({
-    data: { name: 'Talcher', district: 'Angul', state: 'Odisha' },
+  const mouza2 = await db.mouza_master.create({
+    data: { mouza_lgd: 222n, mouza_en: 'Talcher', state_lgd: 21n, district_lgd: 367n, block_lgd: 1n, is_active: true },
   })
 
   const plotData = [

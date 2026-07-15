@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -912,10 +913,9 @@ function FormVICaptureStep({
               />
             </Field>
             <Field label="Date of Birth *" hint="DD/MM/YYYY format">
-              <Input
-                type="date"
-                value={bioData.dateOfBirth}
-                onChange={(e) => update('dateOfBirth', e.target.value)}
+              <DatePicker
+                value={bioData.dateOfBirth || undefined}
+                onChange={(date) => update('dateOfBirth', date ? date.toISOString().split('T')[0] : '')}
               />
             </Field>
           </div>

@@ -1,4 +1,4 @@
-﻿import { db } from '@/lib/db'
+import { db } from '@/lib/db'
 import { IProjectMasterCreateDTO, IProjectMasterUpdateDTO } from '../types'
 import { dec, iso } from '@/app/api/_lib'
 
@@ -20,7 +20,7 @@ export class ProjectRepository {
       return {
         id: p.id,
         name: p.name,
-        colliery_code: p.colliery_code,
+        mine_cd: p.mine_cd,
         total_land_limit_acres: dec(p.total_land_limit_acres),
         total_budget_ceiling: dec(p.total_budget_ceiling),
         total_employment_quota: p.total_employment_quota,
@@ -36,7 +36,7 @@ export class ProjectRepository {
         plots: allPlots.map((pl) => ({
           id: pl.id,
           plot_number: pl.plot_number,
-          mouza: pl.mouza.name,
+          mouza: pl.mouza.mouza_en,
           land_type: pl.land_type,
           area_acres: dec(pl.area_acres),
           exhausted_area_for_jobs: dec(pl.exhausted_area_for_jobs),
@@ -56,7 +56,7 @@ export class ProjectRepository {
     return db.mst_project.create({
       data: {
         name: data.name,
-        colliery_code: data.colliery_code,
+        mine_cd: data.mine_cd || '',
         total_land_limit_acres: data.total_land_limit_acres,
         total_budget_ceiling: data.total_budget_ceiling,
         total_employment_quota: data.total_employment_quota,

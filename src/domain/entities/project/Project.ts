@@ -13,7 +13,10 @@ import { ProjectId } from './ProjectId'
 export interface ProjectProps {
   id: ProjectId
   name: string
-  colliery_code: string
+  mine_cd: string
+  area_cd?: string | null
+  state_lgd?: bigint | null
+  pr_doc_id?: string | null
   totalLandLimit: Area
   total_budget_ceiling: Money
   total_employment_quota: number
@@ -27,7 +30,10 @@ export interface ProjectProps {
 
 export interface CreateProjectProps {
   name: string
-  colliery_code: string
+  mine_cd: string
+  area_cd?: string | null
+  state_lgd?: bigint | null
+  pr_doc_id?: string | null
   total_land_limit_acres: number | string
   total_budget_ceiling: number | string
   total_employment_quota: number
@@ -36,7 +42,10 @@ export interface CreateProjectProps {
 
 export interface UpdateProjectProps {
   name?: string
-  colliery_code?: string
+  mine_cd?: string
+  area_cd?: string
+  state_lgd?: bigint
+  pr_doc_id?: string
   total_land_limit_acres?: number | string
   total_budget_ceiling?: number | string
   total_employment_quota?: number
@@ -57,7 +66,10 @@ export class ProjectNotFoundException extends DomainException {
 
 export class Project extends AggregateRoot<string> {
   private _name: string
-  private _collieryCode: string
+  private _mineCd: string
+  private _areaCd: string | null
+  private _stateLgd: bigint | null
+  private _prDocId: string | null
   private _totalLandLimit: Area
   private _totalBudgetCeiling: Money
   private _totalEmploymentQuota: number
@@ -71,7 +83,10 @@ export class Project extends AggregateRoot<string> {
   private constructor(props: ProjectProps) {
     super(props.id.value)
     this._name = props.name
-    this._collieryCode = props.colliery_code
+    this._mineCd = props.mine_cd
+    this._areaCd = props.area_cd ?? null
+    this._stateLgd = props.state_lgd ?? null
+    this._prDocId = props.pr_doc_id ?? null
     this._totalLandLimit = props.totalLandLimit
     this._totalBudgetCeiling = props.total_budget_ceiling
     this._totalEmploymentQuota = props.total_employment_quota
@@ -95,8 +110,8 @@ export class Project extends AggregateRoot<string> {
     }
 
     // Validate colliery code
-    if (!props.colliery_code || props.colliery_code.trim().length === 0) {
-      errors.push({ field: 'colliery_code', message: 'Colliery code is required' })
+    if (!props.mine_cd || props.mine_cd.trim().length === 0) {
+      errors.push({ field: 'mine_cd', message: 'Colliery code is required' })
     }
 
     // Validate land limit
@@ -128,7 +143,10 @@ export class Project extends AggregateRoot<string> {
     const project = new Project({
       id: project_id,
       name: props.name.trim(),
-      colliery_code: props.colliery_code.trim(),
+      mine_cd: props.mine_cd.trim(),
+      area_cd: props.area_cd || null,
+      state_lgd: props.state_lgd || null,
+      pr_doc_id: props.pr_doc_id || null,
       totalLandLimit: (landLimitResult as any).value,
       total_budget_ceiling: (budgetResult as any).value,
       total_employment_quota: props.total_employment_quota,
@@ -141,7 +159,7 @@ export class Project extends AggregateRoot<string> {
 
     project.addDomainEvent(createDomainEvent('PROJECT_CREATED', project.id.toString(), {
       name: project.name,
-      colliery_code: project.colliery_code
+      mine_cd: project.mine_cd
     }))
 
     return { isSuccess: true, isFailure: false, value: project, error: null }
@@ -151,7 +169,10 @@ export class Project extends AggregateRoot<string> {
   static reconstitute(data: {
     id: string
     name: string
-    colliery_code: string
+    mine_cd: string
+  area_cd?: string | null
+  state_lgd?: bigint | null
+  pr_doc_id?: string | null
     total_land_limit_acres: string
     total_budget_ceiling: string
     total_employment_quota: number
@@ -165,7 +186,7 @@ export class Project extends AggregateRoot<string> {
     return new Project({
       id: ProjectId.fromString(data.id),
       name: data.name,
-      colliery_code: data.colliery_code,
+      mine_cd: data.mine_cd,
       totalLandLimit: Area.fromAcres(data.total_land_limit_acres),
       total_budget_ceiling: Money.fromINR(data.total_budget_ceiling),
       total_employment_quota: data.total_employment_quota,
@@ -212,12 +233,34 @@ export class Project extends AggregateRoot<string> {
       }
     }
 
-    if (props.colliery_code !== undefined) {
-      if (!props.colliery_code || props.colliery_code.trim().length === 0) {
-        errors.push({ field: 'colliery_code', message: 'Colliery code is required' })
+    if (props.mine_cd !== undefined) {
+      if (!props.mine_cd || props.mine_cd.trim().length === 0) {
+        errors.push({ field: 'mine_cd', message: 'Colliery code is required' })
       } else {
-        this._collieryCode = props.colliery_code.trim()
+        this._mineCd = props.mine_cd.trim()
       }
+    }
+
+    
+    if (props.area_cd !== undefined) {
+      this._areaCd = props.area_cd || null
+    }
+    if (props.state_lgd !== undefined) {
+      this._stateLgd = props.state_lgd || null
+    }
+    if (props.pr_doc_id !== undefined) {
+      this._prDocId = props.pr_doc_id || null
+    }
+
+    
+    if (props.area_cd !== undefined) {
+      this._areaCd = props.area_cd || null
+    }
+    if (props.state_lgd !== undefined) {
+      this._stateLgd = props.state_lgd || null
+    }
+    if (props.pr_doc_id !== undefined) {
+      this._prDocId = props.pr_doc_id || null
     }
 
     if (props.total_land_limit_acres !== undefined) {
@@ -284,12 +327,55 @@ export class Project extends AggregateRoot<string> {
     return ProjectId.fromString(this.id)
   }
 
+  updateTotalLandLimit(newLimitAcres: number | string): Result<void> {
+    const limitResult = Area.tryCreate(newLimitAcres, 'ACRES')
+    if (limitResult.isFailure) return Fail(String(limitResult.error))
+
+    this._totalLandLimit = (limitResult as any).value
+    this._updtTs = new Date()
+    return Result.ok<void>(undefined)
+  }
+
+  updateTotalBudgetCeiling(newBudget: number | string): Result<void> {
+    const budgetResult = Money.tryCreate(newBudget, 'INR')
+    if (budgetResult.isFailure) return Fail(String(budgetResult.error))
+
+    this._totalBudgetCeiling = (budgetResult as any).value
+    this._updtTs = new Date()
+    return Result.ok<void>(undefined)
+  }
+
+  updateTotalEmploymentQuota(newQuota: number | string): Result<void> {
+    const parsed = Number(newQuota)
+    if (isNaN(parsed) || parsed < 0) return Fail('Employment quota must be a positive number')
+
+    this._totalEmploymentQuota = parsed
+    this._updtTs = new Date()
+    return Result.ok<void>(undefined)
+  }
+
+  get id(): string {
+    return this._id
+  }
+
   get name(): string {
     return this._name
   }
 
-  get colliery_code(): string {
-    return this._collieryCode
+  get mine_cd(): string {
+    return this._mineCd
+  }
+
+  get area_cd(): string | null {
+    return this._areaCd
+  }
+
+  get state_lgd(): bigint | null {
+    return this._stateLgd
+  }
+
+  get pr_doc_id(): string | null {
+    return this._prDocId
   }
 
   get totalLandLimit(): Area {
@@ -332,7 +418,10 @@ export class Project extends AggregateRoot<string> {
   toPersistence(): {
     id: string
     name: string
-    colliery_code: string
+    mine_cd: string
+  area_cd?: string | null
+  state_lgd?: bigint | null
+  pr_doc_id?: string | null
     total_land_limit_acres: string
     total_budget_ceiling: string
     total_employment_quota: number
@@ -346,7 +435,11 @@ export class Project extends AggregateRoot<string> {
     return {
       id: this.id,
       name: this._name,
-      colliery_code: this._collieryCode,
+      mine_cd: this._mineCd,
+      
+      area_cd: this._areaCd,
+      state_lgd: this._stateLgd,
+      pr_doc_id: this._prDocId,
       total_land_limit_acres: this._totalLandLimit.toDecimal().toString(),
       total_budget_ceiling: this._totalBudgetCeiling.toDecimal().toString(),
       total_employment_quota: this._totalEmploymentQuota,

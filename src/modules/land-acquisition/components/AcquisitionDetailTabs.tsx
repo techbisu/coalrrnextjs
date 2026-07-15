@@ -38,7 +38,12 @@ import {
 } from '../types'
 
 
-const fetchPlots = async (filter?: any): Promise<any[]> => { return []; };
+const fetchPlots = async (filter?: any): Promise<any[]> => {
+  const r = await fetch('/api/plots')
+  if (!r.ok) throw new Error('Failed to load plots')
+  const data = await r.json()
+  return data
+}
 
 export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }) {
   const mode = MODE_META[schedule.acquisition_mode] ?? {

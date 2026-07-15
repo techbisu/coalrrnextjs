@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { IRole } from '@/core/authorization/types'
 import { IRoleRepository } from '@/core/authorization/interfaces/IRoleRepository'
+import { PermissionCache } from '@/core/authorization/cache/PermissionCache'
 
 export class PrismaRoleRepository implements IRoleRepository {
   async findById(id: string): Promise<any | null> {
@@ -49,6 +50,7 @@ export class PrismaRoleRepository implements IRoleRepository {
       create: { role_id, model_type: 'user', model_id: user_id },
       update: {}
     })
+    await PermissionCache.invalidate(user_id)
   }
 
   async syncUserRoles(user_id: string, roleIds: string[]): Promise<void> {
@@ -58,6 +60,7 @@ export class PrismaRoleRepository implements IRoleRepository {
         data: roleIds.map(role_id => ({ role_id, model_type: 'user', model_id: user_id }))
       })
     }
+    await PermissionCache.invalidate(user_id)
   }
 
   async syncPermissions(role_id: string, permissionIds: string[]): Promise<void> {

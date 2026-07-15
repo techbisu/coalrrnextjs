@@ -12,7 +12,11 @@ import { ProjectAlreadyLockedException } from '@/domain'
 export interface UpdateProjectRequest {
   id: string
   name?: string
-  colliery_code?: string
+  mine_cd?: string
+  area_cd?: string
+  state_lgd?: bigint
+  pr_doc_id?: string | null
+  mouza_lgds?: bigint[]
   total_land_limit_acres?: number | string
   total_budget_ceiling?: number | string
   total_employment_quota?: number
@@ -47,7 +51,10 @@ export class UpdateProjectUseCase implements IUseCase<UpdateProjectRequest, Upda
     // 2. Update entity properties
     const updateProps = {
       name: request.name,
-      colliery_code: request.colliery_code,
+      mine_cd: request.mine_cd,
+      area_cd: request.area_cd,
+      state_lgd: request.state_lgd,
+      pr_doc_id: request.pr_doc_id ?? undefined,
       total_land_limit_acres: request.total_land_limit_acres,
       total_budget_ceiling: request.total_budget_ceiling,
       total_employment_quota: request.total_employment_quota,
@@ -67,6 +74,10 @@ export class UpdateProjectUseCase implements IUseCase<UpdateProjectRequest, Upda
 
     // 3. Persist
     await this.projectRepository.save(project)
+
+    if (request.mouza_lgds !== undefined) {
+      await this.projectRepository.updateProjectMouzas(project.id.toString(), request.mouza_lgds)
+    }
 
     // 4. Publish events
     const domainEvents = project.clearDomainEvents()

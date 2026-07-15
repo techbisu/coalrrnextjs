@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -19,7 +20,7 @@ import { useRouter } from 'next/navigation'
 interface ProjectListItem {
   id: string
   name: string
-  colliery_code: string
+  mine_cd: string
   isLocked: boolean
   total_land_limit_acres: string
 }
@@ -55,7 +56,7 @@ export function CreateProposalDialog({
     proposal_title: '',
     description: '',
     area_office: '',
-    colliery_code: '',
+    mine_cd: '',
     adjacent_colliery: '',
     notification_date: '',
   })
@@ -63,10 +64,10 @@ export function CreateProposalDialog({
   React.useEffect(() => {
     if (!form.project_id) return
     const p = lockedProjects.find((pr) => pr.id === form.project_id)
-    if (p && !form.colliery_code) {
-      setForm((f) => ({ ...f, colliery_code: p.colliery_code }))
+    if (p && !form.mine_cd) {
+      setForm((f) => ({ ...f, mine_cd: (p as any).mine_cd || '' }))
     }
-  }, [form.project_id, lockedProjects, form.colliery_code])
+  }, [form.project_id, lockedProjects, form.mine_cd])
 
   const create = useMutation({
     mutationFn: async () => {
@@ -79,7 +80,7 @@ export function CreateProposalDialog({
           proposal_title: form.proposal_title,
           description: form.description,
           area_office: form.area_office,
-          colliery_code: form.colliery_code,
+          mine_cd: form.mine_cd,
           adjacent_colliery: form.adjacent_colliery,
           notification_date: form.notification_date || undefined,
         }),
@@ -94,7 +95,7 @@ export function CreateProposalDialog({
       })
       setForm({
         project_id: '', acquisition_mode: '', proposal_title: '', description: '',
-        area_office: '', colliery_code: '', adjacent_colliery: '', notification_date: '',
+        area_office: '', mine_cd: '', adjacent_colliery: '', notification_date: '',
       })
       onOpenChange(false)
       // Refresh the page data (RSC) and navigate if needed
@@ -141,7 +142,7 @@ export function CreateProposalDialog({
                 <option value="">Select a locked project…</option>
                 {lockedProjects.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} · {p.colliery_code} · limit {formatNumber(p.total_land_limit_acres, 2)} ac
+                    {p.name} · {p.mine_cd} · limit {formatNumber(p.total_land_limit_acres, 2)} ac
                   </option>
                 ))}
               </select>
@@ -176,17 +177,16 @@ export function CreateProposalDialog({
             <div className="space-y-1">
               <Label className="text-xs font-medium text-muted-foreground">Proposal Title</Label>
               <Input
-                value={form.proposal_title}
+                value={form.proposal_title || ''}
                 onChange={(e) => setForm({ ...form, proposal_title: e.target.value })}
                 placeholder="e.g. Hingula Phase-III acquisition — 42 acres"
               />
             </div>
             <div className="space-y-1">
               <Label className="text-xs font-medium text-muted-foreground">Notification Date</Label>
-              <Input
-                type="date"
-                value={form.notification_date}
-                onChange={(e) => setForm({ ...form, notification_date: e.target.value })}
+              <DatePicker
+                value={form.notification_date || undefined}
+                onChange={(date) => setForm({ ...form, notification_date: date ? date.toISOString().split('T')[0] : '' })}
               />
             </div>
           </div>
@@ -194,7 +194,7 @@ export function CreateProposalDialog({
           <div className="space-y-1">
             <Label className="text-xs font-medium text-muted-foreground">Description</Label>
             <Textarea
-              value={form.description}
+              value={form.description || ''}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               placeholder="Brief scope, affected mouzas, rationale…"
               className="min-h-16"
@@ -205,7 +205,7 @@ export function CreateProposalDialog({
             <div className="space-y-1">
               <Label className="text-xs font-medium text-muted-foreground">Area Office</Label>
               <Input
-                value={form.area_office}
+                value={form.area_office || ''}
                 onChange={(e) => setForm({ ...form, area_office: e.target.value })}
                 placeholder="e.g. Talcher Area"
               />
@@ -213,15 +213,15 @@ export function CreateProposalDialog({
             <div className="space-y-1">
               <Label className="text-xs font-medium text-muted-foreground">Acquiring Colliery Code</Label>
               <Input
-                value={form.colliery_code}
-                onChange={(e) => setForm({ ...form, colliery_code: e.target.value })}
+                value={form.mine_cd || ''}
+                onChange={(e) => setForm({ ...form, mine_cd: e.target.value })}
                 placeholder="e.g. HNG"
               />
             </div>
             <div className="space-y-1">
               <Label className="text-xs font-medium text-muted-foreground">Adjacent Colliery</Label>
               <Input
-                value={form.adjacent_colliery}
+                value={form.adjacent_colliery || ''}
                 onChange={(e) => setForm({ ...form, adjacent_colliery: e.target.value })}
                 placeholder="e.g. BNP"
               />

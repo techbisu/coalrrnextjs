@@ -25,6 +25,6 @@ export interface IProposalQueryOptions extends IQueryOptions {
   project_id?: string
   state?: string
   acquisition_mode?: string
-  colliery_code?: string
+  mine_cd?: string
   search?: string
 }

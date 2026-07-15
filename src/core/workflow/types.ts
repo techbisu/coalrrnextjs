@@ -29,7 +29,9 @@ export type WorkflowState =
   | "DirectorConsent"
   | "CmdApproved"
   | "Published"
-  | "BoardEscalation";
+  | "BoardEscalation"
+  | "LimitBreached"
+  | "BoardApproved";
 
 /**
  * Record types that participate in a workflow (spec §2.3 polymorphic).
