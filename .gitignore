@@ -55,4 +55,5 @@ server.log
 uploads/
 scratch/
 *.sql
+!prisma/migrations/**/*.sql
 *.truth
