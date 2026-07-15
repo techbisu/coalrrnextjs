@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client'
+import type { PrismaClient } from '@prisma/client'
 
-const db = new PrismaClient()
-
-async function main() {
+export async function seedMstProject(db: PrismaClient) {
   console.log('Seeding demo projects...')
 
   // 1. Ensure required master data exists
@@ -36,9 +34,9 @@ async function main() {
       data: {
         mine_cd: 'MINE-01',
         mine_en: 'Demo Mine',
-        area_cd: area.areaCd,
+        area_cd: area.area_cd,
         is_active: true,
-        state_lgd: state.stateLgd,
+        state_lgd: state.state_lgd,
       }
     })
   }
@@ -97,12 +95,3 @@ async function main() {
 
   console.log('Demo projects seeded successfully!')
 }
-
-main()
-  .catch(e => {
-    console.error(e)
-    process.exit(1)
-  })
-  .finally(async () => {
-    await db.$disconnect()
-  })

@@ -3,6 +3,18 @@ import type { PrismaClient } from '@prisma/client'
 export async function seedMstPlot(db: PrismaClient) {
   console.log('Seeding mst_plot...')
 
+  // Ensure mouza exists for the FK
+  await db.mouza_master.upsert({
+    where: { mouza_lgd: 318357n },
+    update: {},
+    create: {
+      mouza_lgd: 318357n,
+      mouza_name_en: 'Dummy Mouza',
+      state_lgd: 20n,
+      is_active: true
+    }
+  })
+
   // These mouzas must exist in mouza_master for FK to work
   const plots = [
     {

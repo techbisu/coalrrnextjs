@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client'
+import type { PrismaClient } from '@prisma/client'
 
-const db = new PrismaClient()
-
-export async function seedRbac() {
+export async function seedRole(db: PrismaClient) {
   console.log('Seeding Enterprise RBAC Hierarchy...')
 
   const perms = [
@@ -91,13 +89,4 @@ export async function seedRbac() {
   }
 
   console.log('✅ Enterprise RBAC Seeded Successfully!')
-}
-
-if (require.main === module || process.argv[1].includes('seed-rbac')) {
-  seedRbac().catch(e => {
-    console.error(e)
-    process.exit(1)
-  }).finally(async () => {
-    await db.$disconnect()
-  })
 }

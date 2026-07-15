@@ -1,9 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
 
-const db = new PrismaClient();
-
-async function seed() {
+export async function seedUsers(db: PrismaClient) {
+  console.log('Seeding users...')
   const hash = crypto.createHash('sha256').update('demo1234').digest('hex');
   const users = [
     { email: 'unit@coalrr.gov.in', name: 'Unit Surveyor', designation: 'Surveyor', role: 'Surveyor', portal: 'ecl' },
@@ -23,7 +22,4 @@ async function seed() {
       }
     });
   }
-  console.log('Users seeded');
 }
-
-seed().catch(console.error).finally(() => db.$disconnect());
