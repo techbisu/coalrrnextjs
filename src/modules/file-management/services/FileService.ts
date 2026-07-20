@@ -3,6 +3,7 @@ import { localStorageProvider } from '../storage/LocalStorageProvider';
 import { StorageProvider } from '../storage/StorageProvider';
 import { FileUploadParams } from '../types';
 import crypto from 'crypto';
+import { randomUUID } from 'crypto';
 import { AuditService } from '@/audit/services/AuditService';
 import { S3StorageProvider } from '../storage/S3StorageProvider';
 import { ClamAVScanner } from '../security/ClamAVScanner';
@@ -39,14 +40,14 @@ export class FileService {
     // 1. Duplicate Detection Check
     let existingFile = await db.file_record.findUnique({
       where: { checksum },
-      include: { versions: { orderBy: { version_number: 'desc' }, take: 1 } },
+      include: { file_version: { orderBy: { version_number: 'desc' }, take: 1 } },
     });
 
     let activeVersionNumber = 1;
 
     if (existingFile) {
       // Reuse existing file! Do not upload to physical storage again to save space.
-      activeVersionNumber = existingFile.versions[0]?.version_number || 1;
+      activeVersionNumber = existingFile.file_version[0]?.version_number || 1;
     } else {
       // 2. Upload to Storage
       const uploadResult = await this.storage.upload(params.buffer, params.original_name, params.mime_type);
@@ -54,12 +55,14 @@ export class FileService {
       // 3. Create file_record & file_version
       existingFile = await db.file_record.create({
         data: {
+          id: randomUUID(),
           original_name: params.original_name,
           owner_id: params.owner_id,
           checksum: uploadResult.checksum,
           tags: params.tags ? JSON.stringify(params.tags) : null,
-          versions: {
+          file_version: {
             create: {
+              id: randomUUID(),
               version_number: 1,
               storage_provider: this.storage.name,
               storage_path: uploadResult.storage_path,
@@ -68,10 +71,11 @@ export class FileService {
               extension: params.original_name.split('.').pop() || '',
               size_bytes: BigInt(uploadResult.size_bytes),
               entry_by: params.owner_id,
+              updt_ts: new Date(),
             }
           }
         },
-        include: { versions: true }
+        include: { file_version: true }
       });
 
       AuditService.log('UPLOAD', 'file-management', 'file_record', existingFile.id, 'New file uploaded', { user_id: params.owner_id });
@@ -93,6 +97,7 @@ export class FileService {
       if (!existingAttachment) {
         await db.file_attachment.create({
           data: {
+            id: randomUUID(),
             file_id: existingFile.id,
             entity_type: params.entity_type,
             entity_id: params.entity_id,
@@ -112,12 +117,12 @@ export class FileService {
   async updateFile(file_id: string, params: Omit<FileUploadParams, 'entity_type' | 'entity_id' | 'module'>) {
     const existingFile = await db.file_record.findUnique({
       where: { id: file_id },
-      include: { versions: { orderBy: { version_number: 'desc' }, take: 1 } },
+      include: { file_version: { orderBy: { version_number: 'desc' }, take: 1 } },
     });
 
     if (!existingFile) throw new Error('File not found');
 
-    const newVersionNumber = (existingFile.versions[0]?.version_number || 0) + 1;
+    const newVersionNumber = (existingFile.file_version[0]?.version_number || 0) + 1;
     const checksum = this.generateChecksum(params.buffer);
 
     // Upload to Storage
@@ -135,6 +140,7 @@ export class FileService {
         extension: params.original_name.split('.').pop() || '',
         size_bytes: BigInt(uploadResult.size_bytes),
         entry_by: params.owner_id,
+        updt_ts: new Date(),
       }
     });
 
@@ -153,7 +159,7 @@ export class FileService {
     const file_record = await db.file_record.findUnique({
       where: { id: file_id },
       include: {
-        versions: {
+        file_version: {
           orderBy: { version_number: 'desc' },
           take: version_number ? undefined : 1,
           where: version_number ? { version_number } : undefined
@@ -161,11 +167,11 @@ export class FileService {
       }
     });
 
-    if (!file_record || file_record.versions.length === 0) {
+    if (!file_record || file_record.file_version.length === 0) {
       throw new Error('File not found');
     }
 
-    const version = file_record.versions[0];
+    const version = file_record.file_version[0];
     const buffer = await this.storage.download(version.storage_path, version.bucket || undefined);
 
     return {
@@ -178,7 +184,7 @@ export class FileService {
   async deleteFile(file_id: string, user_id?: string) {
     const file_record = await db.file_record.findUnique({
       where: { id: file_id },
-      include: { versions: true }
+      include: { file_version: true }
     });
 
     if (!file_record) return;
@@ -195,11 +201,11 @@ export class FileService {
   async getSignedPreviewUrl(file_id: string) {
     const file_record = await db.file_record.findUnique({
       where: { id: file_id },
-      include: { versions: { orderBy: { version_number: 'desc' }, take: 1 } }
+      include: { file_version: { orderBy: { version_number: 'desc' }, take: 1 } }
     });
-    if (!file_record || file_record.versions.length === 0) throw new Error('File not found');
+    if (!file_record || file_record.file_version.length === 0) throw new Error('File not found');
 
-    const version = file_record.versions[0];
+    const version = file_record.file_version[0];
     return await this.storage.getSignedUrl(version.storage_path, version.bucket || undefined);
   }
 }

@@ -15,13 +15,13 @@ export class ImportExportService {
       where: { language_id: language.id },
       include: {
         translation_key: {
-          include: { module: true },
+          include: { translation_module: true },
         },
       },
     });
 
     const data = values.map((v) => ({
-      Module: v.translation_key.module.name,
+      Module: v.translation_key.translation_module.name,
       Key: v.translation_key.key,
       Value: v.value,
       Status: v.status,

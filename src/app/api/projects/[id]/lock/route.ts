@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { ok, badRequest, notFound, serverError } from '../../../_lib'
 import type { NextRequest } from 'next/server'
-import { LockProjectUseCase } from '@/application/use-cases/project'
+import { lockProjectUseCase } from '@/infrastructure/di/Container'
 import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
 import { NotFoundException, DomainException } from '@/core/errors'
 import { ProjectAlreadyLockedException } from '@/domain'
@@ -14,7 +14,7 @@ import { apiRateLimiter, getClientIdentifier } from '@/infrastructure/security'
 
 type Ctx = { params: Promise<{ id: string }> }
 
-const projectRepository = new PrismaProjectRepository()
+const projectRepository = new PrismaProjectRepository() // kept for the manual name check
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
@@ -48,9 +48,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       return badRequest(`Confirmation name does not match "${project.name}"`)
     }
 
-    // Execute use case
-    const useCase = new LockProjectUseCase(projectRepository)
-    const result = await useCase.execute({
+    const result = await lockProjectUseCase!.execute({
       project_id: id,
       user_id: auth.user.id,
     })

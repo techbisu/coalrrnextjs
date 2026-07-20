@@ -15,7 +15,10 @@ export function LanguageProvider({ messages, locale, children }: Props) {
       messages={messages} 
       locale={locale} 
       timeZone="Asia/Kolkata"
-      getMessageFallback={({namespace, key}) => key ? `${namespace}.${key}` : namespace!}
+      getMessageFallback={({namespace, key}) => {
+        if (!namespace) return key || '';
+        return key ? `${namespace}.${key}` : String(namespace);
+      }}
       onError={(error) => {
         if (error.code === 'MISSING_MESSAGE') return;
         console.error(error);

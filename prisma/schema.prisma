@@ -32,6 +32,7 @@ model area_master {
   updt_ts       BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
   del_ts        BigInt?
   area_remarks  String?
+  user_org_scopes user_org_scope[]
 
   @@schema("master")
 }
@@ -141,6 +142,8 @@ model mine_master {
   is_active     Boolean  @default(true)
   state_lgd     BigInt?
   mine_remarks  String?
+  adjacent_mine_ids String[]       @default([])
+  user_org_scopes user_org_scope[]
 
   @@schema("master")
 }
@@ -162,6 +165,7 @@ model mouza_master {
   gis_enable     Boolean    @default(false)
   halka_no       String?    @db.VarChar(2)
   mstPlots       mst_plot[]
+  project_mouzas mst_project_mouza[]
 
   @@schema("master")
 }
@@ -838,6 +842,7 @@ model mst_plot {
   form_i_claims       form_i_claim[]
   paf_census_records  paf_census_record[]
   ledger_entries      form_d_ledger_entry[]
+    
   entry_by            String?
   updt_by             String?
 
@@ -866,6 +871,7 @@ model mst_project {
   employment_application employment_application[]
   form_d_ledger_entry    form_d_ledger_entry[]
   land_schedule          land_schedule[]
+    project_mouzas         mst_project_mouza[]
   rnr_asset_payroll      rnr_asset_payroll[]
 
   @@schema("public")
@@ -1173,11 +1179,13 @@ model user {
   mine_cd       String?
   plot_id       String?
   verified_at   DateTime?
+  is_active     Boolean        @default(true)
   entry_ts      DateTime       @default(now())
   updt_ts       DateTime
   entry_by      String?
   updt_by       String?
   auth_session  auth_session[]
+  user_org_scopes user_org_scope[]
 
   @@schema("public")
 }
@@ -1210,5 +1218,45 @@ model sys_config {
   entry_ts    DateTime @default(now())
   updt_ts     DateTime @updatedAt
 
+
+  @@schema("public")
+}
+
+enum ScopeLevel {
+  HQ
+  AREA
+  UNIT
+  @@schema("public")
+}
+
+model user_org_scope {
+  id                String     @id @default(cuid())
+  user_id           String
+  user              user       @relation(fields: [user_id], references: [id])
+  scope_level       ScopeLevel
+  area_cd           String?
+  area              area_master? @relation(fields: [area_cd], references: [area_cd])
+  mine_cd           String?
+  mine              mine_master? @relation(fields: [mine_cd], references: [mine_cd])
+  effective_from    DateTime   @default(now())
+  effective_to      DateTime?
+  transfer_order_no String?
+  created_by        String?
+  created_at        DateTime   @default(now())
+
+  @@index([user_id, effective_to])
+  @@index([area_cd])
+  @@index([mine_cd])
+  @@map("user_org_scope")
+  @@schema("public")
+}
+
+model mst_project_mouza {
+  project_id String
+  mouza_lgd  BigInt
+  mst_project mst_project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  mouza mouza_master @relation(fields: [mouza_lgd], references: [mouza_lgd])
+
+  @@id([project_id, mouza_lgd])
   @@schema("public")
 }

@@ -5,6 +5,7 @@ import { IUseCase, Result, Fail, Ok } from '@/core'
 import { IProposalRepository } from '@/domain/entities/proposal'
 import { IProjectRepository } from '@/domain/entities/project'
 import { EventBus } from '@/core/notifications/EventBus'
+import { randomUUID } from 'crypto'
 import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
 import { db } from '@/lib/db'
 
@@ -68,6 +69,7 @@ export class ApproveBoardDeviationUseCase implements IUseCase<ApproveBoardDeviat
         skipDuplicates: true,
         data: [
           {
+            id: randomUUID(),
             file_id: request.signedDocumentFileId,
             entity_type: 'land_schedule',
             entity_id: proposal.id,
@@ -75,6 +77,7 @@ export class ApproveBoardDeviationUseCase implements IUseCase<ApproveBoardDeviat
             attached_by: request.user_id,
           },
           {
+            id: randomUUID(),
             file_id: request.signedDocumentFileId,
             entity_type: 'mst_project',
             entity_id: project.id,

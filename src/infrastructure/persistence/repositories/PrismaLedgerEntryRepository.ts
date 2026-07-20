@@ -1,3 +1,4 @@
+import { UserScopeService } from "@/core/authorization/services/UserScopeService";
 import { db } from '@/lib/db'
 import { form_d_ledger_entry } from '@prisma/client'
 import { ILedgerEntryRepository, FormDLedgerEntryWithPlotAndMouza } from '@/modules/ledger/interfaces/ILedgerEntryRepository'

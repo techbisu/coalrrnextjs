@@ -329,21 +329,14 @@ export function EmploymentWizardView() {
     handleStepChange(3)
   }, [applicationId, saveBioDataMutation, handleStepChange])
 
-  const handleDocUpload = React.useCallback((docKey: string, file: File) => {
+  const handleDocUpload = React.useCallback((docKey: string, docs: UploadedDoc | UploadedDoc[]) => {
     setUploadedDocs((prev) => ({
       ...prev,
       [docKey]: [
         ...(prev[docKey] ?? []),
-        {
-          file_name: file.name,
-          file_size_kb: Math.round(file.size / 1024),
-          mime_type: file.type,
-          virus_scan_status: 'clean' as const,
-          uploadedAt: new Date().toISOString(),
-        },
+        ...(Array.isArray(docs) ? docs : [docs]),
       ],
     }))
-    toast.success(`Uploaded: ${file.name}`)
   }, [])
 
   const handleDocRemove = React.useCallback((docKey: string, file_name: string) => {
@@ -551,7 +544,7 @@ export function EmploymentWizardView() {
         {step === 3 && (
           <DocumentUploadStep
             uploadedDocs={uploadedDocs}
-            onUpload={handleDocUpload}
+            onChange={handleDocUpload}
             onRemove={handleDocRemove}
             hasFemaleException={hasExceptionFemale}
           />
@@ -1020,12 +1013,12 @@ function FormVICaptureStep({
 
 function DocumentUploadStep({
   uploadedDocs,
-  onUpload,
+  onChange,
   onRemove,
   hasFemaleException,
 }: {
-  uploadedDocs: Record<string, Array<{ file_name: string; file_size_kb: number; mime_type: string; virus_scan_status: 'clean' | 'scanning'; uploadedAt: string }>>
-  onUpload: (docKey: string, file: File) => void
+  uploadedDocs: Record<string, any[]>
+  onChange: (docKey: string, docs: any | any[]) => void
   onRemove: (docKey: string, file_name: string) => void
   hasFemaleException: boolean
 }) {
@@ -1074,8 +1067,9 @@ function DocumentUploadStep({
                 <DocumentUploader
                   checklist_item_key={doc.key}
                   label=""
+                  mode="multiple"
                   documents={uploadedDocs[doc.key] ?? []}
-                  onUpload={(file) => onUpload(doc.key, file)}
+                  onChange={(docs) => onChange(doc.key, docs)}
                   onRemove={(d) => onRemove(doc.key, d.file_name)}
                 />
               </div>

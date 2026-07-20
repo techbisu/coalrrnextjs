@@ -22,6 +22,7 @@ export interface IProposalRepository {
 }
 
 export interface IProposalQueryOptions extends IQueryOptions {
+  scopeFilter?: any;
   project_id?: string
   state?: string
   acquisition_mode?: string

@@ -11,4 +11,10 @@ export interface FindOptionsParams {
 
 export interface IMasterLookupRepository {
   findOptions(params: FindOptionsParams): Promise<MasterOption[]>
+  findOptionsByValues(params: {
+    master: string
+    labelField: string
+    valueField: string
+    values: string[]
+  }): Promise<MasterOption[]>
 }

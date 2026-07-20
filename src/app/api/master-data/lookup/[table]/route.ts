@@ -26,16 +26,77 @@ export async function GET(
     );
     const labelKey = labelCol ? labelCol.key : config.columns[1].key;
 
-    // Build Prisma query dynamically
-    const whereClause = search ? {
-      [labelKey]: { contains: search, mode: 'insensitive' }
-    } : {};
+    // Build Prisma query dynamically with fallback for BigInt vs Int
+    const buildWhere = (useBigInt: boolean) => {
+      // Base filters (activeOnly, cascade dependencies)
+      const baseFilters: any = {};
+      
+      if (searchParams.get('activeOnly') === 'true' && config.columns.some(c => c.key === 'is_active')) {
+        baseFilters.is_active = true;
+      }
 
-    const records = await (db as any)[modelName].findMany({
-      where: whereClause,
-      select: { [primaryKey]: true, [labelKey]: true },
-      take: 100
-    });
+      searchParams.forEach((value, key) => {
+        if (key !== 'search' && key !== 'values' && key !== 'activeOnly' && value) {
+          const colConfig = config.columns.find(c => c.key === key);
+          if (colConfig?.type === 'number') {
+            baseFilters[key] = useBigInt ? BigInt(value) : Number(value);
+          } else {
+            baseFilters[key] = value;
+          }
+        }
+      });
+
+      // Parse selected values param — critical for Edit mode label resolution
+      const valuesParam = searchParams.get('values');
+      const valuesList = valuesParam ? valuesParam.split(',').filter(Boolean) : [];
+      const pkConfig = config.columns.find(c => c.key === primaryKey);
+
+      const parsedValues = valuesList.map(v => {
+        if (pkConfig?.type === 'number') return useBigInt ? BigInt(v) : Number(v);
+        if (pkConfig?.type === 'boolean') return v === 'true';
+        return v;
+      });
+
+      if (search && parsedValues.length > 0) {
+        // Search + selected values: union (label match OR pk match), scoped by base filters
+        return {
+          ...baseFilters,
+          OR: [
+            { [labelKey]: { contains: search, mode: 'insensitive' } },
+            { [primaryKey]: { in: parsedValues } }
+          ]
+        };
+      } else if (search) {
+        return { ...baseFilters, [labelKey]: { contains: search, mode: 'insensitive' } };
+      } else if (parsedValues.length > 0) {
+        // No search — selected items must always appear. Use OR: base filters OR forced pk match.
+        // This ensures pre-selected items always resolve their labels in Edit mode.
+        return {
+          OR: [
+            baseFilters,
+            { [primaryKey]: { in: parsedValues } }
+          ]
+        };
+      }
+
+      return baseFilters;
+    };
+
+    let records;
+    try {
+      records = await (db as any)[modelName].findMany({
+        where: buildWhere(true), // Try BigInt first (most common for PKs)
+        select: { [primaryKey]: true, [labelKey]: true },
+        take: 100
+      });
+    } catch (e: any) {
+      // Fallback to Number if field is actually an Int
+      records = await (db as any)[modelName].findMany({
+        where: buildWhere(false),
+        select: { [primaryKey]: true, [labelKey]: true },
+        take: 100
+      });
+    }
 
     const options = records.map((r: any) => ({
       value: String(r[primaryKey]), // Convert BigInt to string safely

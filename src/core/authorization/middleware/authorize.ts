@@ -24,10 +24,18 @@ export async function authorize(permission: string, providedUserId?: string) {
  */
 export async function authorizeApi(permission: string) {
   const user = await getCurrentUser()
-  if (!user) return { error: unauthorized() }
+  if (!user) {
+    console.log(`[authorizeApi] Failed: No user found`);
+    return { error: unauthorized() }
+  }
 
   const hasAccess = await authService.can(user.id, permission)
-  if (!hasAccess) return { error: forbidden() }
+  console.log(`[authorizeApi] User: ${user.email}, Role: ${user.role}, Checking Permission: ${permission}, HasAccess: ${hasAccess}`);
+  if (!hasAccess) {
+    console.log(`[authorizeApi] Permissions array:`, user.permissions);
+    console.log(`[authorizeApi] Roles array:`, user.roles);
+    return { error: forbidden() }
+  }
 
   return { user }
 }

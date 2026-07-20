@@ -55,6 +55,25 @@ export class GetMasterLookupOptionsUseCase {
         activeOnly: finalActiveOnly,
       })
 
+      // Resolve labels for any pre-selected values that might have been filtered out
+      const requestedValues = searchParams.get('values')
+      if (requestedValues) {
+        const valuesList = requestedValues.split(',').map(v => v.trim()).filter(Boolean)
+        const missingValues = valuesList.filter(v => !options.some(opt => opt.value === v))
+
+        if (missingValues.length > 0) {
+          const missingOptions = await this.repository.findOptionsByValues({
+            master: config.modelName,
+            labelField,
+            valueField,
+            values: missingValues
+          })
+
+          // Prepend missing options (or append, but prepending is often good for selected items)
+          options.unshift(...missingOptions)
+        }
+      }
+
       return Ok(options)
     } catch (error: any) {
       console.error(`[GetMasterLookupOptionsUseCase] DB Error:`, error)

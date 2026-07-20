@@ -89,10 +89,12 @@ function CommandList({
   return (
     <CommandPrimitive.List
       data-slot="command-list"
+      data-radix-scroll-area-viewport="true"
       className={cn(
-        "max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto",
+        "max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto pointer-events-auto overscroll-contain",
         className
       )}
+      onWheelCapture={(e) => e.stopPropagation()}
       {...props}
     />
   )

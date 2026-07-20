@@ -19,7 +19,7 @@ export class TranslationService {
       include: {
         translation_key: {
           include: {
-            module: true,
+            translation_module: true,
           }
         }
       }
@@ -28,7 +28,7 @@ export class TranslationService {
     const messages: Record<string, any> = {};
 
     for (const v of values) {
-      const module_name = v.translation_key.module.name;
+      const module_name = v.translation_key.translation_module.name;
       const keyName = v.translation_key.key;
       
       if (!messages[module_name]) {

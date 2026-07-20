@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server'
 import { authorizeApi } from '@/authorization/middleware/authorize'
-import { UpdateProjectUseCase } from '@/application/use-cases/project'
-import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
+import { updateProjectUseCase } from '@/infrastructure/di/Container'
 import { ok, badRequest, serverError, notFound } from '../../_lib'
 import type { NextRequest } from 'next/server'
 import { NotFoundException, ValidationException } from '@/core/errors'
 import { ProjectAlreadyLockedException } from '@/domain'
+import { validateBody } from '@/application/middleware/validation'
+import { UpdateProjectSchema } from '@/application/validators/schemas'
 
 type Ctx = { params: Promise<{ id: string }> }
-
-const projectRepository = new PrismaProjectRepository()
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
@@ -17,12 +16,13 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (auth.error) return auth.error
 
     const { id } = await ctx.params
-    const body = await req.json()
-    if (!body) return badRequest('Invalid body')
 
-    const useCase = new UpdateProjectUseCase(projectRepository)
-    const result = await useCase.execute({
-      ...body,
+    // Validate & coerce body — critical for bigint fields like state_lgd and mouza_lgds
+    const bodyResult = await validateBody(req, UpdateProjectSchema)
+    if (!bodyResult.success) return bodyResult.error
+
+    const result = await updateProjectUseCase!.execute({
+      ...bodyResult.data,
       id,
       user_id: auth.user.id
     })

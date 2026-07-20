@@ -4,17 +4,17 @@ import { IRnrPayrollRepository, RnrPayrollData, RnrPayrollLineData } from '../..
 export class PrismaRnrPayrollRepository implements IRnrPayrollRepository {
   async findAll(): Promise<RnrPayrollData[]> {
     const payrolls = await db.rnr_asset_payroll.findMany({
-      include: { project: true, lines: true },
+      include: { mst_project: true, rnr_asset_payroll_line: true },
       orderBy: { entry_ts: 'desc' },
     });
     return payrolls.map(p => ({
       id: p.id.toString(),
       project_id: p.project_id.toString(),
-      projectName: p.project?.name,
+      projectName: p.mst_project?.name,
       payroll_code: p.payroll_code,
       state: p.state,
       total_value: p.total_value.toString(),
-      lineCount: p.lines.length,
+      lineCount: p.rnr_asset_payroll_line.length,
       entry_ts: p.entry_ts?.toISOString() ?? new Date().toISOString(),
       updt_ts: p.updt_ts?.toISOString() ?? new Date().toISOString(),
     }));
@@ -23,19 +23,19 @@ export class PrismaRnrPayrollRepository implements IRnrPayrollRepository {
   async findById(id: string): Promise<RnrPayrollData | null> {
     const p = await db.rnr_asset_payroll.findUnique({
       where: { id: id },
-      include: { project: true, lines: { orderBy: { entry_ts: 'asc' } } },
+      include: { mst_project: true, rnr_asset_payroll_line: { orderBy: { entry_ts: 'asc' } } },
     });
     if (!p) return null;
     return {
       id: p.id.toString(),
       project_id: p.project_id.toString(),
-      projectName: p.project?.name,
+      projectName: p.mst_project?.name,
       payroll_code: p.payroll_code,
       state: p.state,
       total_value: p.total_value.toString(),
       entry_ts: p.entry_ts?.toISOString() ?? new Date().toISOString(),
       updt_ts: p.updt_ts?.toISOString() ?? new Date().toISOString(),
-      lines: p.lines.map(l => ({
+      lines: p.rnr_asset_payroll_line.map((l: any) => ({
         id: l.id.toString(),
         payroll_id: l.payroll_id.toString(),
         beneficiary_name: l.beneficiary_name,
@@ -60,16 +60,16 @@ export class PrismaRnrPayrollRepository implements IRnrPayrollRepository {
         state: 'Drafting',
         total_value: '0.00',
       },
-      include: { project: true, lines: true },
+      include: { mst_project: true, rnr_asset_payroll_line: true },
     });
     return {
       id: payroll.id.toString(),
       project_id: payroll.project_id.toString(),
-      projectName: payroll.project?.name,
+      projectName: payroll.mst_project?.name,
       payroll_code: payroll.payroll_code,
       state: payroll.state,
       total_value: payroll.total_value.toString(),
-      lineCount: 0,
+      lineCount: payroll.rnr_asset_payroll_line ? payroll.rnr_asset_payroll_line.length : 0,
       entry_ts: payroll.entry_ts?.toISOString() ?? new Date().toISOString(),
       updt_ts: payroll.updt_ts?.toISOString() ?? new Date().toISOString(),
     };
@@ -79,7 +79,7 @@ export class PrismaRnrPayrollRepository implements IRnrPayrollRepository {
     const updated = await db.rnr_asset_payroll.update({
       where: { id: id },
       data: { state },
-      include: { project: true, lines: true },
+      include: { mst_project: true, rnr_asset_payroll_line: true },
     });
     return {
       id: updated.id.toString(),
@@ -87,7 +87,7 @@ export class PrismaRnrPayrollRepository implements IRnrPayrollRepository {
       payroll_code: updated.payroll_code,
       state: updated.state,
       total_value: updated.total_value.toString(),
-      lineCount: updated.lines.length,
+      lineCount: updated.rnr_asset_payroll_line.length,
       entry_ts: updated.entry_ts?.toISOString() ?? new Date().toISOString(),
       updt_ts: updated.updt_ts?.toISOString() ?? new Date().toISOString(),
     };

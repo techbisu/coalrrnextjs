@@ -1,7 +1,7 @@
 import { document_instance, document_audit_log, document_template } from '@prisma/client'
 
 export type DocumentInstanceWithTemplate = document_instance & {
-  template: document_template
+  document_template: document_template
 }
 
 export type DocumentInstanceWithAudit = document_instance & {

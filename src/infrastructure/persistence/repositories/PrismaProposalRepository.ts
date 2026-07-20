@@ -1,7 +1,9 @@
+import { UserScopeService } from "@/core/authorization/services/UserScopeService";
 import { db } from '@/lib/db'
 import { Proposal, IProposalRepository, IProposalQueryOptions } from '@/domain'
 import { IPaginatedResult } from '@/core/interfaces'
 import Decimal from 'decimal.js'
+
 
 export class PrismaProposalRepository implements IProposalRepository {
   
@@ -9,7 +11,7 @@ export class PrismaProposalRepository implements IProposalRepository {
     const data = await db.land_schedule.findUnique({
       where: { id },
       include: {
-        items: { 
+        land_schedule_item: { 
           where: { is_active: true }
         }
       }
@@ -33,7 +35,7 @@ export class PrismaProposalRepository implements IProposalRepository {
       totalAreaAcres: data.total_area_acres.toString(),
       notificationDate: data.notification_date,
       modeSpecificChecklist: data.mode_specific_checklist ?? '{"items":[]}',
-      plotIds: data.items.map(item => item.plot_id),
+      plotIds: data.land_schedule_item.map((item: any) => item.plot_id),
       createdAt: data.entry_ts,
       updatedAt: data.updt_ts,
     })
@@ -44,7 +46,8 @@ export class PrismaProposalRepository implements IProposalRepository {
     const pageSize = options?.pageSize ?? 20
     const skip = (page - 1) * pageSize
 
-    const where: any = {}
+    const scopeWhere = options?.scope && options?.userId ? UserScopeService.visibilityWhere(options.scope, options.userId, 'area_office', 'mine_cd', 'proposed_by') : {};
+    const where: any = { ...scopeWhere };
     if (options?.project_id) where.project_id = options.project_id
     if (options?.state) where.state = options.state
 
@@ -54,7 +57,7 @@ export class PrismaProposalRepository implements IProposalRepository {
         skip,
         take: pageSize,
         orderBy: { entry_ts: 'desc' },
-        include: { items: { where: { is_active: true } } }
+        include: { land_schedule_item: { where: { is_active: true } } }
       }),
       db.land_schedule.count({ where })
     ])
@@ -76,7 +79,7 @@ export class PrismaProposalRepository implements IProposalRepository {
         totalAreaAcres: data.total_area_acres.toString(),
         notificationDate: data.notification_date,
         modeSpecificChecklist: data.mode_specific_checklist ?? '{"items":[]}',
-        plotIds: data.items.map(item => item.plot_id),
+        plotIds: data.land_schedule_item.map((item: any) => item.plot_id),
         createdAt: data.entry_ts,
         updatedAt: data.updt_ts,
       })),
@@ -90,7 +93,7 @@ export class PrismaProposalRepository implements IProposalRepository {
   async findByScheduleCode(scheduleCode: string): Promise<Proposal | null> {
     const data = await db.land_schedule.findFirst({
       where: { schedule_code: scheduleCode },
-      include: { items: { where: { is_active: true } } }
+      include: { land_schedule_item: { where: { is_active: true } } }
     })
 
     if (!data) return null
@@ -111,7 +114,7 @@ export class PrismaProposalRepository implements IProposalRepository {
       totalAreaAcres: data.total_area_acres.toString(),
       notificationDate: data.notification_date,
       modeSpecificChecklist: data.mode_specific_checklist ?? '{"items":[]}',
-      plotIds: data.items.map(item => item.plot_id),
+      plotIds: data.land_schedule_item.map((item: any) => item.plot_id),
       createdAt: data.entry_ts,
       updatedAt: data.updt_ts,
     })
@@ -222,10 +225,10 @@ export class PrismaProposalRepository implements IProposalRepository {
     return await db.land_schedule.findUnique({
       where: { id },
       include: {
-        project: true,
-        items: {
+        mst_project: true,
+        land_schedule_item: {
           include: {
-            plot: {
+            mst_plot: {
               include: {
                 mouza: true
               }

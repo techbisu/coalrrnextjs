@@ -33,13 +33,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const app = await db.employment_application.findUnique({
       where: { id },
       include: {
-        project: true,
+        mst_project: true,
         nominee_pool: {
           include: {
             contributions: {
               include: {
                 form_i_claim: {
-                  include: { plot: true }
+                  include: { mst_plot: true }
                 }
               }
             }

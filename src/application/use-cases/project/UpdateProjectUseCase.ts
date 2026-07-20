@@ -79,6 +79,12 @@ export class UpdateProjectUseCase implements IUseCase<UpdateProjectRequest, Upda
       await this.projectRepository.updateProjectMouzas(project.id.toString(), request.mouza_lgds)
     }
 
+    // Sync file attachments if pr_doc_id is explicitly provided in the update payload
+    if (request.pr_doc_id !== undefined) {
+      const fileIds = request.pr_doc_id ? [request.pr_doc_id] : []
+      await (this.projectRepository as any).syncProjectDocuments(project.id.toString(), fileIds, request.user_id)
+    }
+
     // 4. Publish events
     const domainEvents = project.clearDomainEvents()
     for (const event of domainEvents) {

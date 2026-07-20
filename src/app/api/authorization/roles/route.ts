@@ -13,7 +13,7 @@ export async function GET() {
       orderBy: [{ is_system: 'desc' }, { name: 'asc' }],
       include: {
         _count: {
-          select: { users: true, permissions: true },
+          select: { model_has_role: true, role_has_permission: true },
         },
       },
     })

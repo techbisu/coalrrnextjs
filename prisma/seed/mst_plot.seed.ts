@@ -9,8 +9,8 @@ export async function seedMstPlot(db: PrismaClient) {
     update: {},
     create: {
       mouza_lgd: 318357n,
-      mouza_name_en: 'Dummy Mouza',
-      state_lgd: 20n,
+      mouza_en: 'Dummy Mouza',
+      block_lgd: 1n,
       is_active: true
     }
   })

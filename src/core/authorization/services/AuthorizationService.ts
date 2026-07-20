@@ -88,8 +88,8 @@ export class AuthorizationService {
 
     // Add inherited permissions
     fullRoles.forEach(fr => {
-      if (fr && fr.permissions) {
-        fr.permissions.forEach((rp: any) => {
+      if (fr && fr.role_has_permission) {
+        fr.role_has_permission.forEach((rp: any) => {
           permissions.add(rp.permission.name)
         })
       }

@@ -46,20 +46,20 @@ async function main() {
     
     // 4. Events & Notifications
     await seedEventRegistry(db)
-    await seedNotificationTemplate(db)
-    await seedNotificationRule(db)
+    // await seedNotificationTemplate(db)
+    // await seedNotificationRule(db)
 
     // 5. Operational Data (Order matters for FKs)
-    await seedFormIClaim(db)
-    await seedCompensationPayroll(db)
-    await seedLandSchedule(db)
-    await seedWorkflowReviewTask(db)
-    await seedFormDLedgerEntry(db)
-    await seedNomineePool(db)
-    await seedPafCensusRecord(db)
-    await seedRnrAssetPayroll(db)
-    await seedEmploymentApplication(db)
-    await seedGrievance(db)
+    // await seedFormIClaim(db)
+    // await seedCompensationPayroll(db)
+    // await seedLandSchedule(db)
+    // await seedWorkflowReviewTask(db)
+    // await seedFormDLedgerEntry(db)
+    // await seedNomineePool(db)
+    // await seedPafCensusRecord(db)
+    // await seedRnrAssetPayroll(db)
+    // await seedEmploymentApplication(db)
+    // await seedGrievance(db)
 
     console.log('\n✅ All seeds completed successfully.')
   } catch (error) {

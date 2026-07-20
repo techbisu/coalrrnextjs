@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export async function seedRole(db: PrismaClient) {
   console.log('Seeding Enterprise RBAC Hierarchy...')
@@ -8,13 +9,16 @@ export async function seedRole(db: PrismaClient) {
     'acquisition.view', 'acquisition.create', 'acquisition.edit', 'acquisition.approve',
     'proposal.view', 'proposal.create', 'proposal.approve',
     'payroll.view', 'payroll.create', 'payroll.approve',
+    'admin.users.view', 'admin.users.manage',
+    'admin.roles.view', 'admin.roles.manage',
+    'admin.permissions.view', 'admin.permissions.manage'
   ]
 
   for (const name of perms) {
     await db.permission.upsert({
       where: { name_guard_name: { name, guard_name: 'web' } },
-      update: {},
-      create: { name, guard_name: 'web' }
+      update: { updt_ts: new Date() },
+      create: { id: randomUUID(), name, guard_name: 'web', updt_ts: new Date() }
     })
   }
 
@@ -43,8 +47,8 @@ export async function seedRole(db: PrismaClient) {
   for (const [roleName, rolePerms] of Object.entries(roleDefinitions)) {
     const role = await db.role.upsert({
       where: { name_guard_name: { name: roleName, guard_name: 'web' } },
-      update: {},
-      create: { name: roleName, guard_name: 'web' }
+      update: { updt_ts: new Date() },
+      create: { id: randomUUID(), name: roleName, guard_name: 'web', updt_ts: new Date() }
     })
     roleIds[roleName] = role.id
 
@@ -53,8 +57,8 @@ export async function seedRole(db: PrismaClient) {
       if (p) {
         await db.role_has_permission.upsert({
           where: { role_id_permission_id: { role_id: role.id, permission_id: p.id } },
-          update: {},
-          create: { role_id: role.id, permission_id: p.id }
+          update: { updt_ts: new Date() },
+          create: { role_id: role.id, permission_id: p.id, updt_ts: new Date() }
         })
       }
     }
@@ -77,8 +81,8 @@ export async function seedRole(db: PrismaClient) {
     if (assignedRoleId) {
       await db.model_has_role.upsert({
         where: { role_id_model_type_model_id: { model_id: user.id, model_type: 'user', role_id: assignedRoleId } },
-        update: {},
-        create: { model_id: user.id, model_type: 'user', role_id: assignedRoleId }
+        update: { updt_ts: new Date() },
+        create: { model_id: user.id, model_type: 'user', role_id: assignedRoleId, updt_ts: new Date() }
       })
       
       await db.user.update({

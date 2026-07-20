@@ -1,3 +1,4 @@
+import { UserScopeService } from "@/core/authorization/services/UserScopeService";
 import { db } from '@/lib/db'
 import {
   IPafRepository,

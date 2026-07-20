@@ -18,7 +18,10 @@ export default getRequestConfig(async () => {
     locale,
     messages,
     timeZone: 'Asia/Kolkata',
-    getMessageFallback: ({namespace, key}) => key ? `${namespace}.${key}` : String(namespace),
+    getMessageFallback: ({namespace, key}) => {
+      if (!namespace) return key;
+      return key ? `${namespace}.${key}` : String(namespace);
+    },
     onError: (error) => {
       // Suppress missing message errors in console
       if (error.code === 'MISSING_MESSAGE') return;

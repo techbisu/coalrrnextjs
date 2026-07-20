@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 export class ProposalRepository {
   async findAll() {
     return db.land_schedule.findMany({
-      include: { project: true, items: true },
+      include: { mst_project: true, land_schedule_item: true },
       orderBy: { entry_ts: 'desc' },
     })
   }
@@ -11,7 +11,7 @@ export class ProposalRepository {
   async findById(id: string) {
     return db.land_schedule.findUnique({
       where: { id },
-      include: { project: true, items: { include: { plot: { include: { mouza: true } } } } },
+      include: { mst_project: true, land_schedule_item: { include: { mst_plot: { include: { mouza: true } } } } },
     })
   }
 

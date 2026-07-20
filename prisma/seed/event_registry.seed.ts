@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export async function seedEventRegistry(db: PrismaClient) {
   console.log('🌱 Seeding event_registry...')
@@ -13,8 +14,8 @@ export async function seedEventRegistry(db: PrismaClient) {
   for (const evt of events) {
     await db.event_registry.upsert({
       where: { event_name: evt.event_name },
-      update: {},
-      create: evt
+      update: { updt_ts: new Date() },
+      create: { ...evt, id: randomUUID(), updt_ts: new Date() }
     })
   }
 }

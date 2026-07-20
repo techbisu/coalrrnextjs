@@ -1,6 +1,7 @@
 import { getCurrentUser, ROLE_LABELS } from '@/lib/auth'
 import { ok } from '../../_lib'
 import { NextResponse } from 'next/server'
+// Force Turbopack reload to clear memory cache
 
 export async function GET() {
   try {

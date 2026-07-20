@@ -1,4 +1,5 @@
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto';
 import crypto from 'crypto';
 
 export async function seedUsers(db: PrismaClient) {
@@ -14,11 +15,13 @@ export async function seedUsers(db: PrismaClient) {
   for (const u of users) {
     await db.user.upsert({
       where: { email: u.email },
-      update: {},
+      update: { updt_ts: new Date() },
       create: {
+        id: randomUUID(),
         ...u,
         password_hash: hash,
         mobile: Math.floor(Math.random() * 10000000000).toString(),
+        updt_ts: new Date()
       }
     });
   }

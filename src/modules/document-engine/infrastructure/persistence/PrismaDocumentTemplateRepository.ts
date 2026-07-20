@@ -4,14 +4,21 @@ import { document_template } from '@prisma/client'
 
 export class PrismaDocumentTemplateRepository implements IDocumentTemplateRepository {
   async findByCode(templateCode: string): Promise<DocumentTemplateWithFields | null> {
-    return db.document_template.findUnique({
+    const result = await db.document_template.findUnique({
       where: { template_code: templateCode },
       include: {
-        fields: {
+        document_template_field: {
           orderBy: { field_key: 'asc' }
         }
       }
     })
+
+    if (!result) return null;
+
+    return {
+      ...result,
+      fields: result.document_template_field
+    } as DocumentTemplateWithFields;
   }
 
   async findAll(): Promise<document_template[]> {

@@ -5,7 +5,7 @@ import { PermissionCache } from '@/core/authorization/cache/PermissionCache'
 
 export class PrismaRoleRepository implements IRoleRepository {
   async findById(id: string): Promise<any | null> {
-    return db.role.findUnique({ where: { id }, include: { permissions: { include: { permission: true } } } })
+    return db.role.findUnique({ where: { id }, include: { role_has_permission: { include: { permission: true } } } })
   }
 
   async findByName(name: string, guard_name: string = 'web'): Promise<IRole | null> {
@@ -15,7 +15,7 @@ export class PrismaRoleRepository implements IRoleRepository {
   async findAll(): Promise<any[]> {
     return db.role.findMany({
       orderBy: [{ is_system: 'desc' }, { name: 'asc' }],
-      include: { _count: { select: { users: true, permissions: true } } }
+      include: { _count: { select: { model_has_role: true, role_has_permission: true } } }
     })
   }
 
@@ -56,8 +56,9 @@ export class PrismaRoleRepository implements IRoleRepository {
   async syncUserRoles(user_id: string, roleIds: string[]): Promise<void> {
     await db.model_has_role.deleteMany({ where: { model_id: user_id, model_type: 'user' } })
     if (roleIds.length > 0) {
+      const now = new Date()
       await db.model_has_role.createMany({
-        data: roleIds.map(role_id => ({ role_id, model_type: 'user', model_id: user_id }))
+        data: roleIds.map(role_id => ({ role_id, model_type: 'user', model_id: user_id, updt_ts: now }))
       })
     }
     await PermissionCache.invalidate(user_id)
@@ -66,10 +67,14 @@ export class PrismaRoleRepository implements IRoleRepository {
   async syncPermissions(role_id: string, permissionIds: string[]): Promise<void> {
     await db.role_has_permission.deleteMany({ where: { role_id } })
     if (permissionIds.length > 0) {
+      const now = new Date()
+      // Force Turbopack reload to include updt_ts
       await db.role_has_permission.createMany({
-        data: permissionIds.map(permission_id => ({ role_id, permission_id }))
+        data: permissionIds.map(permission_id => ({ role_id, permission_id, updt_ts: now }))
       })
     }
+    // Clear ALL caches because role permissions affect all users with this role
+    await PermissionCache.invalidateAll()
   }
 
   async findRolesByNames(names: string[]): Promise<IRole[]> {

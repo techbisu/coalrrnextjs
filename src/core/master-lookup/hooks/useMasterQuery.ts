@@ -8,22 +8,30 @@ export function useMasterQuery({
   activeOnly = true,
   selectedValues,
 }: LookupConfig, enabled: boolean = true) {
+  // Normalize all dependsOn values to strings for stable query keys and URL params
+  // This avoids BigInt serialization issues and ensures cache hits across type variants
+  const normalizedDeps = dependsOn
+    ? Object.fromEntries(
+        Object.entries(dependsOn)
+          .filter(([, v]) => v !== null && v !== undefined && v !== '')
+          .map(([k, v]) => [k, String(v)])
+      )
+    : undefined
+
   // Wait to fetch until all dependencies have concrete values (not null/undefined)
-  const allDepsReady = dependsOn 
+  const allDepsReady = dependsOn
     ? Object.values(dependsOn).every(val => val !== null && val !== undefined && val !== '')
     : true
 
   return useQuery<{ options: MasterOption[] }, Error>({
-    queryKey: ['master-lookup', master, dependsOn, searchQuery, activeOnly, selectedValues],
+    queryKey: ['master-lookup', master, normalizedDeps, searchQuery, activeOnly, selectedValues],
     queryFn: async () => {
       let url = `/api/master-data/lookup/${master}`
       const params = new URLSearchParams()
-      
-      if (dependsOn) {
-        Object.entries(dependsOn).forEach(([key, value]) => {
-          if (value !== null && value !== undefined && value !== '') {
-            params.append(key, String(value))
-          }
+
+      if (normalizedDeps) {
+        Object.entries(normalizedDeps).forEach(([key, value]) => {
+          params.append(key, value)
         })
       }
       if (searchQuery) {

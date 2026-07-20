@@ -22,6 +22,7 @@ If codebase-memory-mcp is unavailable, state explicitly: "codebase-memory-mcp un
 - Service layer: no direct Prisma calls outside repositories — service-layer.md
 - Validation: one zod schema per entity, shared client+server — validation.md
 - Optimization: think structure/perf before coding — optimization.md
+- Translations: every page/module must use i18n, seeded module-wise — translations.md
 
 ## Do not touch
 - old_schema.prisma (deprecated)

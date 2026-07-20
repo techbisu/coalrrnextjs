@@ -18,10 +18,12 @@ export interface AuthUser {
   designation: string | null
   mine_cd: string | null
   plot_id: string | null
+  scope: any // EffectiveScope from UserScopeService
 }
 
-import { authService } from '@/infrastructure/di/Container'
+import { authService, userOrgScopeRepositoryExport } from '@/infrastructure/di/Container'
 import { cache } from 'react'
+import { UserScopeService } from '@/core/authorization/services/UserScopeService'
 
 export const getCurrentUser = cache(async function (): Promise<AuthUser | null> {
   const cookieStore = await cookies()
@@ -38,18 +40,23 @@ export const getCurrentUser = cache(async function (): Promise<AuthUser | null> 
   const roles = await authService.getUserRoles(u.id)
   const permissions = await authService.getUserPermissions(u.id)
   
+  // Load Org Scope
+  const activeScope = await userOrgScopeRepositoryExport.getActiveScopeByUserId(u.id)
+  const scope = UserScopeService.buildEffectiveScope(activeScope ? [activeScope] : [])
+  
   return {
     id: u.id, portal: u.portal as 'ecl' | 'public', role: u.role,
     roles, permissions,
     email: u.email, mobile: u.mobile, name: u.name,
     designation: u.designation, mine_cd: u.mine_cd, plot_id: u.plot_id,
+    scope
   }
 })
 
 export async function createSession(user_id: string): Promise<AuthUser> {
   const token = randomUUID()
   const expires_at = new Date(Date.now() + SESSION_TTL_MS)
-  await db.auth_session.create({ data: { token, user_id, expires_at } })
+  await db.auth_session.create({ data: { id: randomUUID(), token, user_id, expires_at, updt_ts: new Date() } })
   const cookieStore = await cookies()
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true, sameSite: 'lax', path: '/', expires: expires_at,
@@ -61,11 +68,16 @@ export async function createSession(user_id: string): Promise<AuthUser> {
   const roles = await authService.getUserRoles(u.id)
   const permissions = await authService.getUserPermissions(u.id)
 
+  // Load Org Scope
+  const activeScope = await userOrgScopeRepositoryExport.getActiveScopeByUserId(u.id)
+  const scope = UserScopeService.buildEffectiveScope(activeScope ? [activeScope] : [])
+
   return {
     id: u.id, portal: u.portal as 'ecl' | 'public', role: u.role,
     roles, permissions,
     email: u.email, mobile: u.mobile, name: u.name,
     designation: u.designation, mine_cd: u.mine_cd, plot_id: u.plot_id,
+    scope
   }
 }
 

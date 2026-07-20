@@ -4,7 +4,7 @@ import { IPayrollsRepository } from '@/modules/payrolls/interfaces/IPayrollsRepo
 export class PrismaPayrollsRepository implements IPayrollsRepository {
   async findAllPayrollsWithDetails(): Promise<any[]> {
     return db.compensation_payroll.findMany({
-      include: { project: true, lines: true },
+      include: { mst_project: true, compensation_payroll_line: true },
       orderBy: { entry_ts: 'desc' },
     });
   }
@@ -32,8 +32,8 @@ export class PrismaPayrollsRepository implements IPayrollsRepository {
     return db.compensation_payroll.findUnique({
       where: { id },
       include: {
-        project: true,
-        lines: { orderBy: { entry_ts: 'asc' } },
+        mst_project: true,
+        compensation_payroll_line: { orderBy: { entry_ts: 'asc' } },
       },
     });
   }
@@ -41,7 +41,7 @@ export class PrismaPayrollsRepository implements IPayrollsRepository {
   async findPayrollById(id: string): Promise<any | null> {
     return db.compensation_payroll.findUnique({
       where: { id },
-      include: { project: true },
+      include: { mst_project: true },
     });
   }
 

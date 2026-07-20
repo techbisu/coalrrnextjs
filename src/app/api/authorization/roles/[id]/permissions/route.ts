@@ -1,6 +1,7 @@
 import { ok, badRequest, serverError, readJson } from '@/app/api/_lib'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { syncPermissionsSchema } from '@/authorization/validators'
+// Force Turbopack reload of this API route
 import { roleService } from '@/infrastructure/di/Container'
 import { db } from '@/lib/db'
 

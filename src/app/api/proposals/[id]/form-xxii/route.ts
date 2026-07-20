@@ -55,8 +55,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     const attachment = await db.file_attachment.findFirst({
       where: { entity_type: 'land_schedule', entity_id: id },
       include: {
-        file: {
-          include: { versions: { orderBy: { version_number: 'desc' }, take: 1 } }
+        file_record: {
+          include: { file_version: { orderBy: { version_number: 'desc' }, take: 1 } }
         }
       },
       orderBy: { entry_ts: 'desc' }
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     const proposal = await db.land_schedule.findUnique({
       where: { id },
       include: {
-        project: {
+        mst_project: {
           select: {
             id: true,
             name: true,
@@ -80,19 +80,19 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 
     const fileInfo = attachment ? {
       file_id: attachment.file_id,
-      original_name: attachment.file.original_name,
+      original_name: attachment.file_record.original_name,
       attached_at: attachment.entry_ts,
       attached_by: attachment.attached_by,
-      mime_type: attachment.file.versions[0]?.mime_type ?? null,
-      size_bytes: attachment.file.versions[0]?.size_bytes?.toString() ?? null,
+      mime_type: attachment.file_record.file_version[0]?.mime_type ?? null,
+      size_bytes: attachment.file_record.file_version[0]?.size_bytes?.toString() ?? null,
     } : null
 
-    const projectLimits = proposal?.project ? {
-      project_id: proposal.project.id,
-      project_name: proposal.project.name,
-      total_land_limit_acres: proposal.project.total_land_limit_acres?.toString(),
-      total_budget_ceiling: proposal.project.total_budget_ceiling?.toString(),
-      total_employment_quota: proposal.project.total_employment_quota,
+    const projectLimits = proposal?.mst_project ? {
+      project_id: proposal.mst_project.id,
+      project_name: proposal.mst_project.name,
+      total_land_limit_acres: proposal.mst_project.total_land_limit_acres?.toString(),
+      total_budget_ceiling: proposal.mst_project.total_budget_ceiling?.toString(),
+      total_employment_quota: proposal.mst_project.total_employment_quota,
     } : null
 
     if (instance) {

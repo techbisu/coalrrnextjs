@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export async function seedMstProject(db: PrismaClient) {
   console.log('Seeding demo projects...')
@@ -8,6 +9,7 @@ export async function seedMstProject(db: PrismaClient) {
   if (!state) {
     state = await db.state_master.create({
       data: {
+        id: randomUUID(),
         state_lgd: 20n,
         state_en: 'Jharkhand',
         stateLocVern: 'Jharkhand',
@@ -20,6 +22,7 @@ export async function seedMstProject(db: PrismaClient) {
   if (!area) {
     area = await db.area_master.create({
       data: {
+        id: randomUUID(),
         area_cd: 'AREA-01',
         area_en: 'BCCL Area 1',
         is_active: true,
@@ -32,6 +35,7 @@ export async function seedMstProject(db: PrismaClient) {
   if (!mine) {
     mine = await db.mine_master.create({
       data: {
+        id: randomUUID(),
         mine_cd: 'MINE-01',
         mine_en: 'Demo Mine',
         area_cd: area.area_cd,
@@ -41,7 +45,7 @@ export async function seedMstProject(db: PrismaClient) {
     })
   }
   // 2. Clear existing projects if any to avoid collision
-  await db.mst_project.deleteMany({})
+  // await db.mst_project.deleteMany({}) // Disabled to prevent FK violation on land_schedule
 
   // 3. Create demo projects
   const projectsToCreate = [
@@ -78,19 +82,23 @@ export async function seedMstProject(db: PrismaClient) {
   ]
 
   for (const p of projectsToCreate) {
-    await db.mst_project.create({
-      data: {
-        name: p.name,
-        mine_cd: p.mine_cd,
-        total_land_limit_acres: p.total_land_limit_acres,
-        total_budget_ceiling: p.total_budget_ceiling,
-        total_employment_quota: p.total_employment_quota,
-        boundary: p.boundary,
-        locked_at: p.locked_at,
-        entry_ts: new Date(),
-        updt_ts: new Date(),
-      }
-    })
+    const existing = await db.mst_project.findFirst({ where: { name: p.name } })
+    if (!existing) {
+      await db.mst_project.create({
+        data: {
+          id: randomUUID(),
+          name: p.name,
+          mine_cd: p.mine_cd,
+          total_land_limit_acres: p.total_land_limit_acres,
+          total_budget_ceiling: p.total_budget_ceiling,
+          total_employment_quota: p.total_employment_quota,
+          boundary: p.boundary,
+          locked_at: p.locked_at,
+          entry_ts: new Date(),
+          updt_ts: new Date(),
+        }
+      })
+    }
   }
 
   console.log('Demo projects seeded successfully!')

@@ -30,8 +30,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     const attachments = await db.file_attachment.findMany({
       where: { entity_type: 'land_schedule', entity_id: { in: proposalIds } },
       include: {
-        file: {
-          include: { versions: { orderBy: { version_number: 'desc' }, take: 1 } }
+        file_record: {
+          include: { file_version: { orderBy: { version_number: 'desc' }, take: 1 } }
         }
       },
       orderBy: { entry_ts: 'desc' }
@@ -60,11 +60,11 @@ export async function GET(req: NextRequest, { params }: Ctx) {
           instance_status: instance?.status ?? null,
           file: attachment ? {
             file_id: attachment.file_id,
-            original_name: attachment.file.original_name,
+            original_name: attachment.file_record.original_name,
             attached_at: attachment.entry_ts,
             attached_by: attachment.attached_by,
-            mime_type: attachment.file.versions[0]?.mime_type ?? null,
-            size_bytes: attachment.file.versions[0]?.size_bytes?.toString() ?? null,
+            mime_type: attachment.file_record.file_version[0]?.mime_type ?? null,
+            size_bytes: attachment.file_record.file_version[0]?.size_bytes?.toString() ?? null,
           } : null,
         }
       })

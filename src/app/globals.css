@@ -120,3 +120,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide scrollbar for sidebar but allow scrolling */
+.sidebar-scroll::-webkit-scrollbar {
+  display: none;
+}
+.sidebar-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}

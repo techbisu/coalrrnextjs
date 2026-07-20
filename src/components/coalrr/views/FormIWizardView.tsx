@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -298,12 +298,12 @@ function Wizard({ plots, onDone }: { plots: Array<{ id: string; plot_number: str
                 checklist_item_key="MAG_AFFIDAVIT"
                 label="Magistrate Affidavit (mandatory)"
                 documents={uploadedDocs.MAG_AFFIDAVIT ?? []}
-                onUpload={(file) => {
+                onChange={(docs) => {
+                  const newDocs = Array.isArray(docs) ? docs : [docs];
                   setUploadedDocs((prev) => ({
                     ...prev,
-                    MAG_AFFIDAVIT: [...(prev.MAG_AFFIDAVIT ?? []), { file_name: file.name, file_size_kb: Math.round(file.size / 1024), mime_type: file.type, virus_scan_status: 'clean', uploaded_by: form.claimant_name, entry_ts: new Date().toISOString() }],
+                    MAG_AFFIDAVIT: [...(prev.MAG_AFFIDAVIT ?? []), ...newDocs],
                   }))
-                  toast.success(`Uploaded: ${file.name}`)
                 }}
                 onRemove={(doc) => setUploadedDocs((prev) => ({ ...prev, MAG_AFFIDAVIT: (prev.MAG_AFFIDAVIT ?? []).filter((d) => d.file_name !== doc.file_name) }))}
               />
@@ -311,12 +311,12 @@ function Wizard({ plots, onDone }: { plots: Array<{ id: string; plot_number: str
                 checklist_item_key="LINK_DEED"
                 label="Link Deed (title chain)"
                 documents={uploadedDocs.LINK_DEED ?? []}
-                onUpload={(file) => {
+                onChange={(docs) => {
+                  const newDocs = Array.isArray(docs) ? docs : [docs];
                   setUploadedDocs((prev) => ({
                     ...prev,
-                    LINK_DEED: [...(prev.LINK_DEED ?? []), { file_name: file.name, file_size_kb: Math.round(file.size / 1024), mime_type: file.type, virus_scan_status: 'clean', uploaded_by: form.claimant_name, entry_ts: new Date().toISOString() }],
+                    LINK_DEED: [...(prev.LINK_DEED ?? []), ...newDocs],
                   }))
-                  toast.success(`Uploaded: ${file.name}`)
                 }}
                 onRemove={(doc) => setUploadedDocs((prev) => ({ ...prev, LINK_DEED: (prev.LINK_DEED ?? []).filter((d) => d.file_name !== doc.file_name) }))}
               />

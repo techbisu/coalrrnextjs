@@ -1,12 +1,16 @@
 import { db } from '@/lib/db'
 import { PrismaClient, captcha_challenge, Prisma } from '@prisma/client'
 
+import { randomUUID } from 'crypto'
+
 export class PrismaStorage {
   async saveChallenge(data: Prisma.captcha_challengeCreateInput): Promise<captcha_challenge> {
     return await db.captcha_challenge.create({
       data: {
+        id: randomUUID(),
         ...data,
-        attempts: 0
+        attempts: 0,
+        updt_ts: new Date()
       }
     })
   }

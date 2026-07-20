@@ -92,7 +92,7 @@ export function Combobox({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -100,12 +100,12 @@ export function Combobox({
           aria-expanded={open}
           disabled={disabled || isLoading}
           className={cn(
-            "w-full justify-between h-auto min-h-[40px]",
+            "w-full justify-between h-auto min-h-[40px] px-3",
             (!value || (isMulti && selectedValues.length === 0)) && "text-muted-foreground",
             className
           )}
         >
-          <div className="flex flex-wrap gap-1 items-center max-w-[90%]">
+          <div className="flex flex-wrap gap-1 items-center overflow-hidden text-left">
             {isMulti ? (
               selectedOptions.length > 0 ? (
                 selectedOptions.map(opt => (
@@ -115,7 +115,9 @@ export function Combobox({
                 ))
               ) : placeholder
             ) : (
-              selectedOptions.length > 0 ? selectedOptions[0].label : placeholder
+              <span className="truncate block max-w-full">
+                {selectedOptions.length > 0 ? selectedOptions[0].label : placeholder}
+              </span>
             )}
           </div>
           {isLoading ? (
@@ -132,31 +134,33 @@ export function Combobox({
             value={searchQuery}
             onValueChange={handleSearch}
           />
-          <CommandList>
-            <CommandEmpty>{isLoading ? "Loading..." : emptyText}</CommandEmpty>
-            {Object.entries(groupedOptions).map(([group, groupOptions]) => (
-              <CommandGroup key={group} heading={group !== "Default" ? group : undefined}>
-                {groupOptions.map((option) => {
-                  const isSelected = selectedValues.includes(String(option.value))
-                  return (
-                    <CommandItem
-                      key={option.value}
-                      value={option.label}
-                      onSelect={() => handleSelect(String(option.value))}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4 shrink-0",
-                          isSelected ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      {option.label}
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            ))}
-          </CommandList>
+          <div className="max-h-[300px] overflow-y-auto overflow-x-hidden pointer-events-auto overscroll-contain" data-radix-scroll-area-viewport="true" onWheel={(e) => e.stopPropagation()}>
+            <CommandList className="max-h-none overflow-visible pointer-events-none">
+              <CommandEmpty>{isLoading ? "Loading..." : emptyText}</CommandEmpty>
+              {Object.entries(groupedOptions).map(([group, groupOptions]) => (
+                <CommandGroup key={group} heading={group !== "Default" ? group : undefined} className="pointer-events-auto">
+                  {groupOptions.map((option) => {
+                    const isSelected = selectedValues.includes(String(option.value))
+                    return (
+                      <CommandItem
+                        key={option.value}
+                        value={option.label}
+                        onSelect={() => handleSelect(String(option.value))}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4 shrink-0",
+                            isSelected ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {option.label}
+                      </CommandItem>
+                    )
+                  })}
+                </CommandGroup>
+              ))}
+            </CommandList>
+          </div>
         </Command>
       </PopoverContent>
     </Popover>

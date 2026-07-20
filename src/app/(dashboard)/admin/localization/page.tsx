@@ -8,7 +8,7 @@ export default async function AdminLocalizationPage() {
     include: {
       language: true,
       translation_key: {
-        include: { module: true }
+        include: { translation_module: true }
       }
     },
     orderBy: { updt_ts: 'desc' },
@@ -47,7 +47,7 @@ export default async function AdminLocalizationPage() {
                 translations.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell className="font-medium">{t.language.name}</TableCell>
-                    <TableCell>{t.translation_key.module.name}</TableCell>
+                    <TableCell>{t.translation_key.translation_module.name}</TableCell>
                     <TableCell className="font-mono text-xs">{t.translation_key.key}</TableCell>
                     <TableCell>{t.value}</TableCell>
                     <TableCell>

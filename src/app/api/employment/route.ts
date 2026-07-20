@@ -1,4 +1,4 @@
-﻿// GET /api/employment — list employment applications + nominee pool threshold status
+// GET /api/employment — list employment applications + nominee pool threshold status
 import { db } from '@/lib/db'
 import { ok, serverError, dec } from '../_lib'
 import { NomineePoolThresholdCalculator, AcreageValue, EMPLOYMENT_GATE_ACRES } from '@/lib/engines'
@@ -10,8 +10,8 @@ export async function GET(_req: NextRequest) {
   try {
     const apps = await db.employment_application.findMany({
       include: {
-        nominee_pool: { include: { contributions: { include: { form_i_claim: { include: { plot: true } } } } } },
-        project: true,
+        nominee_pool: { include: { contributions: { include: { form_i_claim: { include: { mst_plot: true } } } } } },
+        mst_project: true,
       },
       orderBy: { entry_ts: 'desc' },
     })
@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest) {
       return {
         id: a.id,
         application_code: a.application_code,
-        projectName: a.project.name,
+        projectName: a.mst_project.name,
         nominee_name: a.nominee_pool.nominee_name,
         state: a.state,
         // Frozen-at-approval snapshot (spec §3.1.1 — "NOT live-recomputed after lock")
@@ -40,7 +40,7 @@ export async function GET(_req: NextRequest) {
         contributions: a.nominee_pool.contributions.map((c) => ({
           share_acres: dec(c.share_acres),
           claimant_name: c.form_i_claim.claimant_name,
-          plot_number: c.form_i_claim.plot.plot_number,
+          plot_number: c.form_i_claim.mst_plot.plot_number,
         })),
       }
     })

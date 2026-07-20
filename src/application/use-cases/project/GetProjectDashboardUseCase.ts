@@ -11,6 +11,8 @@ export interface ProjectDashboardItem {
   name: string
   mine_cd: string
   state_lgd?: string
+  district_lgd?: string | null
+  block_lgd?: string | null
   area_cd?: string | null
   mouza_lgds?: string[]
   pr_docs?: Array<{
@@ -91,6 +93,8 @@ export class GetProjectDashboardUseCase implements IUseCase<GetProjectDashboardR
       name: d.project.name,
       mine_cd: d.project.mine_cd,
       state_lgd: d.project.state_lgd?.toString(),
+      district_lgd: d.district_lgd,
+      block_lgd: d.block_lgd,
       area_cd: d.project.area_cd,
       mouza_lgds: d.mouza_lgds,
       pr_docs: d.pr_docs,

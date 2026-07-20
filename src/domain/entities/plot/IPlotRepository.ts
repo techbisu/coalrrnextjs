@@ -12,5 +12,5 @@ export interface PlotData {
 
 export interface IPlotRepository {
   findById(id: string): Promise<PlotData | null>
-  findAllPlots(): Promise<any[]>
+  findAllPlots(where?: any): Promise<any[]>
 }

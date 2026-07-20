@@ -8,13 +8,9 @@ import { serverError, ok } from '../_lib'
 import type { NextRequest } from 'next/server'
 import { validateBody, validateQuery } from '@/application/middleware/validation'
 import { CreateProjectSchema, PaginationSchema } from '@/application/validators/schemas'
-import { CreateProjectUseCase, GetProjectDashboardUseCase } from '@/application/use-cases/project'
-import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
+import { createProjectUseCase, getProjectDashboardUseCase } from '@/infrastructure/di/Container'
 import { apiRateLimiter, getClientIdentifier } from '@/infrastructure/security'
 import { DomainException, ValidationException } from '@/core/errors'
-
-// Initialize dependencies (in production, use DI container)
-const projectRepository = new PrismaProjectRepository()
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,8 +41,7 @@ export async function GET(req: NextRequest) {
     if (!queryResult.success) return queryResult.error
 
     // Execute use case
-    const useCase = new GetProjectDashboardUseCase(projectRepository)
-    const result = await useCase.execute(queryResult.data)
+    const result = await getProjectDashboardUseCase!.execute(queryResult.data)
 
     if (result.isFailure) {
       if ((result.error as any) instanceof ValidationException) {
@@ -95,8 +90,7 @@ export async function POST(req: NextRequest) {
     if (!bodyResult.success) return bodyResult.error
 
     // Execute use case
-    const useCase = new CreateProjectUseCase(projectRepository)
-    const result = await useCase.execute({
+    const result = await createProjectUseCase!.execute({
       ...bodyResult.data,
       user_id: auth.user.id,
     })

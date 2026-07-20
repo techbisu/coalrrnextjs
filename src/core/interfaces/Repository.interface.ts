@@ -23,6 +23,8 @@ export interface IPaginatedResult<T> {
 }
 
 export interface IQueryOptions {
+  userId?: string;
+  scope?: any;
   page?: number
   pageSize?: number
   orderBy?: Record<string, 'asc' | 'desc'>

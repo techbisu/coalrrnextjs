@@ -59,6 +59,11 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
     if (request.mouza_lgds && request.mouza_lgds.length > 0) {
       await this.projectRepository.updateProjectMouzas(project.id.toString(), request.mouza_lgds)
     }
+    
+    // Link the PR document in file_attachment if provided
+    if (request.pr_doc_id) {
+      await (this.projectRepository as any).syncProjectDocuments(project.id.toString(), [request.pr_doc_id], request.user_id)
+    }
 
 
     // 3. Publish events

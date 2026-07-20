@@ -14,7 +14,7 @@ export class CaptchaService {
     const config = await db.captcha_config.upsert({
       where: { id: 'global' },
       update: {},
-      create: { id: 'global', difficulty: 'medium' },
+      create: { id: 'global', difficulty: 'medium', updt_ts: new Date() },
     })
     return config
   }
@@ -121,6 +121,7 @@ export class CaptchaService {
     try {
       await db.captcha_audit_log.create({
         data: {
+          id: crypto.randomUUID(),
           action,
           purpose,
           ip_address: ip_address || 'unknown',

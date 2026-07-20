@@ -10,6 +10,8 @@ import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { Separator } from '@/shared/components/ui/separator'
+import { SidebarHeader, SidebarContent, SidebarFooter } from '@/shared/components/ui/sidebar'
+import packageJson from '../../../../package.json'
 import { cn } from '@/lib/utils'
 
 import { LanguageSwitcher } from '@/localization/components/LanguageSwitcher'
@@ -33,12 +35,11 @@ const NAV_ITEMS = [
   { key: 'payment-ledger', icon: 'Lock', portals: ['ecl'], module: 'Module 4' },
   { key: 'employment', icon: 'Briefcase', portals: ['ecl', 'public'], module: 'Module 5' },
   { key: 'workflow-inbox', icon: 'Inbox', portals: ['ecl'], module: 'Core' },
-  { key: 'admin-settings', icon: 'Settings', portals: ['ecl'], module: 'Admin' },
-  { key: 'admin-audit', icon: 'ClipboardList', portals: ['ecl'], module: 'Admin' },
-  { key: 'admin-users', icon: 'Users', portals: ['ecl'], module: 'Admin' },
-  { key: 'admin-roles', icon: 'ShieldCheck', portals: ['ecl'], module: 'Admin' },
-  { key: 'admin-permissions', icon: 'Lock', portals: ['ecl'], module: 'Admin' },
-  { key: 'admin-master', icon: 'Database', portals: ['ecl'], module: 'Admin' },
+  { key: 'admin-settings', icon: 'Settings', portals: ['ecl'], module: 'Admin', permission: 'project.view' },
+  { key: 'admin-audit', icon: 'ClipboardList', portals: ['ecl'], module: 'Admin', permission: 'project.view' },
+  { key: 'admin-users', icon: 'Users', portals: ['ecl'], module: 'Admin', permission: 'admin.users.view' },
+  { key: 'admin-roles', icon: 'ShieldCheck', portals: ['ecl'], module: 'Admin', permission: 'admin.roles.view' },
+  { key: 'admin-master', icon: 'Database', portals: ['ecl'], module: 'Admin', permission: 'project.view' },
 ]
 
 export const ROUTE_MAP: Record<string, string> = {
@@ -52,7 +53,6 @@ export const ROUTE_MAP: Record<string, string> = {
   'admin-audit': '/admin/audit-logs',
   'admin-users': '/admin/users',
   'admin-roles': '/admin/roles',
-  'admin-permissions': '/admin/permissions',
   'admin-master': '/admin/master-data',
 }
 
@@ -82,7 +82,12 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
     return pathname.startsWith(expectedPath)
   }
 
-  const visibleNav = NAV_ITEMS.filter((item) => item.portals.includes(user.portal))
+  const visibleNav = NAV_ITEMS.filter((item) => {
+    if (!item.portals.includes(user.portal)) return false;
+    // @ts-ignore
+    if (item.permission && !user.roles.includes('Super Administrator') && !user.permissions?.includes(item.permission)) return false;
+    return true;
+  })
   const currentNav = NAV_ITEMS.find((n) => getActiveState(n.key))
 
   const handleNavClick = (key: string) => {
@@ -115,7 +120,11 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <div className="hidden items-center gap-2 rounded-md border border-border/60 bg-card px-2.5 py-1 sm:flex">
+          <div
+            className="hidden items-center gap-2 rounded-md border border-border/60 bg-card px-2.5 py-1 sm:flex cursor-pointer hover:bg-muted/60 transition-colors"
+            onClick={() => router.push('/profile')}
+            title="View profile"
+          >
             <div className={cn('flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold', user.portal === 'ecl' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700')}>
               {(user.name || user.role || 'user').split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
             </div>
@@ -136,10 +145,13 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
         </div>
       </header>
 
-      <div className="flex flex-1">
-        <aside className={cn('fixed inset-y-14 left-0 z-20 w-64 transform border-r border-border/60 bg-card transition-transform lg:static lg:translate-x-0', sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0')}>
-          <nav className="flex h-full flex-col gap-1 overflow-y-auto p-3">
-            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{user.portal === 'ecl' ? 'ECL Modules' : 'Citizen Portal'}</p>
+      <div className="flex flex-1 min-h-0">
+        <aside className={cn('fixed inset-y-14 left-0 z-20 w-64 transform border-r border-border/60 bg-card transition-transform lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] flex flex-col', sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0')}>
+          <SidebarHeader className="border-b border-border/40 shrink-0 px-5 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{user.portal === 'ecl' ? 'ECL Modules' : 'Citizen Portal'}</p>
+          </SidebarHeader>
+          <SidebarContent className="sidebar-scroll flex-1 overflow-y-auto px-3 py-2">
+            <nav className="flex flex-col gap-1">
             {visibleNav.map((item) => {
               const Icon = ICONS[item.icon] ?? LayoutDashboard
               const active = getActiveState(item.key)
@@ -168,12 +180,18 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
               </ul>
             </div>
             {user.portal === 'ecl' && (
-              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20 shrink-0">
                 <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300"><Building2 className="h-3 w-3" /> {user.mine_cd ?? 'ECL'}</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">Logged in as <span className="font-medium text-foreground">{user.roleLabel ?? user.role}</span></p>
               </div>
             )}
-          </nav>
+            </nav>
+          </SidebarContent>
+          <SidebarFooter className="border-t border-border/40 p-3 shrink-0">
+            <p className="text-center text-xs text-muted-foreground font-medium">
+              {t('shell.version', 'Version')} {packageJson.version}
+            </p>
+          </SidebarFooter>
         </aside>
         {sidebarOpen && <div className="fixed inset-0 z-10 bg-black/30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
         <main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">

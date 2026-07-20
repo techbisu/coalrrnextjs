@@ -2,7 +2,8 @@
   "pinnedFiles": [
     "ARCHITECTURE_REFACTORING_SUMMARY.md",
     "IMPLEMENTATION_GUIDE.md",
-    "prisma/schema.prisma"
+    "prisma/schema.prisma",
+    "src/core/authorization/services/UserScopeService.ts"
   ],
   "enforceConsistency": true
 }

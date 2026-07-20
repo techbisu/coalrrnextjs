@@ -22,4 +22,16 @@ export class PrismaAdminRoleRepository implements IAdminRoleRepository {
   async createPermission(data: Omit<permission, 'id' | 'entry_ts' | 'updt_ts'>): Promise<permission> {
     return await db.permission.create({ data })
   }
+
+  async deleteRole(id: string): Promise<void> {
+    await db.role.delete({ where: { id } })
+  }
+
+  async updatePermission(id: string, data: Partial<permission>): Promise<permission> {
+    return await db.permission.update({ where: { id }, data })
+  }
+
+  async deletePermission(id: string): Promise<void> {
+    await db.permission.delete({ where: { id } })
+  }
 }
