@@ -40,7 +40,7 @@ export class UpdateAdminUserUseCase implements IUseCase<UpdateAdminUserRequest, 
 
       const updatedUser = await this.repo.update(request.id, updateData)
       
-      AuditService.log('UPDATE', 'admin-users', 'user', updatedUser.id, `Updated user ${updatedUser.name}`, { user_id: request.action_by })
+      AuditService.log('UPDATE', 'admin-users', 'user', updatedUser.id.toString(), `Updated user ${updatedUser.name}`, { user_id: request.action_by })
       
       return Ok(updatedUser)
     } catch (e: any) {

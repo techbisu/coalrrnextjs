@@ -2,6 +2,8 @@
  * Projects API - Refactored to use Clean Architecture.
  * Uses validation middleware, use cases, and proper error handling.
  */
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { serverError, ok } from '../_lib'

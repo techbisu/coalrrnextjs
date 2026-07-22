@@ -27,3 +27,8 @@ If a temp/scratch file is needed mid-task (debug script, one-off check):
 1. Create it inside a gitignored `tmp/` folder only
 2. MUST delete it before marking the task complete — no exceptions
 3. Final response must confirm: "Temp files created: [list] — all removed" or "None created"
+
+## Component Size & Reusability Rule
+Do not write excessively large files (e.g. over 500 lines). Focus on breaking down large UI views or complex logic into smaller, focused sub-components for better maintainability **section-wise**.
+- If a section can be split, then do it.
+- Every time you split a section, you MUST think: "Can this section be reused on another module if the data changes as per logic?" If yes, build it to be highly reusable and data-agnostic.

@@ -32,7 +32,7 @@ export function UsersView({ initialUsers }: { initialUsers: user[] }) {
         <DataTable
           columns={columns}
           data={initialUsers}
-          getRowId={(r) => r.id}
+          getRowId={(r) => r.id.toString()}
           pageSize={15}
         />
       </SectionCard>

@@ -23,7 +23,7 @@ export class DeleteAdminUserUseCase implements IUseCase<DeleteAdminUserRequest, 
       
       AuditService.log('DELETE', 'admin-users', 'user', request.id, `Deleted user ${existingUser.name}`, { user_id: request.action_by })
       
-      return Ok()
+      return Ok(undefined)
     } catch (e: any) {
       return Fail(e.message)
     }

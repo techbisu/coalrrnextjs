@@ -14,7 +14,8 @@ export const CreateProjectSchema = z.object({
   pr_doc_id: z.string().nullable().optional(),
   mouza_lgds: z.array(z.coerce.bigint()).optional(),
   total_land_limit_acres: z.coerce.number().positive('Land limit must be positive'),
-  total_budget_ceiling: z.coerce.number().positive('Budget ceiling must be positive'),
+  land_budget: z.coerce.number().nonnegative('Land budget cannot be negative'),
+  rr_budget: z.coerce.number().nonnegative('R&R budget cannot be negative'),
   total_employment_quota: z.coerce.number().int('Employment quota must be an integer').nonnegative('Employment quota cannot be negative'),
   boundary: z.string().optional(),
 })
@@ -27,9 +28,36 @@ export const UpdateProjectSchema = z.object({
   pr_doc_id: z.string().nullable().optional(),
   mouza_lgds: z.array(z.coerce.bigint()).optional(),
   total_land_limit_acres: z.coerce.number().positive().optional(),
-  total_budget_ceiling: z.coerce.number().positive().optional(),
+  land_budget: z.coerce.number().nonnegative().optional(),
+  rr_budget: z.coerce.number().nonnegative().optional(),
   total_employment_quota: z.coerce.number().int().nonnegative().optional(),
   statutory_clearances: z.string().optional(),
+  boundary: z.string().optional(),   // GeoJSON polygon stringified
+})
+
+export const LockBaselineSchema = z.object({
+  confirmName: z.string().min(1, 'Confirmation name is required'),
+  approvedAreaAcres: z.coerce.number().positive(),
+  approvedBudgetINR: z.coerce.number().positive(),
+  approvedJobs: z.coerce.number().int().nonnegative().optional().default(0),
+  approvalDate: z.string().min(1, 'Approval date is required'),
+  approvalRefNo: z.string().min(1, 'Reference number is required'),
+  docId: z.string().optional(),
+  mouzaLgds: z.array(z.string()).optional(),
+})
+
+export const GenerateFormXXIISchema = z.object({
+  proposedAreaAcres: z.coerce.number().positive('Proposed area must be positive'),
+  proposedJobs: z.coerce.number().int().nonnegative().optional().default(0),
+})
+
+export const ApproveFormXXIISchema = z.object({
+  approvedAreaAcres: z.coerce.number().positive('Approved area must be positive'),
+  approvedJobs: z.coerce.number().int().nonnegative().optional().default(0),
+  approvalDate: z.string().min(1, 'Approval date is required'),
+  approvalRefNo: z.string().min(1, 'Reference number is required'),
+  docId: z.string().min(1, 'Document ID is required'),
+  mouzaLgds: z.array(z.string()).optional(),
 })
 
 // ===================== Proposal Schemas =====================
@@ -110,6 +138,9 @@ export const PaginationSchema = z.object({
 
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>
 export type UpdateProjectInput = z.infer<typeof UpdateProjectSchema>
+export type LockBaselineInput = z.infer<typeof LockBaselineSchema>
+export type GenerateFormXXIIInput = z.infer<typeof GenerateFormXXIISchema>
+export type ApproveFormXXIIInput = z.infer<typeof ApproveFormXXIISchema>
 export type CreateProposalInput = z.infer<typeof CreateProposalSchema>
 export type UpdateProposalInput = z.infer<typeof UpdateProposalSchema>
 export type UpdateChecklistItemInput = z.infer<typeof UpdateChecklistItemSchema>

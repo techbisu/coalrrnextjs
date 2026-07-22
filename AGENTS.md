@@ -34,3 +34,9 @@ Explicitly list: files touched, and whether translations were updated. If skippe
 ## Tool Usage Transparency
 At the start of any code discovery or pre-edit step, state which tool you used 
 (search_graph/trace_path) or flag if falling back to grep.
+
+## SQL delivery preference
+When a schema change is needed, generate the raw SQL (ALTER TABLE/CREATE INDEX/etc.) 
+for manual review and execution by the user — do NOT auto-run `prisma migrate dev` 
+unless explicitly told to. After the user confirms they've run it manually, remind 
+them to run `npx prisma db pull && npx prisma generate` to sync schema.prisma.

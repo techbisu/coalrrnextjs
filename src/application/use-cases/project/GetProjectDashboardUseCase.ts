@@ -32,6 +32,8 @@ export interface ProjectDashboardItem {
   payrollCount: number
   totalDisbursed: string
   budgetUtilization: string
+  total_acquired_area: string
+  areaUtilization: number
   plots: Array<{
     id: string
     plot_number: string
@@ -88,30 +90,49 @@ export class GetProjectDashboardUseCase implements IUseCase<GetProjectDashboardR
     const paged = filtered.slice(start, start + pageSize)
 
     // Map to response DTOs
-    const projects: ProjectDashboardItem[] = paged.map(d => ({
-      id: d.project.id.toString(),
-      name: d.project.name,
-      mine_cd: d.project.mine_cd,
-      state_lgd: d.project.state_lgd?.toString(),
+    const projects: ProjectDashboardItem[] = paged.map(d => {
+      // Safe extraction to handle both domain entity instances and plain objects
+      const p: any = d.project;
+      const approvedArea = p.totalApprovedArea ?? p._totalApprovedArea;
+      const landBudget = p.landBudget ?? p._landBudget;
+      const rrBudget = p.rrBudget ?? p._rrBudget;
+      
+      const totalLandLimitAcres = approvedArea?.toDecimal ? approvedArea.toDecimal().toString() : (p.total_land_limit_acres || '0');
+      const totalBudgetCeiling = (landBudget && rrBudget && landBudget.add) 
+        ? landBudget.add(rrBudget).toDecimal().toString() 
+        : (p.total_budget_ceiling || '0');
+      const eclProjCd = p.eclProjCd ?? p._eclProjCd ?? p.mine_cd ?? '';
+      const actualMineCd = p.id?.toString() || p.projCd || '';
+
+      return {
+      id: actualMineCd,
+      name: p.name || p.projNm || p._projNm || '',
+      mine_cd: actualMineCd,
+      ecl_proj_cd: eclProjCd,
+      state_lgd: d.state_lgd,
       district_lgd: d.district_lgd,
       block_lgd: d.block_lgd,
-      area_cd: d.project.area_cd,
+      area_cd: d.area_cd,
       mouza_lgds: d.mouza_lgds,
       pr_docs: d.pr_docs,
-      total_land_limit_acres: d.project.totalLandLimit.toDecimal().toString(),
-      total_budget_ceiling: d.project.total_budget_ceiling.toDecimal().toString(),
-      total_employment_quota: d.project.total_employment_quota,
-      boundary: d.project.boundary ?? null,
-      statutory_clearances: d.project.statutory_clearances ?? null,
-      locked_at: d.project.locked_at?.toISOString() ?? null,
-      isLocked: d.project.isLocked(),
+      total_land_limit_acres: totalLandLimitAcres,
+      land_budget: landBudget?.toDecimal ? landBudget.toDecimal().toString() : (p.landBudget || p.land_budget || '0'),
+      rr_budget: rrBudget?.toDecimal ? rrBudget.toDecimal().toString() : (p.rrBudget || p.rr_budget || '0'),
+      total_budget_ceiling: totalBudgetCeiling,
+      total_employment_quota: p.totalEmpSanctioned ?? p._totalEmpSanctioned ?? p.total_employment_quota ?? 0,
+      boundary: d.boundary,
+      statutory_clearances: d.statutory_clearances,
+      locked_at: d.locked_at?.toISOString() ?? null,
+      isLocked: d.locked_at !== null,
       payrollCount: d.payrollCount,
       totalDisbursed: d.totalDisbursed.toFixed(2),
       budgetUtilization: d.budgetUtilization.toFixed(1),
+      total_acquired_area: d.total_acquired_area,
+      areaUtilization: d.areaUtilization,
       plots: d.plots,
       breachedProposals: d.breachedProposals,
       boardApprovals: d.boardApprovals,
-    }))
+    }})
 
     return {
       isSuccess: true,

@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-
+import crypto from 'crypto'
 const db = new PrismaClient()
 
 async function main() {
@@ -10,9 +10,11 @@ async function main() {
     where: { event_name: 'PROJECT_CREATED' },
     update: {},
     create: {
+      id: crypto.randomUUID(),
       event_name: 'PROJECT_CREATED',
       module: 'project-master',
-      description: 'Triggered when a new project baseline is drafted'
+      description: 'Triggered when a new project baseline is drafted',
+      updt_ts: new Date()
     }
   })
 
@@ -21,10 +23,12 @@ async function main() {
     where: { code: 'TPL_PROJECT_CREATED_INAPP' },
     update: {},
     create: {
+      id: crypto.randomUUID(),
       code: 'TPL_PROJECT_CREATED_INAPP',
       channel: 'IN_APP',
       subject: 'New Project: {{name}}',
-      body: 'A new project {{name}} (Colliery: {{mine_cd}}) has been created.'
+      body: 'A new project {{name}} (Colliery: {{mine_cd}}) has been created.',
+      updt_ts: new Date()
     }
   })
 
@@ -36,10 +40,12 @@ async function main() {
   if (!existingRule) {
     await db.notification_rule.create({
       data: {
+        id: crypto.randomUUID(),
         event_id: event.id,
         template_id: template.id,
         recipient_resolver: 'Role:Super Administrator',
-        is_active: true
+        is_active: true,
+        updt_ts: new Date()
       }
     })
   }

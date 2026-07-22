@@ -31,7 +31,7 @@ export class PrismaPermissionRepository implements IPermissionRepository {
 
   async findByUser(user_id: string): Promise<IPermission[]> {
     const userPerms = await db.model_has_permission.findMany({
-      where: { model_id: user_id, model_type: 'user' },
+      where: { model_id: user_id?.toString(), model_type: 'user' },
       include: { permission: true }
     })
     return userPerms.map(up => up.permission)

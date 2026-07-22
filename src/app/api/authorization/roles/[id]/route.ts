@@ -13,7 +13,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const role = await db.role.findUnique({
       where: { id },
       include: {
-        permissions: {
+        role_has_permission: {
           include: { permission: true },
         },
       },

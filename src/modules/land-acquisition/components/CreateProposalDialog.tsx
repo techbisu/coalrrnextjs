@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Plus, Loader2, AlertCircle } from 'lucide-react'
+import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -185,8 +186,8 @@ export function CreateProposalDialog({
             <div className="space-y-1">
               <Label className="text-xs font-medium text-muted-foreground">Notification Date</Label>
               <DatePicker
-                value={form.notification_date || undefined}
-                onChange={(date) => setForm({ ...form, notification_date: date ? date.toISOString().split('T')[0] : '' })}
+                value={form.notification_date ? new Date(form.notification_date) : undefined}
+                onChange={(date) => setForm({ ...form, notification_date: date ? format(date, 'yyyy-MM-dd') : '' })}
               />
             </div>
           </div>

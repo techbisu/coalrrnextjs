@@ -8,6 +8,10 @@ import { seedEventRegistry } from './event_registry.seed'
 import { seedNotificationTemplate } from './notification_template.seed'
 import { seedNotificationRule } from './notification_rule.seed'
 import { seedMstProject } from './mst_project.seed'
+import { seedTenant } from './tenant.seed'
+import { seedProject } from './project.seed'
+import { seedProjAprv } from './proj_aprv.seed'
+import { seedProjAprvLocation } from './proj_aprv_location.seed'
 import { seedFormIClaim } from './form_i_claim.seed'
 import { seedCompensationPayroll } from './compensation_payroll.seed'
 import { seedLandSchedule } from './land_schedule.seed'
@@ -37,7 +41,11 @@ async function main() {
     await seedChkMasterNew(db)
     
     // 2. Master Data
+    await seedTenant(db)
     await seedMstProject(db)
+    await seedProject(db)
+    await seedProjAprv(db)
+    await seedProjAprvLocation(db)
     await seedMstPlot(db)
     
     // 3. IAM (Users & Roles)

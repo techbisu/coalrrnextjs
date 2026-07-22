@@ -38,6 +38,7 @@ function CascadeField({ control, config }: { control: Control<any>, config: Mast
   }, [parentValuesRaw, parentFieldNames])
 
   const isFirstMount = React.useRef(true)
+  const prevParentValuesRef = React.useRef<string>(JSON.stringify(parentValues))
 
   React.useEffect(() => {
     if (isFirstMount.current) {
@@ -45,11 +46,15 @@ function CascadeField({ control, config }: { control: Control<any>, config: Mast
       return
     }
 
+    const currentValuesStr = JSON.stringify(parentValues)
+    const valuesChanged = prevParentValuesRef.current !== currentValuesStr
+    prevParentValuesRef.current = currentValuesStr
+
     // Only wipe child if a parent changed due to user interaction (dirty)
-    // This prevents wiping values on form reset() or initial hydration.
+    // AND the values actually changed (avoids wiping child when child is edited and dirtyFields updates)
     const hasDirtyParent = parentFieldNames.some(field => !!dirtyFields[field])
 
-    if (hasDirtyParent) {
+    if (valuesChanged && hasDirtyParent) {
       setValue(config.name, config.isMulti ? [] : null)
     }
   }, [JSON.stringify(parentValues), parentFieldNames, config.name, config.isMulti, dirtyFields, setValue])

@@ -15,7 +15,7 @@ export default async function ProfilePage() {
 
   // Load full profile data server-side
   const fullUser = await db.user.findUnique({
-    where: { id: user.id },
+    where: { id: parseInt(user.id, 10) },
     select: {
       id: true, name: true, email: true, mobile: true,
       designation: true, role: true, portal: true, mine_cd: true,
@@ -24,7 +24,7 @@ export default async function ProfilePage() {
   })
 
   const activeScope = await db.user_org_scope.findFirst({
-    where: { user_id: user.id, effective_to: null },
+    where: { user_id: parseInt(user.id, 10), effective_to: null },
     include: {
       area: { select: { area_cd: true, area_en: true } },
       mine: { select: { mine_cd: true, mine_en: true } },
@@ -33,7 +33,7 @@ export default async function ProfilePage() {
   })
 
   const assignedRoles = await db.model_has_role.findMany({
-    where: { model_id: user.id, model_type: 'user' },
+    where: { model_id: user.id.toString(), model_type: 'user' },
     include: { role: { select: { id: true, name: true, display_name: true } } }
   })
 

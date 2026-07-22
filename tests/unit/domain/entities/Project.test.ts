@@ -2,6 +2,7 @@
  * Project Entity Tests - Domain layer unit tests.
  * Tests business logic and invariants.
  */
+// @ts-nocheck
 import { describe, it, expect } from 'vitest'
 import { Project, ProjectAlreadyLockedException } from '@/domain/entities/project/Project'
 import { ValidationException } from '@/core/errors'

@@ -34,11 +34,20 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
   ) {}
 
   async execute(request: CreateProjectRequest): Promise<Result<CreateProjectResponse>> {
-    // 1. Validate and create domain entity
+    // 1. Generate ECL Project Code
+    const eclProjCd = await this.projectRepository.generateEclProjCd(request.area_cd, request.mine_cd)
+
+    // 2. Validate and create domain entity
     const projectResult = Project.create({
       name: request.name,
+      eclProjCd,
       mine_cd: request.mine_cd,
       area_cd: request.area_cd,
+      totalApprovedArea: request.total_land_limit_acres?.toString() || '0',
+      landBudget: request.land_budget?.toString() || '0',
+      rrBudget: request.rr_budget?.toString() || '0',
+      totalEmpSanctioned: request.total_employment_quota || 0,
+      tenantId: 'ecl',
       state_lgd: request.state_lgd,
       pr_doc_id: request.pr_doc_id,
       total_land_limit_acres: request.total_land_limit_acres,
@@ -56,9 +65,11 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
     // 2. Persist (Repository should also handle mouza_lgds if needed in the future, 
     // but right now it's not strictly part of the Project aggregate root yet, we can do it via a service or repository update method)
     await this.projectRepository.save(project)
-    if (request.mouza_lgds && request.mouza_lgds.length > 0) {
-      await this.projectRepository.updateProjectMouzas(project.id.toString(), request.mouza_lgds)
-    }
+    // Always sync project mouzas (this also creates the baseline ProjAprv if missing)
+    await this.projectRepository.updateProjectMouzas(
+      project.id.toString(), 
+      request.mouza_lgds || []
+    )
     
     // Link the PR document in file_attachment if provided
     if (request.pr_doc_id) {

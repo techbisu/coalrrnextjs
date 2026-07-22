@@ -80,9 +80,9 @@ export async function seedRole(db: PrismaClient) {
 
     if (assignedRoleId) {
       await db.model_has_role.upsert({
-        where: { role_id_model_type_model_id: { model_id: user.id, model_type: 'user', role_id: assignedRoleId } },
+        where: { role_id_model_type_model_id: { model_id: user.id.toString(), model_type: 'user', role_id: assignedRoleId } },
         update: { updt_ts: new Date() },
-        create: { model_id: user.id, model_type: 'user', role_id: assignedRoleId, updt_ts: new Date() }
+        create: { model_id: user.id.toString(), model_type: 'user', role_id: assignedRoleId, updt_ts: new Date() }
       })
       
       await db.user.update({

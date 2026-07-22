@@ -16,9 +16,12 @@ export default async function AdminUserProfilePage({ params }: { params: Promise
 
   const { id } = await params
 
+  const numericId = parseInt(id, 10);
+  if (isNaN(numericId)) redirect('/admin/users');
+
   // Load full profile data server-side
   const fullUser = await db.user.findUnique({
-    where: { id },
+    where: { id: numericId },
     select: {
       id: true, name: true, email: true, mobile: true,
       designation: true, role: true, portal: true, mine_cd: true,
@@ -29,7 +32,7 @@ export default async function AdminUserProfilePage({ params }: { params: Promise
   if (!fullUser) redirect('/admin/users')
 
   const activeScope = await db.user_org_scope.findFirst({
-    where: { user_id: id, effective_to: null },
+    where: { user_id: numericId, effective_to: null },
     include: {
       area: { select: { area_cd: true, area_en: true } },
       mine: { select: { mine_cd: true, mine_en: true } },
@@ -44,8 +47,8 @@ export default async function AdminUserProfilePage({ params }: { params: Promise
 
   return (
     <ProfileView
-      initialUser={fullUser!}
-      scope={activeScope}
+      initialUser={{ ...fullUser, id: fullUser.id.toString() } as any}
+      scope={activeScope ? { ...activeScope, user_id: activeScope.user_id.toString() } as any : null}
       roles={assignedRoles.map(r => r.role)}
       readOnly={true}
     />

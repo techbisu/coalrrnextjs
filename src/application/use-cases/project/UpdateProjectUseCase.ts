@@ -52,12 +52,13 @@ export class UpdateProjectUseCase implements IUseCase<UpdateProjectRequest, Upda
     const updateProps = {
       name: request.name,
       mine_cd: request.mine_cd,
+      totalApprovedArea: request.total_land_limit_acres?.toString(),
+      landBudget: request.land_budget?.toString(),
+      rrBudget: request.rr_budget?.toString(),
+      totalEmpSanctioned: request.total_employment_quota,
       area_cd: request.area_cd,
       state_lgd: request.state_lgd,
       pr_doc_id: request.pr_doc_id ?? undefined,
-      total_land_limit_acres: request.total_land_limit_acres,
-      total_budget_ceiling: request.total_budget_ceiling,
-      total_employment_quota: request.total_employment_quota,
       boundary: request.boundary,
       statutory_clearances: request.statutory_clearances
     }

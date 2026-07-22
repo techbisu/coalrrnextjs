@@ -12,9 +12,9 @@ export class PrismaNotificationStorage implements INotificationStorage {
     const event = await db.event_registry.findUnique({
       where: { event_name },
       include: {
-        rules: {
+        notification_rule: {
           where: { is_active: true },
-          include: { template: true }
+          include: { notification_template: true }
         }
       }
     });
@@ -24,17 +24,17 @@ export class PrismaNotificationStorage implements INotificationStorage {
     return {
       id: event.id,
       event_name: event.event_name,
-      rules: event.rules.map(rule => ({
+      rules: event.notification_rule.map(rule => ({
         id: rule.id,
         recipient_resolver: rule.recipient_resolver,
         priority: rule.priority,
         is_active: rule.is_active,
         template: {
-          id: rule.template.id,
-          channel: rule.template.channel,
-          subject: rule.template.subject,
-          body: rule.template.body,
-          is_active: rule.template.is_active
+          id: rule.notification_template.id,
+          channel: rule.notification_template.channel,
+          subject: rule.notification_template.subject,
+          body: rule.notification_template.body,
+          is_active: rule.notification_template.is_active
         }
       }))
     };

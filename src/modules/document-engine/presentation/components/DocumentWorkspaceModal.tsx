@@ -41,10 +41,15 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
             setInstanceId(res.instance.id);
             setFileId(res.instance.generated_docx_path || null);
             setFields(res.fields || []);
-            
-            // If no fields, auto-generate doc if it doesn't exist yet
-            if (res.fields?.length === 0 && !res.instance.generated_docx_path) {
-              handleGenerate(res.instance.id);
+            const noFields = !res.fields || res.fields.length === 0;
+            if (noFields) {
+              setSidebarOpen(false);
+              // If no fields, auto-generate doc if it doesn't exist yet
+              if (!res.instance.generated_docx_path) {
+                handleGenerate(res.instance.id);
+              }
+            } else {
+              setSidebarOpen(true);
             }
           } else {
             setError(res.error || "Failed to start workspace");

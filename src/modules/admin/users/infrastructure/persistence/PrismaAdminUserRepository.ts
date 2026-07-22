@@ -8,7 +8,9 @@ export class PrismaAdminUserRepository implements IAdminUserRepository {
   }
   
   async findById(id: string): Promise<user | null> {
-    return await db.user.findUnique({ where: { id } })
+    const numericId = parseInt(id, 10);
+    if (isNaN(numericId)) return null;
+    return await db.user.findUnique({ where: { id: numericId } })
   }
   
   async create(data: Omit<user, 'id' | 'entry_ts' | 'updt_ts'>): Promise<user> {
@@ -16,10 +18,14 @@ export class PrismaAdminUserRepository implements IAdminUserRepository {
   }
   
   async update(id: string, data: Partial<user>): Promise<user> {
-    return await db.user.update({ where: { id }, data })
+    const numericId = parseInt(id, 10);
+    if (isNaN(numericId)) throw new Error('Invalid user ID');
+    return await db.user.update({ where: { id: numericId }, data })
   }
   
   async delete(id: string): Promise<void> {
-    await db.user.delete({ where: { id } })
+    const numericId = parseInt(id, 10);
+    if (isNaN(numericId)) throw new Error('Invalid user ID');
+    await db.user.delete({ where: { id: numericId } })
   }
 }

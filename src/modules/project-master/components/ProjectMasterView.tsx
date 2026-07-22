@@ -31,20 +31,25 @@ import { Can } from '@/authorization/components/Can'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 import { ProjectFormDialog, ProjectFormValues } from './ProjectFormDialog'
 import { LockBaselineDialog } from './LockBaselineDialog'
+import { FormXXIIModal } from './FormXXIIModal'
+import { ProjectFilesSection } from './ProjectFilesSection'
+import { ProjectBoundarySection } from './ProjectBoundarySection'
 
 export const EMPTY_FORM: ProjectFormValues = {
   name: '',
   mine_cd: '',
   area_cd: '',
   total_land_limit_acres: 0,
-  total_budget_ceiling: 0,
+  land_budget: 0,
+  rr_budget: 0,
   total_employment_quota: 0,
 }
 
 interface ProjectData {
-  id: string; name: string; mine_cd: string
-  area_cd?: string; state_lgd?: bigint; mouza_lgds?: string[]; pr_docs?: UploadedDoc[]
+  id: string; name: string; mine_cd: string; ecl_proj_cd?: string;
+  area_cd?: string; state_lgd?: bigint; district_lgd?: string; block_lgd?: string; mouza_lgds?: string[]; pr_docs?: UploadedDoc[]
   total_land_limit_acres: string; total_budget_ceiling: string; total_employment_quota: number
+  total_acquired_area: string; areaUtilization: number;
   boundary: string; statutory_clearances: string | null
   locked_at: string | null; isLocked: boolean
   payrollCount: number; totalDisbursed: string; budgetUtilization: string
@@ -156,15 +161,19 @@ function FormXXIISection({ projectId }: { projectId: string }) {
   )
 }
 
+
+
 export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string }) {
   const t = useAppTranslation('project_master')
   const { selectedProjectId, selectProject: uiSelectProject } = useUiState()
+  const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['projects'], queryFn: fetchProjects })
   const [selectedPlotId, setSelectedPlotId] = React.useState<string | null>(null)
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [editOpen, setEditOpen] = React.useState(false)
   const [lockOpen, setLockOpen] = React.useState(false)
+  const [formXXIIOpen, setFormXXIIOpen] = React.useState(false)
   // Increment keys every time dialogs open to force fresh remount of useForm
   const [editFormKey, setEditFormKey] = React.useState(0)
   const [createFormKey, setCreateFormKey] = React.useState(0)
@@ -205,19 +214,20 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
       state_lgd: project.state_lgd ? String(project.state_lgd) : undefined,
       area_cd: project.area_cd || undefined,
       // district_lgd / block_lgd are UI-only cascade selectors — keep as strings
-      district_lgd: (project as any).district_lgd ? String((project as any).district_lgd) : undefined,
-      block_lgd: (project as any).block_lgd ? String((project as any).block_lgd) : undefined,
+      district_lgd: project.district_lgd || undefined,
+      block_lgd: project.block_lgd || undefined,
       // mouza_lgds submitted as strings, Zod coerces to bigint on the server
       mouza_lgds: project.mouza_lgds?.map(String) || [],
       pr_docs: (project.pr_docs as any) || [],
       total_land_limit_acres: Number(project.total_land_limit_acres),
-      total_budget_ceiling: Number(project.total_budget_ceiling),
+      land_budget: Number((project as any).land_budget || 0),
+      rr_budget: Number((project as any).rr_budget || 0),
       total_employment_quota: project.total_employment_quota,
     }
   }, [project?.id, project?.name, project?.mine_cd, project?.state_lgd, project?.area_cd,
-      (project as any)?.district_lgd, (project as any)?.block_lgd,
+      project?.district_lgd, project?.block_lgd,
       JSON.stringify(project?.mouza_lgds), JSON.stringify(project?.pr_docs),
-      project?.total_land_limit_acres, project?.total_budget_ceiling, project?.total_employment_quota])
+      project?.total_land_limit_acres, (project as any)?.land_budget, (project as any)?.rr_budget, project?.total_employment_quota])
 
   const plotFeatures: PlotFeature[] = React.useMemo(() => {
     if (!project) return []
@@ -235,14 +245,6 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
       }
     })
   }, [project, selectedPlotId])
-
-  const boundary = React.useMemo(() => {
-    if (!project) return undefined
-    try {
-      const b = JSON.parse(project.boundary)
-      return { coordinates: b.coordinates, color: b.color }
-    } catch { return undefined }
-  }, [project])
 
   const clearances = React.useMemo(() => {
     if (!project?.statutory_clearances) return []
@@ -291,7 +293,7 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
             )}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t('project_master.colliery_code', 'Colliery code')} <span className="font-mono">{project.mine_cd}</span> · {t('project_master.locked_on', 'locked on')}{' '}
+            {t('project_master.colliery_code', 'Colliery code')} <span className="font-mono">{project.ecl_proj_cd || project.mine_cd}</span> · {t('project_master.locked_on', 'locked on')}{' '}
             {project.locked_at ? new Date(project.locked_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
           </p>
         </div>
@@ -318,6 +320,13 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
                 </Button>
               </Can>
             </>
+          )}
+          {project.isLocked && (
+            <Can permission="project.edit">
+              <Button onClick={() => setFormXXIIOpen(true)} variant="default" className="bg-amber-600 hover:bg-amber-700 text-white">
+                <FileWarning className="mr-2 h-4 w-4" /> Simulate Form-XXII
+              </Button>
+            </Can>
           )}
         </div>
       </div>
@@ -377,36 +386,16 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
+        {/* Modals */}
+        <LockBaselineDialog open={lockOpen} onOpenChange={setLockOpen} project={project} />
+        <FormXXIIModal open={formXXIIOpen} onOpenChange={setFormXXIIOpen} project={project} />
         {/* GIS Map */}
         <div className="lg:col-span-2">
-          <SectionCard title={t('project_master.map.title', 'Project Boundary & Plots')} icon={MapPin} description={t('project_master.map.desc', 'PostGIS-style geometry viewer with statutory land-type color coding')}>
-            <GISMapViewer
-              boundary={boundary}
-              plots={plotFeatures}
-              selectedPlotId={selectedPlotId ?? undefined}
-              onPlotSelect={setSelectedPlotId}
-              height={380}
-            />
-          </SectionCard>
+          <ProjectBoundarySection project={project} />
         </div>
 
-        {/* Statutory clearances */}
-        <SectionCard title={t('project_master.clearances.title', 'Statutory Clearances')} icon={ShieldCheck} description={t('project_master.clearances.desc', 'DGMS, Environment, Forest Dept.')}>
-          <ul className="space-y-2">
-            {clearances.map((c) => (
-              <li key={c.referenceNo} className="rounded-md border border-border/60 bg-card p-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{c.authority}</span>
-                  <Badge variant="outline" className="gap-1 bg-secondary text-[10px] text-secondary-foreground">
-                    <ShieldCheck className="h-2.5 w-2.5" /> {t('common.cleared', 'cleared')}
-                  </Badge>
-                </div>
-                <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{c.referenceNo}</p>
-                <p className="text-[11px] text-muted-foreground">{t('common.issued_on', 'issued')} {new Date(c.issuedOn).toLocaleDateString('en-IN')}</p>
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
+        {/* Statutory clearances & Files */}
+        <ProjectFilesSection projectId={project.id} prDocs={project.pr_docs} />
       </div>
 
       {/* Plot schedule table */}
@@ -442,6 +431,25 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
             {Number(project.budgetUtilization) < 80
               ? `✓ ${t('project_master.budget_compliance.within_baseline', { defaultValue: 'Within baseline — {{pct}}% utilized, headroom for {{count}} active payroll(s).', pct: project.budgetUtilization, count: project.payrollCount })}`
               : `⚠ ${t('project_master.budget_compliance.breach_warning', 'Approaching ceiling — baseline breach will route payrolls to Board Escalation.')}`}
+          </p>
+        </div>
+      </SectionCard>
+
+      {/* Area progress */}
+      <SectionCard title="Area Compliance" icon={MapPin} description="WithinProjectBaseline guard — land acquisitions cannot exceed approved limit">
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <span className="text-sm">Acquired vs. Limit</span>
+            <span className="text-sm tabular-nums">
+              <span className="font-semibold">{formatNumber(project.total_acquired_area, 2)} ac</span>
+              <span className="text-muted-foreground"> / {formatNumber(project.total_land_limit_acres, 2)} ac</span>
+            </span>
+          </div>
+          <Progress value={Number(project.areaUtilization)} className="h-3" indicatorClassName={Number(project.areaUtilization) < 95 ? 'bg-emerald-500' : 'bg-destructive'} />
+          <p className="text-xs text-muted-foreground">
+            {Number(project.areaUtilization) < 95
+              ? `✓ Within baseline — ${Number(project.areaUtilization).toFixed(1)}% acquired.`
+              : `⚠ Approaching or exceeding area limit — requires Form-XXII deviation.`}
           </p>
         </div>
       </SectionCard>

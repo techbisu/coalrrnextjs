@@ -47,6 +47,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           permission_id,
           model_type: 'user',
           model_id: id,
+          updt_ts: new Date(),
         })),
       })
     }

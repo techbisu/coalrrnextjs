@@ -22,7 +22,6 @@ export class CreateAdminUserUseCase implements IUseCase<CreateAdminUserRequest, 
   async execute(request: CreateAdminUserRequest): Promise<Result<user>> {
     try {
       const newUser = await this.repo.create({
-        id: randomUUID(),
         portal: request.portal,
         role: request.role,
         name: request.name,
@@ -36,9 +35,10 @@ export class CreateAdminUserUseCase implements IUseCase<CreateAdminUserRequest, 
         verified_at: null,
         entry_by: request.action_by,
         updt_by: request.action_by,
-      })
+        is_active: true
+      } as any)
       
-      AuditService.log('CREATE', 'admin-users', 'user', newUser.id, `Created user ${newUser.name}`, { user_id: request.action_by })
+      AuditService.log('CREATE', 'admin-users', 'user', newUser.id.toString(), `Created user ${newUser.name}`, { user_id: request.action_by })
       
       return Ok(newUser)
     } catch (e: any) {

@@ -142,6 +142,10 @@ export async function seedTranslations(db: PrismaClient) {
     { key: 'project_master.name_matches', en: 'Name matches — ready to lock.' },
     { key: 'project_master.expected', en: 'Expected:' },
     { key: 'project_master.lock_baseline_btn', en: 'Lock Baseline' },
+    { key: 'project_master.form_xxii_title', en: 'Board Deviation Approvals (Form-XXII)' },
+    { key: 'project_master.form_xxii_desc', en: 'Proposals that exceeded project limits and received formal Board approval' },
+    { key: 'project_master.simulate_form_xxii', en: 'Simulate Form-XXII' },
+    { key: 'project_master.area_compliance', en: 'Area Compliance' },
     { key: 'project_master.save_error', en: 'Failed to save project' },
     { key: 'project_master.update_success', en: 'Project updated.' },
     { key: 'project_master.create_success', en: 'Project "{name}" created as draft.' },
@@ -197,7 +201,11 @@ export async function seedTranslations(db: PrismaClient) {
     { key: 'project_master.budget_compliance.desc', en: 'WithinProjectBaseline guard — payslips cannot exceed ceiling' },
     { key: 'project_master.budget_compliance.disbursed', en: 'Disbursed vs. ceiling' },
     { key: 'project_master.budget_compliance.within_baseline', en: 'Within baseline — {pct}% utilized, headroom for {count} active payroll(s).' },
-    { key: 'project_master.budget_compliance.breach_warning', en: 'Approaching ceiling — baseline breach will route payrolls to Board Escalation.' }
+    { key: 'project_master.budget_compliance.breach_warning', en: 'Approaching ceiling — baseline breach will route payrolls to Board Escalation.' },
+    { key: 'project_master.aprv_type.initial_pr', en: 'Initial PR Baseline' },
+    { key: 'project_master.aprv_type.form_xxii_deviation', en: 'Form-XXII Deviation' },
+    { key: 'project_master.aprv_level.cmd', en: 'CMD Approval' },
+    { key: 'project_master.aprv_level.board_of_directors', en: 'Board of Directors' }
   ]
 
   for (const k of projectMasterKeys) {

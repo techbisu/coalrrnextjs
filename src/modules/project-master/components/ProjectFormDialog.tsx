@@ -77,9 +77,11 @@ export function ProjectFormDialog({
     block_lgd: u?.block_lgd ? String(u.block_lgd) : iv.block_lgd ? String(iv.block_lgd) : undefined,
   })
 
+  const formValues = React.useMemo(() => buildFormValues(initial, user), [initial, user])
+
   const form = useForm<any>({
     resolver: zodResolver(DialogFormSchema) as any,
-    defaultValues: buildFormValues(initial, user) as any
+    values: formValues
   })
 
   const mutation = useMutation({
@@ -285,23 +287,35 @@ export function ProjectFormDialog({
               />
             </div>
 
-            <FormField
-              control={form.control as any}
-              name="total_budget_ceiling"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('project_master.fields.budget_ceiling', 'Total budget ceiling (₹)')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      inputMode="decimal"
-                      placeholder="18750000000"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control as any}
+                name="land_budget"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('project_master.fields.land_budget', 'Land Budget (INR)')}</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} min="0" step="any" placeholder="0" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control as any}
+                name="rr_budget"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('project_master.fields.rr_budget', 'R&R Budget (INR)')}</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} min="0" step="any" placeholder="0" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <div className="grid gap-2">
               <Label>{t('project_master.fields.pr_doc', 'Approved PR Document')}</Label>

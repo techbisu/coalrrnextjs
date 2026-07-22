@@ -60,6 +60,7 @@ export class FileService {
           owner_id: params.owner_id,
           checksum: uploadResult.checksum,
           tags: params.tags ? JSON.stringify(params.tags) : null,
+          updt_ts: new Date(),
           file_version: {
             create: {
               id: randomUUID(),
@@ -78,7 +79,7 @@ export class FileService {
         include: { file_version: true }
       });
 
-      AuditService.log('UPLOAD', 'file-management', 'file_record', existingFile.id, 'New file uploaded', { user_id: params.owner_id });
+      AuditService.log('UPLOAD', 'file-management', 'file_record', existingFile!.id, 'New file uploaded', { user_id: params.owner_id });
     }
 
     // 4. Attach to Entity (Polymorphic)
@@ -87,7 +88,7 @@ export class FileService {
       const existingAttachment = await db.file_attachment.findUnique({
         where: {
           file_id_entity_type_entity_id: {
-            file_id: existingFile.id,
+            file_id: existingFile!.id,
             entity_type: params.entity_type,
             entity_id: params.entity_id
           }
@@ -98,11 +99,80 @@ export class FileService {
         await db.file_attachment.create({
           data: {
             id: randomUUID(),
-            file_id: existingFile.id,
+            file_id: existingFile!.id,
             entity_type: params.entity_type,
             entity_id: params.entity_id,
             module: params.module,
             attached_by: params.owner_id,
+            updt_ts: new Date(),
+          }
+        });
+      } else if (params.module) {
+        // Append module if it's not already in the comma-separated list
+        const existingModules = existingAttachment.module ? existingAttachment.module.split(',') : [];
+        if (!existingModules.includes(params.module)) {
+          existingModules.push(params.module);
+          await db.file_attachment.update({
+            where: { id: existingAttachment.id },
+            data: { 
+              module: existingModules.join(','),
+              updt_ts: new Date()
+            }
+          });
+        }
+      }
+    }
+
+    return existingFile!;
+  }
+
+  /**
+   * Links an existing physical file to an entity with a specific module.
+   */
+  async linkExistingFile(params: {
+    file_id: string;
+    entity_type: string;
+    entity_id: string;
+    module?: string;
+    owner_id: string;
+  }) {
+    const existingFile = await db.file_record.findUnique({
+      where: { id: params.file_id }
+    });
+
+    if (!existingFile) throw new Error('File not found');
+
+    const existingAttachment = await db.file_attachment.findUnique({
+      where: {
+        file_id_entity_type_entity_id: {
+          file_id: params.file_id,
+          entity_type: params.entity_type,
+          entity_id: params.entity_id
+        }
+      }
+    });
+
+    if (!existingAttachment) {
+      await db.file_attachment.create({
+        data: {
+          id: randomUUID(),
+          file_id: params.file_id,
+          entity_type: params.entity_type,
+          entity_id: params.entity_id,
+          module: params.module,
+          attached_by: params.owner_id,
+          updt_ts: new Date(),
+        }
+      });
+    } else if (params.module) {
+      const existingModules = existingAttachment.module ? existingAttachment.module.split(',') : [];
+      if (!existingModules.includes(params.module)) {
+        existingModules.push(params.module);
+        await db.file_attachment.update({
+          where: { id: existingAttachment.id },
+          data: { 
+            module: existingModules.join(','),
+            updt_ts: new Date()
           }
         });
       }
@@ -131,6 +201,7 @@ export class FileService {
     // Add new version
     await db.file_version.create({
       data: {
+        id: randomUUID(),
         file_id: file_id,
         version_number: newVersionNumber,
         storage_provider: this.storage.name,

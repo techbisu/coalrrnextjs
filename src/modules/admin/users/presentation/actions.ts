@@ -36,11 +36,11 @@ export async function createUserAction(data: any): Promise<{ data?: user, error?
       portal: validData.portal,
       role: validData.role,
       name: validData.name,
-      email: validData.email || null,
-      mobile: validData.mobile || null,
-      designation: validData.designation || null,
+      email: validData.email || undefined,
+      mobile: validData.mobile || undefined,
+      designation: validData.designation || undefined,
       mine_cd: data.mine_cd, // keep this as is if not in schema yet
-      action_by: currentUser!.id
+      action_by: currentUser!.id.toString()
     })
 
     if (result.isSuccess) {
@@ -108,8 +108,11 @@ export async function toggleUserStatusAction(
       updateData.verified_at = new Date()
     }
     
+    const numericId = parseInt(userId, 10);
+    if (isNaN(numericId)) throw new Error("Invalid user ID");
+    
     await db.user.update({
-      where: { id: userId },
+      where: { id: numericId },
       data: updateData
     })
     

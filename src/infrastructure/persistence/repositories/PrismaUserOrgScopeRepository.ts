@@ -18,17 +18,21 @@ export class PrismaUserOrgScopeRepository implements IUserOrgScopeRepository {
   }
 
   async getActiveScopeByUserId(userId: string): Promise<user_org_scope | null> {
+    const numericId = parseInt(userId, 10);
+    if (isNaN(numericId)) return null;
     return db.user_org_scope.findFirst({
       where: {
-        user_id: userId,
+        user_id: numericId,
         effective_to: null,
       },
     });
   }
 
   async getScopeHistory(userId: string): Promise<user_org_scope[]> {
+    const numericId = parseInt(userId, 10);
+    if (isNaN(numericId)) return [];
     return db.user_org_scope.findMany({
-      where: { user_id: userId },
+      where: { user_id: numericId },
       orderBy: { effective_from: 'desc' },
     });
   }

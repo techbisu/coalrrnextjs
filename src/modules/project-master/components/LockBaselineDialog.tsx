@@ -9,14 +9,21 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { DatePicker } from '@/components/ui/date-picker'
+import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { AlertTriangle, CheckCircle2, Loader2, Lock } from 'lucide-react'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
+import { DocumentUploader } from '@/components/coalrr'
+import type { UploadedDoc } from '@/components/coalrr'
 
 interface ProjectData {
   id: string
   name: string
-  // other fields not strictly needed here
+  total_land_limit_acres: string | number
+  total_budget_ceiling: string | number
+  total_employment_quota: number
+  mouza_lgds?: string[]
 }
 
 export function LockBaselineDialog({
@@ -28,20 +35,41 @@ export function LockBaselineDialog({
 }) {
   const qc = useQueryClient()
   const t = useAppTranslation('project_master')
+  
   const [typedName, setTypedName] = React.useState('')
+  const [approvalDate, setApprovalDate] = React.useState<string>('')
+  const [approvalRefNo, setApprovalRefNo] = React.useState<string>('')
+  const [doc, setDoc] = React.useState<UploadedDoc | null>(null)
 
   React.useEffect(() => {
-    if (open) setTypedName('')
+    if (open) {
+      setTypedName('')
+      setApprovalDate('')
+      setApprovalRefNo('')
+      setDoc(null)
+    }
   }, [open])
 
   const nameMatches = typedName.trim() === project.name
+  const isFormValid = nameMatches && approvalDate && approvalRefNo && doc
 
   const lockMutation = useMutation({
     mutationFn: async () => {
+      const payload = {
+        confirmName: typedName.trim(),
+        approvedAreaAcres: project.total_land_limit_acres,
+        approvedBudgetINR: project.total_budget_ceiling,
+        approvedJobs: project.total_employment_quota,
+        approvalDate,
+        approvalRefNo,
+        docId: doc ? doc.id : undefined,
+        mouzaLgds: project.mouza_lgds
+      }
+      
       const r = await fetch(`/api/projects/${project.id}/lock`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmName: typedName.trim() }),
+        body: JSON.stringify(payload),
       })
       const json = await r.json()
       if (!r.ok) throw new Error(json?.error ?? t('project_master.lock_error', 'Failed to lock baseline'))
@@ -57,7 +85,7 @@ export function LockBaselineDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{t('project_master.lock_baseline_title', 'Lock Baseline')}</DialogTitle>
           <DialogDescription>
@@ -75,21 +103,57 @@ export function LockBaselineDialog({
           </AlertDescription>
         </Alert>
 
-        <div className="grid gap-1.5">
-          <Label htmlFor="lock-confirm">{t('project_master.type_name_to_confirm', 'Type the project name to confirm')}</Label>
-          <Input
-            id="lock-confirm"
-            value={typedName}
-            onChange={(e) => setTypedName(e.target.value)}
-            placeholder={project.name}
-            className="font-mono"
-            autoComplete="off"
-          />
-          <p className="text-xs text-muted-foreground">
-            {nameMatches
-              ? <span className="inline-flex items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3 w-3" /> {t('project_master.name_matches', 'Name matches — ready to lock.')}</span>
-              : <>{t('project_master.expected', 'Expected:')} <span className="font-mono font-medium">{project.name}</span></>}
-          </p>
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="lock-confirm" className="text-destructive font-semibold">{t('project_master.type_name_to_confirm', 'Confirm Project Name *')}</Label>
+            <Input
+              id="lock-confirm"
+              value={typedName}
+              onChange={(e) => setTypedName(e.target.value)}
+              placeholder={project.name}
+              className="font-mono border-destructive/50"
+              autoComplete="off"
+            />
+            <p className="text-xs text-muted-foreground">
+              {nameMatches
+                ? <span className="inline-flex items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3 w-3" /> {t('project_master.name_matches', 'Name matches.')}</span>
+                : <>{t('project_master.expected', 'Expected:')} <span className="font-mono font-medium">{project.name}</span></>}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="approval-date">Approval Date *</Label>
+              <DatePicker
+                value={approvalDate}
+                onChange={(date) => setApprovalDate(date ? format(date, 'yyyy-MM-dd') : '')}
+                placeholder="Select approval date"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="approval-ref">Board Ref / File No *</Label>
+              <Input
+                id="approval-ref"
+                value={approvalRefNo}
+                onChange={(e) => setApprovalRefNo(e.target.value)}
+                placeholder="e.g. CIL/BOARD/2026/01"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label>Initial Baseline Approval Document (Form-I / Board Resolution) *</Label>
+            <DocumentUploader
+              checklist_item_key="INITIAL_BASELINE_DOC"
+              mode="single"
+              documents={doc ? [doc] : []}
+              onChange={(docs) => setDoc(Array.isArray(docs) ? docs[0] : docs)}
+              onRemove={() => setDoc(null)}
+              entity_type="mst_project"
+              entity_id={project.id}
+              module="project-master"
+            />
+          </div>
         </div>
 
         <DialogFooter>
@@ -98,7 +162,7 @@ export function LockBaselineDialog({
           </Button>
           <Button
             onClick={() => lockMutation.mutate()}
-            disabled={!nameMatches || lockMutation.isPending}
+            disabled={!isFormValid || lockMutation.isPending}
             variant="destructive"
           >
             {lockMutation.isPending

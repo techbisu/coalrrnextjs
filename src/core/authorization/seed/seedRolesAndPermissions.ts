@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { randomUUID } from 'crypto'
 
 const ROLES = [
   'Super Administrator',
@@ -116,8 +117,8 @@ export async function runAuthSeed() {
   for (const name of ROLES) {
     await db.role.upsert({
       where: { name_guard_name: { name, guard_name: 'web' } },
-      update: {},
-      create: { name, is_system: true },
+      update: { updt_ts: new Date() },
+      create: { id: randomUUID(), name, is_system: true, updt_ts: new Date() },
     })
   }
 
@@ -126,8 +127,8 @@ export async function runAuthSeed() {
   for (const p of PERMISSIONS) {
     const perm = await db.permission.upsert({
       where: { name_guard_name: { name: p.name, guard_name: 'web' } },
-      update: { module: p.module, group: p.group },
-      create: { name: p.name, module: p.module, group: p.group },
+      update: { module: p.module, group: p.group, updt_ts: new Date() },
+      create: { id: randomUUID(), name: p.name, module: p.module, group: p.group, updt_ts: new Date() },
     })
     createdPermissions.push(perm)
   }
@@ -143,8 +144,8 @@ export async function runAuthSeed() {
       // Don't give public portal permissions to internal staff? Actually it's fine.
       await db.role_has_permission.upsert({
         where: { role_id_permission_id: { permission_id: perm.id, role_id: role.id } },
-        update: {},
-        create: { permission_id: perm.id, role_id: role.id }
+        update: { updt_ts: new Date() },
+        create: { permission_id: perm.id, role_id: role.id, updt_ts: new Date() }
       })
     }
   }
@@ -173,9 +174,9 @@ export async function runAuthSeed() {
 
     if (role_id) {
       await db.model_has_role.upsert({
-        where: { role_id_model_type_model_id: { role_id, model_type: 'user', model_id: user.id } },
-        update: {},
-        create: { role_id, model_type: 'user', model_id: user.id },
+        where: { role_id_model_type_model_id: { role_id, model_type: 'user', model_id: user.id.toString() } },
+        update: { updt_ts: new Date() },
+        create: { role_id, model_type: 'user', model_id: user.id.toString(), updt_ts: new Date() },
       })
       mappedCount++
     }

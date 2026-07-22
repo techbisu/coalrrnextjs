@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { format } from 'date-fns'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -907,8 +908,8 @@ function FormVICaptureStep({
             </Field>
             <Field label="Date of Birth *" hint="DD/MM/YYYY format">
               <DatePicker
-                value={bioData.dateOfBirth || undefined}
-                onChange={(date) => update('dateOfBirth', date ? date.toISOString().split('T')[0] : '')}
+                value={bioData.dateOfBirth ? new Date(bioData.dateOfBirth) : undefined}
+                onChange={(date) => update('dateOfBirth', date ? format(date, 'yyyy-MM-dd') : '')}
               />
             </Field>
           </div>

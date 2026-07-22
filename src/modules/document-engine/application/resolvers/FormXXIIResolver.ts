@@ -4,15 +4,35 @@ import { db } from '@/lib/db'
 export class FormXXIIResolver implements IDocumentResolver {
   async resolve(businessId: string, context?: Record<string, any>): Promise<DocumentResolverResult> {
     // 1. Fetch the Proposal (land_schedule) and its Project
-    const proposal = await db.land_schedule.findUnique({
+    let proposal = await db.land_schedule.findUnique({
       where: { id: businessId },
       include: {
         mst_project: true
       }
     })
 
+    let isProjectSimulation = false;
+    let project: any = proposal?.mst_project;
+
     if (!proposal) {
-      throw new Error(`Proposal with ID ${businessId} not found`)
+      // Check if it's a project ID for simulation using the Project model
+      const proj = await db.project.findUnique({ where: { projCd: businessId } });
+      if (proj) {
+        isProjectSimulation = true;
+        project = {
+          name: proj.projNm,
+          total_land_limit_acres: proj.totalApprovedArea || 0,
+          total_budget_ceiling: (Number(proj.landBudget || 0) + Number(proj.rrBudget || 0)).toString(),
+          total_employment_quota: proj.totalEmpSanctioned || 0
+        };
+        proposal = {
+          id: businessId,
+          total_area_acres: Number(proj.totalApprovedArea || 0) + 100, // mock breach
+          acquisition_mode: 'cba_act'
+        } as any;
+      } else {
+        throw new Error(`Proposal or Project with ID ${businessId} not found`)
+      }
     }
 
     // 2. Fetch the Plot details (items)
@@ -28,12 +48,12 @@ export class FormXXIIResolver implements IDocumentResolver {
     })
 
     // 3. Calculate limit deviations
-    const projectLimitAcres = parseFloat(proposal.mst_project.total_land_limit_acres.toString());
-    const projectBudget = parseFloat(proposal.mst_project.total_budget_ceiling?.toString() || "0");
-    const projectJobs = proposal.mst_project.total_employment_quota || 0;
+    const projectLimitAcres = parseFloat(project!.total_land_limit_acres.toString());
+    const projectBudget = parseFloat(project!.total_budget_ceiling?.toString() || "0");
+    const projectJobs = project!.total_employment_quota || 0;
 
     const proposalArea = parseFloat(proposal.total_area_acres.toString());
-    const deviationAcres = proposalArea - projectLimitAcres;
+    const deviationAcres = isProjectSimulation ? (parseFloat(context?.form_data?.ProposedArea || "100")) : (proposalArea - projectLimitAcres);
     
     // Aggregating plot land types for Question 6
     let tenancyLand = 0, govtLand = 0, pattaLand = 0, forestLand = 0;
@@ -61,7 +81,7 @@ export class FormXXIIResolver implements IDocumentResolver {
     // 5. Build mapping for DOCX placeholders
     return {
       fields: {
-        "ProjectName": proposal.mst_project.name,
+        "ProjectName": project!.name,
         "SchemeApprovalRef": formData.SchemeApprovalRef || '',
         "DgmsPermissionStatus": formData.DgmsPermissionStatus || '',
         "EnvForestClearance": formData.EnvForestClearance || '',

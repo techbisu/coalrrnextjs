@@ -23,3 +23,8 @@ Match whichever pattern the module already uses — check with search_graph firs
 - All mutations return Result<T,E>, never throw in domain/application layers
 - Before building a new module, mirror the exact pattern of the Project module
   (already the reference implementation in this repo)
+
+## Dependency Injection (DI) Pattern
+- Use **Module-Level Containers** (e.g. `src/infrastructure/di/modules/<module>.di.ts`) for wiring dependencies.
+- NEVER add new use cases directly to `src/infrastructure/di/Container.ts`. Instead, add them to their respective module container, and ensure that module container is exported in `Container.ts`.
+- Inside your module `.di.ts` file, handle Fast Refresh cache using the `globalThis` pattern (e.g. `globalFor<Module>DI = globalThis as unknown as ...`).

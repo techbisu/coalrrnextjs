@@ -25,6 +25,7 @@ class MockProjectRepository implements IProjectRepository {
   findAll = vi.fn()
   findByName = vi.fn()
   findByMineCode = vi.fn()
+  generateEclProjCd = vi.fn().mockResolvedValue('ECL/TEST/001')
   save = vi.fn()
   delete = vi.fn()
   exists = vi.fn()

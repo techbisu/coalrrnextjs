@@ -43,6 +43,7 @@ export async function POST(request: Request) {
       entity_type: entity_type || undefined,
       entity_id: entity_id || undefined,
       module: module || 'documents',
+      tags: module ? [module] : ['documents'],
     });
 
     return NextResponse.json({ success: true, file_id: file_record.id });

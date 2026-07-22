@@ -40,6 +40,30 @@ export class UrlSecurityService {
       throw new Error('Invalid or tampered token')
     }
   }
+  /**
+   * Encrypts a URL parameter (e.g. project code like "ECL/4501/4501/2026/0001") into an AES-256-GCM URL-safe Base64 token.
+   */
+  static encryptUrlParam(param: string): string {
+    if (!param) return ''
+    return this.encrypt(param)
+  }
+
+  /**
+   * Safely decrypts a URL parameter (token or array of path segments from catch-all routes).
+   * Falls back to joining path segments or raw string if parameter is not encrypted or decryption fails.
+   */
+  static safeDecryptUrlParam(param: string | string[]): string {
+    if (!param) return ''
+    const rawString = Array.isArray(param) ? param.join('/') : param
+    if (!rawString) return ''
+
+    try {
+      const decrypted = this.decrypt(rawString)
+      return decrypted || rawString
+    } catch {
+      return rawString
+    }
+  }
 
   /**
    * Signs a URL for secure one-time or time-limited access.

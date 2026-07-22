@@ -29,7 +29,9 @@ export function DatePicker({
   className,
 }: DatePickerProps) {
   // Coerce string to Date if necessary
-  const dateValue = typeof value === 'string' && value ? new Date(value) : (value as Date | undefined)
+  const dateValue = typeof value === 'string' && value
+    ? (value.includes('T') ? new Date(value) : new Date(`${value}T00:00:00`))
+    : (value as Date | undefined)
 
   return (
     <Popover>

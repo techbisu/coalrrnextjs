@@ -10,6 +10,7 @@ export interface IProjectRepository {
   findAll(options?: IQueryOptions): Promise<IPaginatedResult<Project>>
   findByName(name: string): Promise<Project | null>
   findByMineCode(mine_cd: string, options?: IQueryOptions): Promise<IPaginatedResult<Project>>
+  generateEclProjCd(areaCd?: string, mineCd?: string): Promise<string>
   save(project: Project): Promise<void>
   updateProjectMouzas(projectId: string, mouzaLgds: bigint[]): Promise<void>
   syncProjectDocuments(projectId: string, fileIds: string[], userId: string): Promise<void>
