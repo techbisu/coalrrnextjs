@@ -37,15 +37,15 @@ export const getCurrentUser = cache(async function (): Promise<AuthUser | null> 
   const u = session.user
   
   // Load full RBAC profile
-  const roles = await authService.getUserRoles(u.id)
-  const permissions = await authService.getUserPermissions(u.id)
+  const roles = await authService.getUserRoles(u.id.toString())
+  const permissions = await authService.getUserPermissions(u.id.toString())
   
   // Load Org Scope
-  const activeScope = await userOrgScopeRepositoryExport.getActiveScopeByUserId(u.id)
+  const activeScope = await userOrgScopeRepositoryExport.getActiveScopeByUserId(u.id.toString())
   const scope = UserScopeService.buildEffectiveScope(activeScope ? [activeScope] : [])
   
   return {
-    id: u.id, portal: u.portal as 'ecl' | 'public', role: u.role,
+    id: u.id.toString(), portal: u.portal as 'ecl' | 'public', role: u.role,
     roles, permissions,
     email: u.email, mobile: u.mobile, name: u.name,
     designation: u.designation, mine_cd: u.mine_cd, plot_id: u.plot_id,
@@ -56,24 +56,26 @@ export const getCurrentUser = cache(async function (): Promise<AuthUser | null> 
 export async function createSession(user_id: string): Promise<AuthUser> {
   const token = randomUUID()
   const expires_at = new Date(Date.now() + SESSION_TTL_MS)
-  await db.auth_session.create({ data: { id: randomUUID(), token, user_id, expires_at, updt_ts: new Date() } })
+  const numericId = parseInt(user_id, 10);
+  if (isNaN(numericId)) throw new Error('Invalid user ID');
+  await db.auth_session.create({ data: { id: randomUUID(), token, user_id: numericId, expires_at, updt_ts: new Date() } })
   const cookieStore = await cookies()
   cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true, sameSite: 'lax', path: '/', expires: expires_at,
+    httpOnly: true, sameSite: 'lax', path: '/', expires: expires_at, secure: process.env.NODE_ENV === 'production',
   })
-  const u = await db.user.findUnique({ where: { id: user_id } })
+  const u = await db.user.findUnique({ where: { id: numericId } })
   if (!u) throw new Error('user vanished')
     
   // Load full RBAC profile
-  const roles = await authService.getUserRoles(u.id)
-  const permissions = await authService.getUserPermissions(u.id)
+  const roles = await authService.getUserRoles(u.id.toString())
+  const permissions = await authService.getUserPermissions(u.id.toString())
 
   // Load Org Scope
-  const activeScope = await userOrgScopeRepositoryExport.getActiveScopeByUserId(u.id)
+  const activeScope = await userOrgScopeRepositoryExport.getActiveScopeByUserId(u.id.toString())
   const scope = UserScopeService.buildEffectiveScope(activeScope ? [activeScope] : [])
 
   return {
-    id: u.id, portal: u.portal as 'ecl' | 'public', role: u.role,
+    id: u.id.toString(), portal: u.portal as 'ecl' | 'public', role: u.role,
     roles, permissions,
     email: u.email, mobile: u.mobile, name: u.name,
     designation: u.designation, mine_cd: u.mine_cd, plot_id: u.plot_id,

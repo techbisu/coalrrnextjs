@@ -33,7 +33,7 @@ export class PrismaRoleRepository implements IRoleRepository {
 
   async findByUser(user_id: string): Promise<IRole[]> {
     const userRoles = await db.model_has_role.findMany({
-      where: { model_id: user_id, model_type: 'user' },
+      where: { model_id: user_id?.toString(), model_type: 'user' },
       include: { role: true }
     })
     return userRoles.map(ur => ur.role)
@@ -45,20 +45,22 @@ export class PrismaRoleRepository implements IRoleRepository {
   }
 
   async assignToUser(user_id: string, role_id: string): Promise<void> {
+    const stringUserId = user_id?.toString();
     await db.model_has_role.upsert({
-      where: { role_id_model_type_model_id: { role_id, model_type: 'user', model_id: user_id } },
-      create: { role_id, model_type: 'user', model_id: user_id },
+      where: { role_id_model_type_model_id: { role_id, model_type: 'user', model_id: stringUserId } },
+      create: { role_id, model_type: 'user', model_id: stringUserId },
       update: {}
     })
     await PermissionCache.invalidate(user_id)
   }
 
   async syncUserRoles(user_id: string, roleIds: string[]): Promise<void> {
-    await db.model_has_role.deleteMany({ where: { model_id: user_id, model_type: 'user' } })
+    const stringUserId = user_id?.toString()
+    await db.model_has_role.deleteMany({ where: { model_id: stringUserId, model_type: 'user' } })
     if (roleIds.length > 0) {
       const now = new Date()
       await db.model_has_role.createMany({
-        data: roleIds.map(role_id => ({ role_id, model_type: 'user', model_id: user_id, updt_ts: now }))
+        data: roleIds.map(role_id => ({ role_id, model_type: 'user', model_id: stringUserId, updt_ts: now }))
       })
     }
     await PermissionCache.invalidate(user_id)
