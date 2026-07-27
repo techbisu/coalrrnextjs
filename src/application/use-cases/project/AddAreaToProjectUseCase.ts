@@ -1,5 +1,4 @@
-import { UseCase } from '@/core/base/UseCase'
-import { Result, Fail } from '@/core/result/Result'
+import { IUseCase, Result, Fail, Ok } from '@/core'
 import { ComplianceMonitorService } from '@/core/compliance/services/ComplianceMonitorService'
 
 export interface AddAreaToProjectRequest {
@@ -15,7 +14,7 @@ export interface AddAreaToProjectResponse {
   message: string
 }
 
-export class AddAreaToProjectUseCase implements UseCase<AddAreaToProjectRequest, AddAreaToProjectResponse> {
+export class AddAreaToProjectUseCase implements IUseCase<AddAreaToProjectRequest, AddAreaToProjectResponse> {
   constructor(
     private readonly complianceService: ComplianceMonitorService
   ) {}
@@ -29,22 +28,22 @@ export class AddAreaToProjectUseCase implements UseCase<AddAreaToProjectRequest,
     )
 
     if (complianceResult.isFailure) {
-      return Fail(complianceResult.error)
+      return Fail(`Failed to check compliance: ${complianceResult.error}`)
     }
 
     const { withinBaseline, overflow } = complianceResult.value
 
     if (withinBaseline) {
-      return Result.ok({
+      return Ok({
         canProceed: true,
         requiresFormXXII: false,
         message: 'Proposed addition is within the approved project baseline limits.'
       })
     } else {
-      return Result.ok({
+      return Ok({
         canProceed: false,
         requiresFormXXII: true,
-        message: `Proposed addition breaches project baseline limits. A Form-XXII deviation approval is required. Reason: ${overflow?.reason || 'Limit exceeded'}`
+        message: `Proposed addition breaches project baseline limits. A Form-XXII deviation approval is required. Reason: ${overflow?.area || 'Limit exceeded'}`
       })
     }
   }

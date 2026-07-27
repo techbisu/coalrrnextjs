@@ -1,10 +1,63 @@
 import { db } from '@/lib/db'
 import { Project, IProjectRepository, IProjectQueryOptions } from '@/domain'
-import { IPaginatedResult } from '@/core/interfaces'
+import { IPaginatedResult, IQueryOptions } from '@/core/interfaces'
 import Decimal from 'decimal.js'
-import { PROJECT_CONFIG } from '@/config/project.config'
+import { PROJECT_CONFIG } from '@/core/config/project.config'
 
 export class PrismaProjectRepository implements IProjectRepository {
+  async findByName(name: string): Promise<Project | null> {
+    const project = await db.project.findFirst({ where: { projNm: name } });
+    if (!project) return null;
+    return this.findById(project.projCd);
+  }
+
+  async findByMineCode(mine_cd: string, options?: IQueryOptions): Promise<IPaginatedResult<Project>> {
+    // Basic implementation since we just need to satisfy the interface for now
+    const limit = options?.pageSize || 10;
+    const page = options?.page || 1;
+    const offset = (page - 1) * limit;
+
+    const projects = await db.project.findMany({
+      take: limit,
+      skip: offset,
+      // Need to find projects that have locations matching this mine_cd
+      where: {
+        approvals: {
+          some: {
+            locations: {
+              some: {
+                mineCd: mine_cd
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    const count = await db.project.count({
+      where: {
+        approvals: {
+          some: {
+            locations: {
+              some: {
+                mineCd: mine_cd
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const projectEntities = await Promise.all(projects.map(p => this.findById(p.projCd)));
+    
+    return {
+      data: projectEntities.filter((p): p is Project => p !== null),
+      total: count,
+      page: page,
+      pageSize: limit,
+      totalPages: Math.ceil(count / limit)
+    };
+  }
   
   async generateEclProjCd(areaCd?: string, mineCd?: string): Promise<string> {
     const year = new Date().getFullYear();
@@ -221,7 +274,7 @@ export class PrismaProjectRepository implements IProjectRepository {
     })
   }
 
-  async updateMouzas(projectId: string, mouzaLgds: string[]): Promise<void> {
+  async updateLocations(projectId: string, mineCds: string[], mouzaLgds: string[]): Promise<void> {
     const project = await db.project.findUnique({ where: { projCd: projectId } });
     if (!project) return;
     
@@ -246,6 +299,24 @@ export class PrismaProjectRepository implements IProjectRepository {
       });
     }
 
+    if (mineCds && mineCds.length > 0 && aprvCd) {
+       for (const mine of mineCds) {
+          const existingLoc = await db.projAprvLocation.findFirst({ where: { aprvCd, mineCd: mine, mouzaLgd: BigInt(0) } });
+          if (!existingLoc) {
+            const locCode = require('crypto').randomBytes(5).toString('hex').toLowerCase();
+            await db.projAprvLocation.create({
+              data: {
+                aprvLocationCode: locCode,
+                aprvCd: aprvCd,
+                mineCd: mine,
+                mouzaLgd: BigInt(0),
+                approvedArea: project.totalApprovedArea ?? undefined,
+              }
+            });
+          }
+       }
+    }
+
     if (mouzaLgds && mouzaLgds.length > 0 && aprvCd) {
        for (const lgd of mouzaLgds) {
           const existingLoc = await db.projAprvLocation.findFirst({ where: { aprvCd, mouzaLgd: BigInt(lgd) } });
@@ -256,7 +327,7 @@ export class PrismaProjectRepository implements IProjectRepository {
                 aprvLocationCode: locCode,
                 aprvCd: aprvCd,
                 mouzaLgd: BigInt(lgd),
-                approvedArea: project.totalApprovedArea,
+                approvedArea: project.totalApprovedArea ?? undefined,
               }
             });
           }
@@ -273,8 +344,8 @@ export class PrismaProjectRepository implements IProjectRepository {
     }
   }
 
-  async updateProjectMouzas(projectId: string, mouzaLgds: bigint[]): Promise<void> {
-    await this.updateMouzas(projectId, mouzaLgds.map(String));
+  async updateProjectLocations(projectId: string, mineCds: string[], mouzaLgds: bigint[]): Promise<void> {
+    await this.updateLocations(projectId, mineCds, mouzaLgds.map(String));
   }
 
   async syncProjectDocuments(projectId: string, fileIds: string[], userId: string): Promise<void> {
@@ -312,7 +383,7 @@ export class PrismaProjectRepository implements IProjectRepository {
   }
 
   // Dashboard-specific query
-  async getDashboardData(): Promise<Array<{
+  async getDashboardData(options?: { scope?: any }): Promise<Array<{
     project: Project
     payrollCount: number
     totalDisbursed: Decimal
@@ -329,8 +400,24 @@ export class PrismaProjectRepository implements IProjectRepository {
     statutory_clearances: string | null
     boundary: string | null
   }>> {
+    // Apply scope filter
+    const where: any = {}
+    if (options?.scope) {
+      if (options.scope.level === 'AREA') {
+        const areaMines = await db.mine_master.findMany({
+          where: { area_cd: { in: options.scope.areaIds } },
+          select: { mine_cd: true }
+        });
+        where.projCd = { in: areaMines.map((m: any) => m.mine_cd) };
+      } else if (options.scope.level === 'UNIT') {
+        const mineCds = Object.values(options.scope.unitsByArea).flat() as string[];
+        where.projCd = { in: mineCds };
+      }
+    }
+
     // 1. Fetch from new Project table
     const projects = await db.project.findMany({
+      where,
       orderBy: { entryTs: 'desc' },
       include: {
         approvals: {
@@ -343,12 +430,6 @@ export class PrismaProjectRepository implements IProjectRepository {
     // We'll fetch them from legacy tables where projectId = projCd.
     const allPlots = await db.mst_plot.findMany({ include: { mouza: true } })
     
-    // Note: audit logs still reference 'mst_project'
-    const auditLogs = await db.audit_log.findMany({
-      where: { entity_name: 'mst_project', event_type: 'PROJECT_LIMIT_REVISED' },
-      orderBy: { entry_ts: 'desc' }
-    })
-
     const fileAttachments = await db.file_attachment.findMany({
       where: { entity_type: 'mst_project' },
       include: {
@@ -407,6 +488,9 @@ export class PrismaProjectRepository implements IProjectRepository {
     })
     const mineMap = new Map(mines.map(m => [m.mine_cd, m]))
 
+    const areas = await db.area_master.findMany()
+    const areaMap = new Map(areas.map(a => [a.area_cd, a]))
+
     return projects.map((p: any) => {
       const projPlots = plotsByProject[p.projCd] || []
       const totalAcquiredAreaNum = projPlots.reduce((sum: number, pl: any) => sum + Number(pl.area_acres), 0)
@@ -446,74 +530,65 @@ export class PrismaProjectRepository implements IProjectRepository {
         budgetUtilization = totalDisbursed.dividedBy(budgetCeiling).times(100).toNumber()
       }
 
-      // Board Approvals mapping
-      const boardApprovals = auditLogs
-        .filter(log => log.entity_id === p.projCd)
-        .map(log => {
-          let remarks = log.description || ''
-          let fileId
-          let fileName
-          try {
-            if (log.new_values && typeof log.new_values === 'object') {
-              const val = log.new_values as any
-              if (val.board_approval_doc_id) {
-                fileId = val.board_approval_doc_id
-                const att = fileAttachments.find(f => f.file_id === fileId)
-                if (att?.file_record?.file_version?.[0]) {
-                  fileName = att.file_record.file_version[0].file_name
-                }
-              }
-              if (val.remarks) {
-                remarks = val.remarks
-              }
-            }
-          } catch (e) {}
-          return {
-            id: log.id,
-            date: log.entry_ts ? log.entry_ts.toISOString() : new Date().toISOString(),
-            remarks,
-            file_id: fileId,
-            file_name: fileName
-          }
-        })
+      // Board Approvals mapping removed as audit_log is gone
+      const boardApprovals: any[] = []
 
       // Extract locations from the latest approval if any
       const approvals = p.approvals || []
       const latestApproval = approvals.length > 0 ? approvals[approvals.length - 1] : null
-      let firstMouza = null
+      let firstMouza: any = null
       const mouzaLgds: string[] = []
+      const mineCds: string[] = []
       
       if (latestApproval && latestApproval.locations) {
         latestApproval.locations.forEach((loc: any) => {
-          if (!firstMouza) firstMouza = loc
-          mouzaLgds.push(loc.mouzaLgd?.toString() || '')
+          if (loc.mouzaLgd?.toString() === '0' && loc.mineCd) {
+            mineCds.push(loc.mineCd)
+          } else if (loc.mouzaLgd?.toString() !== '0') {
+            if (!firstMouza) firstMouza = loc
+            mouzaLgds.push(loc.mouzaLgd?.toString() || '')
+          }
         })
       }
 
-      let district_lgd: string | null = null
-      let block_lgd: string | null = null
+      let district_lgd: string[] = []
+      let block_lgd: string[] = []
       let state_lgd: string | null = null
       
-      if (firstMouza && firstMouza.mouzaLgd) {
-        const mm = mouzaMap.get(firstMouza.mouzaLgd.toString()) as any
-        if (mm) {
-          district_lgd = mm.district_lgd?.toString() || null
-          block_lgd = mm.block_lgd?.toString() || null
-          state_lgd = mm.state_lgd?.toString() || null
-        }
+      if (mouzaLgds.length > 0) {
+        const dSet = new Set<string>()
+        const bSet = new Set<string>()
+        mouzaLgds.forEach(lgd => {
+          const mm = mouzaMap.get(lgd) as any
+          if (mm) {
+            if (mm.district_lgd) dSet.add(mm.district_lgd.toString())
+            if (mm.block_lgd) bSet.add(mm.block_lgd.toString())
+            if (!state_lgd && mm.state_lgd) state_lgd = mm.state_lgd.toString()
+          }
+        })
+        district_lgd = Array.from(dSet)
+        block_lgd = Array.from(bSet)
       }
 
       let area_cd: string | null = firstMouza?.areaCd || null
-      if (!area_cd && p.projCd) {
-        const mm = mineMap.get(p.projCd) as any
-        if (mm) area_cd = mm.area_cd || null
+      if (!area_cd) {
+        const lookupCode = mineCds.length > 0 ? mineCds[0] : p.projCd
+        if (lookupCode) {
+          const mm = mineMap.get(lookupCode) as any
+          if (mm) area_cd = mm.area_cd || null
+        }
+      }
+
+      if (!state_lgd && area_cd) {
+        const am = areaMap.get(area_cd) as any
+        if (am && am.state_lgd) state_lgd = am.state_lgd.toString()
       }
 
       const prDocs = fileAttachments.filter(f => f.entity_id === p.projCd).map(f => {
-        const latestVersion = f.file_record.file_version?.[0];
+        const latestVersion = f.file_record?.file_version?.[0];
         return {
           id: f.file_id,
-          file_name: f.file_record.original_name,
+          file_name: f.file_record?.original_name || 'Document',
           file_size_kb: latestVersion ? Math.round(Number(latestVersion.size_bytes) / 1024) : 0,
           mime_type: latestVersion?.mime_type || 'application/octet-stream',
           virus_scan_status: 'clean'
@@ -538,10 +613,11 @@ export class PrismaProjectRepository implements IProjectRepository {
         })),
         breachedProposals: [],
         boardApprovals,
-        district_lgd,
-        block_lgd,
+        district_lgd: district_lgd[0] || null,
+        block_lgd: block_lgd[0] || null,
         state_lgd,
         area_cd,
+        mine_cds: mineCds.length > 0 ? mineCds : [p.projCd],
         mouza_lgds: mouzaLgds,
         pr_docs: prDocs as any,
         locked_at: p.status === 1 ? (p.updtTs ? new Date(Number(p.updtTs) * 1000) : new Date()) : null,

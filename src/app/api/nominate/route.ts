@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { ok, badRequest, serverError, readJson } from '../_lib'
 import type { NextRequest } from 'next/server'
 import { Decimal } from 'decimal.js'
+import { randomUUID } from 'crypto'
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,9 +34,11 @@ export async function POST(req: NextRequest) {
       if (!pool) {
         pool = await tx.nominee_pool.create({
           data: {
+            id: randomUUID(),
             nominee_aadhaar_hash: body.nominee_aadhaar_hash!,
             nominee_name: body.nominee_name!,
             pooled_acreage: 0,
+            updt_ts: new Date(),
           }
         })
       }
@@ -57,9 +60,11 @@ export async function POST(req: NextRequest) {
       // Create contribution
       const contrib = await tx.nominee_pool_contribution.create({
         data: {
+          id: randomUUID(),
           pool_id: pool.id,
           form_i_claim_id: claim.id,
-          share_acres: share_acres.toString()
+          share_acres: share_acres.toString(),
+          updt_ts: new Date(),
         }
       })
 
@@ -69,7 +74,8 @@ export async function POST(req: NextRequest) {
         where: { id: pool.id },
         data: {
           pooled_acreage: newPooledAcreage.toString(),
-          apply_button_unlocked: newPooledAcreage.gte(2.0)
+          apply_button_unlocked: newPooledAcreage.gte(2.0),
+          updt_ts: new Date(),
         }
       })
 

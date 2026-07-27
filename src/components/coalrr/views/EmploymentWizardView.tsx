@@ -330,7 +330,7 @@ export function EmploymentWizardView() {
     handleStepChange(3)
   }, [applicationId, saveBioDataMutation, handleStepChange])
 
-  const handleDocUpload = React.useCallback((docKey: string, docs: UploadedDoc | UploadedDoc[]) => {
+  const handleDocUpload = React.useCallback((docKey: string, docs: any | any[]) => {
     setUploadedDocs((prev) => ({
       ...prev,
       [docKey]: [

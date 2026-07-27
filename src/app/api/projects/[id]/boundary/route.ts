@@ -21,7 +21,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     const body = await req.json()
     const parsed = BoundarySchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 })
+      return NextResponse.json({ error: parsed.error.format() }, { status: 400 })
     }
 
     // Check project exists

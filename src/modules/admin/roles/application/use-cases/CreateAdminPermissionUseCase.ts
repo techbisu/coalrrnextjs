@@ -1,33 +1,42 @@
 import { IUseCase } from '@/core/interfaces/UseCase.interface'
 import { Result, Ok, Fail } from '@/core/result/Result'
 import { IAdminRoleRepository } from '../../domain/repositories/IAdminRoleRepository'
-import { permission } from '@prisma/client'
+import { AdminPermission } from '../../domain/entities/AdminPermission'
 import { auditQueue } from '@/infrastructure/di/Container'
 
-type CreatePermissionInput = {
+export type CreatePermissionInput = {
   name: string
   display_name: string
   module?: string
   group?: string
   description?: string
-  guard_name?: string
+  actionBy?: string
 }
 
-export class CreateAdminPermissionUseCase implements IUseCase<CreatePermissionInput, permission> {
+export interface CreateAdminPermissionResponse {
+  id: string
+  name: string
+}
+
+export class CreateAdminPermissionUseCase implements IUseCase<CreatePermissionInput, CreateAdminPermissionResponse> {
   constructor(private readonly repo: IAdminRoleRepository) {}
 
-  async execute(input: CreatePermissionInput, context?: any): Promise<Result<permission>> {
-    try {
-      const data: Omit<permission, 'id' | 'entry_ts' | 'updt_ts'> = {
-        name: input.name,
-        display_name: input.display_name,
-        guard_name: input.guard_name || 'web',
-        module: input.module || null,
-        group: input.group || null,
-        description: input.description || null,
-      }
+  async execute(input: CreatePermissionInput, context?: any): Promise<Result<CreateAdminPermissionResponse>> {
+    const permResult = AdminPermission.create({
+      name: input.name,
+      displayName: input.display_name,
+      module: input.module,
+      group: input.group,
+      description: input.description,
+      actionBy: input.actionBy || context?.user?.id || 'system'
+    })
 
-      const perm = await this.repo.createPermission(data)
+    if (permResult.isFailure) {
+      return Fail(String(permResult.error))
+    }
+
+    try {
+      const perm = await this.repo.createPermission(permResult.value)
 
       auditQueue.push({
         action: 'CREATE_PERMISSION',
@@ -38,7 +47,7 @@ export class CreateAdminPermissionUseCase implements IUseCase<CreatePermissionIn
         remarks: `Permission created: ${perm.name}`
       })
 
-      return Ok(perm)
+      return Ok({ id: perm.id, name: perm.name })
     } catch (e: any) {
       return Fail(e.message)
     }

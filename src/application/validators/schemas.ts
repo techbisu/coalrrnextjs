@@ -8,7 +8,7 @@ import { z } from 'zod'
 
 export const CreateProjectSchema = z.object({
   name: z.string().min(1, 'Project name is required').max(500, 'Name must be less than 500 characters'),
-  mine_cd: z.string().min(1, 'Colliery code is required').max(50, 'Colliery code must be less than 50 characters'),
+  mine_cds: z.array(z.string()).min(1, 'At least one colliery code is required'),
   area_cd: z.string().optional(),
   state_lgd: z.coerce.bigint().optional(),
   pr_doc_id: z.string().nullable().optional(),
@@ -22,7 +22,7 @@ export const CreateProjectSchema = z.object({
 
 export const UpdateProjectSchema = z.object({
   name: z.string().min(1).max(500).optional(),
-  mine_cd: z.string().min(1).max(50).optional(),
+  mine_cds: z.array(z.string()).min(1).optional(),
   area_cd: z.string().optional(),
   state_lgd: z.coerce.bigint().optional(),
   pr_doc_id: z.string().nullable().optional(),

@@ -1,5 +1,4 @@
-import { UseCase } from '@/core/base/UseCase'
-import { Result, Fail } from '@/core/result/Result'
+import { IUseCase, Result, Fail, Ok } from '@/core'
 import { IProjectRepository } from '@/domain/entities/project/ProjectRepository.interface'
 import { ProjectApproval } from '@/domain/entities/project/ProjectApproval'
 import { ProjectApprovalLocation } from '@/domain/entities/project/ProjectApprovalLocation'
@@ -18,7 +17,7 @@ export interface BaselineLockRequest {
   userId: string
 }
 
-export class BaselineLockUseCase implements UseCase<BaselineLockRequest, void> {
+export class BaselineLockUseCase implements IUseCase<BaselineLockRequest, void> {
   constructor(
     private readonly projectRepository: IProjectRepository
   ) {}
@@ -89,7 +88,7 @@ export class BaselineLockUseCase implements UseCase<BaselineLockRequest, void> {
               return {
                 aprvLocationCode: locData.aprvLocationCode,
                 aprvCd: locData.aprvCd,
-                mouzaLgd: locData.mouzaLgd,
+                mouzaLgd: locData.mouzaLgd as bigint,
                 approvedArea: locData.approvedArea,
                 landClassBreakup: locData.landClassBreakup ?? undefined,
                 entryTs: locData.entryTs,

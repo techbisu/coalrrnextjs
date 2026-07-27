@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { ok, badRequest, notFound, serverError } from '@/app/api/_lib'
-import { DocumentEngine } from '@/lib/document-engine'
+import { startDocumentWorkspaceUseCase } from '@/infrastructure/di/Container'
 import { db } from '@/lib/db'
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -15,15 +15,18 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const { id } = await params
 
   try {
-    const result = await DocumentEngine.generate({
-      template_code: 'FORM_XXII',
-      entity_type: 'PROPOSAL',
-      entity_id: id,
-      generated_by: auth.user.id,
-      businessData: {},
+    const result = await startDocumentWorkspaceUseCase.execute({
+      templateCode: 'FORM_XXII',
+      applicationId: id,
+      userId: auth.user.id,
+      extraData: {},
     })
 
-    return ok({ message: 'Form-XXII generation started', result })
+    if (result.isFailure) {
+        return serverError('Failed to generate Form-XXII', result.error as string)
+    }
+
+    return ok({ message: 'Form-XXII generation started', result: result.value })
   } catch (error: any) {
     console.error('Failed to generate Form-XXII:', error)
     return serverError('Failed to generate Form-XXII', error.message)

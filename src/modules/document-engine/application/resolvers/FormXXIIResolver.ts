@@ -52,7 +52,7 @@ export class FormXXIIResolver implements IDocumentResolver {
     const projectBudget = parseFloat(project!.total_budget_ceiling?.toString() || "0");
     const projectJobs = project!.total_employment_quota || 0;
 
-    const proposalArea = parseFloat(proposal.total_area_acres.toString());
+    const proposalArea = parseFloat(proposal!.total_area_acres.toString());
     const deviationAcres = isProjectSimulation ? (parseFloat(context?.form_data?.ProposedArea || "100")) : (proposalArea - projectLimitAcres);
     
     // Aggregating plot land types for Question 6
@@ -125,9 +125,9 @@ export class FormXXIIResolver implements IDocumentResolver {
         
         "Justification": formData.Justification || '',
         
-        "ModeCba": proposal.acquisition_mode === 'cba_act' ? proposalArea.toFixed(4) : '0',
-        "ModeRfctlarr": proposal.acquisition_mode === 'rfctlarr' ? proposalArea.toFixed(4) : '0',
-        "ModeDirectPurchase": proposal.acquisition_mode === 'direct_purchase' ? proposalArea.toFixed(4) : '0',
+        "ModeCba": proposal!.acquisition_mode === 'cba_act' ? proposalArea.toFixed(4) : '0',
+        "ModeRfctlarr": proposal!.acquisition_mode === 'rfctlarr' ? proposalArea.toFixed(4) : '0',
+        "ModeDirectPurchase": proposal!.acquisition_mode === 'direct_purchase' ? proposalArea.toFixed(4) : '0',
         "ModeGovtTransfer": formData.ModeGovtTransfer || '0',
         "ModeForestDiversion": formData.ModeForestDiversion || '0',
         

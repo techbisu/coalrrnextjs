@@ -29,15 +29,23 @@ export class LocalStorageProvider implements StorageProvider {
     hash.update(buffer);
     const checksum = hash.digest('hex');
 
-    // Prevent overwriting local files by appending a timestamp or using a UUID
-    // But since FileService handles deduplication, we can just save it uniquely
+    const datePath = new Date().toISOString().split('T')[0].replace(/-/g, path.sep);
+    const targetDir = path.join(this.uploadDir, datePath);
+    
+    try {
+      await fs.access(targetDir);
+    } catch {
+      await fs.mkdir(targetDir, { recursive: true });
+    }
+    
     const uniqueFileName = `${Date.now()}-${original_name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const storage_path = path.join(this.uploadDir, uniqueFileName);
+    const storage_path = path.posix.join(new Date().toISOString().split('T')[0].replace(/-/g, '/'), uniqueFileName);
+    const full_path = path.join(targetDir, uniqueFileName);
 
-    await fs.writeFile(storage_path, buffer);
+    await fs.writeFile(full_path, buffer);
 
     return {
-      storage_path: uniqueFileName,
+      storage_path: storage_path,
       checksum,
       size_bytes: buffer.length,
     };

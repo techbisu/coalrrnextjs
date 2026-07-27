@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export async function seedRnrAssetPayroll(db: PrismaClient) {
   console.log('🌱 Seeding rnr_asset_payroll...')
@@ -13,10 +14,12 @@ export async function seedRnrAssetPayroll(db: PrismaClient) {
 
   const rnr = await db.rnr_asset_payroll.create({
     data: {
+      id: randomUUID(),
       project_id: project.id,
       payroll_code: 'RNR-2025-0001',
       state: 'Approved',
       total_value: '775000.00',
+      updt_ts: new Date(),
     },
   })
   
@@ -29,7 +32,7 @@ export async function seedRnrAssetPayroll(db: PrismaClient) {
   
   for (const l of rnrLines) {
     await db.rnr_asset_payroll_line.create({
-      data: { payroll_id: rnr.id, beneficiary_name: l.name, entitlement_type: l.type, valuation_amount: l.amount, pwd_rate_reference: l.ref, formula_snapshot: JSON.stringify({ rate: l.amount }) },
+      data: { id: randomUUID(), payroll_id: rnr.id, beneficiary_name: l.name, entitlement_type: l.type, valuation_amount: l.amount, pwd_rate_reference: l.ref, formula_snapshot: JSON.stringify({ rate: l.amount }), updt_ts: new Date() },
     })
   }
 }

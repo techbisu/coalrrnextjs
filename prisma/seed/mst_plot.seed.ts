@@ -5,12 +5,12 @@ export async function seedMstPlot(db: PrismaClient) {
 
   // Ensure mouza exists for the FK
   await db.mouza_master.upsert({
-    where: { mouza_lgd: 318357n },
+    where: { mouza_lgd: BigInt(211422) },
     update: {},
     create: {
-      mouza_lgd: 318357n,
+      mouza_lgd: BigInt(211422),
       mouza_en: 'Dummy Mouza',
-      block_lgd: 1n,
+      block_lgd: BigInt(211422),
       is_active: true
     }
   })
@@ -19,7 +19,7 @@ export async function seedMstPlot(db: PrismaClient) {
   const plots = [
     {
       id: 'plot-1',
-      mouza_lgd: 318357n, // Standard dummy LGD code used in other seeds
+      mouza_lgd: BigInt(211422), // Standard dummy LGD code used in other seeds
       plot_number: '123/A',
       khata_number: '55',
       land_type: 'tenancy',
@@ -27,7 +27,7 @@ export async function seedMstPlot(db: PrismaClient) {
     },
     {
       id: 'plot-2',
-      mouza_lgd: 318357n,
+      mouza_lgd: BigInt(211422),
       plot_number: '456/B',
       khata_number: '89',
       land_type: 'forest',

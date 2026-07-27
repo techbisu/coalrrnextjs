@@ -9,10 +9,9 @@ export async function seedMstProject(db: PrismaClient) {
   if (!state) {
     state = await db.state_master.create({
       data: {
-        id: randomUUID(),
-        state_lgd: 20n,
+        state_lgd: BigInt(20),
         state_en: 'Jharkhand',
-        stateLocVern: 'Jharkhand',
+        state_loc_vern: 'Jharkhand',
         is_active: true,
       }
     })
@@ -22,7 +21,6 @@ export async function seedMstProject(db: PrismaClient) {
   if (!area) {
     area = await db.area_master.create({
       data: {
-        id: randomUUID(),
         area_cd: 'AREA-01',
         area_en: 'BCCL Area 1',
         is_active: true,
@@ -35,7 +33,6 @@ export async function seedMstProject(db: PrismaClient) {
   if (!mine) {
     mine = await db.mine_master.create({
       data: {
-        id: randomUUID(),
         mine_cd: 'MINE-01',
         mine_en: 'Demo Mine',
         area_cd: area.area_cd,
@@ -82,20 +79,22 @@ export async function seedMstProject(db: PrismaClient) {
   ]
 
   for (const p of projectsToCreate) {
-    const existing = await db.mst_project.findFirst({ where: { name: p.name } })
+    const existing = await db.project.findFirst({ where: { projNm: p.name } })
     if (!existing) {
-      await db.mst_project.create({
+      await db.project.create({
         data: {
-          id: randomUUID(),
-          name: p.name,
-          mine_cd: p.mine_cd,
-          total_land_limit_acres: p.total_land_limit_acres,
-          total_budget_ceiling: p.total_budget_ceiling,
-          total_employment_quota: p.total_employment_quota,
-          boundary: p.boundary,
-          locked_at: p.locked_at,
-          entry_ts: new Date(),
-          updt_ts: new Date(),
+          projCd: randomUUID(),
+          projNm: p.name,
+          eclProjCd: p.mine_cd, // using mine_cd as eclProjCd for demo
+          totalApprovedArea: p.total_land_limit_acres.toString(),
+          totalAcquiredArea: '0',
+          totalEmpSanctioned: p.total_employment_quota,
+          totalEmpCompleted: 0,
+          landBudget: p.total_budget_ceiling.toString(),
+          rrBudget: '0',
+          status: 0,
+          isActive: true,
+          lockedAt: p.locked_at,
         }
       })
     }

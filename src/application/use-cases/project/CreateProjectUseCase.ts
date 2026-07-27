@@ -9,13 +9,14 @@ import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
 
 export interface CreateProjectRequest {
   name: string
-  mine_cd: string
+  mine_cds: string[]
   area_cd?: string
   state_lgd?: bigint
   pr_doc_id?: string | null
   mouza_lgds?: bigint[]
   total_land_limit_acres: number | string
-  total_budget_ceiling: number | string
+  land_budget: number | string
+  rr_budget: number | string
   total_employment_quota: number
   boundary?: string
   user_id: string
@@ -24,7 +25,7 @@ export interface CreateProjectRequest {
 export interface CreateProjectResponse {
   id: string
   name: string
-  mine_cd: string
+  mine_cds?: string[]
   message: string
 }
 
@@ -35,13 +36,13 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
 
   async execute(request: CreateProjectRequest): Promise<Result<CreateProjectResponse>> {
     // 1. Generate ECL Project Code
-    const eclProjCd = await this.projectRepository.generateEclProjCd(request.area_cd, request.mine_cd)
+    const eclProjCd = await this.projectRepository.generateEclProjCd(request.area_cd, request.mine_cds[0])
 
     // 2. Validate and create domain entity
     const projectResult = Project.create({
-      name: request.name,
+      projNm: request.name,
       eclProjCd,
-      mine_cd: request.mine_cd,
+      mine_cds: request.mine_cds,
       area_cd: request.area_cd,
       totalApprovedArea: request.total_land_limit_acres?.toString() || '0',
       landBudget: request.land_budget?.toString() || '0',
@@ -49,9 +50,8 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
       totalEmpSanctioned: request.total_employment_quota || 0,
       tenantId: 'ecl',
       state_lgd: request.state_lgd,
-      pr_doc_id: request.pr_doc_id,
+      pr_doc_id: request.pr_doc_id ?? undefined,
       total_land_limit_acres: request.total_land_limit_acres,
-      total_budget_ceiling: request.total_budget_ceiling,
       total_employment_quota: request.total_employment_quota,
       boundary: request.boundary,
     })
@@ -65,9 +65,10 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
     // 2. Persist (Repository should also handle mouza_lgds if needed in the future, 
     // but right now it's not strictly part of the Project aggregate root yet, we can do it via a service or repository update method)
     await this.projectRepository.save(project)
-    // Always sync project mouzas (this also creates the baseline ProjAprv if missing)
-    await this.projectRepository.updateProjectMouzas(
+    // Always sync project locations (this also creates the baseline ProjAprv if missing)
+    await this.projectRepository.updateProjectLocations(
       project.id.toString(), 
+      project.mineCds,
       request.mouza_lgds || []
     )
     
@@ -97,8 +98,8 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
       entity_id: project.id.toString(),
       user_id: request.user_id,
       remarks: JSON.stringify({
-        name: project.name,
-        mine_cd: project.mine_cd,
+        name: project.projNm,
+        mine_cds: project.mineCds,
       }),
     })
 
@@ -108,9 +109,9 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
       isFailure: false,
       value: {
         id: project.id.toString(),
-        name: project.name,
-        mine_cd: project.mine_cd,
-        message: `Project "${project.name}" created successfully.`,
+        name: project.projNm,
+        mine_cds: project.mineCds,
+        message: `Project "${project.projNm}" created successfully.`,
       },
       error: null,
     }

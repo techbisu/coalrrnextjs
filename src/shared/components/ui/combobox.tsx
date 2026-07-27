@@ -59,6 +59,15 @@ export function Combobox({
     onSearch?.(search)
   }
 
+  React.useEffect(() => {
+    if (!open) {
+      setSearchQuery("")
+      if (onSearch) {
+        onSearch("")
+      }
+    }
+  }, [open, onSearch])
+
   const selectedValues = React.useMemo(() => {
     if (value === undefined || value === null || value === '') return []
     return Array.isArray(value) ? value.map(String) : [String(value)]
@@ -127,7 +136,7 @@ export function Combobox({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent className="p-0" style={{ width: "var(--radix-popover-trigger-width)" }} align="start">
         <Command shouldFilter={!onSearch}>
           <CommandInput 
             placeholder={`Search...`} 

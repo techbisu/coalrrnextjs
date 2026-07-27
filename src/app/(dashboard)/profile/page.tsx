@@ -2,6 +2,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { ProfileView } from './ProfileView'
+import { authConfig } from '@/core/config/auth.config'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,7 @@ export default async function ProfilePage() {
       id: true, name: true, email: true, mobile: true,
       designation: true, role: true, portal: true, mine_cd: true,
       entry_ts: true,
+      otp_enabled: true
     }
   })
 
@@ -37,11 +39,19 @@ export default async function ProfilePage() {
     include: { role: { select: { id: true, name: true, display_name: true } } }
   })
 
+  const notificationPrefs = await db.notification_preference.findMany({
+    where: { user_id: user.id.toString() },
+    select: { channel: true, is_enabled: true }
+  })
+
   return (
     <ProfileView
-      initialUser={fullUser!}
-      scope={activeScope}
+      initialUser={{ ...fullUser!, id: fullUser!.id.toString() }}
+      scope={activeScope as any}
       roles={assignedRoles.map(r => r.role)}
+      notificationPrefs={notificationPrefs}
+      initialOtpEnabled={fullUser?.otp_enabled ?? true}
+      globalOtpEnabled={authConfig.globalOtpEnabled}
     />
   )
 }

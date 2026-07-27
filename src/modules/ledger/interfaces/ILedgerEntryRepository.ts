@@ -1,7 +1,7 @@
 import { form_d_ledger_entry, mst_plot, mouza_master } from '@prisma/client'
 
 export type FormDLedgerEntryWithPlotAndMouza = form_d_ledger_entry & {
-  plot: (mst_plot & { mouza: mouza_master }) | null
+  mst_plot: (mst_plot & { mouza: mouza_master }) | null
 }
 
 export interface ILedgerEntryRepository {

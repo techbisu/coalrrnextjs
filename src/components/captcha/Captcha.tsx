@@ -28,7 +28,7 @@ export function Captcha({ purpose, onVerified, className }: CaptchaProps) {
     setAnswer('')
     try {
       const url = isRefresh && captchaId ? '/api/captcha/refresh' : '/api/captcha/generate'
-      const payload = isRefresh && captchaId ? { id: captchaId, purpose } : { purpose }
+      const payload = isRefresh && captchaId ? { oldId: captchaId, purpose } : { purpose }
 
       const res = await fetch(url, {
         method: 'POST',

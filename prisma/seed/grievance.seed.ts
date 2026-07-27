@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export async function seedGrievance(db: PrismaClient) {
   console.log('🌱 Seeding grievance...')
@@ -11,12 +12,14 @@ export async function seedGrievance(db: PrismaClient) {
 
   await db.grievance.create({
     data: {
+      id: randomUUID(),
       grievance_code: 'GRV-2026-0034',
       related_type: 'form_i_claim',
       related_id: claims[1].id,
       complainant_name: 'Neighbor: Durga Prasad',
       description: 'Boundary dispute on northern edge of plot P-102; claims overlap with adjoining tenancy land.',
       sla_due_at: new Date(Date.now() + 6 * 86400000),
+      updt_ts: new Date()
     },
   })
 }

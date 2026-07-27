@@ -30,7 +30,7 @@ import {
   History, FileText, Layers, CheckCircle2, Circle, Clock, AlertCircle, Lock, ChevronRight,
   Trash2, ListChecks,
 } from 'lucide-react'
-import { COMPENSATION_PAYROLL_STATES, COMPENSATION_PAYROLL_ORDERED_STATES } from '@/lib/engines'
+import { COMPENSATION_PAYROLL_STATES, COMPENSATION_PAYROLL_ORDERED_STATES } from '@/core/workflow'
 
 import {
   AcquisitionMode, MODE_META, MODES, ANNEXURE_META, LAND_TYPE_COLOR,

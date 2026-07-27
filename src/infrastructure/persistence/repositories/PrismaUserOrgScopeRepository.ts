@@ -1,6 +1,6 @@
 import { user_org_scope } from '@prisma/client';
 import { db } from '@/lib/db';
-import { IUserOrgScopeRepository } from '../../domain/interfaces/IUserOrgScopeRepository';
+import { IUserOrgScopeRepository } from '@/domain/interfaces/IUserOrgScopeRepository';
 
 export class PrismaUserOrgScopeRepository implements IUserOrgScopeRepository {
 

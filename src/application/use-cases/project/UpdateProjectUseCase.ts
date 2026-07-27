@@ -12,13 +12,14 @@ import { ProjectAlreadyLockedException } from '@/domain'
 export interface UpdateProjectRequest {
   id: string
   name?: string
-  mine_cd?: string
+  mine_cds?: string[]
   area_cd?: string
   state_lgd?: bigint
   pr_doc_id?: string | null
   mouza_lgds?: bigint[]
   total_land_limit_acres?: number | string
-  total_budget_ceiling?: number | string
+  land_budget?: number | string
+  rr_budget?: number | string
   total_employment_quota?: number
   boundary?: string
   statutory_clearances?: any
@@ -50,8 +51,8 @@ export class UpdateProjectUseCase implements IUseCase<UpdateProjectRequest, Upda
 
     // 2. Update entity properties
     const updateProps = {
-      name: request.name,
-      mine_cd: request.mine_cd,
+      projNm: request.name,
+      mineCds: request.mine_cds,
       totalApprovedArea: request.total_land_limit_acres?.toString(),
       landBudget: request.land_budget?.toString(),
       rrBudget: request.rr_budget?.toString(),
@@ -76,8 +77,10 @@ export class UpdateProjectUseCase implements IUseCase<UpdateProjectRequest, Upda
     // 3. Persist
     await this.projectRepository.save(project)
 
-    if (request.mouza_lgds !== undefined) {
-      await this.projectRepository.updateProjectMouzas(project.id.toString(), request.mouza_lgds)
+    if (request.mouza_lgds !== undefined || request.mine_cds !== undefined) {
+      // Use existing mines if not provided in the update, or use provided
+      const finalMineCds = request.mine_cds ?? project.mineCds
+      await this.projectRepository.updateProjectLocations(project.id.toString(), finalMineCds, request.mouza_lgds || [])
     }
 
     // Sync file attachments if pr_doc_id is explicitly provided in the update payload

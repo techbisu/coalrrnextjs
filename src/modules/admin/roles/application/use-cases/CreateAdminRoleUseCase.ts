@@ -1,43 +1,51 @@
 import { IUseCase } from '@/core/interfaces/UseCase.interface'
 import { Result, Ok, Fail } from '@/core/result/Result'
 import { IAdminRoleRepository } from '../../domain/repositories/IAdminRoleRepository'
-import { role } from '@prisma/client'
-import { randomUUID } from 'crypto'
+import { AdminRole, CreateAdminRoleProps } from '../../domain/entities/AdminRole'
 import { auditQueue } from '@/infrastructure/di/Container'
 
-type CreateRoleInput = {
+export type CreateRoleInput = {
   name: string
   display_name: string
-  guard_name?: string
   description?: string
-  is_system?: boolean
+  actionBy?: string
 }
 
-export class CreateAdminRoleUseCase implements IUseCase<CreateRoleInput, role> {
+export interface CreateAdminRoleResponse {
+  id: string
+  name: string
+}
+
+export class CreateAdminRoleUseCase implements IUseCase<CreateRoleInput, CreateAdminRoleResponse> {
   constructor(private readonly repo: IAdminRoleRepository) {}
 
-  async execute(input: CreateRoleInput, context?: any): Promise<Result<role>> {
-    try {
-      const data: Omit<role, 'id' | 'entry_ts' | 'updt_ts'> = {
-        name: input.name,
-        display_name: input.display_name,
-        guard_name: input.guard_name || 'web',
-        description: input.description || null,
-        is_system: input.is_system || false
-      }
+  async execute(input: CreateRoleInput, context?: any): Promise<Result<CreateAdminRoleResponse>> {
+    const roleResult = AdminRole.create({
+      name: input.name,
+      displayName: input.display_name,
+      description: input.description,
+      actionBy: input.actionBy || context?.user?.id || 'system'
+    })
 
-      const role = await this.repo.createRole(data)
+    if (roleResult.isFailure) {
+      return Fail(String(roleResult.error))
+    }
+
+    const domainRole = roleResult.value
+
+    try {
+      const persistedRole = await this.repo.createRole(domainRole)
 
       auditQueue.push({
         action: 'CREATE_ROLE',
         module_name: 'Admin',
         entity_name: 'role',
-        entity_id: role.id,
+        entity_id: persistedRole.id,
         user_id: context?.user?.id || 'system',
-        remarks: `Role created: ${role.name}`
+        remarks: `Role created: ${persistedRole.name}`
       })
 
-      return Ok(role)
+      return Ok({ id: persistedRole.id, name: persistedRole.name })
     } catch (e: any) {
       return Fail(e.message)
     }

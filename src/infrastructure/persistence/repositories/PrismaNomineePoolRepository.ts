@@ -6,9 +6,9 @@ export class PrismaNomineePoolRepository implements INomineePoolRepository {
     return db.nominee_pool.findMany({
       include: {
         _count: {
-          select: { contributions: true }
+          select: { nominee_pool_contribution: true }
         },
-        employment_applications: true
+        employment_application: true
       },
       orderBy: { entry_ts: 'desc' }
     })
@@ -18,14 +18,14 @@ export class PrismaNomineePoolRepository implements INomineePoolRepository {
     return db.nominee_pool.findUnique({
       where: { id },
       include: {
-        contributions: {
+        nominee_pool_contribution: {
           include: {
             form_i_claim: {
-              include: { plot: true }
+              include: { mst_plot: true }
             }
           }
         },
-        employment_applications: true
+        employment_application: true
       }
     })
   }

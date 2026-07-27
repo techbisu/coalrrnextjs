@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export async function seedEmploymentApplication(db: PrismaClient) {
   console.log('🌱 Seeding employment_application...')
@@ -13,6 +14,7 @@ export async function seedEmploymentApplication(db: PrismaClient) {
 
   await db.employment_application.create({
     data: {
+      id: randomUUID(),
       application_code: 'EMP-2026-0117',
       project_id: project.id,
       nominee_pool_id: pool.id,
@@ -20,6 +22,7 @@ export async function seedEmploymentApplication(db: PrismaClient) {
       form_x_balance_jobs: 1,
       state: 'Cl4Checklist',
       exception_flags: JSON.stringify({ femaleNomineeCounselingRequired: false, landCategoryException: null }),
+      updt_ts: new Date(),
     },
   })
 }

@@ -15,8 +15,8 @@ function mapToDetails(record: any): PafRecordDetails {
     category_of_entitlement: record.category_of_entitlement,
     sc_st_obc_category: record.sc_st_obc_category,
     plot_id: record.plot_id?.toString() ?? null,
-    plot_number: record.plot?.plot_number ?? null,
-    mouza: record.plot?.mouza?.name ?? null,
+    plot_number: record.mst_plot?.plot_number ?? null,
+    mouza: record.mst_plot?.mouza?.name ?? null,
     photo_identity_card_doc: record.photo_identity_card_doc,
     entry_ts: record.entry_ts?.toISOString() ?? new Date().toISOString(),
   }
@@ -30,7 +30,7 @@ export class PrismaPafRepository implements IPafRepository {
 
     const records = await db.paf_census_record.findMany({
       where,
-      include: { plot: { include: { mouza: true } } },
+      include: { mst_plot: { include: { mouza: true } } },
       orderBy: { entry_ts: 'desc' },
     })
 
@@ -40,7 +40,7 @@ export class PrismaPafRepository implements IPafRepository {
   async findById(id: string): Promise<PafRecordDetails | null> {
     const record = await db.paf_census_record.findUnique({
       where: { id },
-      include: { plot: { include: { mouza: true } } },
+      include: { mst_plot: { include: { mouza: true } } },
     })
 
     return record ? mapToDetails(record) : null
@@ -51,15 +51,18 @@ export class PrismaPafRepository implements IPafRepository {
   }
 
   async create(data: CreatePafRecordDto): Promise<PafRecordDetails> {
+    const { randomUUID } = require('crypto');
     const record = await db.paf_census_record.create({
       data: {
+        id: randomUUID(),
         paf_id: data.paf_id,
         claimant_name: data.claimant_name,
         category_of_entitlement: data.category_of_entitlement,
         sc_st_obc_category: data.sc_st_obc_category ?? null,
         plot_id: data.plot_id ?? null,
+        updt_ts: new Date(),
       },
-      include: { plot: { include: { mouza: true } } },
+      include: { mst_plot: { include: { mouza: true } } },
     })
 
     return mapToDetails(record)
@@ -74,8 +77,9 @@ export class PrismaPafRepository implements IPafRepository {
         ...(data.sc_st_obc_category !== undefined && { sc_st_obc_category: data.sc_st_obc_category }),
         ...(data.plot_id !== undefined && { plot_id: data.plot_id ? data.plot_id : null }),
         ...(data.photo_identity_card_doc !== undefined && { photo_identity_card_doc: data.photo_identity_card_doc }),
+        updt_ts: new Date(),
       },
-      include: { plot: { include: { mouza: true } } },
+      include: { mst_plot: { include: { mouza: true } } },
     })
 
     return mapToDetails(record)

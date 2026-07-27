@@ -6,10 +6,10 @@ export async function seedProjAprvLocation(db: PrismaClient) {
   const locationsToCreate = [
     {
       aprvLocationCode: 'LOC-01',
-      aprvCd: 10001n,
+      aprvCd: BigInt(211422),
       areaCd: 'AREA-01',
       mineCd: 'MINE-01',
-      mouzaLgd: 5001n,
+      mouzaLgd: BigInt(211422),
       approvedArea: 1200.5,
       locationRemark: 'Main mouza for Rajapur OCP',
       landClassBreakup: {
@@ -20,10 +20,10 @@ export async function seedProjAprvLocation(db: PrismaClient) {
     },
     {
       aprvLocationCode: 'LOC-02',
-      aprvCd: 10002n,
+      aprvCd: BigInt(211423),
       areaCd: 'AREA-01',
       mineCd: 'MINE-01',
-      mouzaLgd: 5002n,
+      mouzaLgd: BigInt(211422),
       approvedArea: 850.0,
       locationRemark: 'Jhanjra mouza',
       landClassBreakup: {
@@ -33,10 +33,10 @@ export async function seedProjAprvLocation(db: PrismaClient) {
     },
     {
       aprvLocationCode: 'LOC-03',
-      aprvCd: 10003n,
+      aprvCd: BigInt(211424),
       areaCd: 'AREA-01',
       mineCd: 'MINE-01',
-      mouzaLgd: 5001n,
+      mouzaLgd: BigInt(211422),
       approvedArea: 50.0,
       locationRemark: 'Expansion deviation for Rajapur OCP',
       landClassBreakup: {

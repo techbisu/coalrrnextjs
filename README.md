@@ -24,60 +24,32 @@ The COALRR (Coal Land Acquisition, Rehabilitation & Resettlement) platform has b
 
 ## 📁 Project Structure
 
-```
+```text
 coalrrnextjs/
 ├── src/
-│   ├── core/                    # Core layer (shared kernel)
-│   │   ├── base/                # Base classes
-│   │   ├── result/              # Result pattern
-│   │   ├── errors/              # Exception hierarchy
-│   │   └── interfaces/          # Contracts
-│   │
-│   ├── domain/                  # Domain layer (business logic)
-│   │   ├── value-objects/       # Money, Area, etc.
-│   │   └── entities/            # Project, Proposal, etc.
-│   │
-│   ├── infrastructure/          # Infrastructure layer
-│   │   ├── persistence/         # Repositories
-│   │   └── security/            # Rate limiting, etc.
-│   │
-│   ├── application/             # Application layer
-│   │   ├── use-cases/           # Business operations
-│   │   ├── validators/          # Zod schemas
-│   │   └── middleware/          # Validation helpers
-│   │
-│   ├── shared/                  # Cross-cutting concerns
-│   │   ├── authorization/       # RBAC
-│   │   ├── audit/               # Audit logging
-│   │   ├── localization/        # i18n
-│   │   ├── notifications/       # Multi-channel notifications
-│   │   ├── documents/           # Document engine
-│   │   └── workflow/            # State machine
-│   │
-│   ├── ui/                      # Presentation components
-│   │   ├── components/          # Reusable UI
-│   │   ├── features/            # Feature-specific
-│   │   └── hooks/               # React hooks
-│   │
-│   └── app/                     # Next.js App Router
-│       └── api/                 # API routes
+│   ├── app/            # Next.js routes, API routes, layouts — no business logic
+│   ├── application/    # Cross-cutting Use Cases (not tied to one module)
+│   ├── components/     # Shared UI components
+│   ├── core/           # System-wide services (audit, authorization, notifications, Result type)
+│   ├── domain/         # Entities, Value Objects — pure business rules
+│   ├── infrastructure/ # PrismaRepository implementations, DI Container, security
+│   ├── lib/            # Technical utilities (db client, url, document-engine, formatters)
+│   ├── localization/   # i18n services, caches, components
+│   ├── modules/        # Feature modules, each with own domain/application/services as needed
+│   ├── providers/      # React context providers
+│   └── shared/         # Shared hooks, shared layouts
 │
-├── tests/                       # Test suite
-│   ├── unit/                    # Unit tests
-│   ├── integration/             # Integration tests
-│   └── setup.ts                 # Test configuration
-│
-├── prisma/                      # Database
-│   └── schema.prisma
-│
-├── docs/                        # Documentation
-│
-└── Configuration Files
-    ├── package.json
-    ├── tsconfig.json
-    ├── vitest.config.ts
-    └── next.config.ts
+├── tests/              # Test suite (unit, integration, setup)
+├── prisma/             # Prisma schema (schema.prisma)
+├── db/                 # SQL scripts for manual database migration/seeding
+├── docs/               # Project documentation
+└── [Configuration]     # package.json, tsconfig.json, next.config.ts, etc.
 ```
+
+### Structure Guidelines
+- **Strict Adherence:** All new files must be placed within one of the designated folders above.
+- **Modularity:** Feature-specific code should be placed inside `src/modules/` rather than cluttering shared directories.
+- **Component Reusability:** Break down large UI views into smaller, data-agnostic sub-components. Reuse existing components in `src/components/` before creating new ones.
 
 ---
 
@@ -92,16 +64,19 @@ coalrrnextjs/
 ### Installation
 
 ```bash
-# Install dependencies
+# 1. Install dependencies
 npm install
 
-# Generate Prisma client
-npm run db:generate
+# 2. Database Setup (Manual Import)
+# ⚠️ IMPORTANT: We do not use automatic Prisma migrations (`prisma migrate`) in this project.
+# You must manually import the `.sql` files from the `db/` folder into your PostgreSQL database.
+# E.g. using psql or a DB GUI tool like pgAdmin/DBeaver.
 
-# Run database migrations
-npm run db:migrate
+# 3. Synchronize Prisma with the database
+npx prisma db pull
+npx prisma generate
 
-# Start development server
+# 4. Start development server
 npm run dev
 ```
 

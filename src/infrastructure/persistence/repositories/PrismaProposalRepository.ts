@@ -162,6 +162,7 @@ export class PrismaProposalRepository implements IProposalRepository {
           total_area_acres: new Decimal(data.totalAreaAcres),
           notification_date: data.notificationDate,
           mode_specific_checklist: data.modeSpecificChecklist,
+          updt_ts: new Date(),
         },
       })
     }
@@ -177,12 +178,15 @@ export class PrismaProposalRepository implements IProposalRepository {
   }
 
   async addPlotToProposal(scheduleId: string, plotId: string, annexureTag?: string): Promise<void> {
+    const { randomUUID } = require('crypto');
     await db.land_schedule_item.create({
       data: {
+        id: randomUUID(),
         schedule_id: scheduleId,
         plot_id: plotId,
         annexure_tag: annexureTag,
-        is_active: true
+        is_active: true,
+        updt_ts: new Date(),
       }
     })
   }

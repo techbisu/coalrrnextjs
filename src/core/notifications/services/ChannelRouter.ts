@@ -1,4 +1,4 @@
-import { NotificationQueue } from './NotificationQueue'
+import { Container } from '@/infrastructure/di/Container'
 import { NotificationConfig } from '../NotificationConfig'
 
 export class ChannelRouter {
@@ -39,12 +39,17 @@ export class ChannelRouter {
       status: 'QUEUED'
     })
 
-    NotificationQueue.push({
+    let numericPriority = 3; // NORMAL
+    if (priority === 'URGENT') numericPriority = 1;
+    if (priority === 'HIGH') numericPriority = 2;
+    if (priority === 'LOW') numericPriority = 4;
+
+    await Container.jobDispatcher.dispatch('dispatchNotification', {
       logId: log.id,
       channel: channel as 'EMAIL' | 'SMS' | 'IN_APP' | 'PUSH',
       recipient_contact: contactInfo,
       payload,
       retry_count: 0
-    })
+    }, { priority: numericPriority })
   }
 }

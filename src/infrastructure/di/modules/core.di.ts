@@ -7,13 +7,14 @@ import { PrismaDocumentInstanceRepository } from '@/modules/document-engine/infr
 
 import { PrismaNotificationStorage } from '@/infrastructure/persistence/repositories/PrismaNotificationStorage'
 import { NotificationConfig } from '@/core/notifications/NotificationConfig'
-import { Audit } from '@/core/audit'
+import { Audit } from '@/core/audit/services/AuditService'
 
 const globalForCoreDI = globalThis as unknown as {
   getNomineePoolsUseCase: GetNomineePoolsUseCase | undefined
   getNomineePoolDetailUseCase: GetNomineePoolDetailUseCase | undefined
   documentTemplateRepository: PrismaDocumentTemplateRepository | undefined
   documentInstanceRepository: PrismaDocumentInstanceRepository | undefined
+  jobDispatcher: import('@/core/jobs/services/JobDispatcherService').JobDispatcherService | undefined
 }
 
 const nomineePoolRepository = new PrismaNomineePoolRepository()
@@ -32,15 +33,19 @@ export const documentInstanceRepositoryExport = globalForCoreDI.documentInstance
 
 export const auditQueue = {
   push: (payload: any) => {
-    Audit.activity({
-      event: payload.action || 'UNKNOWN',
-      module: payload.module_name || 'unknown',
-      description: payload.remarks,
-      entityType: payload.entity_name,
-      entityId: payload.entity_id,
-      metadata: { user_id: payload.user_id, ...payload }
+    Audit.logCustomAction({
+      activity: payload.remarks || payload.action || 'UNKNOWN',
+      userId: payload.user_id || 'system'
     }).catch(console.error);
   }
+}
+
+import { JobDispatcherService } from '@/core/jobs/services/JobDispatcherService'
+const jobDispatcherService = new JobDispatcherService()
+
+export const jobDispatcher = globalForCoreDI.jobDispatcher ?? jobDispatcherService
+export const Container = {
+  jobDispatcher
 }
 
 if (process.env.NODE_ENV !== 'production') {
@@ -48,4 +53,5 @@ if (process.env.NODE_ENV !== 'production') {
   globalForCoreDI.getNomineePoolDetailUseCase = getNomineePoolDetailUseCase
   globalForCoreDI.documentTemplateRepository = documentTemplateRepositoryExport
   globalForCoreDI.documentInstanceRepository = documentInstanceRepositoryExport
+  globalForCoreDI.jobDispatcher = jobDispatcher
 }

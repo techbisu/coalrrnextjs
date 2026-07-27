@@ -16,6 +16,7 @@ export interface AuthUser {
   roleLabel?: string
   roles: string[]
   permissions: string[]
+  scope?: any
 }
 
 interface AuthContextValue {

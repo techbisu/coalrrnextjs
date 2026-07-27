@@ -36,7 +36,7 @@ export class TransferUserUseCase implements IUseCase<TransferUserDTO, user_org_s
 
       // Reassignment happens immediately (or at effectiveFrom) with the transfer order attached
       const newScope = await this.userOrgScopeRepository.createScope({
-        user_id: dto.userId,
+        user_id: Number(dto.userId),
         scope_level: dto.newScopeLevel,
         area_cd: dto.newScopeLevel === 'HQ' ? null : dto.newAreaCd!,
         mine_cd: dto.newScopeLevel === 'UNIT' ? dto.newMineCd! : null,

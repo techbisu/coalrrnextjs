@@ -1,13 +1,16 @@
-import { role, permission } from '@prisma/client'
+import { AdminRole } from '../entities/AdminRole'
+import { AdminPermission } from '../entities/AdminPermission'
 
 export interface IAdminRoleRepository {
-  findAllRoles(): Promise<role[]>
-  findAllPermissions(): Promise<permission[]>
-  createRole(data: Omit<role, 'id' | 'entry_ts' | 'updt_ts'>): Promise<role>
-  updateRole(id: string, data: Partial<role>): Promise<role>
+  findAllRoles(): Promise<AdminRole[]>
+  findRoleById(id: string): Promise<AdminRole | null>
+  findAllPermissions(): Promise<AdminPermission[]>
+  findPermissionById(id: string): Promise<AdminPermission | null>
+  createRole(role: AdminRole): Promise<AdminRole>
+  updateRole(role: AdminRole): Promise<AdminRole>
   deleteRole(id: string): Promise<void>
   
-  createPermission(data: Omit<permission, 'id' | 'entry_ts' | 'updt_ts'>): Promise<permission>
-  updatePermission(id: string, data: Partial<permission>): Promise<permission>
+  createPermission(permission: AdminPermission): Promise<AdminPermission>
+  updatePermission(permission: AdminPermission): Promise<AdminPermission>
   deletePermission(id: string): Promise<void>
 }

@@ -1,9 +1,12 @@
-import { PdfService } from '@/lib/document-engine/pdf';
+import { PdfService } from '@/lib/engines';
 import QRCode from 'qrcode';
 import { NextResponse } from 'next/server';
-import { fileService } from '@/modules/file-management/services/FileService';
+import { downloadFileUseCase } from '@/infrastructure/di/Container';
 import { getCurrentUser } from '@/lib/auth';
-import { AuditService } from '@/audit/services/AuditService';
+import { db } from '@/lib/db';
+import { authorizeApi } from '@/core/authorization/middleware/authorize';
+import fs from 'fs';
+import path from 'path';
 
 export async function GET(request: Request, { params }: { params: Promise<{ fileId: string }> }) {
   const file_id = (await params).fileId;
@@ -35,7 +38,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
     }
 
     // 2. Fetch File
-    let { buffer, mime_type, original_name } = await fileService.getFileBuffer(file_id);
+    const result = await downloadFileUseCase.execute({ fileId: file_id, userId: user_id });
+    if (result.isFailure) {
+      return new NextResponse(result.error as string, { status: 404 });
+    }
+    let { buffer, mimeType: mime_type, originalName: original_name } = result.value!;
 
     
     // 2.5 Convert DOCX to PDF if requested as preview or forced PDF
@@ -48,9 +55,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
         console.error('DOCX to PDF conversion failed during preview:', e);
       }
     }
-
-    // 3. Audit Logging
-    AuditService.log('DOWNLOAD', 'file-management', 'file_record', file_id, 'File downloaded securely', { user_id });
 
     // 4. Dynamic Watermarking & QR Code for PDFs (skipped only if explicitly preview)
     if (mime_type === 'application/pdf' && !isPreview) {

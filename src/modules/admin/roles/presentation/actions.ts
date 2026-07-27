@@ -10,15 +10,13 @@ import {
   deleteAdminPermissionUseCase
 } from '@/infrastructure/di/Container'
 import { getCurrentUser } from '@/lib/auth'
-import { role, permission } from '@prisma/client'
-
 import { authorize } from '@/core/authorization/middleware/authorize'
 import { roleSchema, updateRoleSchema } from '@/core/validation/schemas/role.schema'
 import { permissionSchema, updatePermissionSchema } from '@/core/validation/schemas/permission.schema'
 
 // --- Roles ---
 
-export async function createRoleAction(data: { name: string, display_name: string, guard_name?: string, description?: string, is_system?: boolean }): Promise<{ data?: role, error?: string }> {
+export async function createRoleAction(data: { name: string, display_name: string, guard_name?: string, description?: string, is_system?: boolean }): Promise<{ data?: any, error?: string }> {
   try {
     await authorize('admin.roles.create')
     const user = await getCurrentUser()
@@ -35,7 +33,7 @@ export async function createRoleAction(data: { name: string, display_name: strin
   }
 }
 
-export async function updateRoleAction(id: string, data: { name?: string, display_name?: string, description?: string }): Promise<{ data?: role, error?: string }> {
+export async function updateRoleAction(id: string, data: { name?: string, display_name?: string, description?: string }): Promise<{ data?: any, error?: string }> {
   try {
     await authorize('admin.roles.update')
     const user = await getCurrentUser()
@@ -70,7 +68,7 @@ export async function deleteRoleAction(id: string): Promise<{ success?: boolean,
 
 // --- Permissions ---
 
-export async function createPermissionAction(data: { name: string, display_name: string, guard_name?: string, module?: string, group?: string, description?: string }): Promise<{ data?: permission, error?: string }> {
+export async function createPermissionAction(data: { name: string, display_name: string, guard_name?: string, module?: string, group?: string, description?: string }): Promise<{ data?: any, error?: string }> {
   try {
     await authorize('admin.permissions.create')
     const user = await getCurrentUser()
@@ -87,7 +85,7 @@ export async function createPermissionAction(data: { name: string, display_name:
   }
 }
 
-export async function updatePermissionAction(id: string, data: { name?: string, display_name?: string, module?: string, group?: string, description?: string }): Promise<{ data?: permission, error?: string }> {
+export async function updatePermissionAction(id: string, data: { name?: string, display_name?: string, module?: string, group?: string, description?: string }): Promise<{ data?: any, error?: string }> {
   try {
     await authorize('admin.permissions.update')
     const user = await getCurrentUser()

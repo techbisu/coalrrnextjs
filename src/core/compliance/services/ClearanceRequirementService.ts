@@ -1,4 +1,4 @@
-import { PROJECT_CONFIG } from '@/config/project.config'
+import { PROJECT_CONFIG } from '@/core/config/project.config'
 
 export interface ClearanceRequirement {
   key: string

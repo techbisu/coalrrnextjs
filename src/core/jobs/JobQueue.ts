@@ -8,9 +8,11 @@ export class JobQueue {
   static async enqueue(job_type: string, payload: Record<string, any>) {
     return await db.background_job.create({
       data: {
+        id: uuidv4(),
         job_type,
         payload: JSON.stringify(payload),
         status: 'PENDING',
+        updt_ts: new Date(),
       },
     });
   }
@@ -69,7 +71,7 @@ export class JobQueue {
           data: {
             status: 'COMPLETED',
             locked_by: null,
-            updt_ts: undefined,
+            updt_ts: new Date(),
           },
         });
       } catch (error: any) {
@@ -83,7 +85,7 @@ export class JobQueue {
             status: newStatus,
             attempts: newAttempts,
             locked_by: null,
-            updt_ts: undefined,
+            updt_ts: new Date(),
           },
         });
       }

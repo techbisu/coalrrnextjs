@@ -30,7 +30,7 @@ class MockProjectRepository implements IProjectRepository {
   delete = vi.fn()
   exists = vi.fn()
   lock = vi.fn()
-  updateProjectMouzas = vi.fn()
+  updateProjectLocations = vi.fn()
   syncProjectDocuments = vi.fn()
 }
 
@@ -46,8 +46,10 @@ describe('CreateProjectUseCase', () => {
   it('should create a valid project', async () => {
     const request = {
       name: 'Test Colliery Project',
-      mine_cd: 'TCL001',
+      mine_cds: ['TCL001'],
       total_land_limit_acres: 1000,
+      land_budget: 2500000,
+      rr_budget: 2500000,
       total_budget_ceiling: 5000000,
       total_employment_quota: 100,
       user_id: 'user-123',
@@ -64,8 +66,10 @@ describe('CreateProjectUseCase', () => {
   it('should fail with validation errors', async () => {
     const request = {
       name: '', // Invalid
-      mine_cd: 'TCL001',
+      mine_cds: ['TCL001'],
       total_land_limit_acres: -100, // Invalid
+      land_budget: 2500000,
+      rr_budget: 2500000,
       total_budget_ceiling: 5000000,
       total_employment_quota: 100,
       user_id: 'user-123',
@@ -81,8 +85,10 @@ describe('CreateProjectUseCase', () => {
   it('should persist the project through repository', async () => {
     const request = {
       name: 'Test Project',
-      mine_cd: 'TCL001',
+      mine_cds: ['TCL001'],
       total_land_limit_acres: 1000,
+      land_budget: 2500000,
+      rr_budget: 2500000,
       total_budget_ceiling: 5000000,
       total_employment_quota: 100,
       user_id: 'user-123',
@@ -93,7 +99,7 @@ describe('CreateProjectUseCase', () => {
     expect(mockRepository.save).toHaveBeenCalledTimes(1)
     const savedProject = mockRepository.save.mock.calls[0][0]
     expect(savedProject.name).toBe('Test Project')
-    expect(savedProject.mine_cd).toBe('TCL001')
+    expect(savedProject.mineCds).toEqual(['TCL001'])
   })
 
   it('should handle repository errors', async () => {
@@ -101,8 +107,10 @@ describe('CreateProjectUseCase', () => {
 
     const request = {
       name: 'Test Project',
-      mine_cd: 'TCL001',
+      mine_cds: ['TCL001'],
       total_land_limit_acres: 1000,
+      land_budget: 2500000,
+      rr_budget: 2500000,
       total_budget_ceiling: 5000000,
       total_employment_quota: 100,
       user_id: 'user-123',

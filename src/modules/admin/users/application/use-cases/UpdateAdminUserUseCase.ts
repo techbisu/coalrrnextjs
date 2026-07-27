@@ -2,7 +2,7 @@ import { IUseCase } from '@/core/interfaces/UseCase.interface'
 import { Result, Ok, Fail } from '@/core/result/Result'
 import { IAdminUserRepository } from '../../domain/repositories/IAdminUserRepository'
 import { user } from '@prisma/client'
-import { AuditService } from '@/core/audit/services/AuditService'
+import { Container } from '@/infrastructure/di/modules/core.di'
 
 export interface UpdateAdminUserRequest {
   id: string
@@ -16,33 +16,50 @@ export interface UpdateAdminUserRequest {
   action_by: string
 }
 
-export class UpdateAdminUserUseCase implements IUseCase<UpdateAdminUserRequest, user> {
+export class UpdateAdminUserUseCase implements IUseCase<UpdateAdminUserRequest, any> {
   constructor(private readonly repo: IAdminUserRepository) {}
 
-  async execute(request: UpdateAdminUserRequest): Promise<Result<user>> {
+  async execute(request: UpdateAdminUserRequest): Promise<Result<any>> {
     try {
       const existingUser = await this.repo.findById(request.id)
       if (!existingUser) {
         return Fail("User not found")
       }
 
-      const updateData: Partial<user> = {
-        updt_by: request.action_by,
-      }
+      existingUser.update({
+        portal: request.portal,
+        role: request.role,
+        name: request.name,
+        email: request.email,
+        mobile: request.mobile,
+        designation: request.designation,
+        mineCd: request.mine_cd,
+        updtBy: request.action_by,
+      })
 
-      if (request.portal !== undefined) updateData.portal = request.portal
-      if (request.role !== undefined) updateData.role = request.role
-      if (request.name !== undefined) updateData.name = request.name
-      if (request.email !== undefined) updateData.email = request.email || null
-      if (request.mobile !== undefined) updateData.mobile = request.mobile || null
-      if (request.designation !== undefined) updateData.designation = request.designation || null
-      if (request.mine_cd !== undefined) updateData.mine_cd = request.mine_cd || null
-
-      const updatedUser = await this.repo.update(request.id, updateData)
+      const updatedUser = await this.repo.update(existingUser)
       
-      AuditService.log('UPDATE', 'admin-users', 'user', updatedUser.id.toString(), `Updated user ${updatedUser.name}`, { user_id: request.action_by })
-      
-      return Ok(updatedUser)
+      await Container.jobDispatcher.dispatch('auditLog', {
+        type: 'CUSTOM_ACTIVITY',
+        payload: {
+          activity: `Updated user ${updatedUser.name}`,
+          userId: request.action_by,
+          module: 'admin-users',
+          entityType: 'user',
+          entityId: updatedUser.id.toString(),
+        }
+      })
+      return Ok({
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        mobile: updatedUser.mobile,
+        portal: updatedUser.portal,
+        role: updatedUser.role,
+        designation: updatedUser.designation,
+        mine_cd: updatedUser.mineCd,
+        is_active: updatedUser.isActive
+      })
     } catch (e: any) {
       if (e.code === 'P2002') {
         return Fail("A user with this email or mobile already exists.")
@@ -51,3 +68,4 @@ export class UpdateAdminUserUseCase implements IUseCase<UpdateAdminUserRequest, 
     }
   }
 }
+

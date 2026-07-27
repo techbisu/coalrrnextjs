@@ -1,52 +1,40 @@
-export type ChangeType = "ADDED" | "UPDATED" | "DELETED" | "NO_CHANGE";
+import { auditConfig } from '@/core/config/audit.config';
 
-export interface FieldChange {
-  field_name: string;
-  old_value?: any;
-  new_value?: any;
-  change_type: ChangeType;
-}
-
-export function generateDiff(
-  oldData: Record<string, any> | null | undefined,
-  newData: Record<string, any> | null | undefined,
-  ignoredFields: string[] = ["updt_ts", "updt_by", "entry_ts", "entry_by", "created_at", "updated_at"]
-): FieldChange[] {
-  const changes: FieldChange[] = [];
-  const oldObj = oldData || {};
-  const newObj = newData || {};
+export function generateDiff(oldData: any, newData: any, ignoreFields: readonly string[] = auditConfig.ignoreFields): { field: string, old: any, new: any }[] {
+  const diff: { field: string, old: any, new: any }[] = []
   
-  const allKeys = new Set([...Object.keys(oldObj), ...Object.keys(newObj)]);
-
-  allKeys.forEach((key) => {
-    if (ignoredFields.includes(key)) return;
-
-    const oldVal = oldObj[key];
-    const newVal = newObj[key];
-
-    if (oldVal === undefined && newVal !== undefined) {
-      changes.push({
-        field_name: key,
-        old_value: null,
-        new_value: newVal,
-        change_type: "ADDED",
-      });
-    } else if (oldVal !== undefined && newVal === undefined) {
-      changes.push({
-        field_name: key,
-        old_value: oldVal,
-        new_value: null,
-        change_type: "DELETED",
-      });
-    } else if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
-      changes.push({
-        field_name: key,
-        old_value: oldVal,
-        new_value: newVal,
-        change_type: "UPDATED",
-      });
+  if (!oldData && newData) {
+    for (const key of Object.keys(newData)) {
+      if (!ignoreFields.includes(key)) {
+        diff.push({ field: key, old: null, new: newData[key] })
+      }
     }
-  });
+    return diff
+  }
 
-  return changes;
+  if (oldData && !newData) {
+    for (const key of Object.keys(oldData)) {
+      if (!ignoreFields.includes(key)) {
+        diff.push({ field: key, old: oldData[key], new: null })
+      }
+    }
+    return diff
+  }
+
+  // Both exist, compare them
+  const allKeys = new Set([...Object.keys(oldData), ...Object.keys(newData)])
+
+  for (const key of allKeys) {
+    if (ignoreFields.includes(key)) continue
+
+    const oldVal = oldData[key]
+    const newVal = newData[key]
+
+    // Simple comparison
+    if (oldVal !== newVal && JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+      diff.push({ field: key, old: oldVal, new: newVal })
+    }
+  }
+
+  return diff
 }

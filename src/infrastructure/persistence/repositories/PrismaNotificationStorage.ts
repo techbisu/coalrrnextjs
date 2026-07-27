@@ -41,8 +41,10 @@ export class PrismaNotificationStorage implements INotificationStorage {
   }
 
   async createNotificationLog(data: NotificationLogCreateData): Promise<{ id: string }> {
+    const { randomUUID } = require('crypto');
     const log = await db.notification_log.create({
       data: {
+        id: randomUUID(),
         event_id: data.event_id,
         recipient_id: data.recipient_id,
         recipient_contact: data.recipient_contact,
@@ -50,6 +52,7 @@ export class PrismaNotificationStorage implements INotificationStorage {
         payload: data.payload,
         status: data.status,
         priority: data.priority,
+        updt_ts: new Date(),
       }
     });
     return { id: log.id };
@@ -64,6 +67,7 @@ export class PrismaNotificationStorage implements INotificationStorage {
         retry_count: data.retry_count,
         delivered_at: data.delivered_at,
         sent_at: data.sent_at,
+        updt_ts: new Date(),
       }
     });
   }
@@ -76,7 +80,7 @@ export class PrismaNotificationStorage implements INotificationStorage {
   }
 
   async findUserContactInfo(user_id: string): Promise<UserContactInfo | null> {
-    const user = await db.user.findUnique({ where: { id: user_id } }); // Assuming user_id is string form of BigInt, or string ID in DB? user ID is BigInt!
+    const user = await db.user.findUnique({ where: { id: Number(user_id) } }); // Assuming user_id is string form of BigInt, or string ID in DB? user ID is BigInt!
     if (!user) return null;
     return { 
       id: user.id.toString(), 

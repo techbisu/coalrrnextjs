@@ -5,7 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["master", "public"]
+  schemas  = ["audit", "master", "public"]
 }
 
 model acqu_mode {
@@ -150,23 +150,22 @@ model mine_master {
 }
 
 model mouza_master {
-  mouza_lgd      BigInt              @id
-  mouza_en       String              @db.VarChar(255)
-  mouza_loc_vern String?             @db.VarChar(255)
+  mouza_lgd      BigInt     @id
+  mouza_en       String     @db.VarChar(255)
+  mouza_loc_vern String?    @db.VarChar(255)
   block_lgd      BigInt
-  is_active      Boolean?            @default(true)
-  jl_no          String?             @db.VarChar(3)
-  entry_by       String?             @db.VarChar(10)
-  updt_by        String?             @db.VarChar(10)
-  entry_ts       BigInt?             @default(dbgenerated("date_part('epoch'::text, now())"))
-  updt_ts        BigInt?             @default(dbgenerated("date_part('epoch'::text, now())"))
+  is_active      Boolean?   @default(true)
+  jl_no          String?    @db.VarChar(3)
+  entry_by       String?    @db.VarChar(10)
+  updt_by        String?    @db.VarChar(10)
+  entry_ts       BigInt?    @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts        BigInt?    @default(dbgenerated("date_part('epoch'::text, now())"))
   del_ts         BigInt?
   state_lgd      BigInt?
   district_lgd   BigInt?
-  gis_enable     Boolean             @default(false)
-  halka_no       String?             @db.VarChar(2)
+  gis_enable     Boolean    @default(false)
+  halka_no       String?    @db.VarChar(2)
   mstPlots       mst_plot[]
-  project_mouzas mst_project_mouza[]
 
   @@schema("master")
 }
@@ -261,8 +260,8 @@ model Project {
   delTs               BigInt?    @map("del_ts")
   tenantId            String?    @map("tenant_id") @db.VarChar(50)
   statutoryClearances Json?      @map("statutory_clearances")
-  lockedAt            DateTime?  @map("locked_at")
   boundary            String?
+  lockedAt            DateTime?  @map("locked_at") @db.Timestamp(6)
   approvals           ProjAprv[]
   tenant              Tenant?    @relation(fields: [tenantId], references: [tenantId], onDelete: NoAction, onUpdate: NoAction, map: "fk_project_tenant")
 
@@ -348,22 +347,6 @@ model Tenant {
   @@schema("master")
 }
 
-model audit_change {
-  id           String    @id
-  audit_log_id String
-  field_name   String?
-  old_value    String?
-  new_value    String?
-  json_diff    String?
-  entry_ts     DateTime  @default(now())
-  updt_ts      DateTime
-  entry_by     String?
-  updt_by      String?
-  audit_log    audit_log @relation(fields: [audit_log_id], references: [id], onDelete: Cascade)
-
-  @@schema("public")
-}
-
 model audit_download {
   id          String   @id
   user_id     String?
@@ -376,64 +359,6 @@ model audit_download {
   updt_ts     DateTime
   entry_by    String?
   updt_by     String?
-
-  @@schema("public")
-}
-
-model audit_log {
-  id             String         @id
-  event_type     String
-  module_name    String
-  entity_name    String?
-  entity_id      String?
-  user_id        String?
-  user_role      String?
-  ip_address     String?
-  user_agent     String?
-  request_url    String?
-  request_method String?
-  remarks        String?
-  entry_ts       DateTime       @default(now())
-  session_id     String?
-  updt_ts        DateTime
-  entry_by       String?
-  updt_by        String?
-  audit_change   audit_change[]
-  audit_session  audit_session? @relation(fields: [session_id], references: [id])
-
-  @@schema("public")
-}
-
-model audit_security {
-  id          String   @id
-  event_type  String
-  ip_address  String?
-  user_id     String?
-  request_url String?
-  payload     String?
-  severity    String   @default("HIGH")
-  entry_ts    DateTime @default(now())
-  updt_ts     DateTime
-  entry_by    String?
-  updt_by     String?
-
-  @@schema("public")
-}
-
-model audit_session {
-  id           String      @id
-  user_id      String?
-  status       String
-  locked_by    String?
-  attempts     Int         @default(0)
-  max_attempts Int         @default(3)
-  ip_address   String?
-  user_agent   String?
-  entry_ts     DateTime    @default(now())
-  updt_ts      DateTime
-  entry_by     String?
-  updt_by      String?
-  audit_log    audit_log[]
 
   @@schema("public")
 }
@@ -527,7 +452,6 @@ model compensation_payroll {
   updt_ts                   DateTime
   entry_by                  String?
   updt_by                   String?
-  mst_project               mst_project                 @relation(fields: [project_id], references: [id])
   compensation_payroll_line compensation_payroll_line[]
 
   @@schema("public")
@@ -573,23 +497,6 @@ model document {
   @@schema("public")
 }
 
-model document_audit_log {
-  id                   String   @id
-  document_instance_id String
-  action               String
-  role                 String?
-  user_id              String?
-  user_name            String?
-  ip_address           String?
-  browser              String?
-  entry_ts             DateTime @default(now())
-  updt_ts              DateTime @default(now())
-  entry_by             String?
-  updt_by              String?
-
-  @@schema("public")
-}
-
 model document_instance {
   id                       String            @id
   template_code            String
@@ -617,19 +524,20 @@ model document_instance {
 }
 
 model document_template {
-  id                      String                    @id
-  template_code           String                    @unique
-  template_name           String
-  description             String?
-  storage_path            String
-  config                  Json?
-  is_active               Boolean                   @default(true)
-  entry_ts                DateTime                  @default(now())
-  updt_ts                 DateTime                  @default(now())
-  entry_by                String?
-  updt_by                 String?
-  document_instance       document_instance[]
-  document_template_field document_template_field[]
+  id                          String                        @id
+  template_code               String                        @unique
+  template_name               String
+  description                 String?
+  storage_path                String
+  config                      Json?
+  is_active                   Boolean                       @default(true)
+  entry_ts                    DateTime                      @default(now())
+  updt_ts                     DateTime                      @default(now())
+  entry_by                    String?
+  updt_by                     String?
+  document_instance           document_instance[]
+  document_template_field     document_template_field[]
+  document_template_signature document_template_signature[]
 
   @@schema("public")
 }
@@ -649,6 +557,21 @@ model document_template_field {
   updt_ts           DateTime          @default(now())
   entry_by          String?
   updt_by           String?
+  document_template document_template @relation(fields: [template_code], references: [template_code], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+model document_template_signature {
+  id                String            @id @default(dbgenerated("gen_random_uuid()"))
+  template_code     String
+  role              String
+  workflow_state    String?
+  placeholders      Json
+  is_required       Boolean           @default(true)
+  display_order     Int               @default(0)
+  entry_ts          DateTime          @default(now())
+  updt_ts           DateTime          @default(now())
   document_template document_template @relation(fields: [template_code], references: [template_code], onDelete: Cascade)
 
   @@schema("public")
@@ -685,7 +608,6 @@ model employment_application {
   entry_by              String?
   updt_by               String?
   nominee_pool          nominee_pool @relation(fields: [nominee_pool_id], references: [id])
-  mst_project           mst_project  @relation(fields: [project_id], references: [id])
 
   @@schema("public")
 }
@@ -760,24 +682,23 @@ model file_version {
 }
 
 model form_d_ledger_entry {
-  id                 String      @id
+  id                 String   @id
   project_id         String
   plot_id            String
-  amount_land        Decimal     @db.Decimal(15, 2)
-  amount_rnr         Decimal     @db.Decimal(15, 2)
+  amount_land        Decimal  @db.Decimal(15, 2)
+  amount_rnr         Decimal  @db.Decimal(15, 2)
   payee_type         String
   payee_name         String
   rtgs_utr_reference String?
   row_hash           String?
   previous_hash      String?
-  paid_at            DateTime    @default(now())
-  state              String      @default("pending")
-  entry_ts           DateTime    @default(now())
+  paid_at            DateTime @default(now())
+  state              String   @default("pending")
+  entry_ts           DateTime @default(now())
   updt_ts            DateTime
   entry_by           String?
   updt_by            String?
-  mst_plot           mst_plot    @relation(fields: [plot_id], references: [id])
-  mst_project        mst_project @relation(fields: [project_id], references: [id])
+  mst_plot           mst_plot @relation(fields: [plot_id], references: [id])
 
   @@schema("public")
 }
@@ -849,7 +770,6 @@ model land_schedule {
   updt_ts                 DateTime
   entry_by                String?
   updt_by                 String?
-  mst_project             mst_project          @relation(fields: [project_id], references: [id])
   land_schedule_item      land_schedule_item[]
 
   @@schema("public")
@@ -872,20 +792,20 @@ model land_schedule_item {
 }
 
 model language {
-  id                String              @id
-  code              String              @unique
-  name              String
-  native_name       String
-  direction         String              @default("LTR")
-  flag              String?
-  is_default        Boolean             @default(false)
-  is_active         Boolean             @default(true)
-  sort_order        Int                 @default(0)
-  entry_ts          DateTime            @default(now())
-  updt_ts           DateTime
-  entry_by          String?
-  updt_by           String?
-  translation_value translation_value[]
+  id          String        @id
+  code        String        @unique
+  name        String
+  native_name String
+  direction   String        @default("LTR")
+  flag        String?
+  is_default  Boolean       @default(false)
+  is_active   Boolean       @default(true)
+  sort_order  Int           @default(0)
+  entry_ts    DateTime      @default(now())
+  updt_ts     DateTime
+  entry_by    String?
+  updt_by     String?
+  translation translation[]
 
   @@schema("public")
 }
@@ -954,33 +874,6 @@ model mst_plot {
   paf_census_records      paf_census_record[]
 
   @@unique([mouza_lgd, plot_number])
-  @@schema("public")
-}
-
-model mst_project {
-  id                     String                   @id
-  name                   String
-  mine_cd                String
-  total_land_limit_acres Decimal                  @db.Decimal(10, 4)
-  total_budget_ceiling   Decimal                  @db.Decimal(15, 2)
-  total_employment_quota Int
-  boundary               String
-  statutory_clearances   String?
-  locked_at              DateTime?
-  entry_ts               DateTime                 @default(now())
-  updt_ts                DateTime
-  entry_by               String?
-  updt_by                String?
-  area_cd                String?
-  state_lgd              BigInt?
-  pr_doc_id              String?
-  compensation_payroll   compensation_payroll[]
-  employment_application employment_application[]
-  form_d_ledger_entry    form_d_ledger_entry[]
-  land_schedule          land_schedule[]
-  project_mouzas         mst_project_mouza[]
-  rnr_asset_payroll      rnr_asset_payroll[]
-
   @@schema("public")
 }
 
@@ -1134,7 +1027,6 @@ model rnr_asset_payroll {
   updt_ts                DateTime
   entry_by               String?
   updt_by                String?
-  mst_project            mst_project              @relation(fields: [project_id], references: [id])
   rnr_asset_payroll_line rnr_asset_payroll_line[]
 
   @@schema("public")
@@ -1207,72 +1099,6 @@ model signed_url_log {
   @@schema("public")
 }
 
-model translation_history {
-  id                   String            @id
-  translation_value_id String
-  value                String
-  status               String
-  version              Int
-  changed_by           String?
-  change_reason        String?
-  entry_ts             DateTime          @default(now())
-  updt_ts              DateTime
-  entry_by             String?
-  updt_by              String?
-  translation_value    translation_value @relation(fields: [translation_value_id], references: [id], onDelete: Cascade)
-
-  @@schema("public")
-}
-
-model translation_key {
-  id                 String              @id
-  module_id          String
-  key                String
-  description        String?
-  entry_ts           DateTime            @default(now())
-  updt_ts            DateTime
-  entry_by           String?
-  updt_by            String?
-  translation_module translation_module  @relation(fields: [module_id], references: [id], onDelete: Cascade)
-  translation_value  translation_value[]
-
-  @@unique([module_id, key])
-  @@schema("public")
-}
-
-model translation_module {
-  id              String            @id
-  name            String            @unique
-  description     String?
-  entry_ts        DateTime          @default(now())
-  updt_ts         DateTime
-  entry_by        String?
-  updt_by         String?
-  translation_key translation_key[]
-
-  @@schema("public")
-}
-
-model translation_value {
-  id                  String                @id
-  translation_key_id  String
-  language_id         String
-  value               String
-  status              String                @default("draft")
-  version             Int                   @default(1)
-  entry_by            String?
-  approved_by         String?
-  entry_ts            DateTime              @default(now())
-  updt_ts             DateTime
-  updt_by             String?
-  translation_history translation_history[]
-  language            language              @relation(fields: [language_id], references: [id], onDelete: Cascade)
-  translation_key     translation_key       @relation(fields: [translation_key_id], references: [id], onDelete: Cascade)
-
-  @@unique([translation_key_id, language_id])
-  @@schema("public")
-}
-
 model user {
   portal          String
   role            String
@@ -1291,7 +1117,9 @@ model user {
   updt_by         String?
   is_active       Boolean          @default(true)
   id              Int              @id @default(autoincrement())
+  otp_enabled     Boolean          @default(true)
   auth_session    auth_session[]
+  otp_sessions    otp_session[]
   user_org_scopes user_org_scope[]
 
   @@schema("public")
@@ -1349,14 +1177,68 @@ model user_org_scope {
   @@schema("public")
 }
 
-model mst_project_mouza {
-  project_id  String
-  mouza_lgd   BigInt
-  mouza       mouza_master @relation(fields: [mouza_lgd], references: [mouza_lgd])
-  mst_project mst_project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+model otp_session {
+  id            String   @id @default(uuid())
+  purpose       String   @default("AUTH_LOGIN")
+  contact_value String?
+  user_id       Int?
+  otp_hash      String
+  expires_at    DateTime
+  attempts      Int      @default(0)
+  send_attempts Int      @default(0)
+  is_used       Boolean  @default(false)
+  entry_ts      DateTime @default(now())
+  updt_ts       DateTime @default(now())
+  entry_by      String?
+  updt_by       String?
+  user          user?    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@id([project_id, mouza_lgd])
+  @@map("otp_session")
   @@schema("public")
+}
+
+model translation {
+  id          String   @id
+  module      String
+  key         String
+  value       String
+  language_id String
+  entry_by    String?
+  entry_ts    DateTime @default(now())
+  updt_by     String?
+  updt_ts     DateTime @default(now())
+  language    language @relation(fields: [language_id], references: [id], onDelete: Cascade)
+
+  @@unique([module, key, language_id])
+  @@schema("public")
+}
+
+model activity_log {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  activity           String
+  table_name         String?          @db.VarChar(255)
+  action_by          String?          @db.VarChar(255)
+  ip_address         String?          @db.VarChar(45)
+  user_agent         String?
+  application_log_id String?          @db.Uuid
+  entry_ts           DateTime?        @default(now()) @db.Timestamptz(6)
+  updt_ts            DateTime?        @default(now()) @db.Timestamptz(6)
+  application_log    application_log? @relation(fields: [application_log_id], references: [id], onUpdate: NoAction, map: "fk_activity_application_log")
+
+  @@schema("audit")
+}
+
+model application_log {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  table_name   String         @db.VarChar(255)
+  conditions   Json?
+  old_data     Json?
+  new_data     Json?
+  entry_ts     DateTime?      @default(now()) @db.Timestamptz(6)
+  updt_ts      DateTime?      @default(now()) @db.Timestamptz(6)
+  activity_log activity_log[]
+
+  @@schema("audit")
 }
 
 enum ScopeLevel {

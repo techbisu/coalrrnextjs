@@ -43,7 +43,10 @@ export async function GET(req: NextRequest) {
     if (!queryResult.success) return queryResult.error
 
     // Execute use case
-    const result = await getProjectDashboardUseCase!.execute(queryResult.data)
+    const result = await getProjectDashboardUseCase!.execute({
+      ...queryResult.data,
+      userScope: auth.user.scope,
+    })
 
     if (result.isFailure) {
       if ((result.error as any) instanceof ValidationException) {
@@ -91,6 +94,8 @@ export async function POST(req: NextRequest) {
     const bodyResult = await validateBody(req, CreateProjectSchema)
     if (!bodyResult.success) return bodyResult.error
 
+    // Force API reload for domain entity changes
+
     // Execute use case
     const result = await createProjectUseCase!.execute({
       ...bodyResult.data,
@@ -110,7 +115,13 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       }
-      throw result.error
+      if (typeof result.error === 'string') {
+        return NextResponse.json(
+          { error: result.error, code: 'VALIDATION_FAILED' },
+          { status: 400 }
+        )
+      }
+      throw (result as any).error
     }
 
     return ok(

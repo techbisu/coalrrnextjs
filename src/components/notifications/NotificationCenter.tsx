@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -76,8 +76,10 @@ export function NotificationCenter({ user_id }: { user_id: string }) {
             <div className="flex flex-col">
               {notifications.map((n: any) => {
                 const isUnread = n.status !== 'READ'
-                let payload: any = {}
-                try { payload = JSON.parse(n.payload) } catch (e) {}
+                let payload: any = n.payload || {}
+                if (typeof payload === 'string') {
+                  try { payload = JSON.parse(payload) } catch (e) {}
+                }
 
                 return (
                   <div key={n.id} className={`flex gap-3 border-b p-4 transition-colors ${isUnread ? 'bg-amber-50/50 dark:bg-amber-950/20' : 'bg-transparent'}`}>

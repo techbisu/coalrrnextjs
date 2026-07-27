@@ -12,8 +12,8 @@ import type { CreateProjectInput } from '@/application/validators/schemas'
 import { z } from 'zod'
 
 const DialogFormSchema = CreateProjectSchema.extend({
-  district_lgd: z.string().optional(),
-  block_lgd: z.string().optional(),
+  district_lgd: z.array(z.string()).optional(),
+  block_lgd: z.array(z.string()).optional(),
 })
 type DialogFormInput = z.infer<typeof DialogFormSchema>
 import { useQueryClient, useMutation } from '@tanstack/react-query'
@@ -71,10 +71,10 @@ export function ProjectFormDialog({
         : undefined,
     mouza_lgds: iv.mouza_lgds ? iv.mouza_lgds.map(String) : undefined,
     area_cd: u?.area_cd || iv.area_cd,
-    mine_cd: u?.mine_cd || iv.mine_cd,
-    // district_lgd / block_lgd stay as strings — they're UI-only cascade parents, stripped before submit
-    district_lgd: u?.district_lgd ? String(u.district_lgd) : iv.district_lgd ? String(iv.district_lgd) : undefined,
-    block_lgd: u?.block_lgd ? String(u.block_lgd) : iv.block_lgd ? String(iv.block_lgd) : undefined,
+    mine_cds: iv.mine_cds ? iv.mine_cds : u?.mine_cds ? u.mine_cds : [],
+    // district_lgd / block_lgd stay as string arrays — they're UI-only cascade parents, stripped before submit
+    district_lgd: iv.district_lgd || [],
+    block_lgd: iv.block_lgd || [],
   })
 
   const formValues = React.useMemo(() => buildFormValues(initial, user), [initial, user])
@@ -190,10 +190,11 @@ export function ProjectFormDialog({
                   chain={[
                     {
                       master: 'mine_master',
-                      name: 'mine_cd',
+                      name: 'mine_cds',
                       dependsOn: [{ field: 'area_cd', param: 'area_cd' }],
                       placeholder: t('project_master.fields.mine_ph', 'Select Mine...'),
-                      searchable: true
+                      searchable: true,
+                      isMulti: true
                     }
                   ]}
                 />
@@ -209,7 +210,8 @@ export function ProjectFormDialog({
                       name: 'district_lgd',
                       dependsOn: [{ field: 'state_lgd', param: 'state_lgd' }],
                       placeholder: t('project_master.fields.district_ph', 'Select District...'),
-                      searchable: true
+                      searchable: true,
+                      isMulti: true
                     }
                   ]}
                 />
@@ -225,7 +227,8 @@ export function ProjectFormDialog({
                       name: 'block_lgd',
                       dependsOn: [{ field: 'district_lgd', param: 'district_lgd' }],
                       placeholder: t('project_master.fields.block_ph', 'Select Block...'),
-                      searchable: true
+                      searchable: true,
+                      isMulti: true
                     }
                   ]}
                 />

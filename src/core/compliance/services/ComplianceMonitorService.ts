@@ -41,7 +41,7 @@ export class ComplianceMonitorService {
       return Result.ok({
         withinBaseline: false,
         overflow: {
-          reason: accommodationResult.error
+          area: String(accommodationResult.error)
         }
       })
     }

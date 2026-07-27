@@ -78,12 +78,14 @@ export class UrlSecurityService {
     // Store in DB for tracking/one-time use
     await db.signed_url_log.create({
       data: {
+        id: crypto.randomUUID(),
         signature_hash: signature,
         url_path: path,
         entity_id,
         action,
         expires_at,
-        is_one_time
+        is_one_time,
+        updt_ts: new Date()
       }
     })
 

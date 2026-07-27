@@ -1,7 +1,7 @@
 # modules/document-engine Module
 
 ## Purpose
-This module is responsible for the modules/document-engine layer of the application. It encapsulates logic, components, and services specific to this domain.
+This module is responsible for the document-engine layer of the application. It encapsulates the Application Layer Use Cases that orchestrate the lifecycle of document generation, utilizing the pure `src/lib/engines/docx` engine.
 
 ## File-by-file breakdown
 | File | Description |
@@ -9,31 +9,23 @@ This module is responsible for the modules/document-engine layer of the applicat
 | `modules/document-engine/application/ResolverRegistry.ts` | Provides functionality related to ResolverRegistry. |
 | `modules/document-engine/application/resolvers/FormIResolver.ts` | Provides functionality related to FormIResolver. |
 | `modules/document-engine/application/resolvers/FormXXIIResolver.ts` | Provides functionality related to FormXXIIResolver. |
-| `modules/document-engine/application/services/DocumentWorkspaceService.ts` | Encapsulates domain logic for DocumentWorkspace. |
+| `modules/document-engine/application/use-cases/StartDocumentWorkspaceUseCase.ts` | Orchestrates the initialization of a document workspace session. |
+| `modules/document-engine/application/use-cases/SaveDocumentFormUseCase.ts` | Orchestrates saving dynamic form data to the draft. |
+| `modules/document-engine/application/use-cases/GenerateDocumentUseCase.ts` | Orchestrates the final rendering of the `.docx` and saving to storage. |
 | `modules/document-engine/domain/IDocumentInstanceRepository.ts` | Handles database operations for IDocumentInstance. |
 | `modules/document-engine/domain/IDocumentResolver.ts` | Provides functionality related to IDocumentResolver. |
 | `modules/document-engine/domain/IDocumentTemplateRepository.ts` | Handles database operations for IDocumentTemplate. |
 | `modules/document-engine/infrastructure/persistence/PrismaDocumentInstanceRepository.ts` | Handles database operations for PrismaDocumentInstance. |
 | `modules/document-engine/infrastructure/persistence/PrismaDocumentTemplateRepository.ts` | Handles database operations for PrismaDocumentTemplate. |
-| `modules/document-engine/presentation/actions.ts` | Provides functionality related to actions. |
-| `modules/document-engine/presentation/components/DocumentWorkspaceModal.tsx` | React component for DocumentWorkspaceModal. |
-| `modules/document-engine/presentation/components/DynamicForm.tsx` | React component for DynamicForm. |
 
 ## Key dependencies
 **Internal Modules:**
-- `lib`
-- `infrastructure`
-- `components`
+- `lib` (Core Document Engine)
+- `infrastructure` (DI and Repositories)
+- `shared`
 
 **External Packages:**
-- `fs`
-- `path`
-- `pizzip`
-- `docxtemplater`
 - `@prisma/client`
-- `crypto`
-- `react`
-- `lucide-react`
 
 ## Entry points
-- No explicit entry points (Internal module).
+- Accessed via REST API routes in `src/app/api/document-engine` utilizing DI containers.

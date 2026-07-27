@@ -13,14 +13,14 @@ export function useMasterQuery({
   const normalizedDeps = dependsOn
     ? Object.fromEntries(
         Object.entries(dependsOn)
-          .filter(([, v]) => v !== null && v !== undefined && v !== '')
+          .filter(([, v]) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0))
           .map(([k, v]) => [k, String(v)])
       )
     : undefined
 
   // Wait to fetch until all dependencies have concrete values (not null/undefined)
   const allDepsReady = dependsOn
-    ? Object.values(dependsOn).every(val => val !== null && val !== undefined && val !== '')
+    ? Object.values(dependsOn).every(val => val !== null && val !== undefined && val !== '' && !(Array.isArray(val) && val.length === 0))
     : true
 
   return useQuery<{ options: MasterOption[] }, Error>({

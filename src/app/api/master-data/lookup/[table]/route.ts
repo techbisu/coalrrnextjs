@@ -38,10 +38,20 @@ export async function GET(
       searchParams.forEach((value, key) => {
         if (key !== 'search' && key !== 'values' && key !== 'activeOnly' && value) {
           const colConfig = config.columns.find(c => c.key === key);
-          if (colConfig?.type === 'number') {
-            baseFilters[key] = useBigInt ? BigInt(value) : Number(value);
+          
+          if (value.includes(',')) {
+            const list = value.split(',').filter(Boolean);
+            if (colConfig?.type === 'number') {
+              baseFilters[key] = { in: list.map(v => useBigInt ? BigInt(v) : Number(v)) };
+            } else {
+              baseFilters[key] = { in: list };
+            }
           } else {
-            baseFilters[key] = value;
+            if (colConfig?.type === 'number') {
+              baseFilters[key] = useBigInt ? BigInt(value) : Number(value);
+            } else {
+              baseFilters[key] = value;
+            }
           }
         }
       });

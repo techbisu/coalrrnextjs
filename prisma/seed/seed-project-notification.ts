@@ -35,7 +35,7 @@ async function main() {
   // 3. Create Rule (Targeting Super Administrator, GM, or Area Officer)
   // We'll target Role:Super Administrator for demo purposes since we just assigned that to everyone.
   const existingRule = await db.notification_rule.findFirst({
-    where: { event_id: event.id, template_id: template.id }
+    where: { event_id: event.id, template_id: template.id, recipient_resolver: 'Role:Super Administrator' }
   })
   if (!existingRule) {
     await db.notification_rule.create({
@@ -44,6 +44,22 @@ async function main() {
         event_id: event.id,
         template_id: template.id,
         recipient_resolver: 'Role:Super Administrator',
+        is_active: true,
+        updt_ts: new Date()
+      }
+    })
+  }
+  
+  const existingUnitOfficerRule = await db.notification_rule.findFirst({
+    where: { event_id: event.id, template_id: template.id, recipient_resolver: 'Role:Unit Officer' }
+  })
+  if (!existingUnitOfficerRule) {
+    await db.notification_rule.create({
+      data: {
+        id: crypto.randomUUID(),
+        event_id: event.id,
+        template_id: template.id,
+        recipient_resolver: 'Role:Unit Officer',
         is_active: true,
         updt_ts: new Date()
       }

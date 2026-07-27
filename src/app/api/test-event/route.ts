@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, serverError } from '../_lib'
-import { EventBus } from '@/notifications/EventBus'
+import { EventBus } from '@/core/notifications/EventBus'
+import { randomUUID } from 'crypto'
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
     let event = await db.event_registry.findUnique({ where: { event_name } })
     if (!event) {
       event = await db.event_registry.create({
-        data: { event_name, module: 'system', description: 'A test event' }
+        data: { id: randomUUID(), event_name, module: 'system', description: 'A test event', updt_ts: new Date() }
       })
     }
 
@@ -21,10 +22,12 @@ export async function POST(req: NextRequest) {
     if (!template) {
       template = await db.notification_template.create({
         data: {
+          id: randomUUID(),
           code: 'TEST_IN_APP',
           channel: 'IN_APP',
           subject: 'Test Event Triggered',
-          body: 'Hello {{user.name}}, this is a test event from module {{module}}!'
+          body: 'Hello {{user.name}}, this is a test event from module {{module}}!',
+          updt_ts: new Date()
         }
       })
     }
@@ -36,9 +39,11 @@ export async function POST(req: NextRequest) {
     if (!rule) {
       rule = await db.notification_rule.create({
         data: {
+          id: randomUUID(),
           event_id: event.id,
           template_id: template.id,
-          recipient_resolver: 'EventUser' // Resolves to the user in payload.user_id
+          recipient_resolver: 'EventUser', // Resolves to the user in payload.user_id
+          updt_ts: new Date()
         }
       })
     }

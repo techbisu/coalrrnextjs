@@ -1,55 +1,47 @@
 'use server';
 
-import { fileService } from './services/FileService';
+import { uploadFileUseCase, deleteFileUseCase, getFilePreviewUseCase } from '@/infrastructure/di/Container';
 import { revalidatePath } from 'next/cache';
 
-/**
- * Handle Server Action for uploading a file to the File Framework.
- * We expect the FormData to contain:
- * - file: File
- * - original_name: string
- * - mime_type: string
- * - owner_id: string
- * - tags: string (JSON array)
- * - entity_type?: string
- * - entity_id?: string
- * - module?: string
- */
 export async function uploadFileAction(formData: FormData) {
   try {
     const file = formData.get('file') as File;
     if (!file) throw new Error('No file provided');
 
-    const original_name = formData.get('original_name') as string || file.name;
-    const mime_type = formData.get('mime_type') as string || file.type;
-    const owner_id = formData.get('owner_id') as string || 'system';
+    const originalName = formData.get('original_name') as string || file.name;
+    const mimeType = formData.get('mime_type') as string || file.type;
+    const ownerId = formData.get('owner_id') as string || 'system';
     const tagsString = formData.get('tags') as string;
     const tags = tagsString ? JSON.parse(tagsString) : undefined;
     
-    const entity_type = formData.get('entity_type') as string;
-    const entity_id = formData.get('entity_id') as string;
+    const entityType = formData.get('entity_type') as string;
+    const entityId = formData.get('entity_id') as string;
     const module = formData.get('module') as string;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const fileRecord = await fileService.uploadFile({
+    const result = await uploadFileUseCase.execute({
       buffer,
-      original_name,
-      mime_type,
-      size_bytes: buffer.length,
-      owner_id,
+      originalName,
+      mimeType,
+      sizeBytes: buffer.length,
+      ownerId,
       tags,
-      entity_type,
-      entity_id,
+      entityType,
+      entityId,
       module
     });
 
-    if (entity_type && entity_id) {
-      revalidatePath(`/${module}/${entity_type}/${entity_id}`);
+    if (result.isFailure) {
+      throw new Error(result.error as string);
     }
 
-    return { success: true, fileRecord };
+    if (entityType && entityId) {
+      revalidatePath(`/${module}/${entityType}/${entityId}`);
+    }
+
+    return { success: true, fileRecord: result.value?.props };
   } catch (error: any) {
     console.error('Upload File Action Error:', error);
     return { success: false, error: error.message };
@@ -58,7 +50,12 @@ export async function uploadFileAction(formData: FormData) {
 
 export async function deleteFileAction(fileId: string, userId: string = 'system') {
   try {
-    await fileService.deleteFile(fileId, userId);
+    const result = await deleteFileUseCase.execute({ fileId, userId });
+    
+    if (result.isFailure) {
+      throw new Error(result.error as string);
+    }
+
     return { success: true };
   } catch (error: any) {
     console.error('Delete File Action Error:', error);
@@ -68,8 +65,13 @@ export async function deleteFileAction(fileId: string, userId: string = 'system'
 
 export async function getPreviewUrlAction(fileId: string) {
   try {
-    const url = await fileService.getSignedPreviewUrl(fileId);
-    return { success: true, url };
+    const result = await getFilePreviewUseCase.execute({ fileId });
+    
+    if (result.isFailure) {
+      throw new Error(result.error as string);
+    }
+
+    return { success: true, url: result.value };
   } catch (error: any) {
     console.error('Preview URL Error:', error);
     return { success: false, error: error.message };

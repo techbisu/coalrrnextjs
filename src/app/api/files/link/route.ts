@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fileService } from '@/modules/file-management/services/FileService';
+import { linkFileUseCase } from '@/infrastructure/di/Container';
 import { getCurrentUser } from '@/lib/auth';
 
 export async function POST(request: Request) {
@@ -14,15 +14,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const file_record = await fileService.linkExistingFile({
-      file_id,
-      entity_type,
-      entity_id,
+    const result = await linkFileUseCase.execute({
+      fileId: file_id,
+      entityType: entity_type,
+      entityId: entity_id,
       module,
-      owner_id,
+      ownerId: owner_id,
     });
 
-    return NextResponse.json({ success: true, file_id: file_record.id });
+    if (result.isFailure) {
+      return NextResponse.json({ error: result.error as string }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, file_id: result.value?.id });
   } catch (error: any) {
     console.error('Link File Error:', error);
     return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });

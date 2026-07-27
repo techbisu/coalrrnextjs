@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { StateBadge } from '@/components/coalrr'
-import { DocumentWorkspaceModal } from '@/modules/document-engine/presentation/components/DocumentWorkspaceModal'
+import { DocumentWorkspaceModal } from '@/components/coalrr/DocumentWorkspaceModal';
 import { formatNumber } from '@/lib/utils/formatters'
 import { MODE_META, ScheduleDetail } from '../types'
 import { AcquisitionDetailTabs } from './AcquisitionDetailTabs'

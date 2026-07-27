@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export async function seedNotificationRule(db: PrismaClient) {
   console.log('🌱 Seeding notification_rule...')
@@ -16,10 +17,12 @@ export async function seedNotificationRule(db: PrismaClient) {
     if (!existing) {
       await db.notification_rule.create({
         data: {
+          id: randomUUID(),
           event_id: masterEvent.id,
           template_id: masterTpl.id,
-          recipient_resolver: 'Super Administrator',
-          priority: "2"
+          recipient_resolver: 'Role:Super Administrator',
+          priority: "2",
+          updt_ts: new Date()
         }
       })
     }
@@ -30,10 +33,12 @@ export async function seedNotificationRule(db: PrismaClient) {
     if (!existing) {
       await db.notification_rule.create({
         data: {
+          id: randomUUID(),
           event_id: roleEvent.id,
           template_id: roleTpl.id,
           recipient_resolver: 'EventUser',
-          priority: "1"
+          priority: "1",
+          updt_ts: new Date()
         }
       })
     }
@@ -44,10 +49,12 @@ export async function seedNotificationRule(db: PrismaClient) {
     if (!existing) {
       await db.notification_rule.create({
         data: {
+          id: randomUUID(),
           event_id: settingsEvent.id,
           template_id: settingsTpl.id,
-          recipient_resolver: 'Super Administrator',
-          priority: "1"
+          recipient_resolver: 'Role:Super Administrator',
+          priority: "1",
+          updt_ts: new Date()
         }
       })
     }

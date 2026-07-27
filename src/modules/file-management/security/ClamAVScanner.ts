@@ -2,9 +2,11 @@ import NodeClam from 'clamscan';
 import { IVirusScanner } from './IVirusScanner';
 import { Readable } from 'stream';
 
+import { uploadConfig } from '@/core/config/upload.config';
+
 export class ClamAVScanner implements IVirusScanner {
   private clamscanPromise: Promise<NodeClam | null>;
-  private isEnabled: boolean = process.env.ENABLE_CLAMAV !== 'false';
+  private isEnabled: boolean = uploadConfig.enableVirusScan;
 
   constructor() {
     if (!this.isEnabled) {

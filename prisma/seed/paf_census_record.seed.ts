@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export async function seedPafCensusRecord(db: PrismaClient) {
   console.log('🌱 Seeding paf_census_record...')
@@ -16,12 +17,14 @@ export async function seedPafCensusRecord(db: PrismaClient) {
   for (let i = 0; i < 6; i++) {
     await db.paf_census_record.create({
       data: {
+        id: randomUUID(),
         paf_id: `PAF-${new Date().getFullYear()}-${String(i + 1).padStart(4, '0')}`,
         claimant_name: claims[i % claims.length].claimant_name,
         category_of_entitlement: pafCategories[i % 4],
         sc_st_obc_category: scCategories[i % 4],
         plot_id: plots[i % plots.length].id,
         photo_identity_card_doc: i % 3 === 0 ? `doc-paf-${i}` : null,
+        updt_ts: new Date()
       },
     })
   }

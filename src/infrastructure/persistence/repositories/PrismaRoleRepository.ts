@@ -20,11 +20,12 @@ export class PrismaRoleRepository implements IRoleRepository {
   }
 
   async create(data: Omit<IRole, 'id' | 'entry_ts' | 'updt_ts' | 'is_system'>): Promise<IRole> {
-    return db.role.create({ data })
+    const { randomUUID } = require('crypto');
+    return db.role.create({ data: { ...data, id: randomUUID(), updt_ts: new Date() } })
   }
 
   async update(id: string, data: Partial<Omit<IRole, 'id' | 'entry_ts' | 'updt_ts' | 'is_system'>>): Promise<IRole> {
-    return db.role.update({ where: { id }, data })
+    return db.role.update({ where: { id }, data: { ...data, updt_ts: new Date() } })
   }
 
   async delete(id: string): Promise<IRole> {
@@ -48,8 +49,8 @@ export class PrismaRoleRepository implements IRoleRepository {
     const stringUserId = user_id?.toString();
     await db.model_has_role.upsert({
       where: { role_id_model_type_model_id: { role_id, model_type: 'user', model_id: stringUserId } },
-      create: { role_id, model_type: 'user', model_id: stringUserId },
-      update: {}
+      create: { role_id, model_type: 'user', model_id: stringUserId, updt_ts: new Date() },
+      update: { updt_ts: new Date() }
     })
     await PermissionCache.invalidate(user_id)
   }

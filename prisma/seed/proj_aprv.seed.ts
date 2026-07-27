@@ -5,7 +5,7 @@ export async function seedProjAprv(db: PrismaClient) {
 
   const approvalsToCreate = [
     {
-      aprvCd: 10001n,
+      aprvCd: BigInt(211422),
       projCd: 'PROJ-01',
       aprvArea: 1200.5,
       areaAcq: 0,
@@ -18,7 +18,7 @@ export async function seedProjAprv(db: PrismaClient) {
       psLgd: '120',
       blockLgd: '140',
       mouzaLgd: '5001',
-      propId: 101n,
+      propId: BigInt(211422),
       rrCap: 5000000.0,
       landCap: 45000000.0,
       aprvType: 'INITIAL_PR',
@@ -26,7 +26,7 @@ export async function seedProjAprv(db: PrismaClient) {
       aprvDocId: null
     },
     {
-      aprvCd: 10002n,
+      aprvCd: BigInt(211423),
       projCd: 'PROJ-02',
       aprvArea: 850.0,
       areaAcq: 250.0,
@@ -39,7 +39,7 @@ export async function seedProjAprv(db: PrismaClient) {
       psLgd: '121',
       blockLgd: '141',
       mouzaLgd: '5002',
-      propId: 102n,
+      propId: BigInt(211423),
       rrCap: 2000000.0,
       landCap: 28000000.0,
       aprvType: 'INITIAL_PR',
@@ -47,7 +47,7 @@ export async function seedProjAprv(db: PrismaClient) {
       aprvDocId: null
     },
     {
-      aprvCd: 10003n,
+      aprvCd: BigInt(211424),
       projCd: 'PROJ-01',
       aprvArea: 50.0,
       areaAcq: 0,
@@ -60,7 +60,7 @@ export async function seedProjAprv(db: PrismaClient) {
       psLgd: '120',
       blockLgd: '140',
       mouzaLgd: '5001',
-      propId: 103n,
+      propId: BigInt(211424),
       rrCap: 500000.0,
       landCap: 2000000.0,
       aprvType: 'FORM_XXII_DEVIATION',

@@ -53,12 +53,15 @@ export class PrismaRnrPayrollRepository implements IRnrPayrollRepository {
   }
 
   async create(data: { project_id: string; payroll_code: string }): Promise<RnrPayrollData> {
+    const { randomUUID } = require('crypto');
     const payroll = await db.rnr_asset_payroll.create({
       data: {
+        id: randomUUID(),
         project_id: data.project_id,
         payroll_code: data.payroll_code,
         state: 'Drafting',
         total_value: '0.00',
+        updt_ts: new Date(),
       },
       include: { mst_project: true, rnr_asset_payroll_line: true },
     });
@@ -99,14 +102,17 @@ export class PrismaRnrPayrollRepository implements IRnrPayrollRepository {
   }
 
   async addLine(data: Omit<RnrPayrollLineData, 'id' | 'entry_ts'>): Promise<RnrPayrollLineData> {
+    const { randomUUID } = require('crypto');
     const line = await db.rnr_asset_payroll_line.create({
       data: {
+        id: randomUUID(),
         payroll_id: data.payroll_id,
         beneficiary_name: data.beneficiary_name,
         entitlement_type: data.entitlement_type,
         valuation_amount: data.valuation_amount,
         pwd_rate_reference: data.pwd_rate_reference ?? null,
         formula_snapshot: data.formula_snapshot,
+        updt_ts: new Date(),
       },
     });
     return {

@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
-import { createHash } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 
 export async function seedFormDLedgerEntry(db: PrismaClient) {
   console.log('🌱 Seeding form_d_ledger_entry...')
@@ -23,6 +23,7 @@ export async function seedFormDLedgerEntry(db: PrismaClient) {
     const row_hash = createHash('sha256').update(canonical).digest('hex')
     await db.form_d_ledger_entry.create({
       data: {
+        id: randomUUID(),
         project_id: project.id,
         plot_id: row.plot_id,
         amount_land: row.amount_land,
@@ -34,6 +35,7 @@ export async function seedFormDLedgerEntry(db: PrismaClient) {
         previous_hash: prevHash,
         paid_at: new Date(Date.now() - row.daysAgo * 86400000),
         state: 'approved',
+        updt_ts: new Date(),
       },
     })
     prevHash = row_hash

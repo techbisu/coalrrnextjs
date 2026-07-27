@@ -4,6 +4,7 @@ import { createSession } from '@/lib/auth'
 import { ok, badRequest, serverError, readJson } from '../../_lib'
 import { createHash } from 'crypto'
 import type { NextRequest } from 'next/server'
+import { generateAndSendOTP } from '@/lib/otp'
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,16 +14,30 @@ export async function POST(req: NextRequest) {
       const password_hash = createHash('sha256').update(body.password).digest('hex')
       const user = await db.user.findUnique({ where: { email: body.email } })
       if (!user || user.portal !== 'ecl' || user.password_hash !== password_hash) return badRequest('Invalid email or password')
+      
+      // Check if OTP is globally enabled or enabled for this user
+      const sysConfig = await db.sys_config.findUnique({ where: { key: 'global_otp_enabled' } })
+      const isGlobalOtpEnabled = sysConfig?.value === 'true'
+      
+      if (isGlobalOtpEnabled || user.otp_enabled) {
+        const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined;
+        const userAgent = req.headers.get('user-agent') || undefined;
+        const { sessionId, devOtp } = await generateAndSendOTP(user.id, 'auth', user.email, 'AUTH_LOGIN', { ipAddress, userAgent })
+        return ok({ requireOtp: true, sessionId, devOtp, message: 'OTP sent to your registered contact.' })
+      }
+
       const authUser = await createSession(user.id.toString())
       return ok({ user: { id: authUser.id, name: authUser.name, portal: authUser.portal, role: authUser.role, email: authUser.email, designation: authUser.designation, mine_cd: authUser.mine_cd }, message: `Welcome back, ${authUser.name}` })
     }
     if (body?.portal === 'public') {
-      if (!body.mobile || !body.otp) return badRequest('mobile and otp required for public portal')
-      if (!/^\d{6}$/.test(body.otp)) return badRequest('OTP must be 6 digits')
+      if (!body.mobile) return badRequest('mobile required for public portal')
       const user = await db.user.findUnique({ where: { mobile: body.mobile } })
       if (!user || user.portal !== 'public') return badRequest('Mobile number not registered. Please register first.')
-      const authUser = await createSession(user.id.toString())
-      return ok({ user: { id: authUser.id, name: authUser.name, portal: authUser.portal, role: authUser.role, mobile: authUser.mobile, plot_id: authUser.plot_id }, message: `Welcome, ${authUser.name}` })
+      
+      const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined;
+      const userAgent = req.headers.get('user-agent') || undefined;
+      const { sessionId, devOtp } = await generateAndSendOTP(user.id, 'auth', user.mobile, 'AUTH_LOGIN', { ipAddress, userAgent })
+      return ok({ requireOtp: true, sessionId, devOtp, message: 'OTP sent to your mobile number.' })
     }
     return badRequest('portal must be "ecl" or "public"')
   } catch (e) {

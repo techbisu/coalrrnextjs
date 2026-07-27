@@ -1,124 +1,85 @@
-import { AuditActivityOptions, AuditUpdateOptions } from "../types";
-import { auditRepository } from "../repositories/AuditRepository";
-import { generateDiff } from "../utils/diff";
-import { AuditEventBuilder } from "../utils/AuditEventBuilder";
+import { Container } from '@/infrastructure/di/modules/core.di'
 
 export class AuditService {
-  static async log(event: string, module: string, entityType: string, entityId: string, description: string, metadata?: any) {
-    await Audit.activity({
-      event,
-      module,
-      entityType,
-      entityId,
-      description,
-      metadata
-    });
-  }
-
-  async activity(options: AuditActivityOptions) {
-    const builder = new AuditEventBuilder()
-      .withEvent(options.event)
-      .withModule(options.module)
-      .withAction("ACTIVITY")
-      .withDescription(options.description || "");
-
-    if (options.entityType && options.entityId) {
-      builder.withEntity(options.entityType, options.entityId);
+  /**
+   * Automatically queues an audit event based on a database change 
+   * (e.g., from Prisma Extension)
+   */
+  async updateRecord(
+    table: string, 
+    action: 'CREATE' | 'UPDATE' | 'DELETE', 
+    conditions: any, 
+    oldData: any, 
+    newData: any, 
+    userId: string = 'system',
+    ipAddress?: string,
+    userAgent?: string
+  ) {
+    // Dispatch to centralized JobDispatcherService
+    if (!Container.jobDispatcher) {
+       console.warn('JobDispatcher not initialized');
+       return;
     }
+    await Container.jobDispatcher.dispatch('auditLog', {
+      type: 'RECORD_CHANGE',
+      payload: {
+        table,
+        action,
+        conditions,
+        oldData,
+        newData,
+        userId,
+        ipAddress,
+        userAgent
+      }
+    })
+  }
 
-    if (options.metadata) {
-      builder.withMetadata(options.metadata);
+  /**
+   * Manually logs a custom business activity
+   */
+  async logCustomAction(options: {
+    activity: string,
+    userId?: string,
+    ipAddress?: string,
+    userAgent?: string
+  }) {
+    // Dispatch to centralized JobDispatcherService
+    if (!Container.jobDispatcher) {
+       console.warn('JobDispatcher not initialized');
+       return;
     }
-    
-    if (options.severity) {
-      builder.withStatus("SUCCESS", options.severity);
-    }
-
-    const payload = builder.build();
-    await auditRepository.saveLog(payload);
+    await Container.jobDispatcher.dispatch('auditLog', {
+      type: 'CUSTOM_ACTIVITY',
+      payload: {
+        activity: options.activity,
+        userId: options.userId || 'system',
+        ipAddress: options.ipAddress,
+        userAgent: options.userAgent
+      }
+    })
   }
 
-  async create(options: Omit<AuditUpdateOptions, "oldData">) {
-    const diff = generateDiff({}, options.newData, options.ignoredFields);
-    
-    const changes = diff.map(d => ({
-      table_name: options.entity,
-      record_id: options.entityId,
-      field_name: d.field_name,
-      old_value: d.old_value,
-      new_value: d.new_value,
-      change_type: d.change_type as any
-    }));
-
-    const builder = new AuditEventBuilder()
-      .withEvent("CREATE")
-      .withModule(options.module)
-      .withAction(options.action || "CREATE")
-      .withEntity(options.entity, options.entityId)
-      .withDescription(options.description || `Created ${options.entity}`)
-      .withChanges(changes);
-
-    await auditRepository.saveLog(builder.build());
+  /**
+   * Fallback for older interface compatibility (if needed)
+   */
+  async activity(options: any) {
+    await this.logCustomAction({
+      activity: options.description || options.event || 'UNKNOWN',
+      userId: options.metadata?.user_id || 'system',
+    })
   }
 
-  async update(options: AuditUpdateOptions) {
-    const diff = generateDiff(options.oldData, options.newData, options.ignoredFields);
-    
-    if (diff.length === 0) {
-      return; // No changes to audit
-    }
-
-    const changes = diff.map(d => ({
-      table_name: options.entity,
-      record_id: options.entityId,
-      field_name: d.field_name,
-      old_value: d.old_value,
-      new_value: d.new_value,
-      change_type: d.change_type as any
-    }));
-
-    const builder = new AuditEventBuilder()
-      .withEvent("UPDATE")
-      .withModule(options.module)
-      .withAction(options.action || "UPDATE")
-      .withEntity(options.entity, options.entityId)
-      .withDescription(options.description || `Updated ${options.entity}`)
-      .withChanges(changes);
-
-    await auditRepository.saveLog(builder.build());
-  }
-
-  async delete(options: Omit<AuditUpdateOptions, "newData">) {
-    const diff = generateDiff(options.oldData, {}, options.ignoredFields);
-    
-    const changes = diff.map(d => ({
-      table_name: options.entity,
-      record_id: options.entityId,
-      field_name: d.field_name,
-      old_value: d.old_value,
-      new_value: d.new_value,
-      change_type: d.change_type as any
-    }));
-
-    const builder = new AuditEventBuilder()
-      .withEvent("DELETE")
-      .withModule(options.module)
-      .withAction(options.action || "DELETE")
-      .withEntity(options.entity, options.entityId)
-      .withDescription(options.description || `Deleted ${options.entity}`)
-      .withChanges(changes);
-
-    await auditRepository.saveLog(builder.build());
-  }
-
-  async login(userId: string, status: "SUCCESS" | "FAILED", ipAddress?: string, userAgent?: string) {
-    await auditRepository.saveLoginAttempt({
-      user_id: userId,
-      status,
-      ip_address: ipAddress,
-      user_agent: userAgent,
-    });
+  /**
+   * Fallback for older interface compatibility
+   */
+  async log(module: string, eventType: string, description: string, metadata: any) {
+    await this.logCustomAction({
+      activity: description || eventType || 'UNKNOWN',
+      userId: metadata?.user_id || 'system',
+    })
   }
 }
 
-export const Audit = new AuditService();
+// Export a singleton for backwards compatibility, but prefer DI when possible
+export const Audit = new AuditService()

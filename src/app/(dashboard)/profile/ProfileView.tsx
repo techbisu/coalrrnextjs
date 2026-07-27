@@ -23,6 +23,7 @@ import {
   KeyRound, Pencil, Loader2, CalendarDays, Globe, Lock, ArrowLeft
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { NotificationControlProfile } from '@/components/profile/NotificationControlProfile'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface ProfileUser {
@@ -57,6 +58,9 @@ interface ProfileViewProps {
   initialUser: ProfileUser
   scope: Scope | null
   roles: Role[]
+  notificationPrefs?: { channel: string; is_enabled: boolean }[]
+  initialOtpEnabled?: boolean
+  globalOtpEnabled?: boolean
   readOnly?: boolean
 }
 
@@ -286,7 +290,15 @@ function InfoRow({ icon: Icon, label, value, mono }: {
 }
 
 // ── Main View ────────────────────────────────────────────────────────────────
-export function ProfileView({ initialUser, scope, roles, readOnly = false }: ProfileViewProps) {
+export function ProfileView({ 
+  initialUser, 
+  scope, 
+  roles, 
+  notificationPrefs = [],
+  initialOtpEnabled = true,
+  globalOtpEnabled = true,
+  readOnly = false 
+}: ProfileViewProps) {
   const router = useRouter()
   const [user, setUser] = React.useState(initialUser)
 
@@ -365,6 +377,16 @@ export function ProfileView({ initialUser, scope, roles, readOnly = false }: Pro
               </div>
             )}
           </SectionCard>
+          
+          {/* Notification Controls */}
+          {!readOnly && (
+            <NotificationControlProfile 
+              userId={user.id}
+              initialPreferences={notificationPrefs}
+              initialOtpEnabled={initialOtpEnabled}
+              globalOtpEnabled={globalOtpEnabled}
+            />
+          )}
         </div>
 
         {/* ── Right: Details ──────────────────────────────────────────── */}

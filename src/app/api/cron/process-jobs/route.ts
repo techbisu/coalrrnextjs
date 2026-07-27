@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { JobQueue } from '@/core/jobs/JobQueue';
-import { DocumentWorker } from '@/lib/document-engine/DocumentWorker';
+import { generateDocumentUseCase } from '@/infrastructure/di/Container';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     const processedCount = await JobQueue.processNext(10, async (jobType, payload) => {
       switch (jobType) {
         case 'GENERATE_DOCUMENT':
-          await DocumentWorker.processGeneration(payload);
+          await generateDocumentUseCase.execute({ instanceId: payload.instanceId });
           break;
         default:
           throw new Error(`Unknown job type: ${jobType}`);

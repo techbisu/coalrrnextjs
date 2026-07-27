@@ -40,6 +40,7 @@ import { LanguageProvider } from "@/localization/providers/LanguageProvider";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider } from "@/authorization/providers/AuthProvider";
 import { UiStateProvider } from "@/providers/UiStateProvider";
+import { NetworkStatus } from "@/components/providers/NetworkStatus";
 
 export default async function RootLayout({
   children,
@@ -60,6 +61,7 @@ export default async function RootLayout({
               <LanguageProvider messages={messages} locale={locale}>
                 {children}
                 <Toaster />
+                <NetworkStatus />
               </LanguageProvider>
             </UiStateProvider>
           </AuthProvider>

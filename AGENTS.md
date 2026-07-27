@@ -40,3 +40,13 @@ When a schema change is needed, generate the raw SQL (ALTER TABLE/CREATE INDEX/e
 for manual review and execution by the user — do NOT auto-run `prisma migrate dev` 
 unless explicitly told to. After the user confirms they've run it manually, remind 
 them to run `npx prisma db pull && npx prisma generate` to sync schema.prisma.
+
+
+## Background jobs
+dev=immediate, prod=BullMQ/Redis, via JobDispatcherService only — background-jobs.md
+
+## Config
+no hardcoded values — module-wise config files + validated env vars — config-management.md
+
+## Package hygiene
+stable, secure, maintained, enterprise-fit deps only — package-hygiene.md

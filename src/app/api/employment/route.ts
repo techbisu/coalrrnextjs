@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest) {
   try {
     const apps = await db.employment_application.findMany({
       include: {
-        nominee_pool: { include: { contributions: { include: { form_i_claim: { include: { mst_plot: true } } } } } },
+        nominee_pool: { include: { nominee_pool_contribution: { include: { form_i_claim: { include: { mst_plot: true } } } } } },
         mst_project: true,
       },
       orderBy: { entry_ts: 'desc' },
@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest) {
 
     const result = apps.map((a) => {
       // Recompute threshold live for display (the persisted form_ix_balance_acres is the frozen snapshot)
-      const shares = a.nominee_pool.contributions.map((c) => c.share_acres.toString())
+      const shares = a.nominee_pool.nominee_pool_contribution.map((c) => c.share_acres.toString())
       const liveThreshold = thresholdCalc.calculate(shares)
       return {
         id: a.id,
@@ -36,8 +36,8 @@ export async function GET(_req: NextRequest) {
         remainingToThreshold: liveThreshold.remainingToThreshold.format(),
         apply_button_unlocked: a.nominee_pool.apply_button_unlocked,
         exception_flags: a.exception_flags,
-        contributionCount: a.nominee_pool.contributions.length,
-        contributions: a.nominee_pool.contributions.map((c) => ({
+        contributionCount: a.nominee_pool.nominee_pool_contribution.length,
+        contributions: a.nominee_pool.nominee_pool_contribution.map((c) => ({
           share_acres: dec(c.share_acres),
           claimant_name: c.form_i_claim.claimant_name,
           plot_number: c.form_i_claim.mst_plot.plot_number,

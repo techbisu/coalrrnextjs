@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export async function seedNotificationTemplate(db: PrismaClient) {
   console.log('🌱 Seeding notification_template...')
@@ -31,7 +32,7 @@ export async function seedNotificationTemplate(db: PrismaClient) {
     await db.notification_template.upsert({
       where: { code: tpl.code },
       update: {},
-      create: tpl
+      create: { ...tpl, id: randomUUID(), updt_ts: new Date() }
     })
   }
 }

@@ -6,6 +6,7 @@ import {
   WorkflowEngine, COMPENSATION_PAYROLL_STATES, getReviewRolesForState,
 } from '@/lib/engines'
 import type { NextRequest } from 'next/server'
+import { randomUUID } from 'crypto'
 
 const engine = new WorkflowEngine()
 
@@ -83,10 +84,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         for (const role of fx.roles) {
           const task = await db.workflow_review_task.create({
             data: {
+              id: randomUUID(),
               reviewable_type: recordType,
               reviewable_id: recordId,
               role,
               status: 'pending',
+              updt_ts: new Date(),
             },
           })
           spawnedTasks.push({ role: task.role, status: task.status })

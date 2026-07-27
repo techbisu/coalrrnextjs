@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
-import { createHash } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 
 export async function seedFormIClaim(db: PrismaClient) {
   console.log('🌱 Seeding form_i_claim...')
@@ -30,6 +30,7 @@ export async function seedFormIClaim(db: PrismaClient) {
     if (!existing) {
       await db.form_i_claim.create({
         data: {
+          id: randomUUID(),
           claim_code: `FORM1-2026-${String(claimsData.indexOf(c) + 1).padStart(4, '0')}`,
           plot_id: c.plot_id,
           citizen_id_hash: hashAadhaar(c.aadhaar),
@@ -41,6 +42,7 @@ export async function seedFormIClaim(db: PrismaClient) {
           state: c.state,
           submitted_at,
           transparency_window_ends_at: twEnds,
+          updt_ts: new Date(),
         },
       })
     }

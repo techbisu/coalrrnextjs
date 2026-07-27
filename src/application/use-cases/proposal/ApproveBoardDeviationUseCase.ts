@@ -75,6 +75,7 @@ export class ApproveBoardDeviationUseCase implements IUseCase<ApproveBoardDeviat
             entity_id: proposal.id,
             module: 'land-acquisition',
             attached_by: request.user_id,
+            updt_ts: new Date(),
           },
           {
             id: randomUUID(),
@@ -83,6 +84,7 @@ export class ApproveBoardDeviationUseCase implements IUseCase<ApproveBoardDeviat
             entity_id: project.id,
             module: 'project-master',
             attached_by: request.user_id,
+            updt_ts: new Date(),
           }
         ]
       })

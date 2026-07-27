@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fileService } from '@/modules/file-management/services/FileService';
+import { uploadFileUseCase } from '@/infrastructure/di/Container';
 import { DocumentUploadSchema } from '@/core/validation/schemas/documentUpload.schema';
 import { getCurrentUser } from '@/lib/auth';
 import path from 'path';
@@ -23,8 +23,9 @@ export async function POST(request: Request) {
     // Validate using the unified schema
     const validation = DocumentUploadSchema.safeParse({ file });
     if (!validation.success) {
+      const errorMsg = (validation.error as any).errors?.[0]?.message || 'Validation failed';
       return NextResponse.json(
-        { error: validation.error.errors[0].message },
+        { error: errorMsg },
         { status: 400 }
       );
     }
@@ -34,19 +35,23 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const file_record = await fileService.uploadFile({
+    const result = await uploadFileUseCase.execute({
       buffer,
-      original_name,
-      mime_type: file.type,
-      size_bytes: file.size,
-      owner_id,
-      entity_type: entity_type || undefined,
-      entity_id: entity_id || undefined,
+      originalName: original_name,
+      mimeType: file.type,
+      sizeBytes: file.size,
+      ownerId: owner_id,
+      entityType: entity_type || undefined,
+      entityId: entity_id || undefined,
       module: module || 'documents',
       tags: module ? [module] : ['documents'],
     });
 
-    return NextResponse.json({ success: true, file_id: file_record.id });
+    if (result.isFailure) {
+      return NextResponse.json({ error: result.error as string }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true, file_id: result.value?.id });
   } catch (error: any) {
     console.error('Upload Error:', error);
     return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });

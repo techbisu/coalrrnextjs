@@ -51,6 +51,7 @@ export interface GetProjectDashboardRequest {
   page?: number
   pageSize?: number
   search?: string
+  userScope?: any
 }
 
 export interface GetProjectDashboardResponse {
@@ -71,15 +72,15 @@ export class GetProjectDashboardUseCase implements IUseCase<GetProjectDashboardR
     const pageSize = request.pageSize ?? 20
 
     // Get dashboard data with calculated metrics
-    const dashboardData = await this.projectRepository.getDashboardData()
+    const dashboardData = await this.projectRepository.getDashboardData({ scope: request.userScope })
 
     // Filter by search if provided
     let filtered = dashboardData
     if (request.search) {
       const searchLower = request.search.toLowerCase()
       filtered = dashboardData.filter(d => 
-        d.project.name.toLowerCase().includes(searchLower) ||
-        d.project.mine_cd.toLowerCase().includes(searchLower)
+        (d.project as any)._projNm?.toLowerCase().includes(searchLower) ||
+        (d.project as any)._eclProjCd?.toLowerCase().includes(searchLower)
       )
     }
 
@@ -108,10 +109,11 @@ export class GetProjectDashboardUseCase implements IUseCase<GetProjectDashboardR
       id: actualMineCd,
       name: p.name || p.projNm || p._projNm || '',
       mine_cd: actualMineCd,
+      mine_cds: d.mine_cds || [],
       ecl_proj_cd: eclProjCd,
       state_lgd: d.state_lgd,
-      district_lgd: d.district_lgd,
-      block_lgd: d.block_lgd,
+      district_lgd: Array.isArray(d.district_lgd) ? d.district_lgd : (d.district_lgd ? [d.district_lgd] : []),
+      block_lgd: Array.isArray(d.block_lgd) ? d.block_lgd : (d.block_lgd ? [d.block_lgd] : []),
       area_cd: d.area_cd,
       mouza_lgds: d.mouza_lgds,
       pr_docs: d.pr_docs,

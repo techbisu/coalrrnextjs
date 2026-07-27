@@ -4,8 +4,7 @@ import { ok, badRequest, notFound, serverError } from '@/app/api/_lib'
 import { ApproveBoardDeviationUseCase } from '@/application/use-cases/proposal/ApproveBoardDeviationUseCase'
 import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories/PrismaProposalRepository'
 import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
-import { fileService } from '@/modules/file-management/services/FileService'
-
+import { uploadFileUseCase } from '@/infrastructure/di/Container'
 type Ctx = { params: Promise<{ id: string }> }
 
 const proposalRepository = new PrismaProposalRepository()
@@ -39,15 +38,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       const arrayBuffer = await file.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
       
-      const uploadResult = await fileService.uploadFile({
-        original_name: file.name,
-        mime_type: file.type,
-        size_bytes: file.size,
+      const uploadResult = await uploadFileUseCase.execute({
+        originalName: file.name,
+        mimeType: file.type,
+        sizeBytes: file.size,
         buffer,
-        owner_id: auth.user.id
+        ownerId: auth.user.id
       })
       
-      fileId = uploadResult.id
+      if (uploadResult.isSuccess) {
+        fileId = uploadResult.value?.id
+      } else {
+        return badRequest(String(uploadResult.error))
+      }
     }
 
     const useCase = new ApproveBoardDeviationUseCase(proposalRepository, projectRepository)

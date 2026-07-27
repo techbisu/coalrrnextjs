@@ -11,25 +11,17 @@ export class TranslationService {
     }
 
     // Fetch approved translations
-    const values = await db.translation_value.findMany({
+    const values = await db.translation.findMany({
       where: {
         language_id: language.id,
-        status: 'approved',
-      },
-      include: {
-        translation_key: {
-          include: {
-            translation_module: true,
-          }
-        }
       }
     });
 
     const messages: Record<string, any> = {};
 
     for (const v of values) {
-      const module_name = v.translation_key.translation_module.name;
-      const keyName = v.translation_key.key;
+      const module_name = v.module;
+      const keyName = v.key;
       
       if (!messages[module_name]) {
         messages[module_name] = {};

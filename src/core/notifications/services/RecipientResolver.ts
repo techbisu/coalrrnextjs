@@ -6,9 +6,10 @@ export class RecipientResolver {
    * e.g. "role:unit_office" -> [{ id: "123", email: "unit@ecl.com", phone: "99999", inAppId: "123" }]
    */
   public static async resolve(resolverString: string, payload: Record<string, any>): Promise<Array<{ id: string; email?: string; phone?: string }>> {
-    const [type, value] = resolverString.split(':')
+    const [rawType, value] = resolverString.split(':')
+    const type = rawType.toLowerCase()
     
-    if (type === 'SpecificUser') {
+    if (type === 'specificuser') {
       const user = await NotificationConfig.storage.findUserContactInfo(value)
       if (!user) return []
       return [user]
@@ -19,7 +20,7 @@ export class RecipientResolver {
       return users
     }
 
-    if (type === 'EventUser' && payload.user_id) {
+    if (type === 'eventuser' && payload.user_id) {
       const user = await NotificationConfig.storage.findUserContactInfo(payload.user_id)
       if (!user) return []
       return [user]

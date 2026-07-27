@@ -87,7 +87,7 @@ export class ApproveFormXXIIUseCase implements IUseCase<ApproveFormXXIIRequest, 
               return {
                 aprvLocationCode: locData.aprvLocationCode,
                 aprvCd: locData.aprvCd,
-                mouzaLgd: locData.mouzaLgd,
+                mouzaLgd: locData.mouzaLgd as bigint,
                 approvedArea: locData.approvedArea,
                 landClassBreakup: locData.landClassBreakup ?? undefined,
                 entryTs: locData.entryTs,

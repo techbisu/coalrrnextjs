@@ -5,9 +5,12 @@ import { AuditGrid } from '@/core/audit/components/AuditGrid'
 export const dynamic = 'force-dynamic'
 
 export default async function AuditLogsPage() {
-  const logs = await db.audit_log.findMany({
+  const logs = await db.activity_log.findMany({
     orderBy: { entry_ts: 'desc' },
     take: 100,
+    include: {
+      application_log: true
+    }
   })
 
   return (
@@ -17,7 +20,7 @@ export default async function AuditLogsPage() {
         <p className="text-muted-foreground">Comprehensive overview of system activity and user actions.</p>
       </div>
       <div className="bg-card text-card-foreground shadow-sm rounded-lg border p-6">
-        <AuditGrid logs={logs as any} />
+        <AuditGrid logs={logs} />
       </div>
     </div>
   )

@@ -7,12 +7,11 @@ import {
   deleteAdminUserUseCase 
 } from '@/infrastructure/di/Container'
 import { getCurrentUser } from '@/lib/auth'
-import { user } from '@prisma/client'
 import { db } from '@/lib/db'
 import { authorize } from '@/core/authorization/middleware/authorize'
 import { userSchema, updateUserSchema } from '@/core/validation/schemas/user.schema'
 
-export async function fetchUsersAction(): Promise<{ data?: user[], error?: string }> {
+export async function fetchUsersAction(): Promise<{ data?: any[], error?: string }> {
   try {
     await authorize('admin.users.view')
     
@@ -26,7 +25,7 @@ export async function fetchUsersAction(): Promise<{ data?: user[], error?: strin
   }
 }
 
-export async function createUserAction(data: any): Promise<{ data?: user, error?: string }> {
+export async function createUserAction(data: any): Promise<{ data?: any, error?: string }> {
   try {
     await authorize('admin.users.create')
     const currentUser = await getCurrentUser()
@@ -52,7 +51,7 @@ export async function createUserAction(data: any): Promise<{ data?: user, error?
   }
 }
 
-export async function updateUserAction(id: string, data: any): Promise<{ data?: user, error?: string }> {
+export async function updateUserAction(id: string, data: any): Promise<{ data?: any, error?: string }> {
   try {
     await authorize('admin.users.update')
     const currentUser = await getCurrentUser()

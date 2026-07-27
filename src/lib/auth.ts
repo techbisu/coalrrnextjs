@@ -1,5 +1,5 @@
 // COALRR Auth — server-side session helpers (cookie-based, spec §1)
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { randomUUID } from 'crypto'
 import { db } from '@/lib/db'
 
@@ -24,6 +24,8 @@ export interface AuthUser {
 import { authService, userOrgScopeRepositoryExport } from '@/infrastructure/di/Container'
 import { cache } from 'react'
 import { UserScopeService } from '@/core/authorization/services/UserScopeService'
+import { Audit } from '@/core/audit/services/AuditService'
+import { getRealIp } from '@/core/audit/utils/getRealIp'
 
 export const getCurrentUser = cache(async function (): Promise<AuthUser | null> {
   const cookieStore = await cookies()
@@ -74,6 +76,17 @@ export async function createSession(user_id: string): Promise<AuthUser> {
   const activeScope = await userOrgScopeRepositoryExport.getActiveScopeByUserId(u.id.toString())
   const scope = UserScopeService.buildEffectiveScope(activeScope ? [activeScope] : [])
 
+  const h = await headers()
+  const ipAddress = await getRealIp()
+  const userAgent = h.get('user-agent') || null
+
+  await Audit.logCustomAction({
+    activity: 'User logged in',
+    userId: u.id.toString(),
+    ipAddress: ipAddress ?? undefined,
+    userAgent: userAgent ?? undefined
+  }).catch(() => {})
+
   return {
     id: u.id.toString(), portal: u.portal as 'ecl' | 'public', role: u.role,
     roles, permissions,
@@ -86,10 +99,28 @@ export async function createSession(user_id: string): Promise<AuthUser> {
 export async function destroySession(): Promise<void> {
   const cookieStore = await cookies()
   const token = cookieStore.get(SESSION_COOKIE)?.value
+  let userId = 'system'
   if (token) {
-    await db.auth_session.deleteMany({ where: { token } }).catch(() => {})
+    const session = await db.auth_session.findUnique({ where: { token } })
+    if (session) {
+      userId = session.user_id.toString()
+      await db.auth_session.deleteMany({ where: { token } }).catch(() => {})
+    }
   }
   cookieStore.delete(SESSION_COOKIE)
+
+  try {
+    const h = await headers()
+    const ipAddress = await getRealIp()
+    const userAgent = h.get('user-agent') || null
+
+    await Audit.logCustomAction({
+      activity: 'User logged out',
+      userId,
+      ipAddress: ipAddress ?? undefined,
+      userAgent: userAgent ?? undefined
+    })
+  } catch (e) {}
 }
 
 export const ROLE_LABELS: Record<string, string> = {

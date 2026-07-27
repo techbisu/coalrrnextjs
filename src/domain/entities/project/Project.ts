@@ -10,6 +10,7 @@ export interface ProjectProps {
   id: ProjectId
   projNm: string
   eclProjCd?: string | null
+  mineCds?: string[]
   projectDesc?: string | null
   totalApprovedArea: Area
   totalAcquiredArea: Area
@@ -27,15 +28,29 @@ export interface ProjectProps {
 }
 
 export interface CreateProjectProps {
-  name: string
-  mine_cd: string
+  projNm: string
   eclProjCd?: string
+  mine_cds: string[]
+  projectDesc?: string
+  area_cd?: string
   totalApprovedArea?: string
+  totalAcquiredArea?: string
   totalEmpSanctioned?: number
+  totalEmpCompleted?: number
   landBudget?: string
   rrBudget?: string
-  projectDesc?: string | null
-  tenantId?: string | null
+  status?: number
+  remarks?: string
+  tenantId?: string
+  isActive?: boolean
+  lockedAt?: Date
+  state_lgd?: bigint
+  total_land_limit_acres?: number | string
+  total_budget_ceiling?: number | string
+  total_employment_quota?: number
+  pr_doc_id?: string
+  boundary?: string
+  statutory_clearances?: any
 }
 
 export interface UpdateProjectProps {
@@ -67,6 +82,7 @@ export class ProjectAlreadyLockedException extends DomainException {
 export class Project extends AggregateRoot<string> {
   private _projNm: string
   private _eclProjCd: string | null
+  private _mineCds: string[]
   private _projectDesc: string | null
   private _totalApprovedArea: Area
   private _totalAcquiredArea: Area
@@ -86,6 +102,7 @@ export class Project extends AggregateRoot<string> {
     super(props.id.value)
     this._projNm = props.projNm
     this._eclProjCd = props.eclProjCd ?? null
+    this._mineCds = props.mineCds || []
     this._projectDesc = props.projectDesc ?? null
     this._totalApprovedArea = props.totalApprovedArea
     this._totalAcquiredArea = props.totalAcquiredArea
@@ -102,27 +119,34 @@ export class Project extends AggregateRoot<string> {
     this._updtTs = props.updtTs
   }
 
+  get mineCds(): string[] {
+    return this._mineCds
+  }
+
   static create(props: CreateProjectProps): Result<Project> {
     const errors: Array<{ field: string; message: string }> = []
 
-    if (!props.mine_cd || props.mine_cd.trim().length === 0) {
-      errors.push({ field: 'projCd', message: 'Project code is required' })
+    if (!props.mine_cds || props.mine_cds.length === 0) {
+      errors.push({ field: 'mine_cds', message: 'At least one mine code is required' })
     }
 
-    if (!props.name || props.name.trim().length === 0) {
+    if (!props.projNm || props.projNm.trim().length === 0) {
       errors.push({ field: 'projNm', message: 'Project name is required' })
     }
 
     if (errors.length > 0) {
-      return Fail('Validation failed')
+      return Fail(errors.map(e => e.message).join(', '))
     }
 
     const now = new Date()
+    // Generate a unique short code under 30 chars (PRJ- + 12 chars = 16 chars)
+    const generatedId = `PRJ-${require('crypto').randomBytes(6).toString('hex').toUpperCase()}`
 
     const project = new Project({
-      id: ProjectId.fromString(props.mine_cd.trim()),
-      projNm: props.name.trim(),
+      id: ProjectId.fromString(generatedId),
+      projNm: props.projNm.trim(),
       eclProjCd: props.eclProjCd || '',
+      mineCds: props.mine_cds,
       projectDesc: props.projectDesc || null,
       totalApprovedArea: props.totalApprovedArea ? Area.fromAcres(Number(props.totalApprovedArea) || 0) : Area.fromAcres(0),
       totalAcquiredArea: Area.fromAcres(0),
@@ -179,7 +203,7 @@ export class Project extends AggregateRoot<string> {
       updated_by: userId
     }))
 
-    return Result.ok()
+    return Result.ok<void>(undefined as void)
   }
 
   static reconstitute(data: {
@@ -243,6 +267,26 @@ export class Project extends AggregateRoot<string> {
     return Result.ok(true)
   }
 
+  updateTotalLandLimit(acres: string | number): Result<void> {
+    this._totalApprovedArea = Area.fromAcres(Number(acres))
+    this._updtTs = new Date()
+    return Result.ok<void>(undefined as void)
+  }
+
+  updateTotalBudgetCeiling(amount: string | number): Result<void> {
+    this._landBudget = Money.fromINR(Number(amount))
+    // we just put it in landBudget for now since total budget = landBudget + rrBudget
+    this._rrBudget = Money.fromINR(0)
+    this._updtTs = new Date()
+    return Result.ok<void>(undefined as void)
+  }
+
+  updateTotalEmploymentQuota(quota: string | number): Result<void> {
+    this._totalEmpSanctioned = Number(quota)
+    this._updtTs = new Date()
+    return Result.ok<void>(undefined as void)
+  }
+
   // Getters
   get id(): string { return this._id }
   get projCd(): string { return this._id }
@@ -273,16 +317,11 @@ export class Project extends AggregateRoot<string> {
     this._lockedAt = new Date()
     this._updtTs = new Date()
     
-    this.addDomainEvent({
-      eventName: 'PROJECT_LOCKED',
-      aggregateId: this.id,
-      timestamp: new Date(),
-      payload: {
-        lockedBy: userId
-      }
-    })
+    this.addDomainEvent(createDomainEvent('PROJECT_LOCKED', this.id, {
+      lockedBy: userId
+    }))
     
-    return Result.ok()
+    return Result.ok<void>(undefined as void)
   }
 
   // Legacy mappings to prevent breaking UI abruptly (to be removed in UI refactor)

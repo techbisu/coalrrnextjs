@@ -16,8 +16,8 @@ import { format } from 'date-fns'
 import { DatePicker } from '@/components/ui/date-picker'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 import { DocumentUploader } from '@/components/coalrr'
+import { DocumentWorkspaceModal } from '@/components/coalrr/DocumentWorkspaceModal'
 import type { UploadedDoc } from '@/components/coalrr'
-import { DocumentWorkspaceModal } from '@/modules/document-engine/presentation/components/DocumentWorkspaceModal'
 
 interface ProjectData {
   id: string

@@ -70,7 +70,7 @@ export async function PATCH(req: Request) {
     if (!result.success) return badRequest('Validation failed', result.error.format())
 
     const updated = await db.user.update({
-      where: { id: user.id },
+      where: { id: parseInt(user.id, 10) },
       data: {
         name: result.data.name,
         designation: result.data.designation || null,
@@ -97,7 +97,7 @@ export async function PUT(req: Request) {
     if (!result.success) return badRequest('Validation failed', result.error.format())
 
     // Verify current password
-    const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { password_hash: true } })
+    const dbUser = await db.user.findUnique({ where: { id: parseInt(user.id, 10) }, select: { password_hash: true } })
     if (!dbUser) return badRequest('User not found')
 
     const currentHash = hashPassword(result.data.current_password)
@@ -106,7 +106,7 @@ export async function PUT(req: Request) {
     }
 
     await db.user.update({
-      where: { id: user.id },
+      where: { id: parseInt(user.id, 10) },
       data: { password_hash: hashPassword(result.data.new_password), updt_ts: new Date() }
     })
 

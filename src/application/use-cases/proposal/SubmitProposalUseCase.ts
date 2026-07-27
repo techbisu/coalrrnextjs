@@ -45,9 +45,9 @@ export class SubmitProposalUseCase implements IUseCase<SubmitProposalRequest, Su
     let isLimitBreached = false;
     const breachReasons: string[] = [];
     
-    const projectAcreLimit = parseFloat(project.totalLandLimit.toDecimal().toString());
-    const projectBudgetCeiling = parseFloat((project as any).totalBudgetCeiling?.toString() || "0");
-    const projectEmploymentQuota = (project as any).totalEmploymentQuota || 0;
+    const projectAcreLimit = parseFloat(project.totalApprovedArea.toDecimal().toString());
+    const projectBudgetCeiling = parseFloat(project.landBudget.add(project.rrBudget).toDecimal().toString());
+    const projectEmploymentQuota = project.totalEmpSanctioned || 0;
     
     const proposalArea = parseFloat(proposal.totalArea.toDecimal().toString());
     

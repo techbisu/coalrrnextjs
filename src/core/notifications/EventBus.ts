@@ -1,5 +1,5 @@
 import { EventPayload } from './types'
-import { RuleEngine } from './RuleEngine'
+import { Container } from '@/infrastructure/di/Container'
 import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
 
 export class EventBus {
@@ -19,9 +19,12 @@ export class EventBus {
       remarks: JSON.stringify(payload.data)
     })
 
-    // 2. Process async without blocking the main thread
-    RuleEngine.processEvent(payload).catch(err => {
-      console.error(`[EventBus] Error processing event ${payload.event_name}:`, err)
+    // OTPs get the highest priority in the queue (1)
+    const isOtp = payload.data?.type === 'OTP'
+    
+    // 2. Process async via JobDispatcher (adhering to background-jobs.md)
+    Container.jobDispatcher.dispatch('processNotificationEvent', payload, { priority: isOtp ? 1 : 3 }).catch(err => {
+      console.error(`[EventBus] Error dispatching event job ${payload.event_name}:`, err)
     })
   }
 }

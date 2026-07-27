@@ -5,19 +5,19 @@ import { ProjectApprovalLocation } from '@/domain/entities/project/ProjectApprov
 export class PrismaProjectApprovalLocationRepository implements IProjectApprovalLocationRepository {
   async findById(id: string): Promise<ProjectApprovalLocation | null> {
     const data = await db.projAprvLocation.findUnique({
-      where: { aprvLocId: BigInt(id) }
+      where: { aprvLocationCode: id }
     })
 
     if (!data) return null
 
     return ProjectApprovalLocation.reconstitute({
-      aprvLocId: data.aprvLocId.toString(),
+      aprvLocId: data.aprvLocationCode,
       aprvCd: data.aprvCd.toString(),
-      stateLgd: data.stateLgd,
-      districtLgd: data.districtLgd,
+      stateLgd: null, // Removed from schema
+      districtLgd: null, // Removed from schema
       mouzaLgd: data.mouzaLgd,
-      aprvArea: data.aprvArea ? data.aprvArea.toString() : null,
-      areaAcq: data.areaAcq ? data.areaAcq.toString() : '0',
+      aprvArea: data.approvedArea ? data.approvedArea.toString() : null,
+      areaAcq: '0', // Removed from schema
       landClassBreakup: data.landClassBreakup,
       entryTs: new Date(Number(data.entryTs ?? 0) * 1000),
       updtTs: new Date(Number(data.updtTs ?? 0) * 1000),
@@ -30,13 +30,13 @@ export class PrismaProjectApprovalLocationRepository implements IProjectApproval
     })
 
     return data.map(d => ProjectApprovalLocation.reconstitute({
-      aprvLocId: d.aprvLocId.toString(),
+      aprvLocId: d.aprvLocationCode,
       aprvCd: d.aprvCd.toString(),
-      stateLgd: d.stateLgd,
-      districtLgd: d.districtLgd,
+      stateLgd: null,
+      districtLgd: null,
       mouzaLgd: d.mouzaLgd,
-      aprvArea: d.aprvArea ? d.aprvArea.toString() : null,
-      areaAcq: d.areaAcq ? d.areaAcq.toString() : '0',
+      aprvArea: d.approvedArea ? d.approvedArea.toString() : null,
+      areaAcq: '0',
       landClassBreakup: d.landClassBreakup,
       entryTs: new Date(Number(d.entryTs ?? 0) * 1000),
       updtTs: new Date(Number(d.updtTs ?? 0) * 1000),
@@ -60,26 +60,20 @@ export class PrismaProjectApprovalLocationRepository implements IProjectApproval
     const data = location.toPersistence()
     
     await db.projAprvLocation.upsert({
-      where: { aprvLocId: data.aprvLocId },
+      where: { aprvLocationCode: data.aprvLocationCode },
       update: {
         aprvCd: data.aprvCd,
-        stateLgd: data.stateLgd,
-        districtLgd: data.districtLgd,
-        mouzaLgd: data.mouzaLgd,
-        aprvArea: data.aprvArea,
-        areaAcq: data.areaAcq,
-        landClassBreakup: data.landClassBreakup,
+        mouzaLgd: data.mouzaLgd ?? BigInt(0),
+        approvedArea: data.approvedArea,
+        landClassBreakup: data.landClassBreakup ?? undefined,
         updtTs: data.updtTs,
       },
       create: {
-        aprvLocId: data.aprvLocId,
+        aprvLocationCode: data.aprvLocationCode,
         aprvCd: data.aprvCd,
-        stateLgd: data.stateLgd,
-        districtLgd: data.districtLgd,
-        mouzaLgd: data.mouzaLgd,
-        aprvArea: data.aprvArea,
-        areaAcq: data.areaAcq,
-        landClassBreakup: data.landClassBreakup,
+        mouzaLgd: data.mouzaLgd ?? BigInt(0),
+        approvedArea: data.approvedArea,
+        landClassBreakup: data.landClassBreakup ?? undefined,
         entryTs: data.entryTs,
         updtTs: data.updtTs,
       }

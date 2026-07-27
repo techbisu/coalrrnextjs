@@ -85,3 +85,6 @@ export type {
   FormVIISignatoryRow,
   PayrollRecordForForm,
 } from "./docx";
+
+export { DocxGeneratorEngine } from "./docx/generator";
+export { PdfService } from "./pdf";

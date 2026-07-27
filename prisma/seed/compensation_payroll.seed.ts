@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export async function seedCompensationPayroll(db: PrismaClient) {
   console.log('🌱 Seeding compensation_payroll...')
@@ -22,12 +23,14 @@ export async function seedCompensationPayroll(db: PrismaClient) {
   let batchTotal = 0
   const payroll = await db.compensation_payroll.create({
     data: {
+      id: randomUUID(),
       project_id: project.id,
       payroll_code: 'PR-2026-0412',
       multiplication_factor: '1.0000',
       state: 'HqParallelVetting',
       landowner_count: payrollLines.length,
       total_award: '0.00',
+      updt_ts: new Date(),
     },
   })
 
@@ -42,6 +45,7 @@ export async function seedCompensationPayroll(db: PrismaClient) {
 
     await db.compensation_payroll_line.create({
       data: {
+        id: randomUUID(),
         payroll_id: payroll.id,
         landowner_name: line.name,
         plot_reference: line.plot,
@@ -58,6 +62,7 @@ export async function seedCompensationPayroll(db: PrismaClient) {
           breakdown: { base: base.toFixed(2), solatium: solatium.toFixed(2), escalation: escalation.toFixed(2) },
           output: total.toFixed(2),
         }),
+        updt_ts: new Date(),
       },
     })
   }

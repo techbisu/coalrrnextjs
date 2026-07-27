@@ -25,7 +25,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { toast } from 'sonner'
 import {
   Building2, MapPin, Lock, ShieldCheck, IndianRupee, Users, FileText, TreePine,
-  Plus, Pencil, AlertTriangle, CheckCircle2, Loader2, FileWarning, Download,
+  Plus, Pencil, AlertTriangle, CheckCircle2, Loader2, FileWarning, Download, ArrowLeft,
 } from 'lucide-react'
 import { Can } from '@/authorization/components/Can'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
@@ -34,10 +34,11 @@ import { LockBaselineDialog } from './LockBaselineDialog'
 import { FormXXIIModal } from './FormXXIIModal'
 import { ProjectFilesSection } from './ProjectFilesSection'
 import { ProjectBoundarySection } from './ProjectBoundarySection'
+import { ProjectList } from './ProjectList'
 
 export const EMPTY_FORM: ProjectFormValues = {
   name: '',
-  mine_cd: '',
+  mine_cds: [],
   area_cd: '',
   total_land_limit_acres: 0,
   land_budget: 0,
@@ -46,7 +47,7 @@ export const EMPTY_FORM: ProjectFormValues = {
 }
 
 interface ProjectData {
-  id: string; name: string; mine_cd: string; ecl_proj_cd?: string;
+  id: string; name: string; mine_cd: string; mine_cds?: string[]; ecl_proj_cd?: string;
   area_cd?: string; state_lgd?: bigint; district_lgd?: string; block_lgd?: string; mouza_lgds?: string[]; pr_docs?: UploadedDoc[]
   total_land_limit_acres: string; total_budget_ceiling: string; total_employment_quota: number
   total_acquired_area: string; areaUtilization: number;
@@ -74,7 +75,10 @@ interface FormXXIIApproval {
 }
 
 async function fetchProjects(): Promise<ProjectData[]> {
-  const r = await fetch('/api/projects')
+  const r = await fetch('/api/projects', {
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+  })
   if (!r.ok) throw new Error('Failed to load projects')
   const json = await r.json()
   return json.data || json
@@ -165,10 +169,13 @@ function FormXXIISection({ projectId }: { projectId: string }) {
 
 export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string }) {
   const t = useAppTranslation('project_master')
+  const { user } = useAuth()
   const { selectedProjectId, selectProject: uiSelectProject } = useUiState()
   const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['projects'], queryFn: fetchProjects })
   const [selectedPlotId, setSelectedPlotId] = React.useState<string | null>(null)
+  
+  const [viewMode, setViewMode] = React.useState<'list' | 'details'>(user?.scope?.level === 'UNIT' ? 'details' : 'list')
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [editOpen, setEditOpen] = React.useState(false)
@@ -190,13 +197,21 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
     if (data && data.length > 0 && !selectedProjectId) {
       if (initialMineCd) {
         const found = data.find(p => p.mine_cd === initialMineCd || p.id === initialMineCd)
-        if (found) selectProject(found.id)
-        else selectProject(data[0].id)
+        if (found) {
+          selectProject(found.id)
+          setViewMode('details')
+        } else {
+          selectProject(data[0].id)
+          if (user?.scope?.level === 'UNIT') setViewMode('details')
+        }
       } else {
-        selectProject(data[0].id)
+        if (user?.scope?.level === 'UNIT') {
+          selectProject(data[0].id)
+          setViewMode('details')
+        }
       }
     }
-  }, [data, initialMineCd, selectProject, selectedProjectId])
+  }, [data, initialMineCd, selectProject, selectedProjectId, user?.scope?.level])
 
   // If the selected project no longer exists (deleted), fall back to first
   const project = React.useMemo(() => {
@@ -209,13 +224,13 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
     if (!project) return null
     return {
       name: project.name,
-      mine_cd: project.mine_cd,
+      mine_cds: project.mine_cds || (project.mine_cd ? [project.mine_cd] : []),
       // Pass as strings — buildFormValues in ProjectFormDialog handles BigInt coercion for state_lgd
       state_lgd: project.state_lgd ? String(project.state_lgd) : undefined,
       area_cd: project.area_cd || undefined,
-      // district_lgd / block_lgd are UI-only cascade selectors — keep as strings
-      district_lgd: project.district_lgd || undefined,
-      block_lgd: project.block_lgd || undefined,
+      // district_lgd / block_lgd are UI-only cascade selectors — map to strings
+      district_lgd: Array.isArray(project.district_lgd) ? project.district_lgd.map(String) : (project.district_lgd ? [String(project.district_lgd)] : []),
+      block_lgd: Array.isArray(project.block_lgd) ? project.block_lgd.map(String) : (project.block_lgd ? [String(project.block_lgd)] : []),
       // mouza_lgds submitted as strings, Zod coerces to bigint on the server
       mouza_lgds: project.mouza_lgds?.map(String) || [],
       pr_docs: (project.pr_docs as any) || [],
@@ -255,6 +270,42 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
     return <div className="space-y-3"><div className="h-32 animate-pulse rounded-lg bg-muted" /><div className="h-64 animate-pulse rounded-lg bg-muted" /></div>
   }
 
+  if (viewMode === 'list' && user?.scope?.level !== 'UNIT') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">{t('project_master.title', 'Project Master')}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t('project_master.no_projects_desc', 'Select a project to view details or create a new one.')}</p>
+          </div>
+          <Can permission="project.create">
+            <Button onClick={() => { setCreateFormKey(k => k + 1); setCreateOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" /> {t('project_master.new_project', 'New Project')}
+            </Button>
+          </Can>
+        </div>
+        
+        <ProjectList 
+          projects={data || []} 
+          selectedProjectId={selectedProjectId || undefined}
+          onSelectProject={(id) => {
+            selectProject(id)
+            setViewMode('details')
+          }} 
+        />
+
+        <ProjectFormDialog 
+          key={`create-dialog-${createFormKey}`}
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          mode="create"
+          initial={EMPTY_FORM}
+          onSaved={(id) => { selectProject(id); setViewMode('details') }}
+        />
+      </div>
+    )
+  }
+
   if (!project) {
     return (
       <div className="space-y-6">
@@ -285,6 +336,15 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
+            {user?.scope?.level !== 'UNIT' && (
+              <Button variant="ghost" size="icon" onClick={() => {
+                setViewMode('list')
+                window.history.pushState(null, '', routes.project.list())
+              }} className="-ml-2 h-8 w-8 text-muted-foreground hover:text-foreground" title="Back to List">
+                <ArrowLeft className="h-5 w-5" />
+                <span className="sr-only">Back to List</span>
+              </Button>
+            )}
             <h2 className="text-xl font-bold tracking-tight">{project.name}</h2>
             {project.isLocked ? (
               <Badge variant="outline" className="gap-1 bg-secondary text-secondary-foreground"><Lock className="h-3 w-3" /> {t('project_master.baseline_locked', 'Baseline Locked')}</Badge>

@@ -33,7 +33,7 @@ export class AssignUserScopeUseCase implements IUseCase<AssignUserScopeDTO, user
 
       // Create new active scope
       const newScope = await this.userOrgScopeRepository.createScope({
-        user_id: dto.userId,
+        user_id: Number(dto.userId),
         scope_level: dto.scopeLevel,
         area_cd: dto.scopeLevel === 'HQ' ? null : dto.areaCd!,
         mine_cd: dto.scopeLevel === 'UNIT' ? dto.mineCd! : null,

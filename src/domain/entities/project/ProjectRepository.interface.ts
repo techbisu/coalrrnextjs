@@ -12,7 +12,7 @@ export interface IProjectRepository {
   findByMineCode(mine_cd: string, options?: IQueryOptions): Promise<IPaginatedResult<Project>>
   generateEclProjCd(areaCd?: string, mineCd?: string): Promise<string>
   save(project: Project): Promise<void>
-  updateProjectMouzas(projectId: string, mouzaLgds: bigint[]): Promise<void>
+  updateProjectLocations(projectId: string, mine_cds: string[], mouzaLgds: bigint[]): Promise<void>
   syncProjectDocuments(projectId: string, fileIds: string[], userId: string): Promise<void>
   delete(id: string): Promise<void>
   exists(id: string): Promise<boolean>

@@ -1,46 +1,48 @@
 import { IUseCase } from '@/core/interfaces/UseCase.interface'
 import { Result, Ok, Fail } from '@/core/result/Result'
 import { IAdminUserRepository } from '../../domain/repositories/IAdminUserRepository'
-import { user } from '@prisma/client'
-import { randomUUID } from 'crypto'
-import { AuditService } from '@/core/audit/services/AuditService'
+import { AdminUser, CreateAdminUserProps } from '../../domain/entities/AdminUser'
+import { Container } from '@/infrastructure/di/modules/core.di'
 
-export interface CreateAdminUserRequest {
-  portal: string
-  role: string
+export interface CreateAdminUserRequest extends CreateAdminUserProps {}
+
+export interface CreateAdminUserResponse {
+  id: number
   name: string
-  email?: string
-  mobile?: string
-  designation?: string
-  mine_cd?: string
-  action_by: string
+  message: string
 }
 
-export class CreateAdminUserUseCase implements IUseCase<CreateAdminUserRequest, user> {
+export class CreateAdminUserUseCase implements IUseCase<CreateAdminUserRequest, CreateAdminUserResponse> {
   constructor(private readonly repo: IAdminUserRepository) {}
 
-  async execute(request: CreateAdminUserRequest): Promise<Result<user>> {
+  async execute(request: CreateAdminUserRequest): Promise<Result<CreateAdminUserResponse>> {
+    const userResult = AdminUser.create(request)
+    
+    if (userResult.isFailure) {
+      return Fail(String(userResult.error))
+    }
+
+    const user = userResult.value
+
     try {
-      const newUser = await this.repo.create({
-        portal: request.portal,
-        role: request.role,
-        name: request.name,
-        email: request.email || null,
-        mobile: request.mobile || null,
-        designation: request.designation || null,
-        mine_cd: request.mine_cd || null,
-        password_hash: null, // Left null until password set workflow
-        aadhaar_hash: null,
-        plot_id: null,
-        verified_at: null,
-        entry_by: request.action_by,
-        updt_by: request.action_by,
-        is_active: true
-      } as any)
+      const persistedUser = await this.repo.create(user)
       
-      AuditService.log('CREATE', 'admin-users', 'user', newUser.id.toString(), `Created user ${newUser.name}`, { user_id: request.action_by })
+      await Container.jobDispatcher.dispatch('auditLog', {
+        type: 'CUSTOM_ACTIVITY',
+        payload: {
+          activity: `Created user ${persistedUser.name}`,
+          userId: request.action_by,
+          module: 'admin-users',
+          entityType: 'user',
+          entityId: persistedUser.id.toString(),
+        }
+      })
       
-      return Ok(newUser)
+      return Ok({
+        id: persistedUser.id,
+        name: persistedUser.name,
+        message: 'Admin user created successfully'
+      })
     } catch (e: any) {
       if (e.code === 'P2002') {
         return Fail("A user with this email or mobile already exists.")

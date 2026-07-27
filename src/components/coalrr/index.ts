@@ -26,6 +26,9 @@ export type { MathPreviewResultLike, MathPreviewPanelProps } from './MathPreview
 export { StatusTimeline } from './StatusTimeline'
 export type { TimelineNode, StatusTimelineProps } from './StatusTimeline'
 
+export { FilterBar } from './FilterBar'
+export type { FilterBarProps } from './FilterBar'
+
 export { SignaturePad } from './SignaturePad'
 export type { SignaturePadProps } from './SignaturePad'
 
@@ -37,3 +40,8 @@ export type { Notification, NotificationType, NotificationBellProps } from './No
 
 export { DocumentUploader } from './DocumentUploader'
 export type { UploadedDoc, DocumentUploaderProps } from './DocumentUploader'
+
+export { MasterLookup } from './MasterLookup'
+export type { MasterLookupProps } from './MasterLookup'
+
+export { DocumentWorkspaceModal } from './DocumentWorkspaceModal'

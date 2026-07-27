@@ -459,9 +459,9 @@ export function DocumentUploader({
               </div>
               <div className="flex items-center space-x-2 shrink-0">
                 {doc.virus_scan_status === 'clean' ? (
-                  <ShieldCheck className="h-4 w-4 text-green-500" title="Scanned and safe" />
+                  <ShieldCheck className="h-4 w-4 text-green-500" />
                 ) : doc.virus_scan_status === 'scanning' ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" title="Scanning in progress..." />
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : (
                   <Badge variant="destructive" className="text-[10px]">{t('infected', 'Infected')}</Badge>
                 )}

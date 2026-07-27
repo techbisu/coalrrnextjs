@@ -1,9 +1,12 @@
 import { Prisma } from '@prisma/client'
 // dynamically import auth to avoid circular dependency with db
-import { Audit } from '@/core/audit'
+import { Audit } from '@/core/audit/services/AuditService'
+import { getRealIp } from '@/core/audit/utils/getRealIp'
 
-const EXCLUDED_MODELS = ['audit_logs', 'audit_changes', 'audit_sessions', 'auth_session', 'user', 'audit_api_logs', 'audit_security_logs', 'audit_download_logs', 'audit_exception_logs', 'audit_login_attempts'];
-const NO_AUDIT_FIELDS_MODELS = ['user_org_scope', 'model_has_role', 'role_has_permission', 'role', 'permission', 'auth_session'];
+import { auditConfig } from '@/core/config/audit.config'
+
+const EXCLUDED_MODELS = auditConfig.excludedModels;
+const NO_AUDIT_FIELDS_MODELS = auditConfig.noAuditFieldsModels;
 
 export const withAuditExtension = Prisma.defineExtension({
   name: 'PrismaAuditExtension',
@@ -11,10 +14,19 @@ export const withAuditExtension = Prisma.defineExtension({
     $allModels: {
       async create({ model, operation, args, query }) {
         let userId = 'system';
+        let ipAddress: string | null = null;
+        let userAgent: string | null = null;
+        
         try {
           const auth = await import('@/lib/auth');
           const u = await auth.getCurrentUser();
           if (u) userId = u.id;
+          
+          const { headers } = await import('next/headers');
+          const h = await headers();
+          ipAddress = await getRealIp();
+          
+          userAgent = h.get('user-agent') || null;
         } catch(e) {}
         
         const modelName = String(model).toLowerCase();
@@ -24,7 +36,7 @@ export const withAuditExtension = Prisma.defineExtension({
            const dmmfModel = Prisma.dmmf.datamodel.models.find(m => m.name === model);
            const isCamel = dmmfModel?.fields.some(f => f.name === 'entryBy') ?? false;
 
-           if ((model === 'document_instance' || model === 'document_audit_log') && !(args.data as any).id) {
+           if ((model === 'document_instance') && !(args.data as any).id) {
                (args.data as any).id = require('crypto').randomUUID();
            }
 
@@ -43,15 +55,17 @@ export const withAuditExtension = Prisma.defineExtension({
         
         const result = await query(args);
         
-        if (!EXCLUDED_MODELS.includes(model)) {
-          Audit.activity({
-            event: 'CREATE',
-            module: 'system',
-            entityType: model,
-            entityId: (result as any).id || (result as any).code || 'unknown',
-            description: `Created new ${model}`,
-            metadata: { user_id: userId, newData: result }
-          }).catch(console.error);
+        if (!EXCLUDED_MODELS.includes(modelName) && !EXCLUDED_MODELS.includes(model as string)) {
+          Audit.updateRecord(
+            model,
+            'CREATE',
+            undefined, // conditions
+            undefined, // oldData
+            result,    // newData
+            userId,
+            ipAddress ?? undefined,
+            userAgent ?? undefined
+          ).catch(console.error);
         }
         
         return result;
@@ -59,10 +73,19 @@ export const withAuditExtension = Prisma.defineExtension({
       
       async update({ model, operation, args, query }) {
         let userId = 'system';
+        let ipAddress: string | null = null;
+        let userAgent: string | null = null;
+
         try {
           const auth = await import('@/lib/auth');
           const u = await auth.getCurrentUser();
           if (u) userId = u.id;
+          
+          const { headers } = await import('next/headers');
+          const h = await headers();
+          ipAddress = await getRealIp();
+
+          userAgent = h.get('user-agent') || null;
         } catch(e) {}
         
         const modelName = String(model).toLowerCase();
@@ -83,15 +106,17 @@ export const withAuditExtension = Prisma.defineExtension({
         
         const result = await query(args);
         
-        if (!EXCLUDED_MODELS.includes(model)) {
-          Audit.activity({
-            event: 'UPDATE',
-            module: 'system',
-            entityType: model,
-            entityId: (result as any).id || (result as any).code || 'unknown',
-            description: `Updated ${model}`,
-            metadata: { user_id: userId, newData: result }
-          }).catch(console.error);
+        if (!EXCLUDED_MODELS.includes(modelName) && !EXCLUDED_MODELS.includes(model as string)) {
+          Audit.updateRecord(
+            model,
+            'UPDATE',
+            (args as any).where,
+            undefined, // oldData
+            result,    // newData
+            userId,
+            ipAddress ?? undefined,
+            userAgent ?? undefined
+          ).catch(console.error);
         }
         
         return result;
@@ -99,23 +124,35 @@ export const withAuditExtension = Prisma.defineExtension({
       
       async delete({ model, operation, args, query }) {
         let userId = 'system';
+        let ipAddress: string | null = null;
+        let userAgent: string | null = null;
+
         try {
           const auth = await import('@/lib/auth');
           const u = await auth.getCurrentUser();
           if (u) userId = u.id;
+          
+          const { headers } = await import('next/headers');
+          const h = await headers();
+          ipAddress = await getRealIp();
+
+          userAgent = h.get('user-agent') || null;
         } catch(e) {}
         
         const result = await query(args);
         
-        if (!EXCLUDED_MODELS.includes(model)) {
-          Audit.activity({
-            event: 'DELETE',
-            module: 'system',
-            entityType: model,
-            entityId: (result as any).id || (result as any).code || 'unknown',
-            description: `Deleted ${model}`,
-            metadata: { user_id: userId, oldData: result }
-          }).catch(console.error);
+        const modelName = String(model).toLowerCase();
+        if (!EXCLUDED_MODELS.includes(modelName) && !EXCLUDED_MODELS.includes(model as string)) {
+          Audit.updateRecord(
+            model,
+            'DELETE',
+            (args as any).where,
+            result,    // oldData
+            undefined, // newData
+            userId,
+            ipAddress ?? undefined,
+            userAgent ?? undefined
+          ).catch(console.error);
         }
         
         return result;

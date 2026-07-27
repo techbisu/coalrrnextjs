@@ -57,15 +57,21 @@ graph TD
 ```text
 src/
 ├── app/                  # Next.js Presentation Layer (Routes & APIs)
+├── application/          # Cross-cutting Use Cases, Middleware, Validators
+├── components/           # Global Reusable UI Components
 ├── core/                 # Cross-Cutting Frameworks (Auth, Audit, Workflow)
-├── modules/              # Domain-Driven Bounded Contexts (Project, Land)
+├── domain/               # Core Entities, Repository Interfaces
+├── infrastructure/       # Data Access (Prisma Repos), DI Containers, Security
+├── lib/                  # Stateless pure core logic (e.g., engines, utilities)
+├── modules/              # Domain-Driven Bounded Contexts
 │   └── [module-name]/
+│       ├── application/  # Module-specific Use Cases
 │       ├── components/   # Domain-specific UI
-│       ├── services/     # Business logic
-│       └── repositories/ # Prisma data access
-└── shared/               # Global Reusable Assets (UI, Hooks, Utils)
+│       └── presentation/ # View models or specific UI adapters
+├── providers/            # React Global Context Providers
+└── shared/               # Global Hooks, Types, Utils
 ```
-**Rule:** Domain logic never goes in `shared`. Modules communicate via the `EventBus` or standard APIs, never by importing each other's internals.
+**Rule:** Strict layer flow must be followed: Entity (domain) → Repository interface (domain) → PrismaRepository (infrastructure) → UseCase (application) → API route (app) → UI component (ui). Modules communicate via the `EventBus` or standard APIs, never by importing each other's internals.
 
 ---
 
@@ -218,25 +224,39 @@ In-memory queue for dev. Future production will use **BullMQ + Redis** for async
 ---
 
 ## 21. Repository Pattern
-**Rule:** No business logic in Repositories. Only Prisma calls.
+**Rule:** Repositories must implement a strict `domain/` interface. No business logic in Repositories. Only Prisma calls. Repositories are registered in DI containers, never accessed statically.
 ```typescript
-export class ProjectRepository {
-  static async findById(id: string) { return prisma.mstProject.findUnique({ where: { id } }) }
+// domain/repositories/IProjectRepository.ts
+export interface IProjectRepository {
+  findById(id: string): Promise<Project | null>;
+}
+
+// infrastructure/repositories/PrismaProjectRepository.ts
+export class PrismaProjectRepository implements IProjectRepository {
+  async findById(id: string) { return prisma.mstProject.findUnique({ where: { id } }) }
 }
 ```
 
 ---
 
-## 22. Service Layer
-Orchestrates Repositories, Events, and Audits.
+## 22. Application Layer (Use Cases & DI)
+Replaces the old legacy Service Layer. Orchestrates Repositories, Events, and Audits. Uses `Result<T,E>` for all mutations.
 ```typescript
-export class ProjectService {
-  static async lockProject(id: string) {
-    const p = await Repo.findById(id); if (p.locked) throw Error()
-    await Repo.lock(id); EventBus.publish(...); AuditQueue.push(...)
+// application/use-cases/LockProjectUseCase.ts
+export class LockProjectUseCase implements IUseCase<string, Result<void, string>> {
+  constructor(private repo: IProjectRepository) {}
+
+  async execute(id: string) {
+    const p = await this.repo.findById(id); 
+    if (p.locked) return failure('Already locked');
+    
+    await this.repo.lock(id); 
+    EventBus.publish(...); 
+    return success();
   }
 }
 ```
+**Dependency Injection (DI):** Use Cases and Repositories are wired together in module-specific DI containers (e.g. `src/infrastructure/di/modules/project.di.ts`) and exported via the central `Container`.
 
 ---
 
@@ -294,12 +314,14 @@ Uses Zod schemas (`src/application/validators`). Shared between client-side form
 ---
 
 ## 33. Enterprise Development Guidelines (Adding a Feature)
-1. DB: Add to `schema.prisma`.
+1. DB: Add model to `schema.prisma` and run `npx prisma db push`.
 2. Module: Create `src/modules/xyz/`.
-3. Repo: Create `XyzRepository.ts`.
-4. Service: Create `XyzService.ts`.
-5. API: Create `/api/xyz/route.ts`.
-6. UI: Create `/app/(dashboard)/xyz/page.tsx`.
+3. Domain: Create interface `IXyzRepository.ts` in `src/domain/repositories/`.
+4. Infrastructure: Create `PrismaXyzRepository.ts` in `src/infrastructure/repositories/`.
+5. Application: Create `CreateXyzUseCase.ts` in `src/application/use-cases/` or `src/modules/xyz/application/`.
+6. DI: Wire them together in `src/infrastructure/di/modules/xyz.di.ts` and export to `Container.ts`.
+7. API: Create Next.js API route `/app/api/xyz/route.ts` which calls the Use Case.
+8. UI: Create view in `src/app/(dashboard)/xyz/page.tsx` pulling reusable components from `src/components/`.
 
 ---
 

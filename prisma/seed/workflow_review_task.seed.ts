@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 export async function seedWorkflowReviewTask(db: PrismaClient) {
   console.log('🌱 Seeding workflow_review_task...')
@@ -10,8 +11,8 @@ export async function seedWorkflowReviewTask(db: PrismaClient) {
   if (!existing) {
     await db.workflow_review_task.createMany({
       data: [
-        { reviewable_type: 'compensation_payroll', reviewable_id: payroll.id, role: 'gm_planning', status: 'approved', decided_by: 'GM(Planning)-MK', decided_at: new Date(Date.now() - 86400000), comment: 'Verified plot schedules.' },
-        { reviewable_type: 'compensation_payroll', reviewable_id: payroll.id, role: 'gm_finance', status: 'pending' },
+        { id: randomUUID(), reviewable_type: 'compensation_payroll', reviewable_id: payroll.id, role: 'gm_planning', status: 'approved', decided_by: 'GM(Planning)-MK', decided_at: new Date(Date.now() - 86400000), comment: 'Verified plot schedules.', updt_ts: new Date() },
+        { id: randomUUID(), reviewable_type: 'compensation_payroll', reviewable_id: payroll.id, role: 'gm_finance', status: 'pending', updt_ts: new Date() },
       ],
     })
   }

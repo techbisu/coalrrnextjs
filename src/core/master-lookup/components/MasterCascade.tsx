@@ -33,7 +33,6 @@ function CascadeField({ control, config }: { control: Control<any>, config: Mast
   // Normalize to array
   const parentValues = React.useMemo(() => {
     if (parentFieldNames.length === 0) return []
-    if (parentFieldNames.length === 1 && !Array.isArray(parentValuesRaw)) return [parentValuesRaw]
     return Array.isArray(parentValuesRaw) ? parentValuesRaw : [parentValuesRaw]
   }, [parentValuesRaw, parentFieldNames])
 
@@ -69,7 +68,7 @@ function CascadeField({ control, config }: { control: Control<any>, config: Mast
   }
 
   const isDisabled = dependencies 
-    ? Object.values(dependencies).some(val => val === null || val === undefined || val === '')
+    ? Object.values(dependencies).some(val => val === null || val === undefined || val === '' || (Array.isArray(val) && val.length === 0))
     : false
 
   return (

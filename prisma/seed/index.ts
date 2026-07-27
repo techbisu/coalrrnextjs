@@ -7,7 +7,7 @@ import { seedRole } from './role.seed'
 import { seedEventRegistry } from './event_registry.seed'
 import { seedNotificationTemplate } from './notification_template.seed'
 import { seedNotificationRule } from './notification_rule.seed'
-import { seedMstProject } from './mst_project.seed'
+import { seedAuthOtpNotifications } from './seed-auth-otp-notification'
 import { seedTenant } from './tenant.seed'
 import { seedProject } from './project.seed'
 import { seedProjAprv } from './proj_aprv.seed'
@@ -42,7 +42,6 @@ async function main() {
     
     // 2. Master Data
     await seedTenant(db)
-    await seedMstProject(db)
     await seedProject(db)
     await seedProjAprv(db)
     await seedProjAprvLocation(db)
@@ -56,6 +55,7 @@ async function main() {
     await seedEventRegistry(db)
     // await seedNotificationTemplate(db)
     // await seedNotificationRule(db)
+    await seedAuthOtpNotifications(db)
 
     // 5. Operational Data (Order matters for FKs)
     // await seedFormIClaim(db)

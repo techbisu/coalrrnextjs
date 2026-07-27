@@ -218,3 +218,5 @@ export function renderForm(
 ): FormRenderResult {
   return formRendererRegistry.renderForm(formCode, record);
 }
+
+export { DocxGeneratorEngine } from './generator';

@@ -1,4 +1,4 @@
-﻿import { NextRequest } from 'next/server'
+import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, serverError, badRequest } from '../_lib'
 
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { id, action } = await req.json()
+    const { id, action, user_id } = await req.json()
     if (action === 'mark_read') {
       await db.notification_log.update({
         where: { id },
@@ -36,7 +36,6 @@ export async function PATCH(req: NextRequest) {
     }
     
     if (action === 'mark_all_read') {
-      const { user_id } = await req.json()
       await db.notification_log.updateMany({
         where: { recipient_id: user_id, channel: 'IN_APP', status: { not: 'READ' } },
         data: { status: 'READ', read_at: new Date() }

@@ -18,11 +18,12 @@ export class PrismaPermissionRepository implements IPermissionRepository {
   }
 
   async create(data: Omit<IPermission, 'id' | 'entry_ts' | 'updt_ts'>): Promise<IPermission> {
-    return db.permission.create({ data })
+    const { randomUUID } = require('crypto');
+    return db.permission.create({ data: { ...data, id: randomUUID(), updt_ts: new Date() } })
   }
 
   async update(id: string, data: Partial<Omit<IPermission, 'id' | 'entry_ts' | 'updt_ts'>>): Promise<IPermission> {
-    return db.permission.update({ where: { id }, data })
+    return db.permission.update({ where: { id }, data: { ...data, updt_ts: new Date() } })
   }
 
   async delete(id: string): Promise<IPermission> {

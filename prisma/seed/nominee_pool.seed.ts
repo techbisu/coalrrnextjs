@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client'
-import { createHash } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 
 export async function seedNomineePool(db: PrismaClient) {
   console.log('🌱 Seeding nominee_pool...')
@@ -14,18 +14,20 @@ export async function seedNomineePool(db: PrismaClient) {
 
   const pool = await db.nominee_pool.create({
     data: {
+      id: randomUUID(),
       nominee_aadhaar_hash: hashAadhaar('9999-8888-7777'),
       nominee_name: 'Priyanka Sahoo (Nominee)',
       pooled_acreage: '2.2500',
       apply_button_unlocked: true,
+      updt_ts: new Date()
     },
   })
   
   await db.nominee_pool_contribution.create({
-    data: { pool_id: pool.id, form_i_claim_id: claims[0].id, share_acres: '1.2500' },
+    data: { id: randomUUID(), pool_id: pool.id, form_i_claim_id: claims[0].id, share_acres: '1.2500', updt_ts: new Date() },
   })
   
   await db.nominee_pool_contribution.create({
-    data: { pool_id: pool.id, form_i_claim_id: claims[2].id, share_acres: '1.0000' },
+    data: { id: randomUUID(), pool_id: pool.id, form_i_claim_id: claims[2].id, share_acres: '1.0000', updt_ts: new Date() },
   })
 }

@@ -1,9 +1,9 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { routes } from '@/lib/url/UrlService'
-import { SectionCard, StatTile, DataTable, StateBadge, NotificationBell } from '@/components/coalrr'
+import { SectionCard, StatTile, DataTable, StateBadge } from '@/components/coalrr'
 import type { Column } from '@/components/coalrr'
 import { formatINR, formatNumber, timeAgo,  } from '@/lib/utils/formatters'
 import { useAuth } from '@/authorization/providers/AuthProvider'
@@ -63,7 +63,6 @@ export function DashboardView() {
           <h2 className="text-xl font-bold tracking-tight">Platform Overview</h2>
           <p className="text-sm text-muted-foreground">Cross-module KPIs across all 10 COALRR modules</p>
         </div>
-        <NotificationBell notifications={data?.notifications ?? []} onMarkAllRead={() => {}} />
       </div>
 
       {/* KPI tiles */}

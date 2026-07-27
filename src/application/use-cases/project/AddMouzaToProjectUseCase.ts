@@ -1,5 +1,4 @@
-import { UseCase } from '@/core/base/UseCase'
-import { Result, Fail } from '@/core/result/Result'
+import { IUseCase, Result, Fail, Ok } from '@/core'
 import { ComplianceMonitorService } from '@/core/compliance/services/ComplianceMonitorService'
 import { IProjectRepository } from '@/domain/entities/project/ProjectRepository.interface'
 import { EventBus } from '@/core/notifications/EventBus'
@@ -15,7 +14,7 @@ export interface AddMouzaToProjectResponse {
   message: string
 }
 
-export class AddMouzaToProjectUseCase implements UseCase<AddMouzaToProjectRequest, AddMouzaToProjectResponse> {
+export class AddMouzaToProjectUseCase implements IUseCase<AddMouzaToProjectRequest, AddMouzaToProjectResponse> {
   constructor(
     private readonly projectRepository: IProjectRepository,
     private readonly complianceService: ComplianceMonitorService
@@ -37,7 +36,7 @@ export class AddMouzaToProjectUseCase implements UseCase<AddMouzaToProjectReques
     }
 
     // Since it's authorized (or project isn't locked yet), we can add it to the project mouzas mapping
-    await this.projectRepository.updateProjectMouzas(request.projectId, [request.mouzaLgd])
+    await this.projectRepository.updateProjectLocations(request.projectId, project.mineCds, [request.mouzaLgd])
 
     EventBus.publish({
       event_name: 'MOUZA_ADDED_TO_PROJECT',

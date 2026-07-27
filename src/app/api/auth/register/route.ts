@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
     const existingMobile = await db.user.findUnique({ where: { mobile: body.mobile } })
     if (existingMobile) return badRequest('Mobile number already registered.')
     const user = await db.user.create({
-      data: { portal: 'public', role: 'citizen', name: body.name, mobile: body.mobile, aadhaar_hash, plot_id: body.plot_id ?? null, verified_at: new Date() },
+      data: { portal: 'public', role: 'citizen', name: body.name, mobile: body.mobile, aadhaar_hash, plot_id: body.plot_id ?? null, verified_at: new Date(), updt_ts: new Date() },
     })
-    const authUser = await createSession(user.id)
+    const authUser = await createSession(user.id.toString())
     return ok({ user: { id: authUser.id, name: authUser.name, portal: authUser.portal, role: authUser.role, mobile: authUser.mobile }, message: 'Registration successful.' }, { status: 201 })
   } catch (e) {
     return serverError('Registration failed', e instanceof Error ? e.message : String(e))
