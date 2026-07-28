@@ -90,7 +90,14 @@ export class PrismaNotificationStorage implements INotificationStorage {
   }
 
   async findUsersByRole(role: string): Promise<UserContactInfo[]> {
-    const users = await db.user.findMany({ where: { role } });
+    const roles = await db.model_has_role.findMany({
+      where: { role: { name: role }, model_type: 'user' }
+    });
+    const userIds = roles.map(r => parseInt(r.model_id, 10)).filter(id => !isNaN(id));
+    
+    if (userIds.length === 0) return [];
+
+    const users = await db.user.findMany({ where: { id: { in: userIds } } });
     return users.map(user => ({
       id: user.id.toString(),
       email: user.email ?? undefined,

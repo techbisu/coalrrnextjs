@@ -170,7 +170,7 @@ export function AuthView() {
                 <Label className="text-xs">Password</Label>
                 <div className="relative mt-1">
                   <Lock className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input type="password" value={eclForm.password} onChange={(e) => setEclForm({ ...eclForm, password: e.target.value })} placeholder="••••••••" className="pl-9" onKeyDown={(e) => e.key === 'Enter' && submit()} />
+                  <Input type="password" value={eclForm.password} onChange={(e) => setEclForm({ ...eclForm, password: e.target.value })} placeholder="••••••••" className="pl-9" onKeyDown={(e) => e.key === 'Enter' && submitCredentials()} />
                 </div>
               </div>
               <Alert className="border-sky-200 bg-sky-50">

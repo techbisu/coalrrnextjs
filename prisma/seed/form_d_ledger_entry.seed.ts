@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'crypto'
 export async function seedFormDLedgerEntry(db: PrismaClient) {
   console.log('🌱 Seeding form_d_ledger_entry...')
 
-  const project = await db.mst_project.findFirst()
+  const project = await db.project.findFirst()
   const plots = await db.mst_plot.findMany()
 
   if (!project || plots.length < 2) return
@@ -24,7 +24,7 @@ export async function seedFormDLedgerEntry(db: PrismaClient) {
     await db.form_d_ledger_entry.create({
       data: {
         id: randomUUID(),
-        project_id: project.id,
+        project_id: project.projCd,
         plot_id: row.plot_id,
         amount_land: row.amount_land,
         amount_rnr: row.amount_rnr,

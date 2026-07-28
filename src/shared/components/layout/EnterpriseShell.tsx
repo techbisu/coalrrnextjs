@@ -63,6 +63,12 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
 
+  React.useEffect(() => {
+    if (!isLoading && !user && pathname !== '/') {
+      router.replace('/')
+    }
+  }, [user, isLoading, pathname, router])
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -74,7 +80,11 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
     )
   }
 
-  if (!user) return <AuthView />
+  if (!user) {
+    // If not on root, wait for the useEffect to redirect
+    if (pathname !== '/') return null
+    return <AuthView />
+  }
 
   const getActiveState = (key: string) => {
     const expectedPath = ROUTE_MAP[key] || `/${key}`
@@ -83,9 +93,9 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
   }
 
   const visibleNav = NAV_ITEMS.filter((item) => {
-    if (!item.portals.includes(user.portal)) return false;
+    if (!item.portals.includes(user.tenant_id ?? 'public')) return false;
     // @ts-ignore
-    if (item.permission && !user.roles.includes('Super Administrator') && !user.permissions?.includes(item.permission)) return false;
+    if (item.permission && !user.roles.includes('super_administrator') && !user.permissions?.includes(item.permission)) return false;
     return true;
   })
   const currentNav = NAV_ITEMS.find((n) => getActiveState(n.key))
@@ -108,7 +118,7 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
           </div>
           <div className="hidden sm:block">
             <p className="text-sm font-bold leading-tight">COALRR</p>
-            <p className="text-[10px] text-muted-foreground leading-tight">{user.portal === 'ecl' ? 'ECL Internal Portal' : 'Public Citizen Portal'}</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">{user.tenant_id === 'ecl' ? 'ECL Internal Portal' : 'Public Citizen Portal'}</p>
           </div>
         </div>
         <Separator orientation="vertical" className="hidden h-6 sm:block" />
@@ -125,12 +135,12 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
             onClick={() => router.push('/profile')}
             title="View profile"
           >
-            <div className={cn('flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold', user.portal === 'ecl' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700')}>
-              {(user.name || user.role || 'user').split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+            <div className={cn('flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold', user.tenant_id === 'ecl' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700')}>
+              {(user.name || 'user').split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
             </div>
             <div className="text-left">
               <p className="text-xs font-medium leading-tight">{user.name || 'user'}</p>
-              <p className="text-[10px] text-muted-foreground leading-tight">{user.roleLabel ?? user.role}{user.designation ? ` · ${user.designation}` : ''}</p>
+              <p className="text-[10px] text-muted-foreground leading-tight">{user.roles?.[0] ? user.roles[0].split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'User'}{user.designation ? ` · ${user.designation}` : ''}</p>
             </div>
           </div>
           <LanguageSwitcher />
@@ -148,7 +158,7 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
       <div className="flex flex-1 min-h-0">
         <aside className={cn('fixed inset-y-14 left-0 z-20 w-64 transform border-r border-border/60 bg-card transition-transform lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] flex flex-col', sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0')}>
           <SidebarHeader className="border-b border-border/40 shrink-0 px-5 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{user.portal === 'ecl' ? 'ECL Modules' : 'Citizen Portal'}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{user.tenant_id === 'ecl' ? 'ECL Modules' : 'Citizen Portal'}</p>
           </SidebarHeader>
           <SidebarContent className="sidebar-scroll flex-1 overflow-y-auto px-3 py-2">
             <nav className="flex flex-col gap-1">
@@ -179,10 +189,10 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
                 <li>• Immutable Form-D Ledger</li>
               </ul>
             </div>
-            {user.portal === 'ecl' && (
+            {user.tenant_id === 'ecl' && (
               <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20 shrink-0">
-                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300"><Building2 className="h-3 w-3" /> {user.mine_cd ?? 'ECL'}</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">Logged in as <span className="font-medium text-foreground">{user.roleLabel ?? user.role}</span></p>
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300"><Building2 className="h-3 w-3" /> {user.scope?.mineCd || user.scope?.areaCd || 'ECL'}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Logged in as <span className="font-medium text-foreground">{user.roles?.[0] ? user.roles[0].split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'User'}</span></p>
               </div>
             )}
             </nav>

@@ -5,14 +5,23 @@ export class FormXXIIResolver implements IDocumentResolver {
   async resolve(businessId: string, context?: Record<string, any>): Promise<DocumentResolverResult> {
     // 1. Fetch the Proposal (land_schedule) and its Project
     let proposal = await db.land_schedule.findUnique({
-      where: { id: businessId },
-      include: {
-        mst_project: true
-      }
+      where: { id: businessId }
     })
 
     let isProjectSimulation = false;
-    let project: any = proposal?.mst_project;
+    let project: any = null;
+    
+    if (proposal && proposal.project_id) {
+      const p = await db.project.findUnique({ where: { projCd: proposal.project_id } });
+      if (p) {
+        project = {
+          name: p.projNm,
+          total_land_limit_acres: p.totalApprovedArea || 0,
+          total_budget_ceiling: (Number(p.landBudget || 0) + Number(p.rrBudget || 0)).toString(),
+          total_employment_quota: p.totalEmpSanctioned || 0,
+        };
+      }
+    }
 
     if (!proposal) {
       // Check if it's a project ID for simulation using the Project model

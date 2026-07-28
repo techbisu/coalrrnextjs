@@ -5,7 +5,7 @@ import { CachedPermissions } from '../types'
 import { getCurrentUser } from '@/lib/auth'
 
 export class AuthorizationService {
-  public static readonly SUPER_ADMIN_ROLE = 'Super Administrator'
+  public static readonly SUPER_ADMIN_ROLE = 'super_administrator'
 
   constructor(
     private roleRepo: IRoleRepository,

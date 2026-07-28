@@ -10,8 +10,7 @@ export function UsersView({ initialUsers }: { initialUsers: user[] }) {
   const columns: Column<user>[] = [
     { key: 'name', header: 'Name', sortable: true, render: (r) => <span className="font-medium">{r.name}</span> },
     { key: 'email', header: 'Email', sortable: true },
-    { key: 'role', header: 'Role', sortable: true, render: (r) => <span className="font-mono text-xs">{r.role}</span> },
-    { key: 'portal', header: 'Portal', sortable: true, render: (r) => <StateBadge state={r.portal} /> },
+    { key: 'tenant', header: 'Tenant', sortable: true, render: (r) => <StateBadge state={r.tenant_id || 'unknown'} /> },
     { key: 'designation', header: 'Designation' },
     { key: 'entry_ts', header: 'Joined', render: (r) => <span>{new Date(r.entry_ts).toLocaleDateString()}</span> },
   ]

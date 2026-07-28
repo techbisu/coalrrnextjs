@@ -22,9 +22,15 @@ Located in the `audit` schema in PostgreSQL:
 - **`AuditService`**: The facade used to dispatch jobs to the `JobDispatcherService`. Exposes `logCustomAction(payload)` for modules to manually record business-specific audit events.
 
 ### 5. Integration (Prisma Extension)
-- **`PrismaAuditExtension`**: Intercepts `create`, `update`, and `delete` queries globally. It automatically captures the client's `x-forwarded-for` and `user-agent` using Next.js `headers()`, extracts the logged-in user, and pushes the raw payload to the `JobDispatcherService`.
+- **`PrismaAuditExtension`**: Intercepts `create`, `update`, and `delete` queries globally. It automatically captures the client's `x-forwarded-for` and `user-agent` using Next.js `headers()`, extracts the logged-in user, and pushes the raw payload to the `JobDispatcherService`. To securely and reliably fetch `oldData` during an `update`, the extension dynamically imports the database client (`db`) inside the operation callback, guaranteeing it has access to the correct state before the update completes.
 
-### 6. Configuration Management
+### 6. Diffing & Data Storage Optimization
+To minimize database bloat, the audit system intelligently filters data before storing it in `application_log`:
+- **CREATE (Insert)**: Skips creating an `application_log` entry entirely. It simply creates an `activity_log` with the generated entity identifier (e.g. `Data Created in table projects (Identifier: 123)`).
+- **UPDATE**: Compares `oldData` and `newData`. It filters out all untouched columns and strictly stores only the exact fields that were modified, saving massive amounts of space on wide tables.
+- **DELETE**: Stores the full snapshot of the entity in `oldData` so it can be fully recovered or reviewed.
+
+### 7. Configuration Management
 - **`audit.config.ts`**: Follows the config management rules. Hardcoded parameters like `ignoreFields` and queue retries are abstracted into `src/core/config/audit.config.ts`.
 
 ## Usage

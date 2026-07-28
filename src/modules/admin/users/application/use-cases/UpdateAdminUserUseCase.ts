@@ -6,13 +6,11 @@ import { Container } from '@/infrastructure/di/modules/core.di'
 
 export interface UpdateAdminUserRequest {
   id: string
-  portal?: string
-  role?: string
+  tenantId?: string
   name?: string
   email?: string
   mobile?: string
   designation?: string
-  mine_cd?: string
   action_by: string
 }
 
@@ -27,13 +25,11 @@ export class UpdateAdminUserUseCase implements IUseCase<UpdateAdminUserRequest, 
       }
 
       existingUser.update({
-        portal: request.portal,
-        role: request.role,
+        tenantId: request.tenantId,
         name: request.name,
         email: request.email,
         mobile: request.mobile,
         designation: request.designation,
-        mineCd: request.mine_cd,
         updtBy: request.action_by,
       })
 
@@ -54,10 +50,9 @@ export class UpdateAdminUserUseCase implements IUseCase<UpdateAdminUserRequest, 
         name: updatedUser.name,
         email: updatedUser.email,
         mobile: updatedUser.mobile,
-        portal: updatedUser.portal,
-        role: updatedUser.role,
+        tenant_id: updatedUser.tenantId,
+        tenant_name: updatedUser.tenantName,
         designation: updatedUser.designation,
-        mine_cd: updatedUser.mineCd,
         is_active: updatedUser.isActive
       })
     } catch (e: any) {

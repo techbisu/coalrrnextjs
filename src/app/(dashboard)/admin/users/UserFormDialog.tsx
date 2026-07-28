@@ -25,13 +25,14 @@ import {
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { createUserAction, updateUserAction } from '@/modules/admin/users/presentation/actions'
+import { createUserAction, updateUserAction, fetchTenantsAction } from '@/modules/admin/users/presentation/actions'
 import { Plus } from 'lucide-react'
 
 import { userSchema } from '@/core/validation/schemas/user.schema'
 export function UserFormDialog({ mode, initialData, onSuccess, trigger }: { mode: 'create' | 'edit', initialData?: any, onSuccess: () => void, trigger?: React.ReactNode }) {
   const [open, setOpen] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
+  const [tenants, setTenants] = React.useState<{tenantId: string, tenantName: string}[]>([])
 
   const form = useForm<z.infer<typeof userSchema>>({
     resolver: zodResolver(userSchema),
@@ -39,11 +40,24 @@ export function UserFormDialog({ mode, initialData, onSuccess, trigger }: { mode
       name: initialData?.name || '',
       email: initialData?.email || '',
       mobile: initialData?.mobile || '',
-      portal: initialData?.portal || 'COALRR',
+      tenant_id: initialData?.tenant_id || '',
       role: initialData?.role || 'VIEWER',
       designation: initialData?.designation || '',
     },
   })
+
+  React.useEffect(() => {
+    fetchTenantsAction().then(res => {
+      if (res.data) {
+        setTenants(res.data)
+        if (mode === 'create' && res.data.length > 0 && !form.getValues('tenant_id')) {
+          form.setValue('tenant_id', res.data[0].tenantId)
+        }
+      }
+    })
+  }, [mode, form])
+
+
 
   React.useEffect(() => {
     if (open && initialData) {
@@ -51,13 +65,13 @@ export function UserFormDialog({ mode, initialData, onSuccess, trigger }: { mode
         name: initialData.name || '',
         email: initialData.email || '',
         mobile: initialData.mobile || '',
-        portal: initialData.portal || 'COALRR',
+        tenant_id: initialData.tenant_id || '',
         role: initialData.role || 'VIEWER',
         designation: initialData.designation || '',
       })
     } else if (open && !initialData) {
       form.reset({
-        name: '', email: '', mobile: '', portal: 'COALRR', role: 'VIEWER', designation: ''
+        name: '', email: '', mobile: '', tenant_id: '', role: 'VIEWER', designation: ''
       })
     }
   }, [open, initialData, form])
@@ -141,52 +155,32 @@ export function UserFormDialog({ mode, initialData, onSuccess, trigger }: { mode
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="portal"
+                name="tenant_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Portal</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel>Tenant / Organization</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select portal" />
+                          <SelectValue placeholder="Select tenant" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="COALRR">COALRR</SelectItem>
-                        <SelectItem value="ADMIN">ADMIN</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
+                        {tenants.map(t => (
+                          <SelectItem key={t.tenantId} value={t.tenantId}>
+                            {t.tenantName}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>System Role</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="SUPER_ADMIN">SUPER_ADMIN</SelectItem>
-                        <SelectItem value="ADMIN">ADMIN</SelectItem>
-                        <SelectItem value="MANAGER">MANAGER</SelectItem>
-                        <SelectItem value="VIEWER">VIEWER</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+
             <FormField
               control={form.control}
               name="designation"

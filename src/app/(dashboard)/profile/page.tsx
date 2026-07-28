@@ -14,13 +14,13 @@ export default async function ProfilePage() {
   const user = await getCurrentUser()
   if (!user) redirect('/api/auth/login')
 
-  // Load full profile data server-side
   const fullUser = await db.user.findUnique({
     where: { id: parseInt(user.id, 10) },
     select: {
       id: true, name: true, email: true, mobile: true,
-      designation: true, role: true, portal: true, mine_cd: true,
+      designation: true,
       entry_ts: true,
+      tenant: true,
       otp_enabled: true
     }
   })
@@ -46,7 +46,7 @@ export default async function ProfilePage() {
 
   return (
     <ProfileView
-      initialUser={{ ...fullUser!, id: fullUser!.id.toString() }}
+      initialUser={{ ...fullUser!, id: fullUser!.id.toString(), isOnline: true, tenant_name: fullUser!.tenant?.tenantName || null } as any}
       scope={activeScope as any}
       roles={assignedRoles.map(r => r.role)}
       notificationPrefs={notificationPrefs}

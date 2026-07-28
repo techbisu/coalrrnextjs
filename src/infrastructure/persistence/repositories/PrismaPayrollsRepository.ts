@@ -3,10 +3,20 @@ import { IPayrollsRepository } from '@/modules/payrolls/interfaces/IPayrollsRepo
 
 export class PrismaPayrollsRepository implements IPayrollsRepository {
   async findAllPayrollsWithDetails(): Promise<any[]> {
-    return db.compensation_payroll.findMany({
-      include: { mst_project: true, compensation_payroll_line: true },
+    const payrolls = await db.compensation_payroll.findMany({
+      include: { compensation_payroll_line: true },
       orderBy: { entry_ts: 'desc' },
     });
+    
+    // Fetch projects for all payrolls
+    const projectIds = [...new Set(payrolls.map(p => p.project_id))];
+    const projects = await db.project.findMany({ where: { projCd: { in: projectIds } } });
+    const projectMap = new Map(projects.map(p => [p.projCd, p]));
+    
+    return payrolls.map(p => ({
+      ...p,
+      mst_project: projectMap.get(p.project_id) || null
+    }));
   }
 
   async findReviewTasksForType(type: string, id?: string): Promise<any[]> {
@@ -21,7 +31,7 @@ export class PrismaPayrollsRepository implements IPayrollsRepository {
   }
 
   async findProjectById(id: string): Promise<any | null> {
-    return db.mst_project.findUnique({ where: { id } });
+    return db.project.findUnique({ where: { projCd: id } });
   }
 
   async createPayroll(data: any): Promise<any> {
@@ -29,20 +39,34 @@ export class PrismaPayrollsRepository implements IPayrollsRepository {
   }
 
   async findPayrollByIdWithDetails(id: string): Promise<any | null> {
-    return db.compensation_payroll.findUnique({
+    const payroll = await db.compensation_payroll.findUnique({
       where: { id },
       include: {
-        mst_project: true,
         compensation_payroll_line: { orderBy: { entry_ts: 'asc' } },
       },
     });
+    
+    if (!payroll) return null;
+    const project = await db.project.findUnique({ where: { projCd: payroll.project_id } });
+    
+    return {
+      ...payroll,
+      mst_project: project || null
+    };
   }
 
   async findPayrollById(id: string): Promise<any | null> {
-    return db.compensation_payroll.findUnique({
+    const payroll = await db.compensation_payroll.findUnique({
       where: { id },
-      include: { mst_project: true },
     });
+    
+    if (!payroll) return null;
+    const project = await db.project.findUnique({ where: { projCd: payroll.project_id } });
+    
+    return {
+      ...payroll,
+      mst_project: project || null
+    };
   }
 
   async updatePayrollFactor(id: string, factor: string): Promise<any> {

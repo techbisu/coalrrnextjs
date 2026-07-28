@@ -97,10 +97,7 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
       entity_name: 'mst_project',
       entity_id: project.id.toString(),
       user_id: request.user_id,
-      remarks: JSON.stringify({
-        name: project.projNm,
-        mine_cds: project.mineCds,
-      }),
+      remarks: `Created Project: ${project.projNm}`,
     })
 
     // 5. Return response

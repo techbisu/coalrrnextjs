@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 export async function seedRnrAssetPayroll(db: PrismaClient) {
   console.log('🌱 Seeding rnr_asset_payroll...')
 
-  const project = await db.mst_project.findFirst()
+  const project = await db.project.findFirst()
   const claims = await db.form_i_claim.findMany()
 
   if (!project || claims.length < 4) return
@@ -15,7 +15,7 @@ export async function seedRnrAssetPayroll(db: PrismaClient) {
   const rnr = await db.rnr_asset_payroll.create({
     data: {
       id: randomUUID(),
-      project_id: project.id,
+      project_id: project.projCd,
       payroll_code: 'RNR-2025-0001',
       state: 'Approved',
       total_value: '775000.00',

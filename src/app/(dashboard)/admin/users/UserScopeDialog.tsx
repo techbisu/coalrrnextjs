@@ -26,24 +26,28 @@ const scopeSchema = z.object({
 interface UserScopeDialogProps {
   userId: string
   userName: string
-  currentMineCd: string | null
+  currentScope?: { scopeLevel: string; areaCd?: string | null; mineCd?: string | null }
   onSuccess: () => void
 }
 
-export function UserScopeDialog({ userId, userName, currentMineCd, onSuccess }: UserScopeDialogProps) {
+export function UserScopeDialog({ userId, userName, currentScope, onSuccess }: UserScopeDialogProps) {
   const [open, setOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   
   const form = useForm<z.infer<typeof scopeSchema>>({
     resolver: zodResolver(scopeSchema),
-    defaultValues: { scopeLevel: 'UNIT', areaCd: '', mineCd: currentMineCd || '' },
+    defaultValues: { scopeLevel: 'UNIT', areaCd: '', mineCd: '' },
   })
 
   React.useEffect(() => {
     if (open) {
-      form.reset({ scopeLevel: 'UNIT', areaCd: '', mineCd: currentMineCd || '' })
+      form.reset({
+        scopeLevel: (currentScope?.scopeLevel as any) || 'UNIT',
+        areaCd: currentScope?.areaCd || '',
+        mineCd: currentScope?.mineCd || ''
+      })
     }
-  }, [open, currentMineCd, form])
+  }, [open, currentScope, form])
 
   const scopeLevel = form.watch('scopeLevel')
   const selectedArea = form.watch('areaCd')
@@ -94,7 +98,9 @@ export function UserScopeDialog({ userId, userName, currentMineCd, onSuccess }: 
           <DialogTitle>Assign Scope</DialogTitle>
           <DialogDescription>
             Assign organizational scope for <strong>{userName}</strong>.
-            {currentMineCd && ` (Registered with Mine: ${currentMineCd})`}
+            {currentScope?.scopeLevel === 'HQ' && ' (Currently HQ)'}
+            {currentScope?.scopeLevel === 'AREA' && ` (Currently Area: ${currentScope.areaCd})`}
+            {currentScope?.scopeLevel === 'UNIT' && ` (Currently Mine: ${currentScope.mineCd})`}
           </DialogDescription>
         </DialogHeader>
 

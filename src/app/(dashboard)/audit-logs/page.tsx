@@ -9,7 +9,7 @@ export const metadata = {
 
 export default async function AuditLogsPage() {
   // Pre-fetch initial data to SSR the first page
-  let initialData = { data: [], total: 0, page: 1, limit: 20, totalPages: 0 };
+  let initialData: any = { data: [], total: 0, page: 1, limit: 20, totalPages: 0 };
   
   try {
     initialData = await fetchAuditLogsAction({ page: 1, limit: 20 });

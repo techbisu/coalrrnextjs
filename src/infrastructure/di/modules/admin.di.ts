@@ -69,7 +69,7 @@ export const getMasterDataUseCase = globalForAdminDI.getMasterDataUseCase ?? new
 export const createMasterDataUseCase = globalForAdminDI.createMasterDataUseCase ?? new CreateMasterDataUseCase(genericMasterRepository)
 export const updateMasterDataUseCase = globalForAdminDI.updateMasterDataUseCase ?? new UpdateMasterDataUseCase(genericMasterRepository)
 
-export const getAdminUsersUseCase = globalForAdminDI.getAdminUsersUseCase ?? new GetAdminUsersUseCase(adminUserRepository)
+export const getAdminUsersUseCase = new GetAdminUsersUseCase(adminUserRepository)
 export const createAdminUserUseCase = globalForAdminDI.createAdminUserUseCase ?? new CreateAdminUserUseCase(adminUserRepository)
 export const updateAdminUserUseCase = globalForAdminDI.updateAdminUserUseCase ?? new UpdateAdminUserUseCase(adminUserRepository)
 export const deleteAdminUserUseCase = globalForAdminDI.deleteAdminUserUseCase ?? new DeleteAdminUserUseCase(adminUserRepository)

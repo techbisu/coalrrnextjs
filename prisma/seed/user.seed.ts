@@ -6,10 +6,10 @@ export async function seedUsers(db: PrismaClient) {
   console.log('Seeding users...')
   const hash = crypto.createHash('sha256').update('demo1234').digest('hex');
   const users = [
-    { email: 'unit@coalrr.gov.in', name: 'Unit Surveyor', designation: 'Surveyor', role: 'Surveyor', portal: 'ecl' },
-    { email: 'area@coalrr.gov.in', name: 'Area Land Officer', designation: 'Officer', role: 'Area Officer', portal: 'ecl' },
-    { email: 'gm.planning@coalrr.gov.in', name: 'GM Planning', designation: 'GM', role: 'GM', portal: 'ecl' },
-    { email: 'cmd@coalrr.gov.in', name: 'CMD', designation: 'Director', role: 'Director', portal: 'ecl' }
+    { email: 'unit@coalrr.gov.in', name: 'Unit Surveyor', designation: 'Surveyor', tenant_id: 'ecl' },
+    { email: 'area@coalrr.gov.in', name: 'Area Land Officer', designation: 'Officer', tenant_id: 'ecl' },
+    { email: 'gm.planning@coalrr.gov.in', name: 'GM Planning', designation: 'GM', tenant_id: 'ecl' },
+    { email: 'cmd@coalrr.gov.in', name: 'CMD', designation: 'Director', tenant_id: 'ecl' }
   ];
 
   for (const u of users) {

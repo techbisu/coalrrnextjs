@@ -341,6 +341,7 @@ model Tenant {
   updtTs     BigInt?   @default(dbgenerated("date_part('epoch'::text, now())")) @map("updt_ts")
   delTs      BigInt?   @map("del_ts")
   projects   Project[]
+  user       user[]
 
   @@index([isActive], map: "idx_tenant_is_active")
   @@map("tenant")
@@ -1100,16 +1101,13 @@ model signed_url_log {
 }
 
 model user {
-  portal          String
-  role            String
   email           String?          @unique
   mobile          String?          @unique
   aadhaar_hash    String?          @unique
   name            String
   password_hash   String?
   designation     String?
-  mine_cd         String?
-  plot_id         String?
+
   verified_at     DateTime?
   entry_ts        DateTime         @default(now())
   updt_ts         DateTime
@@ -1118,10 +1116,13 @@ model user {
   is_active       Boolean          @default(true)
   id              Int              @id @default(autoincrement())
   otp_enabled     Boolean          @default(true)
+  tenant_id       String?          @db.VarChar(50)
   auth_session    auth_session[]
   otp_sessions    otp_session[]
+  tenant          Tenant?          @relation(fields: [tenant_id], references: [tenantId], map: "fk_user_tenant")
   user_org_scopes user_org_scope[]
 
+  @@index([tenant_id], map: "idx_user_tenant_id")
   @@schema("public")
 }
 

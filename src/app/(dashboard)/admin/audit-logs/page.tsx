@@ -1,17 +1,21 @@
-import React from 'react'
-import { db } from '@/lib/db'
-import { AuditGrid } from '@/core/audit/components/AuditGrid'
+import { Suspense } from 'react';
+import { AuditLogPageClient } from '../../audit-logs/AuditLogPageClient';
+import { fetchAuditLogsAction } from '@/modules/audit-log/actions';
 
-export const dynamic = 'force-dynamic'
+export const metadata = {
+  title: 'Audit Logs - Administration',
+  description: 'View system audit logs and data modifications',
+};
 
 export default async function AuditLogsPage() {
-  const logs = await db.activity_log.findMany({
-    orderBy: { entry_ts: 'desc' },
-    take: 100,
-    include: {
-      application_log: true
-    }
-  })
+  // Pre-fetch initial data to SSR the first page
+  let initialData: any = { data: [], total: 0, page: 1, limit: 20, totalPages: 0 };
+  
+  try {
+    initialData = await fetchAuditLogsAction({ page: 1, limit: 20 });
+  } catch (error) {
+    console.error('Failed to pre-fetch audit logs:', error);
+  }
 
   return (
     <div className="space-y-6">
@@ -19,9 +23,10 @@ export default async function AuditLogsPage() {
         <h1 className="text-3xl font-bold tracking-tight">System Audit Logs</h1>
         <p className="text-muted-foreground">Comprehensive overview of system activity and user actions.</p>
       </div>
-      <div className="bg-card text-card-foreground shadow-sm rounded-lg border p-6">
-        <AuditGrid logs={logs} />
-      </div>
+
+      <Suspense fallback={<div className="h-64 flex items-center justify-center">Loading interface...</div>}>
+        <AuditLogPageClient initialData={initialData} />
+      </Suspense>
     </div>
-  )
+  );
 }

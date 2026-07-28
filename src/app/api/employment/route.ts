@@ -11,10 +11,13 @@ export async function GET(_req: NextRequest) {
     const apps = await db.employment_application.findMany({
       include: {
         nominee_pool: { include: { nominee_pool_contribution: { include: { form_i_claim: { include: { mst_plot: true } } } } } },
-        mst_project: true,
       },
       orderBy: { entry_ts: 'desc' },
     })
+
+    const projectIds = [...new Set(apps.map(a => a.project_id))];
+    const projects = await db.project.findMany({ where: { projCd: { in: projectIds } } });
+    const projectMap = new Map(projects.map(p => [p.projCd, p]));
 
     const result = apps.map((a) => {
       // Recompute threshold live for display (the persisted form_ix_balance_acres is the frozen snapshot)
@@ -23,7 +26,7 @@ export async function GET(_req: NextRequest) {
       return {
         id: a.id,
         application_code: a.application_code,
-        projectName: a.mst_project.name,
+        projectName: projectMap.get(a.project_id)?.projNm || undefined,
         nominee_name: a.nominee_pool.nominee_name,
         state: a.state,
         // Frozen-at-approval snapshot (spec §3.1.1 — "NOT live-recomputed after lock")

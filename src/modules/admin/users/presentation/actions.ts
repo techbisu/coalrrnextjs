@@ -11,13 +11,25 @@ import { db } from '@/lib/db'
 import { authorize } from '@/core/authorization/middleware/authorize'
 import { userSchema, updateUserSchema } from '@/core/validation/schemas/user.schema'
 
+export async function fetchTenantsAction(): Promise<{ data?: any[], error?: string }> {
+  try {
+    const tenants = await db.tenant.findMany({
+      select: { tenantId: true, tenantName: true },
+      orderBy: { tenantName: 'asc' }
+    });
+    return { data: tenants };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
 export async function fetchUsersAction(): Promise<{ data?: any[], error?: string }> {
   try {
     await authorize('admin.users.view')
     
     const result = await getAdminUsersUseCase.execute()
     if (result.isSuccess) {
-      return { data: result.value }
+      return { data: result.value.data }
     }
     return { error: String(result.error) }
   } catch (error: any) {
@@ -32,13 +44,11 @@ export async function createUserAction(data: any): Promise<{ data?: any, error?:
     const validData = userSchema.parse(data)
 
     const result = await createAdminUserUseCase.execute({
-      portal: validData.portal,
-      role: validData.role,
+      tenantId: validData.tenant_id,
       name: validData.name,
       email: validData.email || undefined,
       mobile: validData.mobile || undefined,
       designation: validData.designation || undefined,
-      mine_cd: data.mine_cd, // keep this as is if not in schema yet
       action_by: currentUser!.id.toString()
     })
 
@@ -60,6 +70,7 @@ export async function updateUserAction(id: string, data: any): Promise<{ data?: 
     const result = await updateAdminUserUseCase.execute({
       id,
       ...validData,
+      tenantId: validData.tenant_id || undefined,
       action_by: currentUser!.id
     })
 

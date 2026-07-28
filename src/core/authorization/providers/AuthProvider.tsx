@@ -5,15 +5,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 export interface AuthUser {
   id: string
-  portal: 'ecl' | 'public'
-  role: string
+  tenant_id: string | null
   email: string | null
   mobile: string | null
   name: string
   designation: string | null
   mine_cd: string | null
   plot_id: string | null
-  roleLabel?: string
   roles: string[]
   permissions: string[]
   scope?: any

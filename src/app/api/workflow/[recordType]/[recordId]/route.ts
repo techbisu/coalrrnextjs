@@ -24,7 +24,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     const payroll = await db.compensation_payroll.findUnique({
       where: { id: recordId },
-      include: { mst_project: true },
     })
     if (!payroll) return notFound('Payroll not found')
 
@@ -34,8 +33,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     })
 
     // Compute guard context data
+    const project = await db.project.findUnique({ where: { projCd: payroll.project_id } })
     const batchTotal = Number(payroll.total_award)
-    const ceiling = Number(payroll.mst_project.total_budget_ceiling)
+    const ceiling = Number(project?.landBudget || 0) + Number(project?.rrBudget || 0)
     const ctxData = {
       batchTotal,
       budgetCeiling: ceiling,

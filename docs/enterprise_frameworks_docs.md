@@ -13,7 +13,7 @@ This document serves as the developer guide for implementing and utilizing these
 ### How it works:
 1. **Routing:** Business modules use the centralized `routes` registry (e.g. `routes.proposal.details('PROP-123')`) instead of concatenating strings. This ensures link structures can be updated universally.
 2. **Parsing:** The application uses Next.js Catch-All Routing (`[[...slug]]`). The `UrlParser` decodes the path and maps it to the internal SPA state, dropping the user instantly into the correct module.
-3. **Security:** `UrlSecurityService` operates strictly on the Node.js backend to encrypt payloads, generate time-expiring signed links, and enforce one-time usage via the `SignedUrlLog` database table.
+3. **Security:** `UrlSecurityService` operates strictly on the Node.js backend to encrypt URL parameters via AES-256-GCM, generate time-expiring signed links, and enforce one-time usage via the `SignedUrlLog` database table. Client components interact with this encryption securely via Server Actions (`encryptUrlParamAction`).
 
 ### Implementation Guide:
 
@@ -29,6 +29,25 @@ import Link from 'next/link'
 
 // Bad: Do NOT do this!
 // <Link href={`/proposals/${proposal.id}`}>View</Link>
+```
+
+#### Encrypting URL Parameters (AES-256-GCM)
+```tsx
+'use client'
+import { encryptUrlParamAction } from '@/lib/url/actions'
+import { useRouter } from 'next/navigation'
+
+export function MyClientComponent() {
+  const router = useRouter()
+
+  const handleSecureNavigation = async (projectId: string) => {
+    // Securely encrypt the ID on the server without exposing the key
+    const secureToken = await encryptUrlParamAction(projectId)
+    router.push(`/projects/${secureToken}`)
+  }
+
+  return <button onClick={() => handleSecureNavigation('PROJ-123')}>View</button>
+}
 ```
 
 #### Generating a Secure Signed URL (Server Actions Only)

@@ -85,10 +85,7 @@ export async function seedRole(db: PrismaClient) {
         create: { model_id: user.id.toString(), model_type: 'user', role_id: assignedRoleId, updt_ts: new Date() }
       })
       
-      await db.user.update({
-        where: { id: user.id },
-        data: { role: assignedRoleName }
-      })
+      // role column removed from user
     }
   }
 

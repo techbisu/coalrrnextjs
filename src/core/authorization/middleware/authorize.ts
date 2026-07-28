@@ -30,7 +30,7 @@ export async function authorizeApi(permission: string) {
   }
 
   const hasAccess = await authService.can(user.id, permission)
-  console.log(`[authorizeApi] User: ${user.email}, Role: ${user.role}, Checking Permission: ${permission}, HasAccess: ${hasAccess}`);
+  console.log(`[authorizeApi] User: ${user.email}, Checking Permission: ${permission}, HasAccess: ${hasAccess}`);
   if (!hasAccess) {
     console.log(`[authorizeApi] Permissions array:`, user.permissions);
     console.log(`[authorizeApi] Roles array:`, user.roles);

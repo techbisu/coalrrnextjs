@@ -5,8 +5,8 @@ import { getRealIp } from '@/core/audit/utils/getRealIp'
 
 import { auditConfig } from '@/core/config/audit.config'
 
-const EXCLUDED_MODELS = auditConfig.excludedModels;
-const NO_AUDIT_FIELDS_MODELS = auditConfig.noAuditFieldsModels;
+const EXCLUDED_MODELS = auditConfig.excludedModels as readonly string[];
+const NO_AUDIT_FIELDS_MODELS = auditConfig.noAuditFieldsModels as readonly string[];
 
 export const withAuditExtension = Prisma.defineExtension({
   name: 'PrismaAuditExtension',
@@ -89,7 +89,22 @@ export const withAuditExtension = Prisma.defineExtension({
         } catch(e) {}
         
         const modelName = String(model).toLowerCase();
+        const prismaModel = String(model).charAt(0).toLowerCase() + String(model).slice(1);
         const skipInject = NO_AUDIT_FIELDS_MODELS.includes(modelName) || NO_AUDIT_FIELDS_MODELS.includes(model as string);
+
+        let oldData: any = undefined;
+        if (!EXCLUDED_MODELS.includes(modelName) && !EXCLUDED_MODELS.includes(model as string)) {
+          try {
+            if ((args as any).where) {
+              const { db } = await import('@/lib/db');
+              if (db && (db as any)[prismaModel]) {
+                oldData = await (db as any)[prismaModel].findUnique({ where: (args as any).where });
+              }
+            }
+          } catch (e) {
+            console.error('Failed to fetch oldData for audit:', e);
+          }
+        }
 
         if (args.data && !skipInject) {
            const dmmfModel = Prisma.dmmf.datamodel.models.find(m => m.name === model);
@@ -111,7 +126,7 @@ export const withAuditExtension = Prisma.defineExtension({
             model,
             'UPDATE',
             (args as any).where,
-            undefined, // oldData
+            oldData,   // oldData
             result,    // newData
             userId,
             ipAddress ?? undefined,

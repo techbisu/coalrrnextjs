@@ -30,16 +30,14 @@ export async function POST(req: NextRequest) {
 
     const authUser = await createSession(user.id.toString())
 
-    if (user.portal === 'ecl') {
+    if (user.tenant_id === 'ecl') {
       return ok({ 
         user: { 
           id: authUser.id, 
           name: authUser.name, 
-          portal: authUser.portal, 
-          role: authUser.role, 
+          tenant_id: authUser.tenant_id, 
           email: authUser.email, 
-          designation: authUser.designation, 
-          mine_cd: authUser.mine_cd 
+          designation: authUser.designation
         }, 
         message: `Welcome back, ${authUser.name}` 
       })
@@ -48,10 +46,8 @@ export async function POST(req: NextRequest) {
         user: { 
           id: authUser.id, 
           name: authUser.name, 
-          portal: authUser.portal, 
-          role: authUser.role, 
-          mobile: authUser.mobile, 
-          plot_id: authUser.plot_id 
+          tenant_id: authUser.tenant_id, 
+          mobile: authUser.mobile
         }, 
         message: `Welcome, ${authUser.name}` 
       })

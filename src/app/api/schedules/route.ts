@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       notification_date: body.notification_date ? new Date(body.notification_date) : undefined,
       user_id: user.id.toString(),
       user_name: user.name,
-      user_role: user.role,
+      user_role: user.roles[0] || 'User',
     })
 
     if (result.isFailure) {

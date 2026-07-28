@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 export async function seedLandSchedule(db: PrismaClient) {
   console.log('🌱 Seeding land_schedule...')
 
-  const project = await db.mst_project.findFirst()
+  const project = await db.project.findFirst()
   const plots = await db.mst_plot.findMany()
 
   if (!project || plots.length < 4) return
@@ -14,7 +14,7 @@ export async function seedLandSchedule(db: PrismaClient) {
     const schedule1 = await db.land_schedule.create({
       data: {
         id: randomUUID(),
-        project_id: project.id, schedule_code: 'SCH-2026-001', acquisition_mode: 'rfctlarr', state: 'AreaVetting',
+        project_id: project.projCd, schedule_code: 'SCH-2026-001', acquisition_mode: 'rfctlarr', state: 'AreaVetting',
         proposal_title: 'Bhubaneswari OCP-III — Phase A Acquisition',
         description: 'Acquisition of 42.5 acres under RFCTLARR Act, 2013 for OB dump expansion.',
         proposed_by: 'Rajesh Kumar', proposed_by_role: 'unit_office', area_office: 'MCL-Angul Area',
@@ -45,7 +45,7 @@ export async function seedLandSchedule(db: PrismaClient) {
     const schedule2 = await db.land_schedule.create({
       data: {
         id: randomUUID(),
-        project_id: project.id, schedule_code: 'SCH-2026-002', acquisition_mode: 'direct_purchase', state: 'Drafting',
+        project_id: project.projCd, schedule_code: 'SCH-2026-002', acquisition_mode: 'direct_purchase', state: 'Drafting',
         proposal_title: 'Talcher Extension — Direct Purchase',
         description: 'Direct purchase of 27.1 acres from willing landowners under §46 of RFCTLARR.',
         proposed_by: 'Rajesh Kumar', proposed_by_role: 'unit_office', area_office: 'MCL-Angul Area',

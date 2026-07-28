@@ -53,6 +53,7 @@ export const AuditLogPageClient = ({ initialData }: { initialData: any }) => {
         loading={loading}
         currentPage={data?.page || 1}
         totalPages={data?.totalPages || 0}
+        totalRecords={data?.total || 0}
         onPageChange={handlePageChange}
       />
     </div>

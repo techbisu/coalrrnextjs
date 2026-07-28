@@ -107,7 +107,7 @@ export class UpdateProjectUseCase implements IUseCase<UpdateProjectRequest, Upda
       entity_name: 'mst_project',
       entity_id: project.id.toString(),
       user_id: request.user_id,
-      remarks: JSON.stringify(updateProps),
+      remarks: `Updated Project: ${project.name}`,
     })
 
     // 6. Return response

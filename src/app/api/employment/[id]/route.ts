@@ -33,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const app = await db.employment_application.findUnique({
       where: { id },
       include: {
-        mst_project: true,
+
         nominee_pool: {
           include: {
             nominee_pool_contribution: {
@@ -49,7 +49,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     })
     
     if (!app) return notFound('Employment application not found')
-    return ok(app)
+    const project = await db.project.findUnique({ where: { projCd: app.project_id } })
+    return ok({ ...app, mst_project: project || null })
   } catch (e) {
     return serverError('Failed to fetch employment application', e instanceof Error ? e.message : String(e))
   }

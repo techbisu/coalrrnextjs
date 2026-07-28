@@ -30,6 +30,12 @@ export interface DataTableProps<T> {
   pageSize?: number
   initialSort?: { key: string; dir: 'asc' | 'desc' }
   className?: string
+  serverSide?: boolean
+  totalRecords?: number
+  currentPage?: number
+  onPageChange?: (page: number) => void
+  onSearchChange?: (query: string) => void
+  searchQuery?: string
 }
 
 export function DataTable<T>({
@@ -44,13 +50,20 @@ export function DataTable<T>({
   pageSize: defaultPageSize = 10,
   initialSort,
   className,
+  serverSide = false,
+  totalRecords = 0,
+  currentPage = 1,
+  onPageChange,
+  onSearchChange,
+  searchQuery = '',
 }: DataTableProps<T>) {
   const [sort, setSort] = React.useState<{ key: string; dir: 'asc' | 'desc' } | null>(initialSort ?? null)
-  const [query, setQuery] = React.useState('')
-  const [page, setPage] = React.useState(1)
+  const [query, setQuery] = React.useState(searchQuery)
+  const [page, setPage] = React.useState(currentPage)
   const [pageSize, setPageSize] = React.useState(defaultPageSize)
 
   const filtered = React.useMemo(() => {
+    if (serverSide) return data
     if (!query.trim()) return data
     const q = query.toLowerCase()
     return data.filter((row) =>
@@ -59,7 +72,7 @@ export function DataTable<T>({
         return val != null && String(val).toLowerCase().includes(q)
       }),
     )
-  }, [data, query, columns])
+  }, [data, query, columns, serverSide])
 
   const sorted = React.useMemo(() => {
     if (!sort) return filtered
@@ -79,14 +92,31 @@ export function DataTable<T>({
     })
   }, [filtered, sort, columns])
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
-  const safePage = Math.min(page, totalPages)
+  const totalPages = serverSide ? Math.max(1, Math.ceil(totalRecords / pageSize)) : Math.max(1, Math.ceil(sorted.length / pageSize))
+  const safePage = serverSide ? currentPage : Math.min(page, totalPages)
   const paged = React.useMemo(
-    () => sorted.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [sorted, safePage, pageSize],
+    () => serverSide ? sorted : sorted.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [sorted, safePage, pageSize, serverSide],
   )
 
-  React.useEffect(() => { setPage(1) }, [query, pageSize])
+  React.useEffect(() => { 
+    if (!serverSide) setPage(1) 
+  }, [query, pageSize, serverSide])
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(e.target.value)
+    if (onSearchChange) {
+      onSearchChange(e.target.value)
+    }
+  }
+
+  const handlePageChange = (newPage: number) => {
+    if (serverSide && onPageChange) {
+      onPageChange(newPage)
+    } else {
+      setPage(newPage)
+    }
+  }
 
   const toggleSort = (key: string) => {
     setSort((prev) =>
@@ -104,13 +134,13 @@ export function DataTable<T>({
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={handleSearchChange}
               placeholder={searchPlaceholder}
               className="pl-9 h-9"
             />
           </div>
           <div className="ml-auto text-xs text-muted-foreground">
-            {filtered.length} record{filtered.length !== 1 ? 's' : ''}
+            {serverSide ? totalRecords : filtered.length} record{serverSide ? (totalRecords !== 1 ? 's' : '') : (filtered.length !== 1 ? 's' : '')}
           </div>
         </div>
       )}
@@ -203,7 +233,7 @@ export function DataTable<T>({
         </Table>
       </div>
 
-      {!loading && sorted.length > 0 && (
+      {!loading && (serverSide ? totalRecords > 0 : sorted.length > 0) && (
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <span>Rows per page</span>
@@ -226,7 +256,7 @@ export function DataTable<T>({
                 size="sm"
                 variant="outline"
                 className="h-7 w-7 p-0"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => handlePageChange(Math.max(1, safePage - 1))}
                 disabled={safePage <= 1}
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -235,7 +265,7 @@ export function DataTable<T>({
                 size="sm"
                 variant="outline"
                 className="h-7 w-7 p-0"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => handlePageChange(Math.min(totalPages, safePage + 1))}
                 disabled={safePage >= totalPages}
               >
                 <ChevronRight className="h-3.5 w-3.5" />

@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 export async function seedCompensationPayroll(db: PrismaClient) {
   console.log('🌱 Seeding compensation_payroll...')
 
-  const project = await db.mst_project.findFirst()
+  const project = await db.project.findFirst()
   if (!project) {
     console.log('Skipping compensation_payroll seed, no project found')
     return
@@ -24,7 +24,7 @@ export async function seedCompensationPayroll(db: PrismaClient) {
   const payroll = await db.compensation_payroll.create({
     data: {
       id: randomUUID(),
-      project_id: project.id,
+      project_id: project.projCd,
       payroll_code: 'PR-2026-0412',
       multiplication_factor: '1.0000',
       state: 'HqParallelVetting',

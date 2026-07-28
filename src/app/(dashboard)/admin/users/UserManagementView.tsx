@@ -13,9 +13,56 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-export function UserManagementView({ initialData }: { initialData: any[] }) {
+import { Input } from '@/components/ui/input'
+import { Search } from 'lucide-react'
+import { usePathname, useSearchParams } from 'next/navigation'
+
+export function UserManagementView({ 
+  initialData,
+  totalRecords = 0,
+  unverifiedCount = 0,
+  currentPage = 1,
+  searchQuery = '',
+  activeTab = 'verified',
+  pageSize = 15
+}: { 
+  initialData: any[]
+  totalRecords?: number
+  unverifiedCount?: number
+  currentPage?: number
+  searchQuery?: string
+  activeTab?: string
+  pageSize?: number
+}) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', page.toString())
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
+  const handleSearchChange = (query: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', '1') // reset page on search
+    if (query) {
+      params.set('q', query)
+    } else {
+      params.delete('q')
+    }
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
+  const handleTabChange = (tab: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', '1')
+    params.set('tab', tab)
+    router.push(`${pathname}?${params.toString()}`)
+  }
 
   const handleMutationSuccess = () => {
     router.refresh()
@@ -49,20 +96,36 @@ export function UserManagementView({ initialData }: { initialData: any[] }) {
   }
 
   const columns: Column<any>[] = [
-    { key: 'name', header: 'Name', sortable: true },
+    { 
+      key: 'name', 
+      header: 'Name', 
+      sortable: true,
+      render: (r) => (
+        <div className="flex items-center gap-2">
+          <div className="flex flex-col">
+            <span className="font-medium text-slate-900">{r.name}</span>
+            {r.is_online && (
+              <span className="flex items-center text-[10px] text-green-600 font-medium mt-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse"></span>
+                Online
+              </span>
+            )}
+          </div>
+        </div>
+      )
+    },
     { key: 'email', header: 'Email', sortable: true },
     { key: 'mobile', header: 'Mobile', sortable: true },
     { key: 'role', header: 'Role', sortable: true },
     { key: 'designation', header: 'Designation', sortable: true },
     {
-      key: 'portal',
-      header: 'Portal',
-      sortable: true,
-      render: (r) => (
-        <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-full font-medium">
-          {r.portal}
+      key: 'tenant_name',
+      header: 'Tenant / Organization',
+      render: (r: any) => (
+        <span className="font-medium text-xs bg-slate-100 px-2 py-0.5 rounded-full border">
+          {r.tenant_name || 'N/A'}
         </span>
-      )
+      ),
     },
     {
       key: 'status',
@@ -114,7 +177,7 @@ export function UserManagementView({ initialData }: { initialData: any[] }) {
           <UserScopeDialog
             userId={row.id}
             userName={row.name}
-            currentMineCd={row.mine_cd}
+            currentScope={row.scope}
             onSuccess={handleMutationSuccess}
           />
           <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 text-rose-500 hover:text-rose-600 hover:bg-rose-50" onClick={() => handleDelete(row.id)}>
@@ -126,6 +189,9 @@ export function UserManagementView({ initialData }: { initialData: any[] }) {
     },
   ]
 
+  const verifiedUsers = activeTab === 'verified' ? initialData : []
+  const unverifiedUsers = activeTab === 'unverified' ? initialData : []
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -136,14 +202,53 @@ export function UserManagementView({ initialData }: { initialData: any[] }) {
         <UserFormDialog mode="create" onSuccess={handleMutationSuccess} />
       </div>
 
-      <SectionCard title="System Users" icon={Users} description={`Total records: ${initialData.length}`}>
-        <DataTable
-          columns={columns}
-          data={initialData}
-          getRowId={(r) => r.id}
-          pageSize={15}
-        />
-      </SectionCard>
+      <div className="bg-card border rounded-lg shadow-sm">
+        <div className="p-6 pb-0">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full sm:w-auto">
+              <TabsList>
+                <TabsTrigger value="verified">Verified Users</TabsTrigger>
+                <TabsTrigger value="unverified" className="flex items-center gap-2">
+                  Unverified Users
+                  {unverifiedCount > 0 && (
+                    <Badge variant="secondary" className="h-5 px-1.5 text-xs bg-amber-100 text-amber-700 hover:bg-amber-100">
+                      {unverifiedCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            
+            <div className="relative w-full sm:w-72">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                defaultValue={searchQuery}
+                onChange={(e) => {
+                  const timer = setTimeout(() => {
+                    handleSearchChange(e.target.value)
+                  }, 500)
+                  return () => clearTimeout(timer)
+                }}
+                placeholder="Search users..."
+                className="pl-9 bg-background"
+              />
+            </div>
+          </div>
+          
+          <DataTable
+            columns={columns}
+            data={initialData}
+            getRowId={(r) => r.id}
+            pageSize={pageSize}
+            serverSide={true}
+            totalRecords={totalRecords}
+            currentPage={currentPage}
+            searchQuery={searchQuery}
+            onPageChange={handlePageChange}
+            searchable={false}
+          />
+        </div>
+      </div>
     </div>
   )
 }

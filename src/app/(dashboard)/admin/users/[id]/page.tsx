@@ -24,8 +24,13 @@ export default async function AdminUserProfilePage({ params }: { params: Promise
     where: { id: numericId },
     select: {
       id: true, name: true, email: true, mobile: true,
-      designation: true, role: true, portal: true, mine_cd: true,
+      designation: true,
       entry_ts: true,
+      tenant: true,
+      auth_session: {
+        where: { expires_at: { gt: new Date() } },
+        select: { id: true }
+      }
     }
   })
 
@@ -47,7 +52,7 @@ export default async function AdminUserProfilePage({ params }: { params: Promise
 
   return (
     <ProfileView
-      initialUser={{ ...fullUser, id: fullUser.id.toString() } as any}
+      initialUser={{ ...fullUser, id: fullUser.id.toString(), isOnline: fullUser.auth_session && fullUser.auth_session.length > 0, tenant_name: fullUser.tenant?.tenantName || null } as any}
       scope={activeScope ? { ...activeScope, user_id: activeScope.user_id.toString() } as any : null}
       roles={assignedRoles.map(r => r.role)}
       readOnly={true}

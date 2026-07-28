@@ -124,7 +124,17 @@ export function RoleFormDialog({ mode, initialData, onSuccess, trigger }: {
                 <FormItem>
                   <FormLabel>Display Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. System Administrator" {...field} />
+                    <Input 
+                      placeholder="e.g. System Administrator" 
+                      {...field} 
+                      onChange={(e) => {
+                        field.onChange(e)
+                        if (mode === 'create') {
+                          const autoName = e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+                          form.setValue('name', autoName, { shouldValidate: true })
+                        }
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

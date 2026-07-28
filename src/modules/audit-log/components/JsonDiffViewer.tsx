@@ -40,12 +40,15 @@ export const JsonDiffViewer: React.FC<JsonDiffViewerProps> = ({ oldData = {}, ne
         newValue: newStr,
         status
       };
-    });
+    }).filter(d => d.status !== 'unchanged');
   }, [oldData, newData]);
 
   if (diffs.length === 0) {
     return <div className="text-sm text-gray-500 italic">No data to display.</div>;
   }
+
+  const isCreateAction = diffs.every(d => d.status === 'added');
+  const isDeleteAction = diffs.every(d => d.status === 'removed');
 
   return (
     <div className="border rounded-md overflow-hidden bg-white shadow-sm">
@@ -54,8 +57,8 @@ export const JsonDiffViewer: React.FC<JsonDiffViewerProps> = ({ oldData = {}, ne
           <tr>
             <th className="px-4 py-2 font-medium text-gray-700 w-1/4">Field</th>
             <th className="px-4 py-2 font-medium text-gray-700 w-1/4">Status</th>
-            <th className="px-4 py-2 font-medium text-gray-700 w-1/4">Old Value</th>
-            <th className="px-4 py-2 font-medium text-gray-700 w-1/4">New Value</th>
+            {!isCreateAction && <th className="px-4 py-2 font-medium text-gray-700 w-1/4">Old Value</th>}
+            {!isDeleteAction && <th className="px-4 py-2 font-medium text-gray-700 w-1/4">New Value</th>}
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -68,12 +71,16 @@ export const JsonDiffViewer: React.FC<JsonDiffViewerProps> = ({ oldData = {}, ne
                 {status === 'changed' && <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Changed</Badge>}
                 {status === 'unchanged' && <Badge variant="outline" className="text-gray-400 border-gray-200">Unchanged</Badge>}
               </td>
-              <td className={`px-4 py-2 font-mono text-xs break-all ${status === 'removed' || status === 'changed' ? 'bg-red-50/50 text-red-900 line-through opacity-70' : 'text-gray-500'}`}>
-                {oldValue}
-              </td>
-              <td className={`px-4 py-2 font-mono text-xs break-all ${status === 'added' || status === 'changed' ? 'bg-green-50/50 text-green-900 font-medium' : 'text-gray-500'}`}>
-                {newValue}
-              </td>
+              {!isCreateAction && (
+                <td className={`px-4 py-2 font-mono text-xs break-all ${status === 'removed' || status === 'changed' ? 'bg-red-50/50 text-red-900 line-through opacity-70' : 'text-gray-500'}`}>
+                  {oldValue}
+                </td>
+              )}
+              {!isDeleteAction && (
+                <td className={`px-4 py-2 font-mono text-xs break-all ${status === 'added' || status === 'changed' ? 'bg-green-50/50 text-green-900 font-medium' : 'text-gray-500'}`}>
+                  {newValue}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

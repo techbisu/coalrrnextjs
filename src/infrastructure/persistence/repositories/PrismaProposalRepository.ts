@@ -226,10 +226,9 @@ export class PrismaProposalRepository implements IProposalRepository {
   }
 
   async getProposalDetailsWithPlots(id: string): Promise<any> {
-    return await db.land_schedule.findUnique({
+    const proposal = await db.land_schedule.findUnique({
       where: { id },
       include: {
-        mst_project: true,
         land_schedule_item: {
           include: {
             mst_plot: {
@@ -241,5 +240,13 @@ export class PrismaProposalRepository implements IProposalRepository {
         }
       }
     })
+    
+    if (!proposal) return null;
+    const project = await db.project.findUnique({ where: { projCd: proposal.project_id } });
+    
+    return {
+      ...proposal,
+      mst_project: project || null
+    };
   }
 }

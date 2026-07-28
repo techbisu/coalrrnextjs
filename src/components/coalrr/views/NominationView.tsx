@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -1064,7 +1064,7 @@ function TrackingView() {
 export function NominationView() {
   const { user } = useAuth();
   const {  nominationView,   } = useUiState()
-  const isEcl = user?.portal === 'ecl'
+  const isEcl = user?.tenant_id === 'ecl'
 
   // When ECL user is on the list sub-view, show ECL-specific list
   // When on form/tracking, share the same components (data is per-user anyway)

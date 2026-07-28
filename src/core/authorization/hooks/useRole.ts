@@ -7,24 +7,23 @@ export function useRole() {
 
   const hasRole = (role: string) => {
     if (!user) return false
-    return user.roles.includes(role) || user.role === role
+    return user.roles.includes(role)
   }
 
   const hasAnyRole = (roles: string[]) => {
     if (!user) return false
-    return roles.some(r => user.roles.includes(r) || user.role === r)
+    return roles.some(r => user.roles.includes(r))
   }
 
   const hasAllRoles = (roles: string[]) => {
     if (!user) return false
-    return roles.every(r => user.roles.includes(r) || user.role === r)
+    return roles.every(r => user.roles.includes(r))
   }
 
   return {
     hasRole,
     hasAnyRole,
     hasAllRoles,
-    roles: user?.roles || [user?.role].filter(Boolean) as string[],
-    primaryRole: user?.role
+    roles: user?.roles || []
   }
 }

@@ -63,7 +63,7 @@ export class AdminRole extends AggregateRoot<string> {
     }
 
     const now = new Date()
-    const generatedId = `ROLE-${require('crypto').randomBytes(6).toString('hex').toUpperCase()}`
+    const generatedId = require('crypto').randomUUID()
 
     const role = new AdminRole({
       id: generatedId,

@@ -4,13 +4,19 @@ import { IRnrPayrollRepository, RnrPayrollData, RnrPayrollLineData } from '../..
 export class PrismaRnrPayrollRepository implements IRnrPayrollRepository {
   async findAll(): Promise<RnrPayrollData[]> {
     const payrolls = await db.rnr_asset_payroll.findMany({
-      include: { mst_project: true, rnr_asset_payroll_line: true },
+      include: { rnr_asset_payroll_line: true },
       orderBy: { entry_ts: 'desc' },
     });
+    
+    // Fetch projects for all payrolls
+    const projectIds = [...new Set(payrolls.map(p => p.project_id))];
+    const projects = await db.project.findMany({ where: { projCd: { in: projectIds } } });
+    const projectMap = new Map(projects.map(p => [p.projCd, p]));
+    
     return payrolls.map(p => ({
       id: p.id.toString(),
       project_id: p.project_id.toString(),
-      projectName: p.mst_project?.name,
+      projectName: projectMap.get(p.project_id)?.projNm || undefined,
       payroll_code: p.payroll_code,
       state: p.state,
       total_value: p.total_value.toString(),
@@ -23,13 +29,15 @@ export class PrismaRnrPayrollRepository implements IRnrPayrollRepository {
   async findById(id: string): Promise<RnrPayrollData | null> {
     const p = await db.rnr_asset_payroll.findUnique({
       where: { id: id },
-      include: { mst_project: true, rnr_asset_payroll_line: { orderBy: { entry_ts: 'asc' } } },
+      include: { rnr_asset_payroll_line: { orderBy: { entry_ts: 'asc' } } },
     });
     if (!p) return null;
+    const project = await db.project.findUnique({ where: { projCd: p.project_id } });
+    
     return {
       id: p.id.toString(),
       project_id: p.project_id.toString(),
-      projectName: p.mst_project?.name,
+      projectName: project?.projNm || undefined,
       payroll_code: p.payroll_code,
       state: p.state,
       total_value: p.total_value.toString(),
@@ -63,12 +71,14 @@ export class PrismaRnrPayrollRepository implements IRnrPayrollRepository {
         total_value: '0.00',
         updt_ts: new Date(),
       },
-      include: { mst_project: true, rnr_asset_payroll_line: true },
+      include: { rnr_asset_payroll_line: true },
     });
+    const project = await db.project.findUnique({ where: { projCd: payroll.project_id } });
+    
     return {
       id: payroll.id.toString(),
       project_id: payroll.project_id.toString(),
-      projectName: payroll.mst_project?.name,
+      projectName: project?.projNm || undefined,
       payroll_code: payroll.payroll_code,
       state: payroll.state,
       total_value: payroll.total_value.toString(),
@@ -82,11 +92,13 @@ export class PrismaRnrPayrollRepository implements IRnrPayrollRepository {
     const updated = await db.rnr_asset_payroll.update({
       where: { id: id },
       data: { state },
-      include: { mst_project: true, rnr_asset_payroll_line: true },
+      include: { rnr_asset_payroll_line: true },
     });
+    const project = await db.project.findUnique({ where: { projCd: updated.project_id } });
     return {
       id: updated.id.toString(),
       project_id: updated.project_id.toString(),
+      projectName: project?.projNm || undefined,
       payroll_code: updated.payroll_code,
       state: updated.state,
       total_value: updated.total_value.toString(),

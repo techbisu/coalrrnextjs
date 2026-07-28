@@ -65,21 +65,21 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       orderBy: { entry_ts: 'desc' }
     })
 
-    // Load the proposal to get its project and updated limits
     const proposal = await db.land_schedule.findUnique({
       where: { id },
-      include: {
-        mst_project: {
-          select: {
-            id: true,
-            name: true,
-            total_land_limit_acres: true,
-            total_budget_ceiling: true,
-            total_employment_quota: true,
-          }
-        }
-      }
     })
+
+    const project = proposal?.project_id ? await db.project.findUnique({
+      where: { projCd: proposal.project_id },
+      select: {
+        projCd: true,
+        projNm: true,
+        totalApprovedArea: true,
+        landBudget: true,
+        rrBudget: true,
+        totalEmpSanctioned: true,
+      }
+    }) : null
 
     const fileInfo = attachment ? {
       file_id: attachment.file_id,
@@ -90,12 +90,12 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       size_bytes: attachment.file_record.file_version[0]?.size_bytes?.toString() ?? null,
     } : null
 
-    const projectLimits = proposal?.mst_project ? {
-      project_id: proposal.mst_project.id,
-      project_name: proposal.mst_project.name,
-      total_land_limit_acres: proposal.mst_project.total_land_limit_acres?.toString(),
-      total_budget_ceiling: proposal.mst_project.total_budget_ceiling?.toString(),
-      total_employment_quota: proposal.mst_project.total_employment_quota,
+    const projectLimits = project ? {
+      project_id: project.projCd,
+      project_name: project.projNm,
+      total_land_limit_acres: project.totalApprovedArea?.toString(),
+      total_budget_ceiling: (Number(project.landBudget || 0) + Number(project.rrBudget || 0)).toString(),
+      total_employment_quota: project.totalEmpSanctioned,
     } : null
 
     if (instance) {

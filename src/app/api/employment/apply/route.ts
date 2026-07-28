@@ -45,9 +45,9 @@ export async function POST(req: NextRequest) {
 
     if (!project_id) {
       // Fallback: just pick any project if schedule not mapped yet for prototype
-      const anyProject = await db.mst_project.findFirst()
+      const anyProject = await db.project.findFirst()
       if (!anyProject) return badRequest('No projects found in system')
-      project_id = anyProject.id
+      project_id = anyProject.projCd
     }
 
     const application_code = `EMP-${new Date().getFullYear()}-${String(Math.floor(1 + Math.random() * 9999)).padStart(4, '0')}`

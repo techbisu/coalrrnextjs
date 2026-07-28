@@ -29,7 +29,7 @@ export async function GET() {
       where: { id: parseInt(user.id, 10) },
       select: {
         id: true, name: true, email: true, mobile: true,
-        designation: true, role: true, portal: true, mine_cd: true,
+        designation: true, tenant_id: true,
         entry_ts: true,
       }
     })

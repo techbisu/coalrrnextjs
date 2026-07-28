@@ -32,10 +32,9 @@ interface ProfileUser {
   email: string | null
   mobile: string | null
   designation: string | null
-  role: string
-  portal: string
-  mine_cd: string | null
+  tenant_name: string | null
   entry_ts: Date
+  isOnline?: boolean
 }
 
 interface Scope {
@@ -343,14 +342,22 @@ export function ProfileView({
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-2xl font-bold">
               {initials}
             </div>
-            <div>
-              <p className="text-lg font-bold">{user.name}</p>
+            <div className="flex flex-col items-center">
+              <div className="flex items-center gap-2">
+                <p className="text-lg font-bold">{user.name}</p>
+                {user.isOnline && (
+                  <span className="flex items-center text-[10px] text-green-600 font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse"></span>
+                    Online
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">{user.designation || 'No designation set'}</p>
             </div>
             <div className="flex flex-wrap gap-2 justify-center">
-              <Badge variant="outline" className="text-xs capitalize">{user.portal} Portal</Badge>
+              <Badge variant="outline" className="text-xs capitalize">{user.tenant_name || 'No Tenant'}</Badge>
               <Badge className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-0">
-                {user.role}
+                {roles[0]?.display_name || roles[0]?.name || 'User'}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -398,8 +405,7 @@ export function ProfileView({
               <InfoRow icon={Briefcase} label="Designation" value={user.designation} />
               <InfoRow icon={Mail} label="Email Address" value={user.email} />
               <InfoRow icon={Phone} label="Mobile Number" value={user.mobile} />
-              <InfoRow icon={Globe} label="Portal" value={<span className="capitalize">{user.portal}</span>} />
-              <InfoRow icon={KeyRound} label="System Role" value={user.role} mono />
+              <InfoRow icon={Building2} label="Tenant / Organization" value={<span className="capitalize">{user.tenant_name || 'None'}</span>} />
             </div>
           </SectionCard>
 
@@ -436,9 +442,7 @@ export function ProfileView({
                     value={`${scope.mine.mine_en} (${scope.mine.mine_cd})`}
                   />
                 )}
-                {user.mine_cd && !scope.mine && (
-                  <InfoRow icon={Building2} label="Mine Code (User)" value={user.mine_cd} mono />
-                )}
+
                 <InfoRow
                   icon={CalendarDays}
                   label="Effective From"

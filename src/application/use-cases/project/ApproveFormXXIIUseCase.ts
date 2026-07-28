@@ -101,16 +101,12 @@ export class ApproveFormXXIIUseCase implements IUseCase<ApproveFormXXIIRequest, 
         const newApprovedArea = project.totalApprovedArea.add(approval.aprvArea || Area.fromAcres(0))
         const newEmpSanctioned = project.totalEmpSanctioned + (approval.empSanc || 0)
 
-        // The exact table here depends on if the repository saves to mst_project or project
-        // Given our earlier update, PrismaProjectRepository saves to mst_project (legacy table mapped to new structure).
-        // If we are migrating, we should update both or just let PrismaProjectRepository handle it.
-        // But since we need this in a transaction, we'll manually update it here using tx
-        await tx.mst_project.update({
-          where: { id: project.id },
+        await tx.project.update({
+          where: { projCd: project.id },
           data: {
-            total_land_limit_acres: newApprovedArea.toDecimal(),
-            total_employment_quota: newEmpSanctioned,
-            updt_ts: new Date()
+            totalApprovedArea: newApprovedArea.toDecimal(),
+            totalEmpSanctioned: newEmpSanctioned,
+            updtTs: BigInt(Math.floor(Date.now() / 1000))
           }
         })
       })

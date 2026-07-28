@@ -8,16 +8,13 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 
 export interface AuthUser {
   id: string
-  portal: 'ecl' | 'public'
-  role: string
+  tenant_id: string | null
   roles: string[]
   permissions: string[]
   email: string | null
   mobile: string | null
   name: string
   designation: string | null
-  mine_cd: string | null
-  plot_id: string | null
   scope: any // EffectiveScope from UserScopeService
 }
 
@@ -47,10 +44,10 @@ export const getCurrentUser = cache(async function (): Promise<AuthUser | null> 
   const scope = UserScopeService.buildEffectiveScope(activeScope ? [activeScope] : [])
   
   return {
-    id: u.id.toString(), portal: u.portal as 'ecl' | 'public', role: u.role,
+    id: u.id.toString(), tenant_id: u.tenant_id,
     roles, permissions,
     email: u.email, mobile: u.mobile, name: u.name,
-    designation: u.designation, mine_cd: u.mine_cd, plot_id: u.plot_id,
+    designation: u.designation,
     scope
   }
 })
@@ -88,10 +85,10 @@ export async function createSession(user_id: string): Promise<AuthUser> {
   }).catch(() => {})
 
   return {
-    id: u.id.toString(), portal: u.portal as 'ecl' | 'public', role: u.role,
+    id: u.id.toString(), tenant_id: u.tenant_id,
     roles, permissions,
     email: u.email, mobile: u.mobile, name: u.name,
-    designation: u.designation, mine_cd: u.mine_cd, plot_id: u.plot_id,
+    designation: u.designation,
     scope
   }
 }
@@ -123,9 +120,4 @@ export async function destroySession(): Promise<void> {
   } catch (e) {}
 }
 
-export const ROLE_LABELS: Record<string, string> = {
-  unit_office: 'Unit Office', area_office: 'Area Office',
-  gm_planning: 'GM (Planning)', gm_finance: 'GM (Finance)',
-  gm_safety: 'GM (Safety)', director: 'Director', cmd: 'CMD',
-  board: 'Board of Directors', citizen: 'Citizen',
-}
+

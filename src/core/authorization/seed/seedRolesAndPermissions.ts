@@ -150,40 +150,7 @@ export async function runAuthSeed() {
     }
   }
 
-  // 3. Migrate Existing Users
-  // The system uses a 'role' string on user table. Map that to the new role table.
-  const users = await db.user.findMany()
-  const rolesMap = await db.role.findMany().then(rs => new Map(rs.map(r => [r.name.toLowerCase().replace(/[^a-z0-9]/g, ''), r.id])))
-  
-  let mappedCount = 0
-  for (const user of users) {
-    // Current roles are e.g., 'area_office'. We need to map to 'Area Office' ID.
-    let mappedName = user.role
-    if (user.role === 'unit_office') mappedName = 'Unit Office'
-    if (user.role === 'area_office') mappedName = 'Area Office'
-    if (user.role === 'gm_planning') mappedName = 'GM (Planning)'
-    if (user.role === 'gm_finance') mappedName = 'GM (Finance)'
-    if (user.role === 'gm_safety') mappedName = 'GM (Safety)'
-    if (user.role === 'director') mappedName = 'Director'
-    if (user.role === 'cmd') mappedName = 'CMD'
-    if (user.role === 'board') mappedName = 'Board of Directors'
-    if (user.role === 'citizen') mappedName = 'Citizen'
-
-    const searchKey = mappedName.toLowerCase().replace(/[^a-z0-9]/g, '')
-    const role_id = rolesMap.get(searchKey)
-
-    if (role_id) {
-      await db.model_has_role.upsert({
-        where: { role_id_model_type_model_id: { role_id, model_type: 'user', model_id: user.id.toString() } },
-        update: { updt_ts: new Date() },
-        create: { role_id, model_type: 'user', model_id: user.id.toString(), updt_ts: new Date() },
-      })
-      mappedCount++
-    }
-  }
-
   console.log(`Seeded ${ROLES.length} roles and ${PERMISSIONS.length} permissions.`)
-  console.log(`Migrated ${mappedCount} existing users to the new RBAC structure.`)
 }
 
 // Allow direct execution
