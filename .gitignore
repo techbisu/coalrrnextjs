@@ -57,4 +57,5 @@ uploads/
 scratch/
 *.sql
 !prisma/migrations/**/*.sql
+!db/**/*.sql
 *.truth
