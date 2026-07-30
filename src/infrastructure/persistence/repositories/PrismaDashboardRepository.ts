@@ -18,7 +18,7 @@ export class PrismaDashboardRepository implements IDashboardRepository {
       reviewTasks,
     ] = await Promise.all([
       db.project.findMany(),
-      db.land_schedule.groupBy({ by: ['project_id'], _count: { id: true } }),
+      db.acq_proposal.groupBy({ by: ['proj_cd'], _count: { proposal_id: true } }),
       db.compensation_payroll.groupBy({ by: ['project_id'], _count: { id: true } }),
       db.mst_plot.findMany({ include: { mouza: true } }),
       db.form_i_claim.findMany({ include: { mst_plot: true } }),
@@ -30,7 +30,7 @@ export class PrismaDashboardRepository implements IDashboardRepository {
       db.workflow_review_task.findMany({ orderBy: { entry_ts: 'desc' } }),
     ])
 
-    const scheduleCounts = new Map(scheduleCountsData.map(c => [c.project_id, c._count.id]))
+    const scheduleCounts = new Map(scheduleCountsData.map(c => [c.proj_cd, c._count.proposal_id]))
     const payrollProjectCounts = new Map(payrollCountsData.map(c => [c.project_id, c._count.id]))
     const projectNameMap = new Map(projectsData.map(p => [p.projCd, p.projNm]))
 

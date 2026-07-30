@@ -4,7 +4,7 @@
 import { IUseCase, Result, Fail, Ok } from '@/core'
 import { IProposalRepository } from '@/domain/entities/proposal'
 import { EventBus } from '@/core/notifications/EventBus'
-import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
+import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di'
 import { NotFoundException, ValidationException } from '@/core/errors'
 import { IPlotRepository } from '@/domain/entities/plot'
 import { Area } from '@/domain/value-objects/Area'

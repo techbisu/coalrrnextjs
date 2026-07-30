@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { AuditLogPageClient } from '../../audit-logs/AuditLogPageClient';
 import { fetchAuditLogsAction } from '@/modules/audit-log/actions';
+import { BackButton } from '@/components/ui/back-button';
 
 export const metadata = {
   title: 'Audit Logs - Administration',
@@ -19,9 +20,12 @@ export default async function AuditLogsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">System Audit Logs</h1>
-        <p className="text-muted-foreground">Comprehensive overview of system activity and user actions.</p>
+      <div className="flex items-start gap-2">
+        <BackButton iconOnly />
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">System Audit Logs</h1>
+          <p className="text-muted-foreground">Comprehensive overview of system activity and user actions.</p>
+        </div>
       </div>
 
       <Suspense fallback={<div className="h-64 flex items-center justify-center">Loading interface...</div>}>

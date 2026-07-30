@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { Can } from '@/authorization/components/Can'
 import {
   SectionCard, DataTable, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline,
@@ -10,9 +11,11 @@ import type {
   Column, AvailableTransition, TimelineNode, ChecklistItem, ChecklistItemStatus,
 } from '@/components/coalrr'
 import { formatNumber, timeAgo,  } from '@/lib/utils/formatters'
-import { useAuth } from '@/authorization/providers/AuthProvider'
 import { useUiState } from '@/providers/UiStateProvider'
+import { useAuth } from '@/authorization/providers/AuthProvider'
 import { routes } from '@/lib/url/UrlService'
+import { PlotScheduleManager } from '@/modules/proposal/components/PlotScheduleManager'
+import { GenericChecklistWorkspace } from '@/components/checklists/GenericChecklistWorkspace'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,13 +27,25 @@ import {
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import {
   ClipboardList, Plus, Loader2, ArrowLeft, MapPin, Building2, Calendar, ShieldCheck,
   History, FileText, Layers, CheckCircle2, Circle, Clock, AlertCircle, Lock, ChevronRight,
-  Trash2, ListChecks,
+  Trash2, ListChecks, Pencil, UploadCloud
 } from 'lucide-react'
 import { COMPENSATION_PAYROLL_STATES, COMPENSATION_PAYROLL_ORDERED_STATES } from '@/core/workflow'
+import { getChecklistStatus, updateChecklistSubmission } from '@/app/actions/checklist.actions'
 
 import {
   AcquisitionMode, MODE_META, MODES, ANNEXURE_META, LAND_TYPE_COLOR,
@@ -63,10 +78,11 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
   }, [schedule.mode_specific_checklist, mode.checklistCode])
 
   const qc = useQueryClient()
+  const router = useRouter()
   const onChanged = () => {
     qc.invalidateQueries({ queryKey: ['schedules'] })
     qc.invalidateQueries({ queryKey: ['schedule', schedule.id] })
-    window.location.reload() // Simple client refresh since we moved fetch to RSC
+    router.refresh() // Soft refresh to retain client state (popups) while fetching latest RSC data
   }
 
   return (
@@ -84,7 +100,7 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
         </TabsContent>
 
         <TabsContent value="checklist" className="mt-4">
-          <ChecklistTab schedule={schedule} checklist={checklist} onChanged={onChanged} />
+          <ChecklistTab schedule={schedule} onChanged={onChanged} />
         </TabsContent>
 
         <TabsContent value="verify" className="mt-4">
@@ -116,12 +132,14 @@ function PlotsTab({
   onChanged: () => void
 }) {
   const qc = useQueryClient()
-  const isDrafting = schedule.state === 'Drafting'
+  const isDrafting = schedule.state === 'Drafting' || schedule.state === 'DRAFT' || schedule.state === 'DRAFTING';
   const [addOpen, setAddOpen] = React.useState(false)
+  const [editPlotId, setEditPlotId] = React.useState<string | null>(null)
+  const [activeTab, setActiveTab] = React.useState<'A' | 'B' | 'C'>('A')
 
   const deleteItem = useMutation({
     mutationFn: async (plot_id: string) => {
-      const r = await fetch(`/api/schedules/${schedule.id}/items/${plot_id}`, { method: 'DELETE' })
+      const r = await fetch(`/api/proposals/${schedule.id}/plots/${plot_id}`, { method: 'DELETE' })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error ?? 'Failed to remove plot')
       return data
@@ -133,19 +151,19 @@ function PlotsTab({
     onError: (e: Error) => toast.error(e.message),
   })
 
-  const reclassify = useMutation({
-    mutationFn: async ({ plot_id, tag }: { plot_id: string; tag: 'A' | 'B' | 'C' }) => {
-      const r = await fetch(`/api/schedules/${schedule.id}/items/${plot_id}`, {
+  const updateStatus = useMutation({
+    mutationFn: async ({ plot_no, status }: { plot_no: string; status: string }) => {
+      const r = await fetch(`/api/proposals/${schedule.id}/plots/${plot_no}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ annexure_tag: tag }),
+        body: JSON.stringify({ acq_status: status }),
       })
       const data = await r.json()
-      if (!r.ok) throw new Error(data.error ?? 'Failed to reclassify')
+      if (!r.ok) throw new Error(data.error ?? 'Failed to update status')
       return data
     },
     onSuccess: () => {
-      toast.success('Annexure reclassified')
+      toast.success('Adjacent colliery status updated')
       onChanged()
     },
     onError: (e: Error) => toast.error(e.message),
@@ -181,29 +199,59 @@ function PlotsTab({
         </Badge>
       )
     } },
-    { key: '_reclassify', header: 'Reclassify', align: 'center', render: (r) => (
-      <select
-        value={r.annexure_tag}
-        disabled={!isDrafting || reclassify.isPending}
-        onChange={(e) => reclassify.mutate({ plot_id: r.plot_id, tag: e.target.value as 'A' | 'B' | 'C' })}
-        className="h-7 rounded border border-border bg-background px-1.5 text-xs disabled:opacity-50"
-      >
-        <option value="A">A · Govt</option>
-        <option value="B">B · Private</option>
-        <option value="C">C · Forest</option>
-      </select>
-    ) },
+    { key: '_adj_status', header: 'Adj. Colliery Status', align: 'center', render: (r) => {
+      const currentStatus = r.annexure_tag === 'B' ? 'PURCHASED' : r.annexure_tag === 'C' ? 'PARTIALLY_PURCHASED' : 'PROPOSED';
+      return (
+        <select
+          value={currentStatus}
+          disabled={updateStatus.isPending} // TODO: Disable if role is not adjacent_colliery or state is not vetting
+          onChange={(e) => updateStatus.mutate({ plot_no: r.plot_number, status: e.target.value })}
+          className="h-7 rounded border border-border bg-background px-1.5 text-[11px] disabled:opacity-50"
+        >
+          <option value="PROPOSED">None (Clear to Acquire)</option>
+          <option value="PURCHASED">Already Purchased</option>
+          <option value="PARTIALLY_PURCHASED">Partially Purchased</option>
+        </select>
+      )
+    } },
     { key: '_actions', header: '', align: 'right', render: (r) => (
       isDrafting ? (
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7 text-muted-foreground hover:text-rose-600"
-          onClick={() => deleteItem.mutate(r.plot_id)}
-          disabled={deleteItem.isPending}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex justify-end gap-2">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-muted-foreground hover:text-blue-600"
+            onClick={() => setEditPlotId(r.plot_id)}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-muted-foreground hover:text-rose-600"
+                disabled={deleteItem.isPending}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete the plot from this proposal.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => deleteItem.mutate(r.plot_id)} className="bg-rose-600 hover:bg-rose-700">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       ) : (
         <Lock className="h-3 w-3 text-muted-foreground/40" />
       )
@@ -230,6 +278,8 @@ function PlotsTab({
         })}
       </div>
 
+
+
       <SectionCard
         title="Schedule Items (Plots)"
         icon={Layers}
@@ -239,29 +289,46 @@ function PlotsTab({
             : `Schedule locked in ${schedule.state} — plots cannot be added or removed`
         }
         action={
-          isDrafting ? (
-            <Button size="sm" onClick={() => setAddOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
-              <Plus className="h-4 w-4" /> Add Plot
-            </Button>
-          ) : undefined
+          <PlotScheduleManager 
+            proposalId={schedule.id} 
+            isDrafting={isDrafting} 
+            projectStateLgd={schedule.project_state_lgd}
+            projectMouzas={schedule.projectMouzas}
+            editPlotId={editPlotId}
+            setEditPlotId={setEditPlotId}
+            onChanged={onChanged} 
+          />
         }
       >
         <DataTable
           columns={columns}
-          data={schedule.items}
+          data={schedule.items.filter(it => it.annexure_tag === activeTab)}
           getRowId={(r) => r.id}
           pageSize={5}
-          emptyMessage="No plots added yet. Click 'Add Plot' to compose the schedule."
+          showRecordCount={false}
+          emptyMessage={`No plots in Annexure ${ANNEXURE_META[activeTab].label}.`}
+          headerAction={
+            <div className="flex gap-1 bg-muted/50 p-1 rounded-md w-fit">
+              {(['A', 'B', 'C'] as const).map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setActiveTab(tag)}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-sm transition-all ${
+                    activeTab === tag
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  <span>Annexure {tag}</span>
+                  <Badge variant="secondary" className="px-1.5 py-0 min-w-[20px] text-[10px]">
+                    {schedule.items.filter(it => it.annexure_tag === tag).length}
+                  </Badge>
+                </button>
+              ))}
+            </div>
+          }
         />
       </SectionCard>
-
-      <AddPlotDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        schedule_id={schedule.id}
-        existingPlotIds={schedule.items.map((i) => i.plot_id)}
-        onAdded={onChanged}
-      />
     </div>
   )
 }
@@ -398,41 +465,17 @@ function AddPlotDialog({
 
 // ─── Tab 2: CL-1 Checklist ───────────────────────────────────────────────
 function ChecklistTab({
-  schedule, checklist, onChanged,
+  schedule, onChanged,
 }: {
   schedule: ScheduleDetail
-  checklist: ModeChecklistPayload
   onChanged: () => void
 }) {
-  // Build SmartChecklist items
-  const items: ChecklistItem[] = checklist.items.map((it) => ({
-    key: it.key,
-    label: it.label,
-    required: it.required,
-    status: (it.status === 'in_progress' ? 'in_progress' : it.status === 'complete' ? 'complete' : it.status === 'skipped' ? 'skipped' : 'pending') as ChecklistItemStatus,
-  }))
-
-  const canEdit = schedule.state === 'Drafting' || schedule.state === 'AreaVetting'
+  const qc = useQueryClient()
+  const { user } = useAuth()
+  
   const showForward = schedule.state === 'UnitSubmitted'
 
-  const qc = useQueryClient()
-  const updateItem = useMutation({
-    mutationFn: async ({ itemKey, status }: { itemKey: string; status: ChecklistItemStatus }) => {
-      const r = await fetch(`/api/schedules/${schedule.id}/checklist`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemKey, status }),
-      })
-      const data = await r.json()
-      if (!r.ok) throw new Error(data.error ?? 'Failed to update checklist')
-      return data
-    },
-    onSuccess: () => {
-      onChanged()
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
+  // Forward to Area Vetting
   const forward = useMutation({
     mutationFn: async () => {
       const r = await fetch(`/api/schedules/${schedule.id}/verify`, {
@@ -455,85 +498,14 @@ function ChecklistTab({
 
   return (
     <div className="space-y-4">
-      <SectionCard
-        title={`CL-1 Checklist — ${checklist.checklistCode}`}
-        icon={ListChecks}
+      <GenericChecklistWorkspace
+        moduleCode="LAND_ACQ_PROPOSAL"
+        checkableType="proposal"
+        checkableId={schedule.id}
+        userId={user?.id || 'system'}
+        title="Compliance Checklist"
         description={`Mode-specific compliance items for ${MODE_META[schedule.acquisition_mode]?.label ?? schedule.acquisition_mode}. 'Forward to Area Vetting' enabled once all required items are complete.`}
-      >
-        <SmartChecklist
-          code={checklist.checklistCode}
-          title="Compliance Checklist"
-          items={items}
-          hideForward={!showForward}
-          forwardLabel="Forward to Area Vetting"
-          onForward={() => forward.mutate()}
-        />
-      </SectionCard>
-
-      {/* Quick-update panel */}
-      <SectionCard
-        title="Quick Update"
-        icon={CheckCircle2}
-        description={
-          canEdit
-            ? 'Click ○ / ◐ / ✓ to set each item status. PATCHes /api/schedules/[id]/checklist.'
-            : `Checklist is locked in state ${schedule.state} — only editable from Drafting or AreaVetting.`
-        }
-      >
-        {checklist.items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No checklist items defined.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {checklist.items.map((it) => {
-              const status = it.status as ChecklistItemStatus
-              return (
-                <div
-                  key={it.key}
-                  className={`flex items-center justify-between gap-3 rounded-md border border-transparent px-2.5 py-2 transition ${
-                    status === 'complete' ? 'bg-emerald-50/60 dark:bg-emerald-950/20' :
-                    status === 'in_progress' ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''
-                  }`}
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <StatusGlyph status={status} />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{it.label}</p>
-                      <p className="font-mono text-[10px] text-muted-foreground">{it.key}</p>
-                    </div>
-                    {it.required && (
-                      <Badge variant="secondary" className="h-4 px-1 text-[10px] uppercase">required</Badge>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <QuickButton
-                      active={status === 'pending'} disabled={!canEdit || updateItem.isPending}
-                      onClick={() => updateItem.mutate({ itemKey: it.key, status: 'pending' })}
-                      title="Pending"
-                    >
-                      <Circle className="h-3.5 w-3.5" />
-                    </QuickButton>
-                    <QuickButton
-                      active={status === 'in_progress'} disabled={!canEdit || updateItem.isPending}
-                      onClick={() => updateItem.mutate({ itemKey: it.key, status: 'in_progress' })}
-                      title="In progress"
-                    >
-                      <Clock className="h-3.5 w-3.5" />
-                    </QuickButton>
-                    <QuickButton
-                      active={status === 'complete'} disabled={!canEdit || updateItem.isPending}
-                      onClick={() => updateItem.mutate({ itemKey: it.key, status: 'complete' })}
-                      title="Complete"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    </QuickButton>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {showForward && (
+        action={(isComplete) => showForward && (
           <>
             <Separator className="my-3" />
             <div className="flex items-center justify-between gap-3">
@@ -542,7 +514,7 @@ function ChecklistTab({
               </p>
               <Button
                 onClick={() => forward.mutate()}
-                disabled={forward.isPending}
+                disabled={forward.isPending || !isComplete}
                 className="bg-emerald-600 hover:bg-emerald-700"
               >
                 {forward.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
@@ -551,42 +523,16 @@ function ChecklistTab({
             </div>
           </>
         )}
-      </SectionCard>
+      />
     </div>
   )
 }
 
 function StatusGlyph({ status }: { status: ChecklistItemStatus }) {
-  if (status === 'complete') return <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-  if (status === 'in_progress') return <Clock className="h-4 w-4 text-amber-600" />
-  if (status === 'skipped') return <AlertCircle className="h-4 w-4 text-slate-400" />
-  return <Circle className="h-4 w-4 text-muted-foreground/60" />
-}
-
-function QuickButton({
-  active, disabled, onClick, title, children,
-}: {
-  active: boolean
-  disabled: boolean
-  onClick: () => void
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      disabled={disabled}
-      onClick={onClick}
-      className={`flex h-7 w-7 items-center justify-center rounded-md border transition ${
-        active
-          ? 'border-amber-400 bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-          : 'border-border bg-background text-muted-foreground hover:border-amber-300 hover:text-foreground'
-      } disabled:cursor-not-allowed disabled:opacity-40`}
-    >
-      {children}
-    </button>
-  )
+  if (status === 'complete') return <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+  if (status === 'in_progress') return <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+  if (status === 'skipped') return <AlertCircle className="h-4 w-4 text-slate-400 shrink-0" />
+  return <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />
 }
 
 // ─── Tab 3: Verification (ApprovalPanel) ─────────────────────────────────

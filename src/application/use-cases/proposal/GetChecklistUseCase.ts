@@ -2,7 +2,7 @@
  * Get Checklist Use Case - Retrieves the full proposal checklist with progress.
  */
 import { IUseCase, Result, Fail, Ok } from '@/core'
-import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories/PrismaProposalRepository'
+import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories'
 import { NotFoundException } from '@/core/errors'
 
 export interface GetChecklistRequest {

@@ -65,12 +65,12 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       orderBy: { entry_ts: 'desc' }
     })
 
-    const proposal = await db.land_schedule.findUnique({
-      where: { id },
+    const proposal = await db.acq_proposal.findUnique({
+      where: { proposal_id: id },
     })
 
-    const project = proposal?.project_id ? await db.project.findUnique({
-      where: { projCd: proposal.project_id },
+    const project = proposal?.proj_cd ? await db.project.findUnique({
+      where: { projCd: proposal.proj_cd },
       select: {
         projCd: true,
         projNm: true,

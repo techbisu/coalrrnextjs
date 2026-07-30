@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { TranslationDTO } from '../application/use-cases/GetTranslationsUseCase';
 import { updateTranslationAction } from '@/app/(dashboard)/admin/localization/actions';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Edit2, Check, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit2, Check, X, Search } from 'lucide-react';
 import { useQueryState } from 'nuqs';
 import { searchParamsParsers } from './search-params';
 
@@ -139,8 +139,14 @@ export function LocalizationDataTable({ data, total, page: currentPage, totalPag
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                <TableCell colSpan={columns.length} className="h-48 text-center">
+                  <div className="flex flex-col items-center justify-center text-muted-foreground gap-2">
+                    <div className="rounded-full bg-slate-100 dark:bg-slate-800 p-3">
+                      <Search className="h-6 w-6 opacity-40" />
+                    </div>
+                    <p className="font-medium text-slate-600 dark:text-slate-400">No translations found.</p>
+                    <p className="text-sm opacity-70">Try adjusting your filters or search query.</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

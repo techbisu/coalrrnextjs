@@ -36,6 +36,8 @@ export interface DataTableProps<T> {
   onPageChange?: (page: number) => void
   onSearchChange?: (query: string) => void
   searchQuery?: string
+  headerAction?: React.ReactNode
+  showRecordCount?: boolean
 }
 
 export function DataTable<T>({
@@ -56,6 +58,8 @@ export function DataTable<T>({
   onPageChange,
   onSearchChange,
   searchQuery = '',
+  headerAction,
+  showRecordCount = true,
 }: DataTableProps<T>) {
   const [sort, setSort] = React.useState<{ key: string; dir: 'asc' | 'desc' } | null>(initialSort ?? null)
   const [query, setQuery] = React.useState(searchQuery)
@@ -128,20 +132,29 @@ export function DataTable<T>({
 
   return (
     <div className={cn('space-y-3', className)}>
-      {searchable && (
-        <div className="flex items-center gap-2">
-          <div className="relative max-w-xs flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={handleSearchChange}
-              placeholder={searchPlaceholder}
-              className="pl-9 h-9"
-            />
-          </div>
-          <div className="ml-auto text-xs text-muted-foreground">
-            {serverSide ? totalRecords : filtered.length} record{serverSide ? (totalRecords !== 1 ? 's' : '') : (filtered.length !== 1 ? 's' : '')}
-          </div>
+      {(searchable || headerAction) && (
+        <div className="flex flex-wrap items-center gap-3">
+          {searchable && (
+            <div className="relative max-w-xs flex-1 min-w-[200px]">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={handleSearchChange}
+                placeholder={searchPlaceholder}
+                className="pl-9 h-9"
+              />
+            </div>
+          )}
+          {headerAction && (
+            <div className="ml-auto overflow-x-auto no-scrollbar">
+              {headerAction}
+            </div>
+          )}
+          {showRecordCount && (
+            <div className={cn("text-xs text-muted-foreground whitespace-nowrap", !headerAction && "ml-auto")}>
+              {serverSide ? totalRecords : filtered.length} record{serverSide ? (totalRecords !== 1 ? 's' : '') : (filtered.length !== 1 ? 's' : '')}
+            </div>
+          )}
         </div>
       )}
 

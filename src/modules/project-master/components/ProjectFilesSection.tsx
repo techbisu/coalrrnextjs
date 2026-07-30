@@ -48,7 +48,7 @@ export function ProjectFilesSection({ projectId, prDocs = [] }: { projectId: str
 
   const handleUploadSuccess = () => {
     refetch()
-    toast.success('Document uploaded successfully')
+    toast.success(t('upload_success'))
   }
 
   return (
@@ -58,7 +58,7 @@ export function ProjectFilesSection({ projectId, prDocs = [] }: { projectId: str
         {missingClearances.length > 0 && (
           <div className="space-y-3">
             <h4 className="text-sm font-semibold text-rose-600 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" /> Required Uploads
+              <AlertTriangle className="h-4 w-4" /> {t('required_uploads')}
             </h4>
             <div className="space-y-3">
               {missingClearances.map(c => (
@@ -81,7 +81,7 @@ export function ProjectFilesSection({ projectId, prDocs = [] }: { projectId: str
         {/* Uploaded Files List */}
         <div className="space-y-3">
           <h4 className="text-sm font-semibold flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Uploaded Documents
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" /> {t('uploaded_documents')}
           </h4>
           {isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">

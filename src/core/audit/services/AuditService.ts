@@ -1,4 +1,4 @@
-import { Container } from '@/infrastructure/di/modules/core.di'
+import { jobDispatcher } from '@/core/jobs/services/JobDispatcherService'
 
 export class AuditService {
   /**
@@ -16,11 +16,11 @@ export class AuditService {
     userAgent?: string
   ) {
     // Dispatch to centralized JobDispatcherService
-    if (!Container.jobDispatcher) {
+    if (!jobDispatcher) {
        console.warn('JobDispatcher not initialized');
        return;
     }
-    await Container.jobDispatcher.dispatch('auditLog', {
+    await jobDispatcher.dispatch('auditLog', {
       type: 'RECORD_CHANGE',
       payload: {
         table,
@@ -45,11 +45,11 @@ export class AuditService {
     userAgent?: string
   }) {
     // Dispatch to centralized JobDispatcherService
-    if (!Container.jobDispatcher) {
+    if (!jobDispatcher) {
        console.warn('JobDispatcher not initialized');
        return;
     }
-    await Container.jobDispatcher.dispatch('auditLog', {
+    await jobDispatcher.dispatch('auditLog', {
       type: 'CUSTOM_ACTIVITY',
       payload: {
         activity: options.activity,

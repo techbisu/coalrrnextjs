@@ -2,8 +2,9 @@
  * Get Proposal Details Use Case - Data retrieval for the UI.
  */
 import { IUseCase, Result, Fail, Ok } from '@/core'
-import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories/PrismaProposalRepository'
+import { PrismaAcqProposalRepository } from '@/infrastructure/persistence/repositories/PrismaAcqProposalRepository'
 import { NotFoundException } from '@/core/errors'
+import { formatPlotHumanReadable } from '@/shared/utils/plot.utils'
 
 export interface GetProposalDetailsRequest {
   proposalId: string
@@ -18,6 +19,8 @@ export interface GetProposalDetailsResponse {
   projectBudgetCeiling: string
   projectLandLimit: string
   projectEmploymentQuota: string
+  project_state_lgd: string
+  projectMouzas: string[]
   acquisition_mode: string
   state: string
   proposal_title: string
@@ -47,7 +50,7 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
   // Injecting the concrete Prisma repository because this use case is read-heavy 
   // and requires specific joins for UI aggregation, which is fine in CQRS.
   constructor(
-    private readonly proposalRepository: PrismaProposalRepository
+    private readonly proposalRepository: PrismaAcqProposalRepository
   ) {}
 
   async execute(request: GetProposalDetailsRequest): Promise<Result<GetProposalDetailsResponse>> {
@@ -57,38 +60,77 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
       return Fail('Proposal')
     }
 
-    // Map to DTO
+    let totalArea = 0;
+    const items = (data.plot_schedule || []).map((it: any) => {
+      totalArea += Number(it.to_be_acquired_area) || 0;
+      
+      const landTypes = it.plot_schedule_land_type || [];
+      const landType = landTypes[0]?.landtype_master?.land_type || 'Unknown';
+      
+      let tag = 'A';
+      if (it.acq_status === 'PURCHASED') {
+        tag = 'B';
+      } else if (it.acq_status === 'PARTIALLY_PURCHASED') {
+        tag = 'C';
+      } else {
+        if (landType.toLowerCase().includes('govt')) {
+          tag = 'A';
+        } else {
+          tag = 'A'; // Default clear land
+        }
+      }
+
+      const formattedPlot = formatPlotHumanReadable({
+        plotTy: it.plot_ty,
+        plotNumber: it.plot_number,
+        bataNo: it.bata_no,
+        fallbackPlotNo: it.plot_no,
+        stateLgd: data.project?.state_lgd,
+        mouzaLgd: it.mouza_lgd
+      });
+
+      return {
+        id: it.schedule_id.toString(),
+        plot_id: it.schedule_id.toString(), // Using schedule_id as the plot ID for UI list
+        plot_number: formattedPlot,
+        mouza: it.mouza_master?.mouza_en || 'Unknown',
+        land_type: landType,
+        area_acres: Number(it.to_be_acquired_area || 0).toString(),
+        annexure_tag: tag,
+        is_active: it.acq_status !== 'CANCELLED'
+      };
+    });
+
     const response: GetProposalDetailsResponse = {
-      id: data.id,
-      schedule_code: data.schedule_code,
-      project_id: data.project_id,
-      projectName: data.mst_project.name,
-      projectBudgetCeiling: data.mst_project.total_budget_ceiling.toString(),
-      projectLandLimit: data.mst_project.total_land_limit_acres.toString(),
-      projectEmploymentQuota: data.mst_project.total_employment_quota.toString(),
-      acquisition_mode: data.acquisition_mode,
-      state: data.state,
-      proposal_title: data.proposal_title ?? '',
-      description: data.description ?? '',
-      proposed_by: data.proposed_by ?? '',
-      proposed_by_role: data.proposed_by_role ?? '',
-      area_office: data.area_office ?? '',
-      mine_cd: data.mine_cd ?? '',
-      adjacent_colliery: data.adjacent_colliery ?? '',
-      total_area_acres: data.total_area_acres.toString(),
-      notification_date: data.notification_date ? data.notification_date.toISOString() : null,
-      mode_specific_checklist: data.mode_specific_checklist ?? '{"items":[]}',
-      items: data.land_schedule_item.map((it: any) => ({ 
-        id: it.id, 
-        plot_id: it.plot_id, 
-        plot_number: it.mst_plot.plot_number, 
-        mouza: it.mst_plot.mouza?.mouza_en || 'Unknown', 
-        land_type: it.mst_plot.land_type, 
-        area_acres: it.mst_plot.area_acres.toString(), 
-        annexure_tag: it.annexure_tag, 
-        is_active: it.is_active 
-      })),
-      entry_ts: data.entry_ts.toISOString(),
+      id: data.proposal_id.toString(),
+      schedule_code: data.proposal_no,
+      project_id: data.proj_cd,
+      projectName: data.project ? `${data.project.projNm}${data.project.eclProjCd ? ` (${data.project.eclProjCd})` : ''}` : `Project ${data.proj_cd}`,
+      projectBudgetCeiling: (data.project?.total_budget_ceiling || 0).toString(),
+      projectLandLimit: (data.project?.total_land_limit_acres || 0).toString(),
+      projectEmploymentQuota: (data.project?.total_employment_quota || 0).toString(),
+      project_state_lgd: (data.project as any)?.state_lgd?.toString() || data.area_master?.state_lgd?.toString() || '',
+      projectMouzas: data.project?.approvals
+        ? Array.from(new Set(
+            data.project.approvals.flatMap((a: any) => 
+              a.locations?.map((l: any) => l.mouzaLgd?.toString()) || []
+            ).filter(Boolean)
+          ))
+        : [],
+      acquisition_mode: data.acq_mode_id === 1 ? 'CBA Act' : data.acq_mode_id === 2 ? 'LAA 1894' : data.acq_mode_id === 3 ? 'RFCTLARR 2013' : 'Direct Purchase',
+      state: data.overall_status,
+      proposal_title: data.proposal_no,
+      description: data.purpose_justification || '',
+      proposed_by: data.entry_by || '',
+      proposed_by_role: 'Initiator',
+      area_office: data.area_master?.area_en || data.area_cd,
+      mine_cd: data.mine_master?.mine_en || data.mine_cd,
+      adjacent_colliery: '',
+      total_area_acres: totalArea.toString(),
+      notification_date: null, // No notification_dt column exists yet, so it's always unpublished
+      mode_specific_checklist: '{"items":[]}',
+      items: items,
+      entry_ts: new Date(data.proposal_dt).toISOString(),
     }
 
     return Ok(response)

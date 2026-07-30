@@ -1,4 +1,7 @@
 // COALRR API — helpers shared across all route handlers
+// ⚠️  Keep this file free of server-only imports (next/headers, prisma, auth)
+//     so it remains safe to import from anywhere in the module graph.
+//     Server-specific helpers live in src/app/api/_server.ts
 import { NextResponse } from 'next/server'
 
 export type ApiError = { error: string; details?: unknown }
@@ -45,3 +48,4 @@ export async function readJson<T = unknown>(req: Request): Promise<T | null> {
     return null
   }
 }
+

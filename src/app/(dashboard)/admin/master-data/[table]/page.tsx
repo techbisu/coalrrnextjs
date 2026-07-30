@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getMasterDataUseCase } from '@/infrastructure/di/Container'
-import { MASTER_REGISTRY } from '@/modules/admin/master-data/config/MasterDataRegistry'
+import { MASTER_REGISTRY, toClientConfig } from '@/core/config/master.config'
 import { MasterDataView } from './MasterDataView'
 import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { redirect } from 'next/navigation'
@@ -26,5 +26,5 @@ export default async function MasterDataPage({ params }: { params: Promise<{ tab
     return <div className="p-8 text-red-500">Failed to load {config.title}: {result.error}</div>
   }
 
-  return <MasterDataView config={config} initialData={result.value!} />
+  return <MasterDataView config={toClientConfig(config)} initialData={result.value!} />
 }

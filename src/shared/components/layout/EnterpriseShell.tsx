@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Map, FileText, Calculator, Lock, Users,
-  Inbox, ClipboardList, Home, UserPlus, Briefcase, UserCheck, Menu, X, Mountain, ChevronRight, Building2, LogOut, Settings,  Database, ShieldCheck } from 'lucide-react'
+  Inbox, ClipboardList, Home, UserPlus, Briefcase, UserCheck, Menu, X, Mountain, ChevronRight, Building2, LogOut, Settings,  Database, ShieldCheck, Globe } from 'lucide-react'
 import { useAuth } from '@/core/authorization/providers/AuthProvider'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 import { Button } from '@/shared/components/ui/button'
@@ -20,7 +20,7 @@ import { AuthView } from '@/components/coalrr/views/AuthView'
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard, Map, FileText, Calculator, Lock, Users, Inbox, ClipboardList,
-  Home, UserPlus, Briefcase, UserCheck, Settings, ShieldCheck, Database,
+  Home, UserPlus, Briefcase, UserCheck, Settings, ShieldCheck, Database, Globe
 }
 
 const NAV_ITEMS = [
@@ -40,6 +40,7 @@ const NAV_ITEMS = [
   { key: 'admin-users', icon: 'Users', portals: ['ecl'], module: 'Admin', permission: 'admin.users.view' },
   { key: 'admin-roles', icon: 'ShieldCheck', portals: ['ecl'], module: 'Admin', permission: 'admin.roles.view' },
   { key: 'admin-master', icon: 'Database', portals: ['ecl'], module: 'Admin', permission: 'project.view' },
+  { key: 'admin-localization', icon: 'Globe', portals: ['ecl'], module: 'Admin', permission: 'project.view' },
 ]
 
 export const ROUTE_MAP: Record<string, string> = {
@@ -54,6 +55,7 @@ export const ROUTE_MAP: Record<string, string> = {
   'admin-users': '/admin/users',
   'admin-roles': '/admin/roles',
   'admin-master': '/admin/master-data',
+  'admin-localization': '/admin/localization',
 }
 
 export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
@@ -113,8 +115,8 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
         <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => router.push('/')}>
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-sm">
-            <Mountain className="h-4 w-4" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden shrink-0">
+            <img src="/logo.svg" alt="COALRR Logo" className="h-full w-full object-contain" />
           </div>
           <div className="hidden sm:block">
             <p className="text-sm font-bold leading-tight">COALRR</p>
@@ -162,21 +164,30 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
           </SidebarHeader>
           <SidebarContent className="sidebar-scroll flex-1 overflow-y-auto px-3 py-2">
             <nav className="flex flex-col gap-1">
-            {visibleNav.map((item) => {
+            {visibleNav.map((item, index) => {
               const Icon = ICONS[item.icon] ?? LayoutDashboard
               const active = getActiveState(item.key)
+              const isFirstAdmin = item.module === 'Admin' && (index === 0 || visibleNav[index - 1].module !== 'Admin')
+
               return (
-                <button key={item.key} onClick={() => handleNavClick(item.key)} className={cn('group flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition', active ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200' : 'text-foreground hover:bg-muted')}>
-                  <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', active ? 'text-amber-700 dark:text-amber-300' : 'text-muted-foreground')} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium">{t(`nav.${item.key}.label`)}</span>
-                      <Badge variant="outline" className="h-3.5 px-1 text-[9px] font-mono">{item.module}</Badge>
+                <React.Fragment key={item.key}>
+                  {isFirstAdmin && (
+                    <div className="mt-4 mb-2 px-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Administration</p>
                     </div>
-                    <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{t(`nav.${item.key}.desc`)}</p>
-                  </div>
-                  {active && <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-300" />}
-                </button>
+                  )}
+                  <button onClick={() => handleNavClick(item.key)} className={cn('group flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition', active ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200' : 'text-foreground hover:bg-muted')}>
+                    <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', active ? 'text-amber-700 dark:text-amber-300' : 'text-muted-foreground')} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-medium">{t(`nav.${item.key}.label`)}</span>
+                        {item.module !== 'Admin' && <Badge variant="outline" className="h-3.5 px-1 text-[9px] font-mono">{item.module}</Badge>}
+                      </div>
+                      <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{t(`nav.${item.key}.desc`)}</p>
+                    </div>
+                    {active && <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-300" />}
+                  </button>
+                </React.Fragment>
               )
             })}
             <Separator className="my-2" />

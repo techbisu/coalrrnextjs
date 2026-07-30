@@ -18,12 +18,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { MasterDataConfig } from '@/modules/admin/master-data/config/MasterDataRegistry'
+import { MasterDataClientConfig } from '@/core/config/master.config'
 import { MasterAutocomplete } from '@/core/master-lookup/components/MasterAutocomplete'
 import { createMasterRecord, updateMasterRecord } from './actions'
 
 interface MasterFormDialogProps {
-  config: MasterDataConfig
+  config: MasterDataClientConfig
   mode: 'create' | 'edit'
   initialData?: Record<string, any>
   trigger?: React.ReactNode
@@ -31,7 +31,7 @@ interface MasterFormDialogProps {
 }
 
 // Dynamically build Zod schema from config columns
-function buildSchema(config: MasterDataConfig) {
+function buildSchema(config: MasterDataClientConfig) {
   const shape: Record<string, z.ZodTypeAny> = {}
   for (const col of config.columns) {
     // Skip primary key on create — it may be auto-generated

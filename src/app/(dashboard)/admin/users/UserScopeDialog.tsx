@@ -28,9 +28,10 @@ interface UserScopeDialogProps {
   userName: string
   currentScope?: { scopeLevel: string; areaCd?: string | null; mineCd?: string | null }
   onSuccess: () => void
+  trigger?: React.ReactNode
 }
 
-export function UserScopeDialog({ userId, userName, currentScope, onSuccess }: UserScopeDialogProps) {
+export function UserScopeDialog({ userId, userName, currentScope, onSuccess, trigger }: UserScopeDialogProps) {
   const [open, setOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   
@@ -88,10 +89,12 @@ export function UserScopeDialog({ userId, userName, currentScope, onSuccess }: U
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" title="Assign Organizational Scope">
-          <MapPin className="h-3.5 w-3.5" />
-          Scope
-        </Button>
+        {trigger || (
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" title="Assign Organizational Scope">
+            <MapPin className="h-3.5 w-3.5" />
+            Scope
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>

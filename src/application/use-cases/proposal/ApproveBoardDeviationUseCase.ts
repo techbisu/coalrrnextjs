@@ -6,7 +6,7 @@ import { IProposalRepository } from '@/domain/entities/proposal'
 import { IProjectRepository } from '@/domain/entities/project'
 import { EventBus } from '@/core/notifications/EventBus'
 import { randomUUID } from 'crypto'
-import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
+import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di'
 import { db } from '@/lib/db'
 
 export interface ApproveBoardDeviationRequest {

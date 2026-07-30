@@ -6,7 +6,8 @@ import { NextResponse } from 'next/server'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { ok, notFound, serverError } from '../../_lib'
 import type { NextRequest } from 'next/server'
-import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories/PrismaProposalRepository'
+import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories'
+import { PrismaAcqProposalRepository } from '@/infrastructure/persistence/repositories/PrismaAcqProposalRepository'
 import { GetProposalDetailsUseCase, UpdateProposalUseCase } from '@/application/use-cases/proposal'
 import { validateBody } from '@/application/middleware/validation'
 import { UpdateProposalSchema } from '@/application/validators/schemas'
@@ -16,6 +17,7 @@ import { NotFoundException, DomainException, ValidationException } from '@/core/
 type Ctx = { params: Promise<{ id: string }> }
 
 const proposalRepository = new PrismaProposalRepository()
+const acqProposalRepository = new PrismaAcqProposalRepository()
 
 export async function GET(req: NextRequest, ctx: Ctx) {
   try {
@@ -24,7 +26,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
     const { id } = await ctx.params
     
-    const useCase = new GetProposalDetailsUseCase(proposalRepository)
+    const useCase = new GetProposalDetailsUseCase(acqProposalRepository)
     const result = await useCase.execute({ proposalId: id })
 
     if (result.isFailure) {

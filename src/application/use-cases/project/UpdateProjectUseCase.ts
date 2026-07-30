@@ -5,7 +5,7 @@
 import { IUseCase, Result, Fail, Ok } from '@/core'
 import { IProjectRepository } from '@/domain'
 import { EventBus } from '@/core/notifications/EventBus'
-import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
+import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di'
 import { NotFoundException } from '@/core/errors'
 import { ProjectAlreadyLockedException } from '@/domain'
 

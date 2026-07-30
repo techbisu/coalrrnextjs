@@ -16,15 +16,15 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   const { id: project_id } = await params
 
   try {
-    // Get all proposals (land_schedules) under this project
-    const proposals = await db.land_schedule.findMany({
-      where: { project_id },
-      select: { id: true, schedule_code: true, proposal_title: true, state: true }
+    // Get all proposals (acq_proposal) under this project
+    const proposals = await db.acq_proposal.findMany({
+      where: { proj_cd: project_id },
+      select: { proposal_id: true, proposal_no: true, purpose_justification: true, overall_status: true }
     })
 
     if (proposals.length === 0) return ok({ approvals: [] })
 
-    const proposalIds = proposals.map(p => p.id)
+    const proposalIds = proposals.map(p => p.proposal_id)
 
     // Get all file attachments linked to these proposals (board-approved docs)
     const attachments = await db.file_attachment.findMany({
@@ -47,15 +47,15 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 
     // Only include proposals that have a Form-XXII attachment or instance
     const approvals = proposals
-      .filter(p => attachmentByProposal.has(p.id) || instanceByProposal.has(p.id))
+      .filter(p => attachmentByProposal.has(p.proposal_id) || instanceByProposal.has(p.proposal_id))
       .map(p => {
-        const attachment = attachmentByProposal.get(p.id)
-        const instance = instanceByProposal.get(p.id)
+        const attachment = attachmentByProposal.get(p.proposal_id)
+        const instance = instanceByProposal.get(p.proposal_id)
         return {
-          proposal_id: p.id,
-          schedule_code: p.schedule_code,
-          proposal_title: p.proposal_title,
-          state: p.state,
+          proposal_id: p.proposal_id,
+          schedule_code: p.proposal_no,
+          proposal_title: p.purpose_justification,
+          state: p.overall_status,
           instance_id: instance?.id ?? null,
           instance_status: instance?.status ?? null,
           file: attachment ? {

@@ -3,16 +3,16 @@ import { db } from '@/lib/db'
 
 export class FormXXIIResolver implements IDocumentResolver {
   async resolve(businessId: string, context?: Record<string, any>): Promise<DocumentResolverResult> {
-    // 1. Fetch the Proposal (land_schedule) and its Project
-    let proposal = await db.land_schedule.findUnique({
-      where: { id: businessId }
+    // 1. Fetch the Proposal (acq_proposal) and its Project
+    let proposal = await db.acq_proposal.findUnique({
+      where: { proposal_id: businessId }
     })
 
     let isProjectSimulation = false;
     let project: any = null;
     
-    if (proposal && proposal.project_id) {
-      const p = await db.project.findUnique({ where: { projCd: proposal.project_id } });
+    if (proposal && proposal.proj_cd) {
+      const p = await db.project.findUnique({ where: { projCd: proposal.proj_cd } });
       if (p) {
         project = {
           name: p.projNm,
@@ -45,28 +45,30 @@ export class FormXXIIResolver implements IDocumentResolver {
     }
 
     // 2. Fetch the Plot details (items)
-    const items = await db.land_schedule_item.findMany({
-      where: { schedule_id: businessId },
-      include: {
-        mst_plot: {
-          include: {
-            mouza: true
-          }
-        }
-      }
+    const items = await db.plot_schedule.findMany({
+      where: { proposal_id: businessId }
     })
+
+    const plotsWithMouza = await Promise.all(items.map(async i => {
+      const plot = await db.mst_plot.findUnique({
+        where: { mouza_lgd_plot_number: { mouza_lgd: Number(i.mouza_lgd), plot_number: i.plot_no } },
+        include: { mouza: true }
+      });
+      return { ...i, mst_plot: plot };
+    }));
 
     // 3. Calculate limit deviations
     const projectLimitAcres = parseFloat(project!.total_land_limit_acres.toString());
     const projectBudget = parseFloat(project!.total_budget_ceiling?.toString() || "0");
     const projectJobs = project!.total_employment_quota || 0;
 
-    const proposalArea = parseFloat(proposal!.total_area_acres.toString());
+    const proposalArea = parseFloat(proposal!.tot_acq_area?.toString() || '0');
     const deviationAcres = isProjectSimulation ? (parseFloat(context?.form_data?.ProposedArea || "100")) : (proposalArea - projectLimitAcres);
     
     // Aggregating plot land types for Question 6
     let tenancyLand = 0, govtLand = 0, pattaLand = 0, forestLand = 0;
-    items.forEach(i => {
+    plotsWithMouza.forEach(i => {
+      if (!i.mst_plot) return;
       const area = parseFloat(i.mst_plot.area_acres.toString());
       if (i.mst_plot.land_type === 'TENANCY') tenancyLand += area;
       else if (i.mst_plot.land_type === 'GOVT') govtLand += area;
@@ -82,7 +84,9 @@ export class FormXXIIResolver implements IDocumentResolver {
     const deviationJobs = estimatedJobs - projectJobs;
 
     // 4. Extract plots info for the template
-    const plotsDetails = items.map(item => `${item.mst_plot.plot_number} (${item.mst_plot.mouza.mouza_en})`).join(', ')
+    const plotsDetails = plotsWithMouza
+      .filter(i => i.mst_plot && i.mst_plot.mouza)
+      .map(item => `${item.mst_plot!.plot_number} (${item.mst_plot!.mouza.mouza_en})`).join(', ')
 
     // Extract dynamic form data from Workspace input
     const formData = context?.form_data || {};
@@ -134,9 +138,9 @@ export class FormXXIIResolver implements IDocumentResolver {
         
         "Justification": formData.Justification || '',
         
-        "ModeCba": proposal!.acquisition_mode === 'cba_act' ? proposalArea.toFixed(4) : '0',
-        "ModeRfctlarr": proposal!.acquisition_mode === 'rfctlarr' ? proposalArea.toFixed(4) : '0',
-        "ModeDirectPurchase": proposal!.acquisition_mode === 'direct_purchase' ? proposalArea.toFixed(4) : '0',
+        "ModeCba": proposal!.acq_mode_id?.toString() === '1' ? proposalArea.toFixed(4) : '0',
+        "ModeRfctlarr": proposal!.acq_mode_id?.toString() === '2' ? proposalArea.toFixed(4) : '0',
+        "ModeDirectPurchase": proposal!.acq_mode_id?.toString() === '3' ? proposalArea.toFixed(4) : '0',
         "ModeGovtTransfer": formData.ModeGovtTransfer || '0',
         "ModeForestDiversion": formData.ModeForestDiversion || '0',
         

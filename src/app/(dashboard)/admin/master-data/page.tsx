@@ -1,9 +1,10 @@
-import { MASTER_REGISTRY } from '@/modules/admin/master-data/config/MasterDataRegistry'
+import { MASTER_REGISTRY } from '@/core/config/master.config'
 import { SectionCard } from '@/components/coalrr'
-import { Database } from 'lucide-react'
+import { Database, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { redirect } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 
 export default async function MasterDataLandingPage() {
   const auth = await authorizeApi('project.view')
@@ -11,7 +12,12 @@ export default async function MasterDataLandingPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-4">
+        <Button variant="outline" size="icon" asChild className="shrink-0">
+          <Link href="/admin">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
         <div>
           <h2 className="text-xl font-bold tracking-tight">Master Data Management</h2>
           <p className="text-sm text-muted-foreground">Manage global dropdowns, lists, and reference tables.</p>

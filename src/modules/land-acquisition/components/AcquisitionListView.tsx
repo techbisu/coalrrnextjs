@@ -70,7 +70,10 @@ export function AcquisitionListView({
                 </div>
 
                 <h3 className="mt-2 line-clamp-1 text-sm font-semibold">{s.proposal_title}</h3>
-                <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{s.projectName}</p>
+                {s.description && (
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{s.description}</p>
+                )}
+                <p className="mt-1.5 text-xs font-medium text-slate-600">{s.projectName}</p>
 
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
                   <Badge variant="outline" className={`font-mono text-[10px] ${mode.color}`}>

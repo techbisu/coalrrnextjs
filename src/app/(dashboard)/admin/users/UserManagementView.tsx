@@ -18,6 +18,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Search } from 'lucide-react'
 import { usePathname, useSearchParams } from 'next/navigation'
+import { BackButton } from '@/components/ui/back-button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu'
+import { MoreHorizontal, UserCheck, UserX, ShieldAlert } from 'lucide-react'
 
 export function UserManagementView({ 
   initialData,
@@ -149,41 +160,69 @@ export function UserManagementView({
     },
     {
       key: '__actions' as any,
-      header: 'Actions',
+      header: '',
       render: (row: any) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" asChild>
-            <Link href={`/admin/users/${row.id}`}>
-              <Users className="h-3.5 w-3.5" />
-              View
-            </Link>
-          </Button>
-          <UserFormDialog
-            mode="edit"
-            initialData={row}
-            onSuccess={handleMutationSuccess}
-            trigger={
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
-                <Pencil className="h-3.5 w-3.5" />
-                Edit
+        <div className="flex justify-end pr-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
               </Button>
-            }
-          />
-          <UserAccessDialog
-            userId={row.id}
-            userName={row.name}
-            onSuccess={handleMutationSuccess}
-          />
-          <UserScopeDialog
-            userId={row.id}
-            userName={row.name}
-            currentScope={row.scope}
-            onSuccess={handleMutationSuccess}
-          />
-          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1 text-rose-500 hover:text-rose-600 hover:bg-rose-50" onClick={() => handleDelete(row.id)}>
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete
-          </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[180px]">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={`/admin/users/${row.id}`} className="cursor-pointer">
+                  <Users className="mr-2 h-4 w-4" />
+                  View Details
+                </Link>
+              </DropdownMenuItem>
+              <UserFormDialog
+                mode="edit"
+                initialData={row}
+                onSuccess={handleMutationSuccess}
+                trigger={
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer">
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit User
+                  </DropdownMenuItem>
+                }
+              />
+              <UserAccessDialog
+                userId={row.id}
+                userName={row.name}
+                onSuccess={handleMutationSuccess}
+                trigger={
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer">
+                    <ShieldAlert className="mr-2 h-4 w-4" />
+                    Manage Access
+                  </DropdownMenuItem>
+                }
+              />
+              <UserScopeDialog
+                userId={row.id}
+                userName={row.name}
+                currentScope={row.scope}
+                onSuccess={handleMutationSuccess}
+                trigger={
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer">
+                    <UserCheck className="mr-2 h-4 w-4" />
+                    Manage Scope
+                  </DropdownMenuItem>
+                }
+              />
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => handleDelete(row.id)}
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
@@ -194,60 +233,102 @@ export function UserManagementView({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">User Management</h2>
-          <p className="text-sm text-muted-foreground">Manage system users, roles, and access.</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-start gap-2">
+          <BackButton iconOnly />
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">User Management</h2>
+            <p className="text-sm text-muted-foreground">Manage system users, roles, and access.</p>
+          </div>
         </div>
-        <UserFormDialog mode="create" onSuccess={handleMutationSuccess} />
       </div>
 
-      <div className="bg-card border rounded-lg shadow-sm">
-        <div className="p-6 pb-0">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
-            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full sm:w-auto">
-              <TabsList>
-                <TabsTrigger value="verified">Verified Users</TabsTrigger>
-                <TabsTrigger value="unverified" className="flex items-center gap-2">
-                  Unverified Users
-                  {unverifiedCount > 0 && (
-                    <Badge variant="secondary" className="h-5 px-1.5 text-xs bg-amber-100 text-amber-700 hover:bg-amber-100">
-                      {unverifiedCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            
-            <div className="relative w-full sm:w-72">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                defaultValue={searchQuery}
-                onChange={(e) => {
-                  const timer = setTimeout(() => {
-                    handleSearchChange(e.target.value)
-                  }, 500)
-                  return () => clearTimeout(timer)
-                }}
-                placeholder="Search users..."
-                className="pl-9 bg-background"
-              />
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="shadow-none border-border/60">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalRecords}</div>
+            <p className="text-xs text-muted-foreground">Registered accounts</p>
+          </CardContent>
+        </Card>
+        <Card className="shadow-none border-border/60">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Verified / Active</CardTitle>
+            <UserCheck className="h-4 w-4 text-emerald-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalRecords - unverifiedCount}</div>
+            <p className="text-xs text-muted-foreground">Approved users</p>
+          </CardContent>
+        </Card>
+        <Card className="shadow-none border-border/60">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Verification</CardTitle>
+            <UserX className="h-4 w-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{unverifiedCount}</div>
+            <p className="text-xs text-muted-foreground">Awaiting approval</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="bg-white dark:bg-slate-950 border rounded-xl shadow-sm overflow-hidden flex flex-col">
+        {/* Unified Toolbar */}
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-80">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  defaultValue={searchQuery}
+                  onChange={(e) => {
+                    const timer = setTimeout(() => {
+                      handleSearchChange(e.target.value)
+                    }, 500)
+                    return () => clearTimeout(timer)
+                  }}
+                  placeholder="Search users by name, email..."
+                  className="pl-9 h-10 bg-white dark:bg-slate-950"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between sm:justify-end shrink-0">
+              <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full sm:w-auto">
+                <TabsList className="bg-white dark:bg-slate-950 border h-10">
+                  <TabsTrigger value="verified" className="px-4">Verified</TabsTrigger>
+                  <TabsTrigger value="unverified" className="gap-1.5 px-4">
+                    Unverified
+                    {unverifiedCount > 0 && (
+                      <Badge variant="secondary" className="h-4 px-1 text-[10px] bg-amber-100 text-amber-700 hover:bg-amber-100">
+                        {unverifiedCount}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              
+              <UserFormDialog mode="create" onSuccess={handleMutationSuccess} />
             </div>
           </div>
-          
-          <DataTable
-            columns={columns}
-            data={initialData}
-            getRowId={(r) => r.id}
-            pageSize={pageSize}
-            serverSide={true}
-            totalRecords={totalRecords}
-            currentPage={currentPage}
-            searchQuery={searchQuery}
-            onPageChange={handlePageChange}
-            searchable={false}
-          />
         </div>
+        
+        <DataTable
+          columns={columns}
+          data={initialData}
+          getRowId={(r) => r.id}
+          pageSize={pageSize}
+          serverSide={true}
+          totalRecords={totalRecords}
+          currentPage={currentPage}
+          searchQuery={searchQuery}
+          onPageChange={handlePageChange}
+          searchable={false}
+        />
       </div>
     </div>
   )

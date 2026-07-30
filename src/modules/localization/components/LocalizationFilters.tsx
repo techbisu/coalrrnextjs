@@ -36,7 +36,7 @@ export function LocalizationFilters({ modules, currentModule, currentSearch }: L
   const hasActiveFilters = (module && module !== 'all') || search;
 
   return (
-    <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+    <div className="flex flex-col sm:flex-row gap-3 w-full">
       <div className="flex-1">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

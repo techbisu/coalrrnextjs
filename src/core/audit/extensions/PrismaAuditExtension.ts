@@ -1,177 +1,176 @@
 import { Prisma } from '@prisma/client'
-// dynamically import auth to avoid circular dependency with db
 import { Audit } from '@/core/audit/services/AuditService'
-import { getRealIp } from '@/core/audit/utils/getRealIp'
-
 import { auditConfig } from '@/core/config/audit.config'
+import { getRequestContext } from '@/core/context/RequestContext'
 
-const EXCLUDED_MODELS = auditConfig.excludedModels as readonly string[];
-const NO_AUDIT_FIELDS_MODELS = auditConfig.noAuditFieldsModels as readonly string[];
+const EXCLUDED_MODELS = auditConfig.excludedModels as readonly string[]
+const NO_AUDIT_FIELDS_MODELS = auditConfig.noAuditFieldsModels as readonly string[]
+
+// ─── Helper: inject entry_by / updt_by / timestamps ──────────────────────────
+
+function injectAuditFields(
+  model: string,
+  args: any,
+  userId: string,
+  operation: 'create' | 'update'
+) {
+  if (!args.data) return
+
+  const modelNameLower = model.toLowerCase()
+  const skipInject =
+    NO_AUDIT_FIELDS_MODELS.includes(modelNameLower) ||
+    NO_AUDIT_FIELDS_MODELS.includes(model)
+  if (skipInject) return
+
+  const dmmfModel = Prisma.dmmf.datamodel.models.find(
+    (m) => m.name.toLowerCase() === modelNameLower
+  )
+  const isCamel =
+    dmmfModel?.fields.some((f) => f.name === 'entryBy' || f.name === 'updtBy') ?? false
+
+  if (isCamel) {
+    if (operation === 'create') {
+      if (dmmfModel?.fields.some((f) => f.name === 'entryBy'))
+        (args.data as any).entryBy = userId
+      if (dmmfModel?.fields.some((f) => f.name === 'entryTs') && !(args.data as any).entryTs)
+        (args.data as any).entryTs = Math.floor(Date.now() / 1000)
+    }
+    if (dmmfModel?.fields.some((f) => f.name === 'updtBy'))
+      (args.data as any).updtBy = userId
+    if (dmmfModel?.fields.some((f) => f.name === 'updtTs') && !(args.data as any).updtTs)
+      (args.data as any).updtTs = Math.floor(Date.now() / 1000)
+  } else {
+    const isBigIntEntry =
+      dmmfModel?.fields.some((f) => f.name === 'entry_ts' && f.type === 'BigInt') ?? false
+    const isBigIntUpdt =
+      dmmfModel?.fields.some((f) => f.name === 'updt_ts' && f.type === 'BigInt') ?? false
+
+    if (operation === 'create') {
+      if (dmmfModel?.fields.some((f) => f.name === 'entry_by'))
+        (args.data as any).entry_by = userId
+      if (dmmfModel?.fields.some((f) => f.name === 'entry_ts') && !(args.data as any).entry_ts)
+        (args.data as any).entry_ts = isBigIntEntry ? BigInt(Date.now()) : new Date()
+    }
+    if (dmmfModel?.fields.some((f) => f.name === 'updt_by'))
+      (args.data as any).updt_by = userId
+    if (dmmfModel?.fields.some((f) => f.name === 'updt_ts') && !(args.data as any).updt_ts)
+      (args.data as any).updt_ts = isBigIntUpdt ? BigInt(Date.now()) : new Date()
+  }
+}
+
+// ─── Extension ───────────────────────────────────────────────────────────────
 
 export const withAuditExtension = Prisma.defineExtension({
   name: 'PrismaAuditExtension',
   query: {
     $allModels: {
-      async create({ model, operation, args, query }) {
-        let userId = 'system';
-        let ipAddress: string | null = null;
-        let userAgent: string | null = null;
-        
-        try {
-          const auth = await import('@/lib/auth');
-          const u = await auth.getCurrentUser();
-          if (u) userId = u.id;
-          
-          const { headers } = await import('next/headers');
-          const h = await headers();
-          ipAddress = await getRealIp();
-          
-          userAgent = h.get('user-agent') || null;
-        } catch(e) {}
-        
-        const modelName = String(model).toLowerCase();
-        const skipInject = NO_AUDIT_FIELDS_MODELS.includes(modelName) || NO_AUDIT_FIELDS_MODELS.includes(model as string);
+      async create({ model, args, query }) {
+        // Read from AsyncLocalStorage — works in HTTP, BullMQ, cron, tests
+        const { userId, ipAddress, userAgent } = getRequestContext()
 
-        if (args.data && !skipInject) {
-           const dmmfModel = Prisma.dmmf.datamodel.models.find(m => m.name === model);
-           const isCamel = dmmfModel?.fields.some(f => f.name === 'entryBy') ?? false;
+        const modelName = String(model).toLowerCase()
 
-           if ((model === 'document_instance') && !(args.data as any).id) {
-               (args.data as any).id = require('crypto').randomUUID();
-           }
-
-           if (isCamel) {
-             (args.data as any).entryBy = userId;
-             (args.data as any).updtBy = userId;
-             if (!(args.data as any).entryTs) (args.data as any).entryTs = Math.floor(Date.now() / 1000);
-             if (!(args.data as any).updtTs) (args.data as any).updtTs = Math.floor(Date.now() / 1000);
-           } else {
-             (args.data as any).entry_by = userId;
-             (args.data as any).updt_by = userId;
-             if (!(args.data as any).entry_ts) (args.data as any).entry_ts = new Date();
-             if (!(args.data as any).updt_ts) (args.data as any).updt_ts = new Date();
-           }
+        // Auto-assign a UUID for document_instance if missing
+        if (model === 'document_instance' && !(args.data as any).id) {
+          ;(args.data as any).id = require('crypto').randomUUID()
         }
-        
-        const result = await query(args);
-        
-        if (!EXCLUDED_MODELS.includes(modelName) && !EXCLUDED_MODELS.includes(model as string)) {
+
+        injectAuditFields(String(model), args, userId, 'create')
+
+        const result = await query(args)
+
+        if (
+          !EXCLUDED_MODELS.includes(modelName) &&
+          !EXCLUDED_MODELS.includes(model as string)
+        ) {
           Audit.updateRecord(
             model,
             'CREATE',
-            undefined, // conditions
-            undefined, // oldData
-            result,    // newData
+            undefined,
+            undefined,
+            result,
             userId,
-            ipAddress ?? undefined,
-            userAgent ?? undefined
-          ).catch(console.error);
+            ipAddress,
+            userAgent
+          ).catch(console.error)
         }
-        
-        return result;
+
+        return result
       },
-      
-      async update({ model, operation, args, query }) {
-        let userId = 'system';
-        let ipAddress: string | null = null;
-        let userAgent: string | null = null;
 
-        try {
-          const auth = await import('@/lib/auth');
-          const u = await auth.getCurrentUser();
-          if (u) userId = u.id;
-          
-          const { headers } = await import('next/headers');
-          const h = await headers();
-          ipAddress = await getRealIp();
+      async update({ model, args, query }) {
+        const { userId, ipAddress, userAgent } = getRequestContext()
 
-          userAgent = h.get('user-agent') || null;
-        } catch(e) {}
-        
-        const modelName = String(model).toLowerCase();
-        const prismaModel = String(model).charAt(0).toLowerCase() + String(model).slice(1);
-        const skipInject = NO_AUDIT_FIELDS_MODELS.includes(modelName) || NO_AUDIT_FIELDS_MODELS.includes(model as string);
+        const modelName = String(model).toLowerCase()
+        const prismaModel =
+          String(model).charAt(0).toLowerCase() + String(model).slice(1)
 
-        let oldData: any = undefined;
-        if (!EXCLUDED_MODELS.includes(modelName) && !EXCLUDED_MODELS.includes(model as string)) {
+        let oldData: any = undefined
+        if (
+          !EXCLUDED_MODELS.includes(modelName) &&
+          !EXCLUDED_MODELS.includes(model as string)
+        ) {
           try {
             if ((args as any).where) {
-              const { db } = await import('@/lib/db');
+              const { db } = await import('@/lib/db')
               if (db && (db as any)[prismaModel]) {
-                oldData = await (db as any)[prismaModel].findUnique({ where: (args as any).where });
+                oldData = await (db as any)[prismaModel].findUnique({
+                  where: (args as any).where,
+                })
               }
             }
           } catch (e) {
-            console.error('Failed to fetch oldData for audit:', e);
+            console.error('Failed to fetch oldData for audit:', e)
           }
         }
 
-        if (args.data && !skipInject) {
-           const dmmfModel = Prisma.dmmf.datamodel.models.find(m => m.name === model);
-           const isCamel = dmmfModel?.fields.some(f => f.name === 'entryBy' || f.name === 'updtBy') ?? false;
+        injectAuditFields(String(model), args, userId, 'update')
 
-           if (isCamel) {
-             (args.data as any).updtBy = userId;
-             if (!(args.data as any).updtTs) (args.data as any).updtTs = Math.floor(Date.now() / 1000);
-           } else {
-             (args.data as any).updt_by = userId;
-             if (!(args.data as any).updt_ts) (args.data as any).updt_ts = new Date();
-           }
-        }
-        
-        const result = await query(args);
-        
-        if (!EXCLUDED_MODELS.includes(modelName) && !EXCLUDED_MODELS.includes(model as string)) {
+        const result = await query(args)
+
+        if (
+          !EXCLUDED_MODELS.includes(modelName) &&
+          !EXCLUDED_MODELS.includes(model as string)
+        ) {
           Audit.updateRecord(
             model,
             'UPDATE',
             (args as any).where,
-            oldData,   // oldData
-            result,    // newData
+            oldData,
+            result,
             userId,
-            ipAddress ?? undefined,
-            userAgent ?? undefined
-          ).catch(console.error);
+            ipAddress,
+            userAgent
+          ).catch(console.error)
         }
-        
-        return result;
+
+        return result
       },
-      
-      async delete({ model, operation, args, query }) {
-        let userId = 'system';
-        let ipAddress: string | null = null;
-        let userAgent: string | null = null;
 
-        try {
-          const auth = await import('@/lib/auth');
-          const u = await auth.getCurrentUser();
-          if (u) userId = u.id;
-          
-          const { headers } = await import('next/headers');
-          const h = await headers();
-          ipAddress = await getRealIp();
+      async delete({ model, args, query }) {
+        const { userId, ipAddress, userAgent } = getRequestContext()
 
-          userAgent = h.get('user-agent') || null;
-        } catch(e) {}
-        
-        const result = await query(args);
-        
-        const modelName = String(model).toLowerCase();
-        if (!EXCLUDED_MODELS.includes(modelName) && !EXCLUDED_MODELS.includes(model as string)) {
+        const result = await query(args)
+
+        const modelName = String(model).toLowerCase()
+        if (
+          !EXCLUDED_MODELS.includes(modelName) &&
+          !EXCLUDED_MODELS.includes(model as string)
+        ) {
           Audit.updateRecord(
             model,
             'DELETE',
             (args as any).where,
-            result,    // oldData
-            undefined, // newData
+            result,
+            undefined,
             userId,
-            ipAddress ?? undefined,
-            userAgent ?? undefined
-          ).catch(console.error);
+            ipAddress,
+            userAgent
+          ).catch(console.error)
         }
-        
-        return result;
-      }
-    }
-  }
+
+        return result
+      },
+    },
+  },
 })

@@ -5,6 +5,8 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { Plus, Loader2, AlertCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import { proposalConfig } from '@/core/config/proposal.config'
+import { useAuth } from '@/core/authorization/providers/AuthProvider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,10 +19,13 @@ import {
 import { AcquisitionMode, MODE_META, MODES } from '../types'
 import { formatNumber } from '@/lib/utils/formatters'
 import { useRouter } from 'next/navigation'
+import { MasterLookup } from '@/components/coalrr/MasterLookup'
+import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 
 interface ProjectListItem {
   id: string
   name: string
+  area_cd: string
   mine_cd: string
   isLocked: boolean
   total_land_limit_acres: string
@@ -40,6 +45,8 @@ export function CreateProposalDialog({
   onOpenChange: (b: boolean) => void
 }) {
   const router = useRouter()
+  const { user } = useAuth()
+  const t = useAppTranslation('land_acquisition')
   const { data: projects, isLoading: projectsLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: fetchProjects,
@@ -54,9 +61,8 @@ export function CreateProposalDialog({
   const [form, setForm] = React.useState({
     project_id: '',
     acquisition_mode: '' as AcquisitionMode | '',
-    proposal_title: '',
+    proposal_no: '',
     description: '',
-    area_office: '',
     mine_cd: '',
     adjacent_colliery: '',
     notification_date: '',
@@ -70,68 +76,78 @@ export function CreateProposalDialog({
     }
   }, [form.project_id, lockedProjects, form.mine_cd])
 
+  const selectedProject = React.useMemo(() => 
+    lockedProjects.find(p => p.id === form.project_id),
+    [lockedProjects, form.project_id]
+  )
+
   const create = useMutation({
     mutationFn: async () => {
-      const r = await fetch('/api/schedules', {
+      const selectedProject = lockedProjects.find(p => p.id === form.project_id)
+      
+      const r = await fetch('/api/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          project_id: form.project_id,
-          acquisition_mode: form.acquisition_mode,
-          proposal_title: form.proposal_title,
-          description: form.description,
-          area_office: form.area_office,
-          mine_cd: form.mine_cd,
-          adjacent_colliery: form.adjacent_colliery,
-          notification_date: form.notification_date || undefined,
+          proposal: {
+            proposal_no: form.proposal_no || proposalConfig.fallbackProposalNoPrefix + Date.now(),
+            proposal_dt: form.notification_date || new Date().toISOString(),
+            mine_cd: form.mine_cd || selectedProject?.mine_cd || proposalConfig.fallbackMineCode,
+            area_cd: selectedProject?.area_cd || proposalConfig.fallbackAreaCode,
+            proj_cd: form.project_id,
+            acq_mode_id: proposalConfig.acquisitionModeIdMap[form.acquisition_mode] || 1,
+            purpose_justification: form.description,
+            is_within_pr_limit: true,
+            requires_board_approval: false,
+            entry_by: user?.id || 'system'
+          }
         }),
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error ?? 'Failed to create proposal')
-      return data as { id: string; schedule_code: string; message?: string }
+      return { id: data.proposalId, schedule_code: `PROP-${Date.now()}`, message: 'Drafting state — add plots & complete CL-1 checklist.' }
     },
     onSuccess: (data) => {
-      toast.success(`Proposal ${data.schedule_code} created`, {
-        description: data.message ?? 'Drafting state — add plots & complete CL-1 checklist.',
+      toast.success(t('proposal_created_title'), {
+        description: data.message ?? t('proposal_created_desc'),
       })
       setForm({
-        project_id: '', acquisition_mode: '', proposal_title: '', description: '',
-        area_office: '', mine_cd: '', adjacent_colliery: '', notification_date: '',
+        project_id: '', acquisition_mode: '', proposal_no: '', description: '',
+        mine_cd: '', adjacent_colliery: '', notification_date: '',
       })
       onOpenChange(false)
       // Refresh the page data (RSC) and navigate if needed
       router.refresh()
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message || t('proposal_create_error')),
   })
 
-  const canSubmit = form.project_id && form.acquisition_mode && form.proposal_title.trim()
+  const canSubmit = form.project_id && form.acquisition_mode && form.proposal_no.trim()
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>New Land Acquisition Proposal</DialogTitle>
+          <DialogTitle>{t('dialog_title')}</DialogTitle>
           <DialogDescription>
-            Create a schedule against a locked project baseline. Mode drives the CL-1.x checklist
-            enforced at area vetting.
+            {t('dialog_description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4">
           {/* Project selector */}
           <div className="space-y-1">
-            <Label className="text-xs font-medium text-muted-foreground">Project (locked baseline only)</Label>
+            <Label className="text-xs font-medium text-muted-foreground">{t('select_project')}</Label>
             {projectsLoading ? (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" /> Loading projects…
+                <Loader2 className="h-3 w-3 animate-spin" /> {t('loading_projects')}
               </div>
             ) : lockedProjects.length === 0 ? (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>No locked projects available</AlertTitle>
+                <AlertTitle>{t('no_locked_projects_title')}</AlertTitle>
                 <AlertDescription>
-                  A project baseline must be locked before acquisition proposals can be raised against it.
+                  {t('no_locked_projects_desc')}
                 </AlertDescription>
               </Alert>
             ) : (
@@ -140,7 +156,7 @@ export function CreateProposalDialog({
                 onChange={(e) => setForm({ ...form, project_id: e.target.value })}
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
               >
-                <option value="">Select a locked project…</option>
+                <option value="">{t('select_locked_project')}</option>
                 {lockedProjects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} · {p.mine_cd} · limit {formatNumber(p.total_land_limit_acres, 2)} ac
@@ -152,7 +168,7 @@ export function CreateProposalDialog({
 
           {/* Acquisition mode picker */}
           <div className="space-y-1">
-            <Label className="text-xs font-medium text-muted-foreground">Acquisition Mode (drives CL-1.x checklist)</Label>
+            <Label className="text-xs font-medium text-muted-foreground">{t('acquisition_mode')}</Label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {MODES.map((m) => {
                 const meta = MODE_META[m]
@@ -176,15 +192,15 @@ export function CreateProposalDialog({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label className="text-xs font-medium text-muted-foreground">Proposal Title</Label>
+              <Label className="text-xs font-medium text-muted-foreground">{t('proposal_no')}</Label>
               <Input
-                value={form.proposal_title || ''}
-                onChange={(e) => setForm({ ...form, proposal_title: e.target.value })}
-                placeholder="e.g. Hingula Phase-III acquisition — 42 acres"
+                value={form.proposal_no || ''}
+                onChange={(e) => setForm({ ...form, proposal_no: e.target.value })}
+                placeholder={t('proposal_no_placeholder')}
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-medium text-muted-foreground">Notification Date</Label>
+              <Label className="text-xs font-medium text-muted-foreground">{t('notification_date')}</Label>
               <DatePicker
                 value={form.notification_date ? new Date(form.notification_date) : undefined}
                 onChange={(date) => setForm({ ...form, notification_date: date ? format(date, 'yyyy-MM-dd') : '' })}
@@ -193,52 +209,36 @@ export function CreateProposalDialog({
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs font-medium text-muted-foreground">Description</Label>
+            <Label className="text-xs font-medium text-muted-foreground">{t('description')}</Label>
             <Textarea
               value={form.description || ''}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Brief scope, affected mouzas, rationale…"
+              placeholder={t('description_placeholder')}
               className="min-h-16"
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1">
-              <Label className="text-xs font-medium text-muted-foreground">Area Office</Label>
-              <Input
-                value={form.area_office || ''}
-                onChange={(e) => setForm({ ...form, area_office: e.target.value })}
-                placeholder="e.g. Talcher Area"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs font-medium text-muted-foreground">Acquiring Colliery Code</Label>
-              <Input
-                value={form.mine_cd || ''}
-                onChange={(e) => setForm({ ...form, mine_cd: e.target.value })}
-                placeholder="e.g. HNG"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs font-medium text-muted-foreground">Adjacent Colliery</Label>
-              <Input
-                value={form.adjacent_colliery || ''}
-                onChange={(e) => setForm({ ...form, adjacent_colliery: e.target.value })}
-                placeholder="e.g. BNP"
-              />
-            </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-medium text-muted-foreground">{t('adjacent_colliery')}</Label>
+            <MasterLookup
+              masterName="area_master"
+              isMulti={false}
+              value={form.adjacent_colliery || ''}
+              onChange={(v) => setForm({ ...form, adjacent_colliery: v as string })}
+              placeholder={t('select_adjacent_area')}
+              excludeValues={selectedProject?.area_cd ? [selectedProject.area_cd] : []}
+            />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('cancel')}</Button>
           <Button
             onClick={() => create.mutate()}
             disabled={!canSubmit || create.isPending}
-            className="bg-emerald-600 hover:bg-emerald-700"
           >
             {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Create Proposal
+            {t('create_proposal')}
           </Button>
         </DialogFooter>
       </DialogContent>

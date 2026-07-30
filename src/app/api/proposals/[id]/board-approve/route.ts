@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from 'next/server'
 import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { ok, badRequest, notFound, serverError } from '@/app/api/_lib'
 import { ApproveBoardDeviationUseCase } from '@/application/use-cases/proposal/ApproveBoardDeviationUseCase'
-import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories/PrismaProposalRepository'
+import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories'
 import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
 import { uploadFileUseCase } from '@/infrastructure/di/Container'
 type Ctx = { params: Promise<{ id: string }> }

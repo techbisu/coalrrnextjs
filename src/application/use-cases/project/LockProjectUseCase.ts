@@ -5,7 +5,7 @@
 import { IUseCase, Result, Fail } from '@/core'
 import { Project, ProjectAlreadyLockedException, IProjectRepository } from '@/domain'
 import { EventBus } from '@/core/notifications/EventBus'
-import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
+import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di'
 import { NotFoundException } from '@/core/errors'
 
 export interface LockProjectRequest {

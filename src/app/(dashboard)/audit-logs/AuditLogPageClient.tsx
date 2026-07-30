@@ -42,20 +42,22 @@ export const AuditLogPageClient = ({ initialData }: { initialData: any }) => {
   };
 
   return (
-    <div>
+    <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col text-sm">
       <AuditLogFilters 
         filters={filters} 
         onFilterChange={setFilters} 
         onSearch={handleSearch} 
       />
-      <AuditLogTable 
-        data={data?.data || []} 
-        loading={loading}
-        currentPage={data?.page || 1}
-        totalPages={data?.totalPages || 0}
-        totalRecords={data?.total || 0}
-        onPageChange={handlePageChange}
-      />
+      <div className="p-4 bg-white dark:bg-slate-950">
+        <AuditLogTable 
+          data={data?.data || []} 
+          loading={loading}
+          currentPage={data?.page || 1}
+          totalPages={data?.totalPages || 0}
+          totalRecords={data?.total || 0}
+          onPageChange={handlePageChange}
+        />
+      </div>
     </div>
   );
 };

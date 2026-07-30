@@ -16,24 +16,24 @@ export interface AcquisitionModeMetadata {
 export class AcquisitionMode extends ValueObject<AcquisitionModeType> {
   private static readonly METADATA: Record<AcquisitionModeType, AcquisitionModeMetadata> = {
     cba_act: {
-      label: 'CBA Act, 1957',
+      label: 'CBA (A&D) Act, 1957',
       checklistCode: 'CL-1.1',
-      description: 'Coal Bearing Areas (Acquisition and Development) Act, 1957',
+      description: 'Acquisition under Coal Bearing Areas (Acquisition and Development) Act, 1957',
     },
     direct_purchase: {
-      label: 'Direct Purchase',
+      label: 'Direct Purchase / Tenancy',
       checklistCode: 'CL-1.2',
-      description: 'Direct negotiated purchase from landowners',
+      description: 'Direct purchase of private tenancy land from owners',
     },
     rfctlarr: {
       label: 'RFCTLARR Act, 2013',
       checklistCode: 'CL-1.3',
-      description: 'Right to Fair Compensation and Transparency in Land Acquisition, Rehabilitation and Resettlement Act, 2013',
+      description: 'Right to Fair Compensation and Transparency in Land Acquisition',
     },
     patta: {
-      label: 'Patta Transfer',
+      label: 'Draft Project Expansion',
       checklistCode: 'CL-1.4',
-      description: 'Transfer of government patta land',
+      description: 'Expansion or transfer of project lands',
     },
   }
 

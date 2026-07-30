@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   keywords: ["Z.ai", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
   authors: [{ name: "Z.ai Team" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo.svg",
   },
   openGraph: {
     title: "Coalrr | Eastern Coalfields Limited",
@@ -41,7 +41,8 @@ import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider } from "@/authorization/providers/AuthProvider";
 import { UiStateProvider } from "@/providers/UiStateProvider";
 import { NetworkStatus } from "@/components/providers/NetworkStatus";
-
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import { MasterDataPrefetcher } from '@/core/master-lookup/components/MasterDataPrefetcher';
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -56,10 +57,14 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <QueryProvider>
+          <MasterDataPrefetcher />
           <AuthProvider>
             <UiStateProvider>
               <LanguageProvider messages={messages} locale={locale}>
-                {children}
+                <NuqsAdapter>
+                  {children}
+                </NuqsAdapter>
+
                 <Toaster />
                 <NetworkStatus />
               </LanguageProvider>

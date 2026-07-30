@@ -1,9 +1,8 @@
 import { IUseCase, Result, Ok, Fail } from '@/core'
-import { IProposalRepository, IProposalQueryOptions } from '@/domain/entities/proposal'
+import { IProposalRepository, ProposalDTO } from '@/domain/entities/proposal';
 import { IProjectRepository } from '@/domain/entities/project'
-import { Proposal } from '@/domain/entities/proposal/Proposal'
 
-export interface GetProposalsRequest extends IProposalQueryOptions {}
+export interface GetProposalsRequest {}
 
 export class GetProposalsUseCase implements IUseCase<GetProposalsRequest, any[]> {
   constructor(
@@ -13,46 +12,58 @@ export class GetProposalsUseCase implements IUseCase<GetProposalsRequest, any[]>
 
   async execute(request?: GetProposalsRequest): Promise<Result<any[]>> {
     try {
-      const result = await this.proposalRepo.findAll(request)
+      const proposals = await this.proposalRepo.getAllProposals()
       
-      // Fetch projects to map project names (simple batching)
-      const projectIds = [...new Set(result.data.map((p: Proposal) => p.projectId))]
-      const projectMap = new Map<string, string>()
-      
-      for (const pid of projectIds) {
-        const project = await this.projectRepo.findById(pid)
-        if (project) {
-          projectMap.set(pid, project.name)
+      const dtos = proposals.map(p => {
+        let total = 0
+        let a = 0
+        let b = 0
+        let c = 0
+        let totalArea = 0
+
+        const plots = p.plot_schedule || []
+        for (const plot of plots) {
+          total++
+          totalArea += Number(plot.to_be_acquired_area) || 0
+
+          let tag = 'A'
+          if (plot.acq_status === 'PURCHASED') {
+            tag = 'B'
+          } else if (plot.acq_status === 'PARTIALLY_PURCHASED') {
+            tag = 'C'
+          } else {
+            const landTypes = plot.plot_schedule_land_type || []
+            const landType = landTypes[0]?.landtype_master?.land_type || ''
+            if (landType.toLowerCase().includes('govt')) {
+              tag = 'A'
+            } else {
+              tag = 'A' // Default clear land
+            }
+          }
+
+          if (tag === 'A') a++
+          if (tag === 'B') b++
+          if (tag === 'C') c++
         }
-      }
-      
-      const dtos = result.data.map((p: Proposal) => {
-        // Since findAll currently reconstitutes the entity with all plotIds, we can count them
-        const itemSummary = p.plotIds ? {
-          total: p.plotIds.length,
-          annexure_a: 0, // Since we don't have the explicit plot tags mapped in the Proposal entity array yet
-          annexure_b: 0, 
-          annexure_c: 0
-        } : { total: 0, annexure_a: 0, annexure_b: 0, annexure_c: 0 }
 
         return {
-          id: p.id,
-          schedule_code: p.scheduleCode.value,
-          project_id: p.projectId.toString(),
-          projectName: projectMap.get(p.projectId.toString()) || `Project ${p.projectId}`,
-          acquisition_mode: p.acquisitionMode.value,
-          state: p.state.value,
-          proposal_title: p.proposalTitle,
-          description: p.description,
-          proposed_by: p.proposedBy,
-          proposedByRole: p.proposedByRole,
-          areaOffice: p.areaOffice,
-          collieryCode: p.collieryCode,
-          adjacentColliery: p.adjacentColliery,
-          total_area_acres: p.totalArea.toDecimal().toString(),
-          notificationDate: p.notificationDate,
-          itemSummary,
-          entryTs: p.createdAt,
+          id: p.proposal_id,
+          schedule_code: p.proposal_no,
+          project_id: p.proj_cd,
+          projectName: p.project?.name || `Project ${p.proj_cd}`,
+          acquisition_mode: p.acq_mode_id === 1 ? 'CBA Act' : p.acq_mode_id === 2 ? 'LAA 1894' : p.acq_mode_id === 3 ? 'RFCTLARR 2013' : 'Direct Purchase',
+          state: p.overall_status,
+          proposal_title: p.proposal_no,
+          description: p.purpose_justification,
+          proposed_by: p.entry_by,
+          proposedByRole: 'Initiator',
+          areaOffice: p.area_cd,
+          collieryCode: p.mine_cd,
+          adjacentColliery: '', // or a fetched value if available
+          total_area_acres: totalArea.toString(),
+          notificationDate: p.proposal_dt,
+          itemSummary: { total, annexure_a: a, annexure_b: b, annexure_c: c },
+          entryTs: p.proposal_dt, // using proposal_dt as entry timestamp fallback
         }
       })
 

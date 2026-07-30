@@ -13,6 +13,7 @@ import { RolePermissionsDialog } from './RolePermissionsDialog'
 import { PermissionFormDialog } from './PermissionFormDialog'
 import { deleteRoleAction, deletePermissionAction } from '@/modules/admin/roles/presentation/actions'
 import { toast } from 'sonner'
+import { BackButton } from '@/components/ui/back-button'
 
 export function RolesPermissionsView({ 
   initialRoles, 
@@ -123,55 +124,61 @@ export function RolesPermissionsView({
   ]
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">Roles & Permissions</h2>
-          <p className="text-sm text-muted-foreground">Manage system roles, granular permissions, and group assignments.</p>
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-start gap-2">
+          <BackButton iconOnly />
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Roles & Permissions</h2>
+            <p className="text-sm text-muted-foreground">Manage system roles, granular permissions, and group assignments.</p>
+          </div>
         </div>
-        <div>
-          {activeTab === 'roles' ? (
-            <RoleFormDialog mode="create" onSuccess={handleMutationSuccess} />
-          ) : (
-            <PermissionFormDialog mode="create" onSuccess={handleMutationSuccess} />
-          )}
+
+        <div className="flex items-center gap-3 shrink-0">
+          <TabsList className="bg-slate-100/50 dark:bg-slate-900/50 border">
+            <TabsTrigger value="roles" className="gap-2 px-4">
+              <ShieldCheck className="h-4 w-4" />
+              Roles
+            </TabsTrigger>
+            <TabsTrigger value="permissions" className="gap-2 px-4">
+              <Key className="h-4 w-4" />
+              Permissions
+            </TabsTrigger>
+          </TabsList>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-sm mb-4">
-          <TabsTrigger value="roles" className="gap-2">
-            <ShieldCheck className="h-4 w-4" />
-            Roles
-          </TabsTrigger>
-          <TabsTrigger value="permissions" className="gap-2">
-            <Key className="h-4 w-4" />
-            Permissions
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="roles" className="mt-0 outline-hidden">
-          <SectionCard title="System Roles" icon={ShieldCheck} description={`Total roles: ${initialRoles.length}`}>
-            <DataTable
-              columns={roleColumns}
-              data={initialRoles}
-              getRowId={(r) => r.id}
-              pageSize={15}
-            />
-          </SectionCard>
-        </TabsContent>
-        
-        <TabsContent value="permissions" className="mt-0 outline-hidden">
-          <SectionCard title="Granular Permissions" icon={Lock} description={`Total permissions: ${initialPermissions.length}`}>
-            <DataTable
-              columns={permissionColumns}
-              data={initialPermissions}
-              getRowId={(r) => r.id}
-              pageSize={20}
-            />
-          </SectionCard>
-        </TabsContent>
-      </Tabs>
-    </div>
+      <TabsContent value="roles" className="m-0 focus-visible:outline-none focus-visible:ring-0">
+        <SectionCard 
+          title="System Roles" 
+          icon={ShieldCheck} 
+          description={`Total roles: ${initialRoles.length}`}
+          action={<RoleFormDialog mode="create" onSuccess={handleMutationSuccess} />}
+        >
+          <DataTable
+            columns={roleColumns}
+            data={initialRoles}
+            getRowId={(r) => r.id}
+            pageSize={15}
+          />
+        </SectionCard>
+      </TabsContent>
+      
+      <TabsContent value="permissions" className="m-0 focus-visible:outline-none focus-visible:ring-0">
+        <SectionCard 
+          title="Granular Permissions" 
+          icon={Lock} 
+          description={`Total permissions: ${initialPermissions.length}`}
+          action={<PermissionFormDialog mode="create" onSuccess={handleMutationSuccess} />}
+        >
+          <DataTable
+            columns={permissionColumns}
+            data={initialPermissions}
+            getRowId={(r) => r.id}
+            pageSize={20}
+          />
+        </SectionCard>
+      </TabsContent>
+    </Tabs>
   )
 }

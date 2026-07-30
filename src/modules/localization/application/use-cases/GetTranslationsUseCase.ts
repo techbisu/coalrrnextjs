@@ -25,6 +25,7 @@ export interface GetTranslationsResponse {
   page: number;
   totalPages: number;
   modules: string[];
+  languages: { id: string; name: string }[];
 }
 
 export class GetTranslationsUseCase {
@@ -46,7 +47,7 @@ export class GetTranslationsUseCase {
       ];
     }
 
-    const [translations, total, distinctModules] = await Promise.all([
+    const [translations, total, distinctModules, languages] = await Promise.all([
       db.translation.findMany({
         where,
         include: { language: true },
@@ -59,6 +60,10 @@ export class GetTranslationsUseCase {
         distinct: ['module'],
         select: { module: true },
         orderBy: { module: 'asc' },
+      }),
+      db.language.findMany({
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
       })
     ]);
 
@@ -78,6 +83,7 @@ export class GetTranslationsUseCase {
       page,
       totalPages: Math.ceil(total / limit),
       modules: distinctModules.map(m => m.module),
+      languages: languages,
     };
   }
 }

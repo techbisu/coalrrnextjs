@@ -5,11 +5,13 @@ import { CreateProjectUseCase } from '@/application/use-cases/project/CreateProj
 import { UpdateProjectUseCase } from '@/application/use-cases/project/UpdateProjectUseCase'
 import { GetProjectDashboardUseCase } from '@/application/use-cases/project/GetProjectDashboardUseCase'
 import { LockProjectUseCase } from '@/application/use-cases/project/LockProjectUseCase'
+import { DeleteProjectUseCase } from '@/application/use-cases/project/DeleteProjectUseCase'
 import { BaselineLockUseCase } from '@/application/use-cases/project/BaselineLockUseCase'
 import { ApproveFormXXIIUseCase } from '@/application/use-cases/project/ApproveFormXXIIUseCase'
 import { GenerateFormXXIIUseCase } from '@/application/use-cases/project/GenerateFormXXIIUseCase'
 import { ComplianceMonitorService } from '@/core/compliance/services/ComplianceMonitorService'
 import { PrismaProjectApprovalLocationRepository } from '@/infrastructure/persistence/repositories/PrismaProjectApprovalLocationRepository'
+import { ProjectChecklistResolver } from '@/modules/project-master/services/ProjectChecklistResolver'
 
 import { ListPafRecordsUseCase } from '@/application/use-cases/paf/ListPafRecordsUseCase'
 import { CreatePafRecordUseCase } from '@/application/use-cases/paf/CreatePafRecordUseCase'
@@ -22,6 +24,7 @@ const globalForProjectDI = globalThis as unknown as {
   updateProjectUseCase: UpdateProjectUseCase | undefined
   getProjectDashboardUseCase: GetProjectDashboardUseCase | undefined
   lockProjectUseCase: LockProjectUseCase | undefined
+  deleteProjectUseCase: DeleteProjectUseCase | undefined
   listPafRecordsUseCase: ListPafRecordsUseCase | undefined
   createPafRecordUseCase: CreatePafRecordUseCase | undefined
   getPafRecordUseCase: GetPafRecordUseCase | undefined
@@ -30,6 +33,7 @@ const globalForProjectDI = globalThis as unknown as {
   baselineLockUseCase: BaselineLockUseCase | undefined
   approveFormXXIIUseCase: ApproveFormXXIIUseCase | undefined
   generateFormXXIIUseCase: GenerateFormXXIIUseCase | undefined
+  projectChecklistResolver: ProjectChecklistResolver | undefined
 }
 
 const projectRepository = new PrismaProjectRepository()
@@ -41,9 +45,12 @@ export const createProjectUseCase = globalForProjectDI.createProjectUseCase ?? n
 export const updateProjectUseCase = globalForProjectDI.updateProjectUseCase ?? new UpdateProjectUseCase(projectRepository)
 export const getProjectDashboardUseCase = globalForProjectDI.getProjectDashboardUseCase ?? new GetProjectDashboardUseCase(projectRepository)
 export const lockProjectUseCase = globalForProjectDI.lockProjectUseCase ?? new LockProjectUseCase(projectRepository)
+export const deleteProjectUseCase = globalForProjectDI.deleteProjectUseCase ?? new DeleteProjectUseCase(projectRepository)
 export const baselineLockUseCase = globalForProjectDI.baselineLockUseCase ?? new BaselineLockUseCase(projectRepository)
 export const approveFormXXIIUseCase = globalForProjectDI.approveFormXXIIUseCase ?? new ApproveFormXXIIUseCase(projectRepository)
 export const generateFormXXIIUseCase = globalForProjectDI.generateFormXXIIUseCase ?? new GenerateFormXXIIUseCase(projectRepository, complianceService)
+
+export const projectChecklistResolver = globalForProjectDI.projectChecklistResolver ?? new ProjectChecklistResolver(projectRepository)
 
 export const listPafRecordsUseCase = globalForProjectDI.listPafRecordsUseCase ?? new ListPafRecordsUseCase(pafRepository)
 export const createPafRecordUseCase = globalForProjectDI.createPafRecordUseCase ?? new CreatePafRecordUseCase(pafRepository)
@@ -56,6 +63,7 @@ if (process.env.NODE_ENV !== 'production') {
   globalForProjectDI.updateProjectUseCase = updateProjectUseCase
   globalForProjectDI.getProjectDashboardUseCase = getProjectDashboardUseCase
   globalForProjectDI.lockProjectUseCase = lockProjectUseCase
+  globalForProjectDI.deleteProjectUseCase = deleteProjectUseCase
   globalForProjectDI.listPafRecordsUseCase = listPafRecordsUseCase
   globalForProjectDI.createPafRecordUseCase = createPafRecordUseCase
   globalForProjectDI.getPafRecordUseCase = getPafRecordUseCase
@@ -64,4 +72,5 @@ if (process.env.NODE_ENV !== 'production') {
   globalForProjectDI.baselineLockUseCase = baselineLockUseCase
   globalForProjectDI.approveFormXXIIUseCase = approveFormXXIIUseCase
   globalForProjectDI.generateFormXXIIUseCase = generateFormXXIIUseCase
+  globalForProjectDI.projectChecklistResolver = projectChecklistResolver
 }

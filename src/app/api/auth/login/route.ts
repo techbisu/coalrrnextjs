@@ -2,7 +2,7 @@
 import { db } from '@/lib/db'
 import { createSession } from '@/lib/auth'
 import { ok, badRequest, serverError, readJson } from '../../_lib'
-import { createHash } from 'crypto'
+import bcrypt from 'bcrypt'
 import type { NextRequest } from 'next/server'
 import { generateAndSendOTP } from '@/lib/otp'
 
@@ -11,9 +11,11 @@ export async function POST(req: NextRequest) {
     const body = await readJson<{ portal?: 'ecl' | 'public'; email?: string; password?: string; mobile?: string; otp?: string }>(req)
     if (body?.portal === 'ecl') {
       if (!body.email || !body.password) return badRequest('email and password required for ECL portal')
-      const password_hash = createHash('sha256').update(body.password).digest('hex')
       const user = await db.user.findUnique({ where: { email: body.email } })
-      if (!user || user.password_hash !== password_hash) return badRequest('Invalid email or password')
+      if (!user || !user.password_hash) return badRequest('Invalid email or password')
+      
+      const isPasswordValid = await bcrypt.compare(body.password, user.password_hash)
+      if (!isPasswordValid) return badRequest('Invalid email or password')
       
       // Check if OTP is globally enabled or enabled for this user
       const sysConfig = await db.sys_config.findUnique({ where: { key: 'global_otp_enabled' } })

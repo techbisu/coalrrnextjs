@@ -32,9 +32,9 @@ import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 import { ProjectFormDialog, ProjectFormValues } from './ProjectFormDialog'
 import { LockBaselineDialog } from './LockBaselineDialog'
 import { FormXXIIModal } from './FormXXIIModal'
-import { ProjectFilesSection } from './ProjectFilesSection'
 import { ProjectBoundarySection } from './ProjectBoundarySection'
 import { ProjectList } from './ProjectList'
+import { GenericChecklistWorkspace } from '@/components/checklists/GenericChecklistWorkspace'
 
 export const EMPTY_FORM: ProjectFormValues = {
   name: '',
@@ -167,6 +167,10 @@ function FormXXIISection({ projectId }: { projectId: string }) {
 
 
 
+import { useMasterLookup } from '@/shared/hooks/useMasterLookup'
+
+// ... existing imports ...
+
 export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string }) {
   const t = useAppTranslation('project_master')
   const { user } = useAuth()
@@ -181,9 +185,21 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
   const [editOpen, setEditOpen] = React.useState(false)
   const [lockOpen, setLockOpen] = React.useState(false)
   const [formXXIIOpen, setFormXXIIOpen] = React.useState(false)
-  // Increment keys every time dialogs open to force fresh remount of useForm
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false)
+  const [projectToDelete, setProjectToDelete] = React.useState<{ id: string, name: string } | null>(null)
+  const [deleteConfirmName, setDeleteConfirmName] = React.useState('')
+
   const [editFormKey, setEditFormKey] = React.useState(0)
   const [createFormKey, setCreateFormKey] = React.useState(0)
+
+  const { data: mouzaData } = useMasterLookup({ masterName: 'mouza_master' })
+  const mouzaMap = React.useMemo(() => {
+    const map = new Map<string, string>()
+    if (mouzaData?.options) {
+      mouzaData.options.forEach(opt => map.set(String(opt.value), opt.label))
+    }
+    return map
+  }, [mouzaData])
 
   const selectProject = React.useCallback((id: string) => {
     uiSelectProject(id)
@@ -193,7 +209,30 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
     }
   }, [data, uiSelectProject])
 
+  const handleDelete = async () => {
+    if (!projectToDelete) return
+    if (deleteConfirmName !== projectToDelete.name) return
+    try {
+      const r = await fetch(`/api/projects/${projectToDelete.id}`, { method: 'DELETE' });
+      if (!r.ok) throw new Error('Failed to delete project');
+      toast.success('Project deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setDeleteConfirmOpen(false);
+      setDeleteConfirmName('');
+      if (projectToDelete.id === selectedProjectId) {
+        setViewMode('list');
+      }
+      setProjectToDelete(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Error deleting project');
+    }
+  }
+
+  // ... rest of the code until render ...
+
   React.useEffect(() => {
+// ... same as before
+
     if (data && data.length > 0 && !selectedProjectId) {
       if (initialMineCd) {
         const found = data.find(p => p.mine_cd === initialMineCd || p.id === initialMineCd)
@@ -274,9 +313,15 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">{t('project_master.title', 'Project Master')}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{t('project_master.no_projects_desc', 'Select a project to view details or create a new one.')}</p>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => window.location.href = '/'} className="-ml-2 h-8 w-8 text-muted-foreground hover:text-foreground" title="Go Back">
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">Go Back</span>
+            </Button>
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">{t('project_master.title', 'Project Master')}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{t('project_master.no_projects_desc', 'Select a project to view details or create a new one.')}</p>
+            </div>
           </div>
           <Can permission="project.create">
             <Button onClick={() => { setCreateFormKey(k => k + 1); setCreateOpen(true); }}>
@@ -336,15 +381,17 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            {user?.scope?.level !== 'UNIT' && (
-              <Button variant="ghost" size="icon" onClick={() => {
+            <Button variant="ghost" size="icon" onClick={() => {
+              if (viewMode === 'details' && user?.scope?.level !== 'UNIT') {
                 setViewMode('list')
                 window.history.pushState(null, '', routes.project.list())
-              }} className="-ml-2 h-8 w-8 text-muted-foreground hover:text-foreground" title="Back to List">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Back to List</span>
-              </Button>
-            )}
+              } else {
+                window.history.pushState(null, '', '/')
+              }
+            }} className="-ml-2 h-8 w-8 text-muted-foreground hover:text-foreground" title="Go Back">
+              <ArrowLeft className="h-5 w-5" />
+              <span className="sr-only">Go Back</span>
+            </Button>
             <h2 className="text-xl font-bold tracking-tight">{project.name}</h2>
             {project.isLocked ? (
               <Badge variant="outline" className="gap-1 bg-secondary text-secondary-foreground"><Lock className="h-3 w-3" /> {t('project_master.baseline_locked', 'Baseline Locked')}</Badge>
@@ -352,7 +399,7 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
               <Badge variant="outline" className="bg-muted text-muted-foreground">{t('project_master.draft_status', 'Draft — not locked')}</Badge>
             )}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground ml-10">
             {t('project_master.colliery_code', 'Colliery code')} <span className="font-mono">{project.ecl_proj_cd || project.mine_cd}</span> · {t('project_master.locked_on', 'locked on')}{' '}
             {project.locked_at ? new Date(project.locked_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
           </p>
@@ -369,6 +416,19 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
               <Can permission="project.edit">
                 <Button onClick={() => { setEditFormKey(k => k + 1); setEditOpen(true); }} variant="outline">
                   <Pencil className="mr-2 h-4 w-4" /> {t('common.edit', 'Edit')}
+                </Button>
+              </Can>
+              <Can permission="project.delete">
+                <Button 
+                  onClick={() => {
+                    setProjectToDelete({ id: project.id, name: project.name });
+                    setDeleteConfirmName('');
+                    setDeleteConfirmOpen(true);
+                  }} 
+                  variant="outline" 
+                  className="text-destructive hover:bg-destructive/10 border-destructive/20"
+                >
+                  <AlertTriangle className="mr-2 h-4 w-4" /> Delete
                 </Button>
               </Can>
               <Can permission="project.lock">
@@ -426,13 +486,29 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
             <span>
               {t('project_master.baseline_not_locked_desc', 'This project is still in draft. Downstream modules (Form-I claims, compensation payrolls, Form-D ledger) cannot bind to an unlocked baseline. Lock it to enable acquisition workflows.')}
             </span>
-            <Button
-              size="sm"
-              onClick={() => setLockOpen(true)}
-              variant="destructive"
-            >
-              <Lock className="mr-2 h-3.5 w-3.5" /> {t('project_master.lock_baseline_btn', 'Lock Baseline')}
-            </Button>
+            <div className="flex gap-2">
+              <Can permission="project.delete">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setProjectToDelete({ id: project.id, name: project.name });
+                    setDeleteConfirmName('');
+                    setDeleteConfirmOpen(true);
+                  }}
+                  variant="outline"
+                  className="bg-background border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  <AlertTriangle className="mr-2 h-3.5 w-3.5" /> Delete
+                </Button>
+              </Can>
+              <Button
+                size="sm"
+                onClick={() => setLockOpen(true)}
+                variant="destructive"
+              >
+                <Lock className="mr-2 h-3.5 w-3.5" /> {t('project_master.lock_baseline_btn', 'Lock Baseline')}
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       )}
@@ -454,8 +530,14 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
           <ProjectBoundarySection project={project} />
         </div>
 
-        {/* Statutory clearances & Files */}
-        <ProjectFilesSection projectId={project.id} prDocs={project.pr_docs} />
+        {/* Dynamic Project Files & Clearances */}
+        <GenericChecklistWorkspace
+          key={`checklist-${project.id}`}
+          moduleCode="PROJECT_MASTER"
+          checkableType="project"
+          checkableId={project.id}
+          userId={user?.id || 'system'}
+        />
       </div>
 
       {/* Plot schedule table */}
@@ -518,6 +600,43 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
       <FormXXIISection projectId={project.id} />
 
       {/* Dialogs */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={(open) => {
+        setDeleteConfirmOpen(open)
+        if (!open) {
+          setDeleteConfirmName('')
+          setProjectToDelete(null)
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this project? This action cannot be undone.
+              All associated data will be permanently removed.
+              <br /><br />
+              Type the project name <strong className="text-foreground">{projectToDelete?.name}</strong> exactly as shown below to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input 
+              value={deleteConfirmName} 
+              onChange={(e) => setDeleteConfirmName(e.target.value)} 
+              placeholder={projectToDelete?.name} 
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDelete}
+              disabled={deleteConfirmName !== projectToDelete?.name}
+            >
+              Delete Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <ProjectFormDialog 
         key={`create-dialog-${createFormKey}`}
         open={createOpen}

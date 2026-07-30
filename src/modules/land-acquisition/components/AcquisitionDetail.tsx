@@ -18,7 +18,7 @@ import { formatNumber } from '@/lib/utils/formatters'
 import { MODE_META, ScheduleDetail } from '../types'
 import { AcquisitionDetailTabs } from './AcquisitionDetailTabs'
 
-function MetaItem({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
+function MetaItem({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2">
       <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
@@ -137,7 +137,7 @@ export function AcquisitionDetail({ schedule }: { schedule: ScheduleDetail }) {
               <h2 className="text-xl font-bold tracking-tight">{schedule.proposal_title}</h2>
               <StateBadge state={schedule.state} size="md" />
             </div>
-            <p className="mt-1 font-mono text-xs text-muted-foreground">{schedule.schedule_code}</p>
+            <p className="mt-1 text-sm text-muted-foreground max-w-3xl">{schedule.description}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -149,9 +149,21 @@ export function AcquisitionDetail({ schedule }: { schedule: ScheduleDetail }) {
 
       {/* Proposal meta strip */}
       <div className="grid gap-3 rounded-lg border border-border/60 bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetaItem icon={Building2} label="Project" value={schedule.projectName} />
+        <MetaItem 
+          icon={Building2} 
+          label="Project" 
+          value={
+            <Link href={`/projects/${schedule.project_id}`} className="text-blue-600 hover:underline">
+              {schedule.projectName}
+            </Link>
+          } 
+        />
         <MetaItem icon={MapPin} label="Area Office / Colliery" value={`${schedule.area_office || '—'} · ${schedule.mine_cd || '—'}`} />
-        <MetaItem icon={Calendar} label="Notification Date" value={schedule.notification_date ? new Date(schedule.notification_date).toLocaleDateString('en-IN') : '—'} />
+        <MetaItem 
+          icon={Calendar} 
+          label="Notification Date" 
+          value={schedule.notification_date ? new Date(schedule.notification_date).toLocaleDateString('en-IN') : 'Not published, still in approval'} 
+        />
         <MetaItem icon={Layers} label="Total Area" value={`${formatNumber(schedule.total_area_acres, 4)} acres`} />
       </div>
 

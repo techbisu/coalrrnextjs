@@ -5,7 +5,7 @@ import { IUseCase, Result, Fail, Ok } from '@/core'
 import { Proposal, IProposalRepository } from '@/domain/entities/proposal'
 import { IProjectRepository } from '@/domain/entities/project'
 import { EventBus } from '@/core/notifications/EventBus'
-import { auditQueue as AuditQueue } from '@/infrastructure/di/Container'
+import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di'
 import { ValidationException, NotFoundException } from '@/core/errors'
 
 export interface CreateProposalRequest {

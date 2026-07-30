@@ -17,46 +17,58 @@ export function MasterAutocomplete({
   className,
 }: MasterLookupProps) {
   const [searchQuery, setSearchQuery] = React.useState('')
-  const [debouncedSearch, setDebouncedSearch] = React.useState('')
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300)
-    return () => clearTimeout(timer)
-  }, [searchQuery])
 
   const selectedValues = React.useMemo(() => {
     if (value === undefined || value === null || value === '') return []
     return Array.isArray(value) ? value.map(String) : [String(value)]
   }, [value])
 
-  const { data, isLoading, error } = useMasterQuery({ 
-    master, 
-    dependsOn, 
-    searchQuery: debouncedSearch,
+  // Fetch the full list once per dependency set — no search param sent to server
+  const { data, isLoading, error } = useMasterQuery({
+    master,
+    dependsOn,
     activeOnly,
-    selectedValues
+    selectedValues,
   })
 
   const isDisabled = disabled || !!error
 
-  const options = React.useMemo(() => {
+  // All options from server (full list, unfiltered)
+  const allOptions = React.useMemo(() => {
     if (!data?.options) return []
     return data.options.map((opt) => ({
       value: String(opt.value),
       label: opt.label,
-      group: (opt as any).group, // Maps group if returned by API
+      group: (opt as any).group,
+      data: (opt as any).data
     }))
   }, [data?.options])
+
+  /**
+   * Client-side filtering across the formatted label.
+   * The label already contains: name | local | lgd_code (from labelFormat in master.config.ts)
+   * so searching "2798", "पश्चिम", or "Paschim" all match naturally.
+   */
+  const options = React.useMemo(() => {
+    if (!searchQuery.trim()) return allOptions
+    const q = searchQuery.toLowerCase()
+    return allOptions.filter(opt => opt.label.toLowerCase().includes(q))
+  }, [allOptions, searchQuery])
 
   return (
     <Combobox
       options={options}
       value={isMulti ? selectedValues : selectedValues[0]}
-      onChange={(v) => {
+      onChange={(v, optionData) => {
         if (isMulti) {
           onChange?.(v as string[])
         } else {
-          onChange?.(v as string)
+          // If onChange accepts a second argument, pass the data
+          if ((onChange as any).length > 1) {
+            (onChange as any)(v as string, optionData?.data)
+          } else {
+            onChange?.(v as string)
+          }
         }
       }}
       onSearch={setSearchQuery}

@@ -1,7 +1,7 @@
 import { IMasterLookupRepository } from '../domain/IMasterLookupRepository'
 import { MasterOption } from '../types'
 import { Result, Ok, Fail } from '@/core/result/Result'
-import { MASTER_REGISTRY } from '@/modules/admin/master-data/config/MasterDataRegistry'
+import { MASTER_REGISTRY } from '@/core/config/master.config'
 
 export interface GetMasterLookupRequest {
   table: string

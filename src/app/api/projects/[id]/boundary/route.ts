@@ -3,13 +3,9 @@ import { authorizeApi } from '@/authorization/middleware/authorize'
 import { db } from '@/lib/db'
 import { ok, serverError, notFound, badRequest } from '../../../_lib'
 import type { NextRequest } from 'next/server'
-import { z } from 'zod'
+import { ProjectBoundarySchema } from '@/core/validation/schemas/project.schema'
 
 type Ctx = { params: Promise<{ id: string }> }
-
-const BoundarySchema = z.object({
-  boundary: z.string().min(1, 'Boundary cannot be empty'),
-})
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
@@ -19,7 +15,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     const { id } = await ctx.params
 
     const body = await req.json()
-    const parsed = BoundarySchema.safeParse(body)
+    const parsed = ProjectBoundarySchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.format() }, { status: 400 })
     }

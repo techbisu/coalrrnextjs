@@ -9,12 +9,26 @@ import { PrismaNotificationStorage } from '@/infrastructure/persistence/reposito
 import { NotificationConfig } from '@/core/notifications/NotificationConfig'
 import { Audit } from '@/core/audit/services/AuditService'
 
+import { ChecklistContextRegistry } from '@/core/checklist/registry/ChecklistContextRegistry'
+import { PrismaChecklistRepository } from '@/infrastructure/persistence/repositories/PrismaChecklistRepository'
+import { GetChecklistStatusUseCase } from '@/core/checklist/usecases/GetChecklistStatusUseCase'
+import { UpdateChecklistSubmissionUseCase } from '@/core/checklist/usecases/UpdateChecklistSubmissionUseCase'
+
+import { ProjectChecklistResolver } from '@/modules/project-master/services/ProjectChecklistResolver'
+import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
+import { ProposalChecklistResolver } from '@/core/proposal/checklist/ProposalChecklistResolver'
+import { PrismaAcqProposalRepository } from '@/infrastructure/persistence/repositories/PrismaAcqProposalRepository'
+import { db } from '@/lib/db'
+
 const globalForCoreDI = globalThis as unknown as {
   getNomineePoolsUseCase: GetNomineePoolsUseCase | undefined
   getNomineePoolDetailUseCase: GetNomineePoolDetailUseCase | undefined
   documentTemplateRepository: PrismaDocumentTemplateRepository | undefined
   documentInstanceRepository: PrismaDocumentInstanceRepository | undefined
   jobDispatcher: import('@/core/jobs/services/JobDispatcherService').JobDispatcherService | undefined
+  checklistRegistry: ChecklistContextRegistry | undefined
+  getChecklistStatusUseCase: GetChecklistStatusUseCase | undefined
+  updateChecklistSubmissionUseCase: UpdateChecklistSubmissionUseCase | undefined
 }
 
 const nomineePoolRepository = new PrismaNomineePoolRepository()
@@ -25,8 +39,18 @@ const notificationStorage = new PrismaNotificationStorage()
 // Initialize Global Configs
 NotificationConfig.initialize(notificationStorage)
 
+const checklistRegistry = globalForCoreDI.checklistRegistry ?? new ChecklistContextRegistry()
+
+checklistRegistry.register('PROJECT_MASTER', new ProjectChecklistResolver(new PrismaProjectRepository()))
+checklistRegistry.register('LAND_ACQ_PROPOSAL', new ProposalChecklistResolver(new PrismaAcqProposalRepository()))
+
+const checklistRepository = new PrismaChecklistRepository()
+
 export const getNomineePoolsUseCase = globalForCoreDI.getNomineePoolsUseCase ?? new GetNomineePoolsUseCase(nomineePoolRepository)
 export const getNomineePoolDetailUseCase = globalForCoreDI.getNomineePoolDetailUseCase ?? new GetNomineePoolDetailUseCase(nomineePoolRepository)
+
+export const getChecklistStatusUseCase = globalForCoreDI.getChecklistStatusUseCase ?? new GetChecklistStatusUseCase(checklistRepository, checklistRegistry)
+export const updateChecklistSubmissionUseCase = globalForCoreDI.updateChecklistSubmissionUseCase ?? new UpdateChecklistSubmissionUseCase(checklistRepository, checklistRegistry)
 
 export const documentTemplateRepositoryExport = globalForCoreDI.documentTemplateRepository ?? documentTemplateRepository
 export const documentInstanceRepositoryExport = globalForCoreDI.documentInstanceRepository ?? documentInstanceRepository
@@ -40,12 +64,14 @@ export const auditQueue = {
   }
 }
 
-import { JobDispatcherService } from '@/core/jobs/services/JobDispatcherService'
-const jobDispatcherService = new JobDispatcherService()
+import { jobDispatcher as coreJobDispatcher } from '@/core/jobs/services/JobDispatcherService'
 
-export const jobDispatcher = globalForCoreDI.jobDispatcher ?? jobDispatcherService
+export const jobDispatcher = globalForCoreDI.jobDispatcher ?? coreJobDispatcher
 export const Container = {
-  jobDispatcher
+  jobDispatcher,
+  checklistRegistry,
+  getChecklistStatusUseCase,
+  updateChecklistSubmissionUseCase
 }
 
 if (process.env.NODE_ENV !== 'production') {
@@ -54,4 +80,7 @@ if (process.env.NODE_ENV !== 'production') {
   globalForCoreDI.documentTemplateRepository = documentTemplateRepositoryExport
   globalForCoreDI.documentInstanceRepository = documentInstanceRepositoryExport
   globalForCoreDI.jobDispatcher = jobDispatcher
+  globalForCoreDI.checklistRegistry = checklistRegistry
+  globalForCoreDI.getChecklistStatusUseCase = getChecklistStatusUseCase
+  globalForCoreDI.updateChecklistSubmissionUseCase = updateChecklistSubmissionUseCase
 }

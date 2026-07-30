@@ -365,8 +365,39 @@ export class PrismaProjectRepository implements IProjectRepository {
     });
   }
 
+  // Deletes the project and its related records in a transaction
   async delete(id: string): Promise<void> {
-    await db.project.delete({ where: { projCd: id } })
+    await db.$transaction(async (tx) => {
+      // 1. Get all approvals for this project to delete their locations
+      const approvals = await tx.projAprv.findMany({
+        where: { projCd: id },
+        select: { aprvCd: true }
+      })
+
+      const aprvCds = approvals.map(a => a.aprvCd)
+
+      // 2. Delete locations associated with those approvals
+      if (aprvCds.length > 0) {
+        await tx.projAprvLocation.deleteMany({
+          where: { aprvCd: { in: aprvCds } }
+        })
+      }
+
+      // 3. Delete approvals
+      await tx.projAprv.deleteMany({
+        where: { projCd: id }
+      })
+
+      // 4. Delete file attachments associated with the project
+      await tx.file_attachment.deleteMany({
+        where: { entity_id: id }
+      })
+
+      // 5. Delete the project itself
+      await tx.project.delete({
+        where: { projCd: id }
+      })
+    })
   }
 
   async exists(id: string): Promise<boolean> {

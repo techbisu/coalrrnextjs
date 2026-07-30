@@ -81,7 +81,9 @@ export function ProjectFormDialog({
 
   const form = useForm<any>({
     resolver: zodResolver(DialogFormSchema) as any,
-    values: formValues
+    values: formValues,
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
   })
 
   const mutation = useMutation({

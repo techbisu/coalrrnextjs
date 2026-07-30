@@ -4,7 +4,7 @@ import { ok, badRequest, serverError, readJson } from '../../../_lib'
 import { getCurrentUser } from '@/lib/auth'
 import type { NextRequest } from 'next/server'
 import { AddPlotToProposalUseCase } from '@/application/use-cases/proposal'
-import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories/PrismaProposalRepository'
+import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories'
 import { PrismaPlotRepository } from '@/infrastructure/persistence/repositories/PrismaPlotRepository'
 
 type Ctx = { params: Promise<{ id: string }> }

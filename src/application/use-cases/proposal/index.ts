@@ -16,6 +16,11 @@ export type { GetProposalDetailsRequest, GetProposalDetailsResponse } from './Ge
 export { GetProposalsUseCase } from './GetProposalsUseCase'
 export type { GetProposalsRequest } from './GetProposalsUseCase'
 
+// New plot use cases
+export * from './AddPlotsToProposalUseCase';
+export * from './UpdatePlotUseCase';
+export * from './DeletePlotUseCase';
+
 export { UpdateChecklistItemUseCase } from './UpdateChecklistItemUseCase'
 export type { UpdateChecklistItemRequest, UpdateChecklistItemResponse } from './UpdateChecklistItemUseCase'
 

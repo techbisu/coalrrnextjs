@@ -234,14 +234,14 @@ export function FormXXIIModal({
                 </div>
 
                 <div className="grid gap-3 mt-4 border-t pt-4">
-                  <h4 className="text-sm font-semibold text-muted-foreground">Statutory Clearance Status (Required for Form-XXII)</h4>
+                  <h4 className="text-sm font-semibold text-muted-foreground">{t('statutory_clearance')}</h4>
                   <div className="grid gap-1.5">
                     <Label>DGMS Clearance Status</Label>
                     <Select value={dgmsStatus} onValueChange={setDgmsStatus}>
                       <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Obtained">Obtained</SelectItem>
-                        <SelectItem value="Pending">Pending / Applied</SelectItem>
+                        <SelectItem value="Obtained">{t('clearance_obtained')}</SelectItem>
+                        <SelectItem value="Pending">{t('clearance_pending')} / Applied</SelectItem>
                         <SelectItem value="Not Applicable">Not Applicable</SelectItem>
                       </SelectContent>
                     </Select>
@@ -251,8 +251,8 @@ export function FormXXIIModal({
                     <Select value={envStatus} onValueChange={setEnvStatus}>
                       <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Obtained">Obtained</SelectItem>
-                        <SelectItem value="Pending">Pending / Applied</SelectItem>
+                        <SelectItem value="Obtained">{t('clearance_obtained')}</SelectItem>
+                        <SelectItem value="Pending">{t('clearance_pending')} / Applied</SelectItem>
                         <SelectItem value="Not Applicable">Not Applicable</SelectItem>
                       </SelectContent>
                     </Select>
@@ -262,8 +262,8 @@ export function FormXXIIModal({
                     <Select value={forestStatus} onValueChange={setForestStatus}>
                       <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Obtained">Obtained</SelectItem>
-                        <SelectItem value="Pending">Pending / Applied</SelectItem>
+                        <SelectItem value="Obtained">{t('clearance_obtained')}</SelectItem>
+                        <SelectItem value="Pending">{t('clearance_pending')} / Applied</SelectItem>
                         <SelectItem value="Not Applicable">Not Applicable</SelectItem>
                       </SelectContent>
                     </Select>
@@ -289,7 +289,7 @@ export function FormXXIIModal({
 
             <DialogFooter className="mt-4">
               <Button variant="outline" onClick={() => setDraftData(null)} disabled={approveMutation.isPending}>
-                Back
+                {t('back')}
               </Button>
               {draftData.isBaselineBreached && (
                 <Button

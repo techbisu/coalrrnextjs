@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { authorizeApi } from '@/authorization/middleware/authorize'
-import { updateProjectUseCase } from '@/infrastructure/di/Container'
+import { updateProjectUseCase, deleteProjectUseCase } from '@/infrastructure/di/Container'
 import { ok, badRequest, serverError, notFound } from '../../_lib'
 import type { NextRequest } from 'next/server'
 import { NotFoundException, ValidationException } from '@/core/errors'
@@ -42,5 +42,29 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     return ok(result.value)
   } catch (e: any) {
     return serverError('Failed to update project', e.message)
+  }
+}
+
+export async function DELETE(req: NextRequest, ctx: Ctx) {
+  try {
+    const auth = await authorizeApi('project.delete')
+    if (auth.error) return auth.error
+
+    const { id } = await ctx.params
+
+    const result = await deleteProjectUseCase!.execute({
+      id,
+      user_id: auth.user.id
+    })
+
+    if (result.isFailure) {
+      if ((result.error as any) instanceof NotFoundException || String(result.error).includes('not found')) return notFound(String(result.error))
+      if ((result.error as any) instanceof ProjectAlreadyLockedException || String(result.error).includes('locked')) return badRequest(String(result.error))
+      throw result.error
+    }
+
+    return ok(result.value)
+  } catch (e: any) {
+    return serverError('Failed to delete project', e.message)
   }
 }

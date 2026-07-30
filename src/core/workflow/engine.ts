@@ -60,6 +60,7 @@ export class WorkflowEngine {
   /**
    * Returns the transitions an actor is authorised to fire from the record's
    * current state. role-filtered so the UI only shows relevant buttons.
+   * Uses static transitions (from states.ts) — safe to call from Client Components.
    */
   getAvailableTransitions(ctx: GuardContext): ReadonlyArray<Transition> {
     const meta = this.getStateMeta(ctx.recordType, ctx.currentState);
@@ -68,8 +69,7 @@ export class WorkflowEngine {
   }
 
   /**
-   * Finds a transition by `name` from the current state (regardless of role —
-   * the role check is applied inside this method too).
+   * Finds a transition by `name` from the current state.
    */
   findTransition(
     ctx: GuardContext,
@@ -81,11 +81,8 @@ export class WorkflowEngine {
   }
 
   /**
-   * Attempts to fire `transitionName` from the record's current state.
-   *
-   * **Never throws.** Returns `{ ok: true, newState }` on success, or
-   * `{ ok: false, reason }` (with optional `failedGuard` name) on failure.
-   * The UI renders the latter as a disabled button with a tooltip (§2.3.1).
+   * Attempts to fire `transitionName` using static (in-memory) transitions.
+   * Safe for UI-facing validation — no DB call. Never throws.
    */
   attemptTransition(
     ctx: GuardContext,
@@ -98,18 +95,12 @@ export class WorkflowEngine {
         reason: `No authorised transition "${transitionName}" from state "${ctx.currentState}" for role "${ctx.actorRole}"`,
       };
     }
-
     if (transition.guard) {
       const result = transition.guard.check(ctx);
       if (!result.ok) {
-        return {
-          ok: false,
-          failedGuard: transition.guard.name,
-          reason: result.reason ?? "Guard rejected transition",
-        };
+        return { ok: false, failedGuard: transition.guard.name, reason: result.reason ?? "Guard rejected transition" };
       }
     }
-
     return { ok: true, newState: transition.to };
   }
 

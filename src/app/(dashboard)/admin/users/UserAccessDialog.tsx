@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Loader2, KeyRound, ShieldCheck } from 'lucide-react'
+import { Loader2, KeyRound, ShieldCheck, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Role {
@@ -173,12 +173,12 @@ export function UserAccessDialog({
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
-            <KeyRound className="h-3.5 w-3.5" />
+            <ShieldAlert className="h-3.5 w-3.5" />
             Access
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[580px] max-h-[82vh] flex flex-col">
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Manage Access — {userName}</DialogTitle>
           <DialogDescription>

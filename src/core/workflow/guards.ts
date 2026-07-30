@@ -1,10 +1,11 @@
 /**
  * Workflow Engine — Reusable transition guards (COALRR spec §1.3.3, §2.3).
  *
- * Guards are referenced by BOTH the workflow layer (to gate transitions) AND
- * the validation layer (to surface the same rule as a Zod issue). They are
- * pure functions of `GuardContext` — the caller pre-loads any DB state into
- * `ctx.data` so the engine itself stays Prisma-free.
+ * Guards are pure functions of `GuardContext`. The caller pre-loads any DB
+ * state into `ctx.data` so the engine stays Prisma-free.
+ *
+ * GUARD_REGISTRY maps the `guard_key` strings stored in `workflow_transitions`
+ * DB rows to concrete guard instances. Add new guards here.
  */
 import { MoneyValue } from "@/lib/engines/math/value-objects";
 import { AcreageValue, EMPLOYMENT_GATE_ACRES } from "@/lib/engines/math/value-objects";
@@ -16,13 +17,8 @@ import type { GuardContext, GuardResult, TransitionGuard } from "./types";
 
 /**
  * Guards the project-budget ceiling (spec §1.3.3 / Module 1 baseline lock).
- *
- * Reads `ctx.data.total_award` and `ctx.data.budgetCeiling` (both INR strings,
- * or pre-built `MoneyValue`s). Allows the transition only if the cumulative
- * payroll total stays within the project's locked budget ceiling.
- *
- * Breach of this guard is the trigger for the `BoardEscalation` branch
- * (spec §2.3).
+ * Reads `ctx.data.total_award` and `ctx.data.budgetCeiling`.
+ * Breach triggers the `BoardEscalation` branch (spec §2.3).
  */
 export class WithinProjectBaselineGuard implements TransitionGuard {
   readonly name = "within_project_baseline";
@@ -34,8 +30,7 @@ export class WithinProjectBaselineGuard implements TransitionGuard {
     if (!total || !ceiling) {
       return {
         ok: false,
-        reason:
-          "Baseline guard requires `total_award` and `budgetCeiling` in context data",
+        reason: "Baseline guard requires `total_award` and `budgetCeiling` in context data",
       };
     }
     if (total.compareTo(ceiling) > 0) {
@@ -52,10 +47,6 @@ export class WithinProjectBaselineGuard implements TransitionGuard {
 // BaselineBreachedGuard (inverse — used to enter BoardEscalation)
 // ════════════════════════════════════════════════════════════════════════════
 
-/**
- * Inverse of `WithinProjectBaselineGuard` — fires the `BoardEscalation`
- * branch when the payroll breaches the project ceiling (spec §2.3).
- */
 export class BaselineBreachedGuard implements TransitionGuard {
   readonly name = "baseline_breached";
   private readonly inner = new WithinProjectBaselineGuard();
@@ -63,12 +54,8 @@ export class BaselineBreachedGuard implements TransitionGuard {
   check(ctx: GuardContext): GuardResult {
     const inner = this.inner.check(ctx);
     if (inner.ok) {
-      return {
-        ok: false,
-        reason: "Baseline is intact — escalation branch is not reachable",
-      };
+      return { ok: false, reason: "Baseline is intact — escalation branch is not reachable" };
     }
-    // Inner guard failed ⇒ breach present ⇒ this guard passes.
     return { ok: true };
   }
 }
@@ -79,10 +66,7 @@ export class BaselineBreachedGuard implements TransitionGuard {
 
 /**
  * Guards the mode-specific checklist (spec §2 — Land Acquisition).
- *
- * Constructed with a `checklistCode` (e.g. `"CL-1.1"` for direct-purchase,
- * `"CL-1.2"` for CBA Act). Reads `ctx.data.checklist` — a record mapping
- * item-key → `{ complete: boolean }`. Passes only when every item is complete.
+ * Constructed with `checklistCode` (e.g. "CL-1.1"). Reads `ctx.data.checklist`.
  */
 export class ChecklistFullySatisfiedGuard implements TransitionGuard {
   readonly name: string;
@@ -91,24 +75,16 @@ export class ChecklistFullySatisfiedGuard implements TransitionGuard {
   }
 
   check(ctx: GuardContext): GuardResult {
-    const checklist = (ctx.data?.checklist ?? {}) as Record<
-      string,
-      { complete?: boolean }
-    >;
+    const checklist = (ctx.data?.checklist ?? {}) as Record<string, { complete?: boolean }>;
     const items = Object.entries(checklist);
     if (items.length === 0) {
-      return {
-        ok: false,
-        reason: `Checklist ${this.checklistCode} has no items on record`,
-      };
+      return { ok: false, reason: `Checklist ${this.checklistCode} has no items on record` };
     }
     const incomplete = items.filter(([, v]) => v?.complete !== true);
     if (incomplete.length > 0) {
       return {
         ok: false,
-        reason: `Checklist ${this.checklistCode} incomplete: ${incomplete
-          .map(([k]) => k)
-          .join(", ")}`,
+        reason: `Checklist ${this.checklistCode} incomplete: ${incomplete.map(([k]) => k).join(", ")}`,
       };
     }
     return { ok: true };
@@ -119,18 +95,12 @@ export class ChecklistFullySatisfiedGuard implements TransitionGuard {
 // PlotNotAlreadyAcquiredGuard
 // ════════════════════════════════════════════════════════════════════════════
 
-/**
- * Guards against double-acquisition of a plot (spec §2 / Module 2).
- *
- * Reads `ctx.data.plotAcquired` (boolean). Passes only when the plot is not
- * already part of a sealed land schedule for the same project.
- */
+/** Guards against double-acquisition of a plot (spec §2 / Module 2). */
 export class PlotNotAlreadyAcquiredGuard implements TransitionGuard {
   readonly name = "plot_not_acquired";
 
   check(ctx: GuardContext): GuardResult {
-    const acquired = Boolean(ctx.data?.plotAcquired);
-    if (acquired) {
+    if (Boolean(ctx.data?.plotAcquired)) {
       return {
         ok: false,
         reason: "Plot is already part of a sealed land schedule (double acquisition blocked)",
@@ -144,12 +114,7 @@ export class PlotNotAlreadyAcquiredGuard implements TransitionGuard {
 // ThresholdMetGuard
 // ════════════════════════════════════════════════════════════════════════════
 
-/**
- * Guards the 2.00-acre employment-quota gate (spec §1.3.3 / §9 / §10).
- *
- * Reads `ctx.data.pooled_acreage` (string or `AcreageValue`). Passes only when
- * the nominee pool's cumulative acreage meets the statutory threshold.
- */
+/** Guards the 2.00-acre employment-quota gate (spec §1.3.3 / §9 / §10). */
 export class ThresholdMetGuard implements TransitionGuard {
   readonly name = "threshold_met_2ac";
   readonly threshold = EMPLOYMENT_GATE_ACRES;
@@ -157,15 +122,10 @@ export class ThresholdMetGuard implements TransitionGuard {
   check(ctx: GuardContext): GuardResult {
     const raw = ctx.data?.pooled_acreage;
     if (raw === undefined || raw === null) {
-      return {
-        ok: false,
-        reason: "Threshold guard requires `pooled_acreage` in context data",
-      };
+      return { ok: false, reason: "Threshold guard requires `pooled_acreage` in context data" };
     }
     const pooled = toAcreage(raw);
-    if (!pooled) {
-      return { ok: false, reason: "Invalid `pooled_acreage` value" };
-    }
+    if (!pooled) return { ok: false, reason: "Invalid `pooled_acreage` value" };
     if (!pooled.isGreaterThanOrEqualTo(this.threshold)) {
       return {
         ok: false,
@@ -180,39 +140,39 @@ export class ThresholdMetGuard implements TransitionGuard {
 // ParallelReviewsCompletedGuard
 // ════════════════════════════════════════════════════════════════════════════
 
-/**
- * Guards the `HqParallelVetting → DirectorConsent` transition (spec §2.3.2).
- *
- * Reads `ctx.data.reviewStatuses` — a record mapping role → `'pending' |
- * 'approved' | 'rejected'`. Passes only when EVERY fanned-out role has
- * decided (not pending). Rejection short-circuits to `ok: false`.
- */
+/** Guards the HqParallelVetting → DirectorConsent transition (spec §2.3.2). */
 export class ParallelReviewsCompletedGuard implements TransitionGuard {
   readonly name = "parallel_reviews_completed";
   constructor(public readonly roles: ReadonlyArray<string>) {}
 
   check(ctx: GuardContext): GuardResult {
-    const statuses = (ctx.data?.reviewStatuses ?? {}) as Record<
-      string,
-      string
-    >;
+    const statuses = (ctx.data?.reviewStatuses ?? {}) as Record<string, string>;
     for (const role of this.roles) {
       const status = statuses[role];
       if (!status || status === "pending") {
-        return {
-          ok: false,
-          reason: `Parallel review pending: ${role}`,
-        };
+        return { ok: false, reason: `Parallel review pending: ${role}` };
       }
       if (status === "rejected") {
-        return {
-          ok: false,
-          reason: `Parallel review rejected by ${role}`,
-        };
+        return { ok: false, reason: `Parallel review rejected by ${role}` };
       }
     }
     return { ok: true };
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// GUARD_REGISTRY
+// Maps the `guard_key` column in `workflow_transitions` DB rows to guard
+// instances. Add new guards here — WorkflowTransitionLoader resolves by key.
+// ════════════════════════════════════════════════════════════════════════════
+
+export const GUARD_REGISTRY: Record<string, TransitionGuard> = {
+  WithinProjectBaseline:    new WithinProjectBaselineGuard(),
+  BaselineBreached:         new BaselineBreachedGuard(),
+  ChecklistFullySatisfied:  new ChecklistFullySatisfiedGuard("CL-1.1"),
+  ParallelReviewsCompleted: new ParallelReviewsCompletedGuard(["gm_planning", "gm_finance"]),
+  PlotNotAcquired:          new PlotNotAlreadyAcquiredGuard(),
+  ThresholdMet2Ac:          new ThresholdMetGuard(),
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -223,11 +183,7 @@ function toMoney(v: unknown): MoneyValue | null {
   if (v === undefined || v === null) return null;
   if (v instanceof MoneyValue) return v;
   if (typeof v === "string" || typeof v === "number") {
-    try {
-      return MoneyValue.from(v);
-    } catch {
-      return null;
-    }
+    try { return MoneyValue.from(v); } catch { return null; }
   }
   return null;
 }
@@ -236,11 +192,7 @@ function toAcreage(v: unknown): AcreageValue | null {
   if (v === undefined || v === null) return null;
   if (v instanceof AcreageValue) return v;
   if (typeof v === "string" || typeof v === "number") {
-    try {
-      return AcreageValue.from(v);
-    } catch {
-      return null;
-    }
+    try { return AcreageValue.from(v); } catch { return null; }
   }
   return null;
 }

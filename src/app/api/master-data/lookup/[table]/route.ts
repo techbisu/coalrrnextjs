@@ -1,121 +1,122 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { MASTER_REGISTRY } from '@/modules/admin/master-data/config/MasterDataRegistry'
+import { MASTER_REGISTRY } from '@/core/config/master.config'
 
+/**
+ * Master data lookup API.
+ *
+ * Returns the FULL dataset for the given table + dependency filters.
+ * Search / filtering is done CLIENT-SIDE in MasterAutocomplete — no search param is accepted here.
+ * Results are cached by React Query for 1 hour per dependency set.
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ table: string }> }
 ) {
   try {
-    const { table } = await params;
-    const { searchParams } = new URL(req.url);
-    const search = searchParams.get('search')?.toLowerCase() || '';
+    const { table } = await params
+    const { searchParams } = new URL(req.url)
 
-    const config = MASTER_REGISTRY[table];
+    const config = MASTER_REGISTRY[table]
     if (!config) {
-      return NextResponse.json({ options: [] });
+      return NextResponse.json({ options: [] })
     }
 
-    const modelName = config.modelName as keyof typeof db;
-    const primaryKey = config.primaryKey;
-    
-    // Auto-detect a label column (usually _en or name)
-    const labelCol = config.columns.find(c => 
-      c.type === 'string' && 
-      (c.key.endsWith('_en') || c.key.includes('name') || c.key.includes('type') || c.key.includes('class') || c.key.includes('method') || c.key.includes('use') || c.key.includes('description'))
-    );
-    const labelKey = labelCol ? labelCol.key : config.columns[1].key;
+    const modelName = config.modelName as keyof typeof db
+    const primaryKey = config.primaryKey
 
-    // Build Prisma query dynamically with fallback for BigInt vs Int
+    // Auto-detect label column (usually _en or name)
+    const labelCol = config.columns.find(c =>
+      c.type === 'string' &&
+      (c.key.endsWith('_en') || c.key.includes('name') || c.key.includes('type') ||
+       c.key.includes('class') || c.key.includes('method') || c.key.includes('use') ||
+       c.key.includes('description'))
+    )
+    const labelKey = labelCol ? labelCol.key : config.columns[1].key
+
+    const pkConfig = config.columns.find(c => c.key === primaryKey)
+    const pkIsNumeric = pkConfig?.type === 'number'
+
+    // Build where clause: activeOnly + cascade dependency filters + selected values for Edit mode
     const buildWhere = (useBigInt: boolean) => {
-      // Base filters (activeOnly, cascade dependencies)
-      const baseFilters: any = {};
-      
+      const filters: any = {}
+
+      // Active-only filter
       if (searchParams.get('activeOnly') === 'true' && config.columns.some(c => c.key === 'is_active')) {
-        baseFilters.is_active = true;
+        filters.is_active = true
       }
 
+      // Cascade dependency filters (e.g. district_lgd=704 → filter blocks by district)
       searchParams.forEach((value, key) => {
-        if (key !== 'search' && key !== 'values' && key !== 'activeOnly' && value) {
-          const colConfig = config.columns.find(c => c.key === key);
-          
-          if (value.includes(',')) {
-            const list = value.split(',').filter(Boolean);
-            if (colConfig?.type === 'number') {
-              baseFilters[key] = { in: list.map(v => useBigInt ? BigInt(v) : Number(v)) };
-            } else {
-              baseFilters[key] = { in: list };
-            }
-          } else {
-            if (colConfig?.type === 'number') {
-              baseFilters[key] = useBigInt ? BigInt(value) : Number(value);
-            } else {
-              baseFilters[key] = value;
-            }
-          }
+        if (key === 'values' || key === 'activeOnly' || !value) return
+        const colConfig = config.columns.find(c => c.key === key)
+
+        if (value.includes(',')) {
+          const list = value.split(',').filter(Boolean)
+          filters[key] = colConfig?.type === 'number'
+            ? { in: list.map(v => useBigInt ? BigInt(v) : Number(v)) }
+            : { in: list }
+        } else {
+          filters[key] = colConfig?.type === 'number'
+            ? (useBigInt ? BigInt(value) : Number(value))
+            : value
         }
-      });
+      })
 
-      // Parse selected values param — critical for Edit mode label resolution
-      const valuesParam = searchParams.get('values');
-      const valuesList = valuesParam ? valuesParam.split(',').filter(Boolean) : [];
-      const pkConfig = config.columns.find(c => c.key === primaryKey);
+      // Selected values param — ensures pre-selected items always appear in Edit mode
+      const valuesParam = searchParams.get('values')
+      const valuesList = valuesParam ? valuesParam.split(',').filter(Boolean) : []
 
-      const parsedValues = valuesList.map(v => {
-        if (pkConfig?.type === 'number') return useBigInt ? BigInt(v) : Number(v);
-        if (pkConfig?.type === 'boolean') return v === 'true';
-        return v;
-      });
-
-      if (search && parsedValues.length > 0) {
-        // Search + selected values: union (label match OR pk match), scoped by base filters
-        return {
-          ...baseFilters,
-          OR: [
-            { [labelKey]: { contains: search, mode: 'insensitive' } },
-            { [primaryKey]: { in: parsedValues } }
-          ]
-        };
-      } else if (search) {
-        return { ...baseFilters, [labelKey]: { contains: search, mode: 'insensitive' } };
-      } else if (parsedValues.length > 0) {
-        // No search — selected items must always appear. Use OR: base filters OR forced pk match.
-        // This ensures pre-selected items always resolve their labels in Edit mode.
-        return {
-          OR: [
-            baseFilters,
-            { [primaryKey]: { in: parsedValues } }
-          ]
-        };
+      if (valuesList.length > 0) {
+        const parsedValues = valuesList.map(v => {
+          if (pkIsNumeric) return useBigInt ? BigInt(v) : Number(v)
+          if (pkConfig?.type === 'boolean') return v === 'true'
+          return v
+        })
+        // OR: base filters OR forced PK match (so selected labels always resolve)
+        return { OR: [filters, { [primaryKey]: { in: parsedValues } }] }
       }
 
-      return baseFilters;
-    };
+      return filters
+    }
 
-    let records;
+    // When labelFormat is active, fetch all columns (omit select entirely)
+    const buildSelect = () => {
+      if (config.labelFormat) return null
+      return { [primaryKey]: true, [labelKey]: true }
+    }
+
+    let records: any[]
     try {
+      const sel = buildSelect()
       records = await (db as any)[modelName].findMany({
-        where: buildWhere(true), // Try BigInt first (most common for PKs)
-        select: { [primaryKey]: true, [labelKey]: true },
-        take: 100
-      });
-    } catch (e: any) {
-      // Fallback to Number if field is actually an Int
+        where: buildWhere(true),
+        ...(sel ? { select: sel } : {}),
+        take: 2000, // generous upper bound for client-side filtering
+        orderBy: { [labelKey]: 'asc' },
+      })
+    } catch {
+      // Fallback: retry with Number instead of BigInt
+      const sel = buildSelect()
       records = await (db as any)[modelName].findMany({
         where: buildWhere(false),
-        select: { [primaryKey]: true, [labelKey]: true },
-        take: 100
-      });
+        ...(sel ? { select: sel } : {}),
+        take: 2000,
+        orderBy: { [labelKey]: 'asc' },
+      })
     }
 
     const options = records.map((r: any) => ({
-      value: String(r[primaryKey]), // Convert BigInt to string safely
-      label: String(r[labelKey])
-    }));
+      value: String(r[primaryKey]), // BigInt → string safely
+      label: config.labelFormat ? config.labelFormat(r) : String(r[labelKey]),
+      data: Object.fromEntries(
+        Object.entries(r).map(([k, v]) => [k, typeof v === 'bigint' ? Number(v) : v])
+      )
+    }))
 
-    return NextResponse.json({ options });
+    return NextResponse.json({ options })
   } catch (error: any) {
-    console.error('Master data lookup error:', error.message);
-    return NextResponse.json({ error: 'Failed to retrieve options' }, { status: 500 });
+    console.error('Master data lookup error:', error.message)
+    return NextResponse.json({ error: 'Failed to retrieve options' }, { status: 500 })
   }
 }

@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation'
 import { AcquisitionList } from '@/modules/land-acquisition/components/AcquisitionList'
 import { AcquisitionDetail } from '@/modules/land-acquisition/components/AcquisitionDetail'
 
-import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories/PrismaProposalRepository'
+import { PrismaAcqProposalRepository } from '@/infrastructure/persistence/repositories/PrismaAcqProposalRepository'
+import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories'
 import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
 import { GetProposalDetailsUseCase, GetProposalsUseCase } from '@/application/use-cases/proposal'
 import { ScheduleListItem, ScheduleDetail } from '@/modules/land-acquisition/types'
@@ -29,7 +30,7 @@ export default async function ProposalsPage({ searchParams }: PageProps) {
 
   if (schedule_id) {
     // Detail View RSC
-    const repository = new PrismaProposalRepository()
+    const repository = new PrismaAcqProposalRepository()
     const useCase = new GetProposalDetailsUseCase(repository)
     const result = await useCase.execute({ proposalId: schedule_id })
     
@@ -44,7 +45,7 @@ export default async function ProposalsPage({ searchParams }: PageProps) {
     return <AcquisitionDetail schedule={schedule} />
   } else {
     // List View RSC
-    const proposalRepo = new PrismaProposalRepository()
+    const proposalRepo = new PrismaAcqProposalRepository()
     const projectRepo = new PrismaProjectRepository()
     const listUseCase = new GetProposalsUseCase(proposalRepo, projectRepo)
     
