@@ -24,11 +24,26 @@ Manages the full lifecycle of Land Acquisition Proposals (LAPs) under CIL collie
 | GET | `/api/proposals/[id]/plots/[plot_no]` | `acquisition.view` | Get plot details |
 | PUT | `/api/proposals/[id]/plots/[plot_no]` | `acquisition.edit` | Edit a plot |
 | DELETE | `/api/proposals/[id]/plots/[plot_no]` | `acquisition.edit` | Delete a plot |
+| GET | `/api/proposals/[id]/limits` | `proposal.view` | Project limit compliance check |
+| GET | `/api/proposals/[id]/milestones` | `proposal.view` | Fetch proposal milestones |
+| POST | `/api/proposals/[id]/milestones` | `proposal.view` | Record a new proposal milestone |
+
+## Proposal Page Layout (12-Column Responsive Grid)
+
+- **Left 8-Column Area**:
+  - **Overview Tab**:
+    - **Compliance Checklist**: Dynamic requirement rules with `Generated Form` Document Engine integration & inline **`Replace / Resubmit`** document workflow.
+    - **Milestones Panel**: Dynamic title & description based on acquisition mode (`Purchase Milestones & Registrations` for Direct Purchase vs `Government Notifications & Statutory Milestones` for CBA/compulsory acquisition) + interactive **`Add Milestone`** modal.
+  - **Plots & Annexures Tab**: Plot schedule table with Mouza, Annexure A/B/C breakdown, and Land Types.
+- **Right 4-Column Sidebar**:
+  - **Workflow Timeline**: Finite state machine node timeline with bounded scrolling container (`max-h-[380px]`).
+  - **Actor Role & Approval Chain**: Unified state transition control with role simulation.
+  - **Project Limits Check**: Live progress indicators for Land Area (Acres), Budget Ceiling (INR), and Employment Quota (Jobs).
 
 ## Proposal Lifecycle
 
 ```
-Drafting → Checklist Complete → Submitted → Under Review → Approved / Rejected
+Drafting → Checklist Complete → Submitted → Under Review → Approved / Rejected → Published
 ```
 
 ## Use Cases (registered in DI container)
@@ -48,6 +63,7 @@ Drafting → Checklist Complete → Submitted → Under Review → Approved / Re
 - `acq_proposal` — master proposal record (schema: `acquisition`)
 - `plot_schedule` — per-plot schedule rows linked to a proposal
 - `plot_schedule_land_type` — land type breakdown per plot
+- `manual_milestone` — manual legal and government milestone entries
 
 ## Translations
 

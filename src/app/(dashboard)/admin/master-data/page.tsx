@@ -1,10 +1,10 @@
 import { MASTER_REGISTRY } from '@/core/config/master.config'
-import { SectionCard } from '@/components/coalrr'
+import { SectionCard } from '@/shared/components/coalrr'
 import { Database, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { redirect } from 'next/navigation'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/shared/components/ui/button'
 
 export default async function MasterDataLandingPage() {
   const auth = await authorizeApi('project.view')

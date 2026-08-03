@@ -119,14 +119,31 @@ export class PrismaProjectRepository implements IProjectRepository {
   async findById(id: string): Promise<Project | null> {
     const data = await db.project.findUnique({
       where: { projCd: id },
+      include: {
+        approvals: {
+          include: {
+            locations: true
+          }
+        }
+      }
     })
 
     if (!data) return null
+
+    const uniqueMines = new Set<string>()
+    data.approvals?.forEach(aprv => {
+      aprv.locations?.forEach(loc => {
+        if (loc.mineCd) {
+          uniqueMines.add(loc.mineCd)
+        }
+      })
+    })
 
     return Project.reconstitute({
       projCd: data.projCd,
       projNm: data.projNm,
       eclProjCd: data.eclProjCd || '',
+      mineCds: Array.from(uniqueMines),
       projectDesc: data.projectDesc,
       totalApprovedArea: data.totalApprovedArea?.toString() || '0',
       totalAcquiredArea: data.totalAcquiredArea?.toString() || '0',
@@ -203,14 +220,29 @@ export class PrismaProjectRepository implements IProjectRepository {
   async findByMineCd(mine_cd: string): Promise<Project | null> {
     const data = await db.project.findFirst({
       where: { eclProjCd: mine_cd },
+      include: {
+        approvals: {
+          include: { locations: true }
+        }
+      }
     })
 
     if (!data) return null
+
+    const uniqueMines = new Set<string>()
+    data.approvals?.forEach(aprv => {
+      aprv.locations?.forEach(loc => {
+        if (loc.mineCd) {
+          uniqueMines.add(loc.mineCd)
+        }
+      })
+    })
 
     return Project.reconstitute({
       projCd: data.projCd,
       projNm: data.projNm,
       eclProjCd: data.eclProjCd || '',
+      mineCds: Array.from(uniqueMines),
       projectDesc: data.projectDesc,
       totalApprovedArea: data.totalApprovedArea?.toString() || '0',
       totalAcquiredArea: data.totalAcquiredArea?.toString() || '0',
@@ -457,12 +489,18 @@ export class PrismaProjectRepository implements IProjectRepository {
       }
     })
 
-    // 2. We still need legacy stats (mouzas, plots, payrolls) for the dashboard.
-    // We'll fetch them from legacy tables where projectId = projCd.
-    const allPlots = await db.mst_plot.findMany({ include: { mouza: true } })
+    // 2. Fetch plots from plot_schedule via acq_proposal
+    const allPlots = await db.plot_schedule.findMany({
+      include: {
+        acq_proposal: {
+          select: { proj_cd: true }
+        },
+        mouza_master: true
+      }
+    })
     
     const fileAttachments = await db.file_attachment.findMany({
-      where: { entity_type: 'mst_project' },
+      where: { entity_type: 'project-master' },
       include: {
         file_record: {
           include: {
@@ -474,7 +512,7 @@ export class PrismaProjectRepository implements IProjectRepository {
 
     // Group plots by project
     const plotsByProject = allPlots.reduce((acc: any, plot: any) => {
-      const pid = plot.land_schedule_item?.land_schedule?.project_id
+      const pid = plot.acq_proposal?.proj_cd
       if (pid) {
         if (!acc[pid]) acc[pid] = []
         acc[pid].push(plot)
@@ -524,7 +562,7 @@ export class PrismaProjectRepository implements IProjectRepository {
 
     return projects.map((p: any) => {
       const projPlots = plotsByProject[p.projCd] || []
-      const totalAcquiredAreaNum = projPlots.reduce((sum: number, pl: any) => sum + Number(pl.area_acres), 0)
+      const totalAcquiredAreaNum = projPlots.reduce((sum: number, pl: any) => sum + Number(pl.to_be_acquired_area || 0), 0)
       
       const project = Project.reconstitute({
         projCd: p.projCd,
@@ -636,11 +674,13 @@ export class PrismaProjectRepository implements IProjectRepository {
         totalDisbursed,
         budgetUtilization,
         plots: projPlots.map((pl: any) => ({
-          plot_id: pl.id,
-          plot_no: pl.plot_number,
-          plot_area: Number(pl.area_acres),
-          mouza_name: pl.mouza?.name || '',
-          land_class: pl.land_class || ''
+          id: pl.schedule_id?.toString() || crypto.randomUUID(),
+          plot_number: pl.plot_no,
+          area_acres: pl.to_be_acquired_area?.toString() || '0',
+          mouza: pl.mouza_master?.mouza_name || '',
+          land_type: pl.plot_ty || '',
+          exhausted_area_for_jobs: '0',
+          remaining_job_quota: 0
         })),
         breachedProposals: [],
         boardApprovals,

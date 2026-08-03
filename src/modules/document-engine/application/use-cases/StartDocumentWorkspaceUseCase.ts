@@ -88,9 +88,22 @@ export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWork
         browser: null
       })
 
+      // 7. Dispatch Job to Create Review Tasks for Pending Signatures
+      if (pendingSignatures.length > 0) {
+        const { Container } = await import('@/infrastructure/di/Container')
+        const rolesToSign = pendingSignatures.map(sig => sig.role)
+        
+        await Container.jobDispatcher.dispatch('createReviewTasks', {
+          reviewableType: 'document_signature',
+          reviewableId: instance.id,
+          roles: rolesToSign
+        })
+      }
+
       return Ok(instance)
     } catch (error: any) {
       return Fail(error.message)
     }
   }
 }
+

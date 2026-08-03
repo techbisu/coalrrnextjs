@@ -11,6 +11,7 @@ import { Audit } from '@/core/audit/services/AuditService'
 
 import { ChecklistContextRegistry } from '@/core/checklist/registry/ChecklistContextRegistry'
 import { PrismaChecklistRepository } from '@/infrastructure/persistence/repositories/PrismaChecklistRepository'
+import { GeneratedDocumentChecklistAdapter } from '@/core/checklist/services/GeneratedDocumentChecklistAdapter'
 import { GetChecklistStatusUseCase } from '@/core/checklist/usecases/GetChecklistStatusUseCase'
 import { UpdateChecklistSubmissionUseCase } from '@/core/checklist/usecases/UpdateChecklistSubmissionUseCase'
 
@@ -18,6 +19,7 @@ import { ProjectChecklistResolver } from '@/modules/project-master/services/Proj
 import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
 import { ProposalChecklistResolver } from '@/core/proposal/checklist/ProposalChecklistResolver'
 import { PrismaAcqProposalRepository } from '@/infrastructure/persistence/repositories/PrismaAcqProposalRepository'
+import { ManualMilestoneService } from '@/core/workflow/services/ManualMilestoneService'
 import { db } from '@/lib/db'
 
 const globalForCoreDI = globalThis as unknown as {
@@ -29,6 +31,7 @@ const globalForCoreDI = globalThis as unknown as {
   checklistRegistry: ChecklistContextRegistry | undefined
   getChecklistStatusUseCase: GetChecklistStatusUseCase | undefined
   updateChecklistSubmissionUseCase: UpdateChecklistSubmissionUseCase | undefined
+  manualMilestoneService: ManualMilestoneService | undefined
 }
 
 const nomineePoolRepository = new PrismaNomineePoolRepository()
@@ -45,20 +48,26 @@ checklistRegistry.register('PROJECT_MASTER', new ProjectChecklistResolver(new Pr
 checklistRegistry.register('LAND_ACQ_PROPOSAL', new ProposalChecklistResolver(new PrismaAcqProposalRepository()))
 
 const checklistRepository = new PrismaChecklistRepository()
+const documentAdapter = new GeneratedDocumentChecklistAdapter(documentInstanceRepository, checklistRepository)
 
 export const getNomineePoolsUseCase = globalForCoreDI.getNomineePoolsUseCase ?? new GetNomineePoolsUseCase(nomineePoolRepository)
 export const getNomineePoolDetailUseCase = globalForCoreDI.getNomineePoolDetailUseCase ?? new GetNomineePoolDetailUseCase(nomineePoolRepository)
 
-export const getChecklistStatusUseCase = globalForCoreDI.getChecklistStatusUseCase ?? new GetChecklistStatusUseCase(checklistRepository, checklistRegistry)
+export const getChecklistStatusUseCase = globalForCoreDI.getChecklistStatusUseCase ?? new GetChecklistStatusUseCase(checklistRepository, checklistRegistry, documentAdapter)
 export const updateChecklistSubmissionUseCase = globalForCoreDI.updateChecklistSubmissionUseCase ?? new UpdateChecklistSubmissionUseCase(checklistRepository, checklistRegistry)
+export const manualMilestoneService = globalForCoreDI.manualMilestoneService ?? new ManualMilestoneService()
 
 export const documentTemplateRepositoryExport = globalForCoreDI.documentTemplateRepository ?? documentTemplateRepository
 export const documentInstanceRepositoryExport = globalForCoreDI.documentInstanceRepository ?? documentInstanceRepository
 
 export const auditQueue = {
   push: (payload: any) => {
+    const action = payload.event_type || payload.action || 'UNKNOWN'
+    const entityInfo = payload.entity_name ? ` on ${payload.entity_name} (${payload.entity_id || 'unknown'})` : ''
+    const remarks = payload.remarks ? ` | Remarks: ${payload.remarks}` : ''
+    
     Audit.logCustomAction({
-      activity: payload.remarks || payload.action || 'UNKNOWN',
+      activity: `[${action}]${entityInfo}${remarks}`,
       userId: payload.user_id || 'system'
     }).catch(console.error);
   }
@@ -83,4 +92,5 @@ if (process.env.NODE_ENV !== 'production') {
   globalForCoreDI.checklistRegistry = checklistRegistry
   globalForCoreDI.getChecklistStatusUseCase = getChecklistStatusUseCase
   globalForCoreDI.updateChecklistSubmissionUseCase = updateChecklistSubmissionUseCase
+  globalForCoreDI.manualMilestoneService = manualMilestoneService
 }

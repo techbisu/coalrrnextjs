@@ -5,7 +5,7 @@ import { IClaimRepository } from '@/modules/land-acquisition/interfaces/IClaimRe
 export class PrismaClaimRepository implements IClaimRepository {
   async findAll(): Promise<any[]> {
     return db.form_i_claim.findMany({
-      include: { mst_plot: { include: { mouza: true } } },
+      include: { nominee_pool_contribution: true },
       orderBy: { entry_ts: 'desc' },
     })
   }

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { DashboardView } from '@/components/coalrr/views/DashboardView'
+import { DashboardView } from '@/shared/components/coalrr/views/DashboardView'
 import { getTranslations } from 'next-intl/server'
 
 export async function generateMetadata({ params: { locale } }: { params: { locale: string } }) {

@@ -31,9 +31,17 @@ const parallelReviewsGuard = new ParallelReviewsCompletedGuard([
 
 const T_DRAFTING__UNIT: Transition = {
   name: "submit_to_unit",
-  label: "Submit to Unit Office",
+  label: "Submit for Colliery & Unit Office Verification",
   from: "Drafting",
   to: "UnitSubmitted",
+  role: "unit_office",
+};
+
+const T_UNIT__RETURN: Transition = {
+  name: "return_to_unit",
+  label: "Verify Annexure Plots & Forward Back to Initiating Unit",
+  from: "UnitSubmitted",
+  to: "Drafting",
   role: "unit_office",
 };
 
@@ -64,46 +72,104 @@ const T_AREA__BOARD: Transition = {
   guard: baselineBreachedGuard,
 };
 
-const T_HQ__DIRECTOR: Transition = {
-  name: "advance_to_director",
-  label: "Advance to Director Consent",
+const T_HQ_PLANNING__GMLRE: Transition = {
+  name: "advance_to_gmlre",
+  label: "Forward to GM LRE",
   from: "HqParallelVetting",
-  to: "DirectorConsent",
-  role: "director",
+  to: "GmLreReview",
+  role: "gm_planning",
   guard: parallelReviewsGuard,
 };
 
-const T_DIRECTOR__CMD: Transition = {
-  name: "advance_to_cmd",
-  label: "Advance to CMD Approval",
-  from: "DirectorConsent",
-  to: "CmdApproved",
-  role: "cmd",
-  guard: baselineGuard,
+const T_HQ_FINANCE__GMLRE: Transition = {
+  name: "advance_to_gmlre_finance",
+  label: "Forward to GM LRE",
+  from: "HqParallelVetting",
+  to: "GmLreReview",
+  role: "gm_finance",
+  guard: parallelReviewsGuard,
 };
 
-const T_DIRECTOR__BOARD: Transition = {
-  name: "escalate_to_board_from_director",
-  label: "Escalate to Board (baseline breach)",
-  from: "DirectorConsent",
-  to: "BoardEscalation",
-  role: "director",
-  guard: baselineBreachedGuard,
+const T_HQ_SAFETY__GMLRE: Transition = {
+  name: "advance_to_gmlre_safety",
+  label: "Forward to GM LRE",
+  from: "HqParallelVetting",
+  to: "GmLreReview",
+  role: "gm_safety",
+  guard: parallelReviewsGuard,
 };
 
-const T_CMD__PUBLISHED: Transition = {
+const T_HQ_LEGAL__GMLRE: Transition = {
+  name: "advance_to_gmlre_legal",
+  label: "Forward to GM LRE",
+  from: "HqParallelVetting",
+  to: "GmLreReview",
+  role: "hod_legal",
+  guard: parallelReviewsGuard,
+};
+
+const T_HQ__GMLRE: Transition = {
+  name: "advance_to_gmlre",
+  label: "Advance to GM LRE Consolidation",
+  from: "HqParallelVetting",
+  to: "GmLreReview",
+  role: "gm_lre",
+  guard: parallelReviewsGuard,
+};
+
+const T_GMLRE__PUBLISHED: Transition = {
   name: "publish",
-  label: "Publish Award",
-  from: "CmdApproved",
+  label: "Publish Award (Manual Forwarding Complete)",
+  from: "GmLreReview",
   to: "Published",
-  role: "cmd",
+  role: "gm_lre",
 };
 
-const T_BOARD__DIRECTOR: Transition = {
+const T_BOARD__GMLRE: Transition = {
   name: "resolve_escalation",
-  label: "Resolve Escalation → back to Director",
+  label: "Resolve Escalation → back to GM LRE",
   from: "BoardEscalation",
-  to: "DirectorConsent",
+  to: "GmLreReview",
+  role: "board",
+};
+
+const T_AREA__RETURN_UNIT: Transition = {
+  name: "return_to_unit",
+  label: "Return to Initiating Unit for Revision",
+  from: "AreaVetting",
+  to: "Drafting",
+  role: "area_office",
+};
+
+const T_HQ_PLANNING__RETURN_AREA: Transition = {
+  name: "return_to_area",
+  label: "Return to Area Office for Revision",
+  from: "HqParallelVetting",
+  to: "AreaVetting",
+  role: "gm_planning",
+};
+
+const T_HQ_FINANCE__RETURN_AREA: Transition = {
+  name: "return_to_area_finance",
+  label: "Return to Area Office for Revision",
+  from: "HqParallelVetting",
+  to: "AreaVetting",
+  role: "gm_finance",
+};
+
+const T_GMLRE__RETURN_HQ: Transition = {
+  name: "return_to_hq",
+  label: "Return to HQ Vetting for Revision",
+  from: "GmLreReview",
+  to: "HqParallelVetting",
+  role: "gm_lre",
+};
+
+const T_BOARD__RETURN_AREA: Transition = {
+  name: "return_to_area_from_board",
+  label: "Return to Area Office for Revision",
+  from: "BoardEscalation",
+  to: "AreaVetting",
   role: "board",
 };
 
@@ -122,22 +188,22 @@ export const COMPENSATION_PAYROLL_STATES: Readonly<
   Drafting: {
     label: "Drafting",
     description:
-      "Payroll is being assembled by the unit office. Lines can be added/edited freely.",
+      "Plot schedule & compliance items assembled by initiating unit. Requires cross-colliery verification & 100% CL-1 completion before forwarding to Area.",
     color: "bg-slate-100 text-slate-700 border-slate-300",
     icon: "FileEdit",
     order: 1,
     isTerminal: false,
-    allowedTransitions: [T_DRAFTING__UNIT],
+    allowedTransitions: [T_DRAFTING__UNIT, T_UNIT__AREA],
   },
   UnitSubmitted: {
-    label: "Unit Submitted",
+    label: "Unit Submitted & Cross-Colliery Verification",
     description:
-      "Submitted by the unit office. Awaiting area-office vetting & checklist review.",
+      "Plot schedule forwarded to adjacent colliery for overlap checking, Annexure A/B/C tagging & Form-VII reconciliation.",
     color: "bg-sky-100 text-sky-700 border-sky-300",
     icon: "Send",
     order: 2,
     isTerminal: false,
-    allowedTransitions: [T_UNIT__AREA],
+    allowedTransitions: [T_UNIT__RETURN],
   },
   AreaVetting: {
     label: "Area Vetting",
@@ -147,43 +213,34 @@ export const COMPENSATION_PAYROLL_STATES: Readonly<
     icon: "ShieldCheck",
     order: 3,
     isTerminal: false,
-    allowedTransitions: [T_AREA__HQ, T_AREA__BOARD],
+    allowedTransitions: [T_AREA__HQ, T_AREA__BOARD, T_AREA__RETURN_UNIT],
   },
   HqParallelVetting: {
     label: "HQ Parallel Vetting",
     description:
-      "GM (Planning) and GM (Finance) review in parallel. Both must decide before advancing.",
+      "GM (Planning), GM (Safety), GM (Finance), and HOD (Legal) review in parallel. All must decide before advancing.",
     color: "bg-violet-100 text-violet-700 border-violet-300",
     icon: "GitBranch",
     order: 4,
     isTerminal: false,
-    allowedTransitions: [T_HQ__DIRECTOR],
+    allowedTransitions: [T_HQ_PLANNING__GMLRE, T_HQ_FINANCE__GMLRE, T_HQ_SAFETY__GMLRE, T_HQ_LEGAL__GMLRE, T_HQ__GMLRE, T_HQ_PLANNING__RETURN_AREA, T_HQ_FINANCE__RETURN_AREA],
   },
-  DirectorConsent: {
-    label: "Director Consent",
-    description: "Director reviews the consolidated award. May escalate on breach.",
+  GmLreReview: {
+    label: "GM LRE Consolidation",
+    description: "GM (LRE) consolidates recommendations and advances the file to terminal state.",
     color: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300",
     icon: "UserCheck",
     order: 5,
     isTerminal: false,
-    allowedTransitions: [T_DIRECTOR__CMD, T_DIRECTOR__BOARD],
-  },
-  CmdApproved: {
-    label: "CMD Approved",
-    description: "CMD has approved the award. Ready for publication to Form-D ledger.",
-    color: "bg-teal-100 text-teal-700 border-teal-300",
-    icon: "Award",
-    order: 6,
-    isTerminal: false,
-    allowedTransitions: [T_CMD__PUBLISHED],
+    allowedTransitions: [T_GMLRE__PUBLISHED, T_GMLRE__RETURN_HQ],
   },
   Published: {
     label: "Published",
     description:
-      "Award published to the immutable Form-D ledger. Transparency window starts.",
+      "Digital workflow complete. Forwarded manually. Award published to the immutable Form-D ledger.",
     color: "bg-emerald-100 text-emerald-700 border-emerald-300",
     icon: "CheckCircle2",
-    order: 7,
+    order: 6,
     isTerminal: true,
     allowedTransitions: [],
   },
@@ -208,12 +265,12 @@ export const COMPENSATION_PAYROLL_STATES: Readonly<
   BoardEscalation: {
     label: "Board Escalation",
     description:
-      "Project baseline breached. Board reviews and either re-approves (back to Director) or holds.",
+      "Project baseline breached. Board reviews and either re-approves (back to GM LRE) or holds.",
     color: "bg-red-100 text-red-700 border-red-300",
     icon: "AlertTriangle",
-    order: 8,
+    order: 3.5,
     isTerminal: false,
-    allowedTransitions: [T_BOARD__DIRECTOR],
+    allowedTransitions: [T_BOARD__GMLRE, T_BOARD__RETURN_AREA],
   },
 });
 

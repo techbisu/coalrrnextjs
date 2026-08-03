@@ -20,9 +20,7 @@ export class PrismaNomineePoolRepository implements INomineePoolRepository {
       include: {
         nominee_pool_contribution: {
           include: {
-            form_i_claim: {
-              include: { mst_plot: true }
-            }
+            form_i_claim: true
           }
         },
         employment_application: true

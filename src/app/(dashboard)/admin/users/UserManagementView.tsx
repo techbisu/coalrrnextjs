@@ -2,24 +2,24 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { SectionCard, DataTable, type Column } from '@/components/coalrr'
+import { SectionCard, DataTable, type Column } from '@/shared/components/coalrr'
 import { Users, Pencil, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/shared/components/ui/button'
 import { UserFormDialog } from './UserFormDialog'
 import { UserAccessDialog } from './UserAccessDialog'
 import { UserScopeDialog } from './UserScopeDialog'
 import { deleteUserAction, toggleUserStatusAction } from '@/modules/admin/users/presentation/actions'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/shared/components/ui/badge'
+import { Switch } from '@/shared/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
 
-import { Input } from '@/components/ui/input'
+import { Input } from '@/shared/components/ui/input'
 import { Search } from 'lucide-react'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { BackButton } from '@/components/ui/back-button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { BackButton } from '@/shared/components/ui/back-button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card'
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -27,7 +27,7 @@ import {
   DropdownMenuLabel, 
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu'
+} from '@/shared/components/ui/dropdown-menu'
 import { MoreHorizontal, UserCheck, UserX, ShieldAlert } from 'lucide-react'
 
 export function UserManagementView({ 

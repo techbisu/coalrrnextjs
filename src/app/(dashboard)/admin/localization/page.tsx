@@ -1,12 +1,12 @@
 import { Metadata } from 'next';
 import { searchParamsCache } from '@/modules/localization/components/search-params';
 import { SearchParams } from 'nuqs/server';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { TranslationsTab } from '@/modules/localization/components/TranslationsTab';
 import { LanguagesTab } from '@/modules/localization/components/LanguagesTab';
 import { Languages, Globe } from 'lucide-react';
 
-import { BackButton } from '@/components/ui/back-button';
+import { BackButton } from '@/shared/components/ui/back-button';
 
 export const dynamic = 'force-dynamic';
 

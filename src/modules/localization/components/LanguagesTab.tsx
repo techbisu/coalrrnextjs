@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
 import { AddLanguageDialog } from './AddLanguageDialog';
 import { LanguageDataTable } from './LanguageDataTable';
 import { GetLanguagesUseCase } from '../application/use-cases/GetLanguagesUseCase';

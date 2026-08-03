@@ -1,6 +1,6 @@
 import React from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Button } from '@/shared/components/ui/button';
 import { Search, Filter, Activity } from 'lucide-react';
 
 export const AuditLogFilters = ({ filters, onFilterChange, onSearch }: any) => {

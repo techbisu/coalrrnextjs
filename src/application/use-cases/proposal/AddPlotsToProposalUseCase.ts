@@ -1,5 +1,5 @@
 import { IUseCase, Result, Fail, Ok } from '@/core';
-import { IProposalRepository, PlotScheduleDTO, PlotScheduleLandTypeDTO } from '@/domain/entities/proposal';
+import { IProposalRepository, PlotScheduleDTO, PlotScheduleLandTypeDTO, DuplicatePlotException } from '@/domain/entities/proposal';
 import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di';
 
 export interface AddPlotsRequest {
@@ -29,7 +29,7 @@ export class AddPlotsToProposalUseCase implements IUseCase<AddPlotsRequest, AddP
       const plotNos = request.plots.map(p => p.plot_no);
       const hasDuplicates = await this.proposalRepo.checkDuplicatePlots(plotNos, request.mouzaLgd);
       if (hasDuplicates) {
-        return Fail('One or more requested plots have already been acquired or are in an active proposal. Hard Stop.');
+        throw new DuplicatePlotException(`One or more requested plots have already been acquired or are in an active proposal. Hard Stop.`);
       }
 
       // Add to repository

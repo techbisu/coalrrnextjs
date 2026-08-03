@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useMasterQuery } from '../hooks/useMasterQuery'
 import { MasterLookupProps } from '../types'
-import { Combobox } from '@/components/ui/combobox'
+import { Combobox } from '@/shared/components/ui/combobox'
 
 export function MasterAutocomplete({
   master,
@@ -65,7 +65,7 @@ export function MasterAutocomplete({
         } else {
           // If onChange accepts a second argument, pass the data
           if ((onChange as any).length > 1) {
-            (onChange as any)(v as string, optionData?.data)
+            (onChange as any)(v as string, (optionData as any)?.data)
           } else {
             onChange?.(v as string)
           }

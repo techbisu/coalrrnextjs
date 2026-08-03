@@ -5,15 +5,16 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Building2, Calendar, Layers, MapPin, CheckCircle2, AlertCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { StateBadge } from '@/components/coalrr'
-import { DocumentWorkspaceModal } from '@/components/coalrr/DocumentWorkspaceModal';
+import { Button } from '@/shared/components/ui/button'
+import { BackButton } from '@/shared/components/ui/back-button'
+import { Alert, AlertTitle, AlertDescription } from '@/shared/components/ui/alert'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/shared/components/ui/dialog'
+import { Input } from '@/shared/components/ui/input'
+import { Label } from '@/shared/components/ui/label'
+import { Textarea } from '@/shared/components/ui/textarea'
+import { Badge } from '@/shared/components/ui/badge'
+import { StateBadge } from '@/shared/components/coalrr'
+import { DocumentWorkspaceModal } from '@/shared/components/coalrr/DocumentWorkspaceModal';
 import { formatNumber } from '@/lib/utils/formatters'
 import { MODE_META, ScheduleDetail } from '../types'
 import { AcquisitionDetailTabs } from './AcquisitionDetailTabs'
@@ -127,11 +128,7 @@ export function AcquisitionDetail({ schedule }: { schedule: ScheduleDetail }) {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <Button variant="outline" size="sm" asChild className="mt-0.5">
-            <Link href="/proposals">
-              <ArrowLeft className="h-4 w-4" /> Back
-            </Link>
-          </Button>
+          <BackButton variant="outline" className="mt-0.5" />
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold tracking-tight">{schedule.proposal_title}</h2>

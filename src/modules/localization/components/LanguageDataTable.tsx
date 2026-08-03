@@ -7,10 +7,10 @@ import {
   flexRender, 
   ColumnDef,
 } from '@tanstack/react-table';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { Button } from '@/shared/components/ui/button';
+import { Switch } from '@/shared/components/ui/switch';
+import { Badge } from '@/shared/components/ui/badge';
 import { LanguageDTO } from '../application/use-cases/GetLanguagesUseCase';
 import { toggleLanguageActiveAction, setDefaultLanguageAction } from '@/app/(dashboard)/admin/localization/actions';
 import { toast } from 'sonner';

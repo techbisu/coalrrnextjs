@@ -13,11 +13,7 @@ export async function POST(req: NextRequest) {
       include: {
         nominee_pool_contribution: {
           include: {
-            form_i_claim: {
-              include: {
-                mst_plot: true
-              }
-            }
+            form_i_claim: true
           }
         }
       }
@@ -28,9 +24,9 @@ export async function POST(req: NextRequest) {
     // Find the associated project ID from the plots
     let project_id = ''
     for (const contrib of pool.nominee_pool_contribution) {
-      const plot = contrib.form_i_claim.mst_plot
+      const plot_no = contrib.form_i_claim.plot_id
       const schedules = await db.plot_schedule.findMany({
-        where: { mouza_lgd: plot.mouza_lgd, plot_no: plot.plot_number },
+        where: { plot_no: plot_no },
         include: { acq_proposal: true }
       })
       if (schedules.length > 0 && schedules[0].acq_proposal?.proj_cd) {

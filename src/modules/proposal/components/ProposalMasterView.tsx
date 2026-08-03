@@ -1,17 +1,17 @@
 'use client'
 
 import React, { useState } from 'react'
-import { SectionCard } from '@/components/coalrr/SectionCard'
-import { MasterLookup } from '@/components/coalrr/MasterLookup'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
+import { SectionCard } from '@/shared/components/coalrr/SectionCard'
+import { MasterLookup } from '@/shared/components/coalrr/MasterLookup'
+import { Button } from '@/shared/components/ui/button'
+import { Input } from '@/shared/components/ui/input'
+import { Checkbox } from '@/shared/components/ui/checkbox'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
 import { MODES, MODE_META, AcquisitionMode } from '@/modules/land-acquisition/types'
 import { Plus, Loader2, ClipboardList } from 'lucide-react'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert'
 
 interface PlotEntry {
   plot_no: string;

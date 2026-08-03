@@ -4,7 +4,7 @@ import * as React from "react"
 import { Check, ChevronsUpDown, Loader2, Search, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/shared/components/ui/button"
 import {
   Command,
   CommandEmpty,
@@ -12,13 +12,13 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command"
+} from "@/shared/components/ui/command"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
-import { Badge } from "@/components/ui/badge"
+} from "@/shared/components/ui/popover"
+import { Badge } from "@/shared/components/ui/badge"
 
 export type ComboboxOption = {
   value: string
@@ -246,19 +246,18 @@ export function Combobox({
         sideOffset={4}
       >
         <Command shouldFilter={false}>
-          {/* Search input */}
-          <div className="flex items-center border-b px-3 gap-2">
-            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          {/* Search input — CommandInput already renders its own SearchIcon internally */}
+          <div className="relative">
             <CommandInput
               placeholder="Search…"
               value={searchQuery}
               onValueChange={handleSearch}
-              className="h-9 border-0 outline-none focus:ring-0 px-0 text-sm placeholder:text-muted-foreground/70"
+              className="text-sm placeholder:text-muted-foreground/70"
             />
             {searchQuery && (
               <button
                 onClick={() => handleSearch("")}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 aria-label="Clear search"
               >
                 <X className="h-3.5 w-3.5" />

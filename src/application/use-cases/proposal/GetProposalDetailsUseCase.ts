@@ -5,6 +5,7 @@ import { IUseCase, Result, Fail, Ok } from '@/core'
 import { PrismaAcqProposalRepository } from '@/infrastructure/persistence/repositories/PrismaAcqProposalRepository'
 import { NotFoundException } from '@/core/errors'
 import { formatPlotHumanReadable } from '@/shared/utils/plot.utils'
+import { db } from '@/lib/db'
 
 export interface GetProposalDetailsRequest {
   proposalId: string
@@ -60,24 +61,33 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
       return Fail('Proposal')
     }
 
+    let adjacentCollieryName = data.pr_scheme_ref_no || ''
+    if (adjacentCollieryName) {
+      const areaMatch = await db.area_master.findFirst({
+        where: { OR: [{ area_cd: adjacentCollieryName }, { area_en: adjacentCollieryName }] }
+      })
+      if (areaMatch) {
+        adjacentCollieryName = areaMatch.area_en
+      }
+    }
+
     let totalArea = 0;
     const items = (data.plot_schedule || []).map((it: any) => {
-      totalArea += Number(it.to_be_acquired_area) || 0;
-      
       const landTypes = it.plot_schedule_land_type || [];
-      const landType = landTypes[0]?.landtype_master?.land_type || 'Unknown';
-      
+      const landType = landTypes[0]?.landtype_master?.land_type || 'Tenancy';
+
       let tag = 'A';
       if (it.acq_status === 'PURCHASED') {
         tag = 'B';
       } else if (it.acq_status === 'PARTIALLY_PURCHASED') {
         tag = 'C';
       } else {
-        if (landType.toLowerCase().includes('govt')) {
-          tag = 'A';
-        } else {
-          tag = 'A'; // Default clear land
-        }
+        tag = 'A'; // Default clear land
+      }
+
+      // Deduct Annexure B (Purchased / Dropped) plots from total acquired acreage calculation
+      if (tag !== 'B' && it.acq_status !== 'CANCELLED') {
+        totalArea += Number(it.to_be_acquired_area) || 0;
       }
 
       const formattedPlot = formatPlotHumanReadable({
@@ -125,7 +135,7 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
       proposed_by_role: 'Initiator',
       area_office: data.area_master?.area_en || data.area_cd,
       mine_cd: data.mine_master?.mine_en || data.mine_cd,
-      adjacent_colliery: '',
+      adjacent_colliery: adjacentCollieryName,
       total_area_acres: totalArea.toString(),
       notification_date: null, // No notification_dt column exists yet, so it's always unpublished
       mode_specific_checklist: '{"items":[]}',

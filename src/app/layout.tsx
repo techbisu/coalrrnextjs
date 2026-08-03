@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/shared/components/ui/toaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,7 +40,7 @@ import { LanguageProvider } from "@/localization/providers/LanguageProvider";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider } from "@/authorization/providers/AuthProvider";
 import { UiStateProvider } from "@/providers/UiStateProvider";
-import { NetworkStatus } from "@/components/providers/NetworkStatus";
+import { NetworkStatus } from "@/providers/NetworkStatus";
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { MasterDataPrefetcher } from '@/core/master-lookup/components/MasterDataPrefetcher';
 export default async function RootLayout({

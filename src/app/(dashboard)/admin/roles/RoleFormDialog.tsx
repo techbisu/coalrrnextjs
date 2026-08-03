@@ -12,8 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+} from '@/shared/components/ui/dialog'
+import { Button } from '@/shared/components/ui/button'
 import {
   Form,
   FormControl,
@@ -21,10 +21,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
+} from '@/shared/components/ui/form'
+import { Input } from '@/shared/components/ui/input'
+import { Textarea } from '@/shared/components/ui/textarea'
+import { Checkbox } from '@/shared/components/ui/checkbox'
 import { toast } from 'sonner'
 import { createRoleAction, updateRoleAction } from '@/modules/admin/roles/presentation/actions'
 import { Plus } from 'lucide-react'

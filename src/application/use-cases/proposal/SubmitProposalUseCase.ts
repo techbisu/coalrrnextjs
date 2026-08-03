@@ -5,6 +5,8 @@
 import { IUseCase, Result, Fail, Ok } from '@/core'
 import { IProposalRepository } from '@/domain/entities/proposal'
 import { IProjectRepository } from '@/domain/entities/project/ProjectRepository.interface'
+import { ProjectLimitService } from '@/core/compliance/services/ProjectLimitService'
+import { GetChecklistStatusUseCase } from '@/core/checklist/usecases/GetChecklistStatusUseCase'
 import { EventBus } from '@/core/notifications/EventBus'
 import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di'
 import { NotFoundException } from '@/core/errors'
@@ -25,7 +27,9 @@ export interface SubmitProposalResponse {
 export class SubmitProposalUseCase implements IUseCase<SubmitProposalRequest, SubmitProposalResponse> {
   constructor(
     private readonly proposalRepository: IProposalRepository,
-    private readonly projectRepository: IProjectRepository
+    private readonly projectRepository: IProjectRepository,
+    private readonly projectLimitService: ProjectLimitService,
+    private readonly checklistStatusUseCase: GetChecklistStatusUseCase
   ) {}
 
   async execute(request: SubmitProposalRequest): Promise<Result<SubmitProposalResponse>> {
@@ -41,36 +45,28 @@ export class SubmitProposalUseCase implements IUseCase<SubmitProposalRequest, Su
       return Fail('Project not found')
     }
 
-    // 3. Check for Limit Breaches (Form-XXII Exception)
-    let isLimitBreached = false;
-    const breachReasons: string[] = [];
+    // 3. Check for Limit Breaches using ProjectLimitService
+    const limitCheckResult = await this.projectLimitService.checkProposalLimits(project, proposal)
     
-    const projectAcreLimit = parseFloat(project.totalApprovedArea.toDecimal().toString());
-    const projectBudgetCeiling = parseFloat(project.landBudget.add(project.rrBudget).toDecimal().toString());
-    const projectEmploymentQuota = project.totalEmpSanctioned || 0;
-    
-    const proposalArea = parseFloat(proposal.totalArea.toDecimal().toString());
-    
-    // In a real system, we would sum ALL active proposals, payrolls, and jobs for this project.
-    // For this demonstration, we check if this single proposal exceeds the project's land limit,
-    // or if standard dummy logic for budget/employment breaches.
-    if (proposalArea > projectAcreLimit) {
-      isLimitBreached = true;
-      breachReasons.push('Land Area');
+    if (limitCheckResult.isFailure) {
+      return Fail(String(limitCheckResult.error))
     }
-    
-    // Simulated budget check (e.g. 1 Acre = ~1,000,000 INR)
-    const estimatedBudget = proposalArea * 1000000;
-    if (estimatedBudget > projectBudgetCeiling) {
-      isLimitBreached = true;
-      breachReasons.push('Budget Ceiling');
+
+    const { isLimitBreached, breachReasons } = limitCheckResult.value!
+
+    // 3b. Gate on checklist completeness (query actual DB submissions)
+    const checklistResult = await this.checklistStatusUseCase.execute({
+      moduleCode: 'LAND_ACQ_PROPOSAL',
+      checkableType: 'land_schedule',
+      checkableId: request.proposalId,
+    })
+
+    if (checklistResult.isFailure) {
+      return Fail(`Checklist check failed: ${String(checklistResult.error)}`)
     }
-    
-    // Simulated employment check (e.g. 1 Job per 2 Acres)
-    const estimatedJobs = Math.floor(proposalArea / 2);
-    if (estimatedJobs > projectEmploymentQuota) {
-      isLimitBreached = true;
-      breachReasons.push('Employment Quota');
+
+    if (!checklistResult.value!.isComplete) {
+      return Fail('All mandatory checklist items must be completed before submitting the proposal.')
     }
 
     // 4. Execute business behavior (includes checking invariants like checklist completion)

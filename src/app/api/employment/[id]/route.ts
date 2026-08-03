@@ -38,9 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           include: {
             nominee_pool_contribution: {
               include: {
-                form_i_claim: {
-                  include: { mst_plot: true }
-                }
+                form_i_claim: true
               }
             }
           }

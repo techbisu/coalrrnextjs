@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/shared/components/ui/button';
 import { UploadCloud, X, Loader2 } from 'lucide-react';
 import { uploadFileAction } from '../actions';
 

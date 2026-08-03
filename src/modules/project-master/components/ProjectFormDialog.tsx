@@ -5,8 +5,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { MasterCascade } from '@/core/master-lookup/components/MasterCascade'
 import { MasterFormLookup } from '@/core/master-lookup/components/MasterFormLookup'
-import { DocumentUploader } from '@/components/coalrr'
-import type { UploadedDoc } from '@/components/coalrr'
+import { DocumentUploader } from '@/shared/components/coalrr'
+import type { UploadedDoc } from '@/shared/components/coalrr'
 import { CreateProjectSchema } from '@/application/validators/schemas'
 import type { CreateProjectInput } from '@/application/validators/schemas'
 import { z } from 'zod'
@@ -19,14 +19,14 @@ type DialogFormInput = z.infer<typeof DialogFormSchema>
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 import {
   Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle,
-} from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+} from '@/shared/components/ui/sheet'
+import { Button } from '@/shared/components/ui/button'
+import { Input } from '@/shared/components/ui/input'
+import { Label } from '@/shared/components/ui/label'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/components/ui/form'
 
 export interface ProjectFormValues extends Omit<DialogFormInput, 'user_id' | 'state_lgd' | 'mouza_lgds'> {
   state_lgd?: string

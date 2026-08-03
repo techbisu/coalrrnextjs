@@ -1,5 +1,6 @@
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
+import boundaries from "eslint-plugin-boundaries";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -43,6 +44,35 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-unreachable": "off",
     "no-useless-escape": "off",
   },
+}, {
+  plugins: { boundaries },
+  settings: {
+    "boundaries/elements": [
+      { type: "shared", pattern: "src/shared/**/*" },
+      { type: "core", pattern: "src/core/**/*" },
+      { type: "module", pattern: "src/modules/*/**/*", capture: ["moduleName"] }
+    ]
+  },
+  rules: {
+    "boundaries/element-types": [
+      2,
+      {
+        default: "allow",
+        rules: [
+          {
+            from: ["shared"],
+            disallow: ["module", "core"],
+            message: "Shared components/hooks cannot import from business modules or core layer."
+          },
+          {
+            from: ["module"],
+            disallow: ["module"],
+            message: "Modules cannot import directly from each other."
+          }
+        ]
+      }
+    ]
+  }
 }, {
   ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills"]
 }];

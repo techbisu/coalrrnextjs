@@ -2,7 +2,7 @@ import { GetTranslationsUseCase } from '@/modules/localization/application/use-c
 import { LocalizationDataTable } from '@/modules/localization/components/LocalizationDataTable';
 import { LocalizationFilters } from '@/modules/localization/components/LocalizationFilters';
 import { AddTranslationDialog } from '@/modules/localization/components/AddTranslationDialog';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
 import { localizationConfig } from '@/core/config/localization.config';
 
 interface TranslationsTabProps {

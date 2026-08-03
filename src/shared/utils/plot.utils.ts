@@ -76,7 +76,7 @@ export function autoSetOptionalPlotFields(
   const stateStr = stateLgd.toString();
 
   const rule = proposalConfig.plotAutoSetRules.find(r => 
-    r.stateLgd === stateStr && r.primaryPlotTypes.includes(primaryPlotTy)
+    r.stateLgd === stateStr && (r.primaryPlotTypes as readonly string[]).includes(primaryPlotTy)
   );
 
   if (rule) {

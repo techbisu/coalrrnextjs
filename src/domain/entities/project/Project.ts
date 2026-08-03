@@ -210,6 +210,7 @@ export class Project extends AggregateRoot<string> {
     projCd: string
     projNm: string
     eclProjCd?: string | null
+    mineCds?: string[]
     projectDesc?: string | null
     totalApprovedArea: string
     totalAcquiredArea: string
@@ -229,6 +230,7 @@ export class Project extends AggregateRoot<string> {
       id: ProjectId.fromString(data.projCd),
       projNm: data.projNm,
       eclProjCd: data.eclProjCd,
+      mineCds: data.mineCds,
       projectDesc: data.projectDesc,
       totalApprovedArea: Area.fromAcres(data.totalApprovedArea),
       totalAcquiredArea: Area.fromAcres(data.totalAcquiredArea),

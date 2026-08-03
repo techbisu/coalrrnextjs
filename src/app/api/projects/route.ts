@@ -4,6 +4,7 @@
  */
 export const dynamic = 'force-dynamic'
 
+// Force recompile to clear stale Next.js cache after formatting plot schedule output
 import { NextResponse } from 'next/server'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { serverError, ok } from '../_lib'

@@ -5,7 +5,7 @@ import { ValueObject } from '@/core/base/ValueObject'
 import { Result, Fail } from '@/core/result/Result'
 import { ValidationException } from '@/core/errors'
 
-export type ProposalStateType = 'Drafting' | 'AreaVetting' | 'Approved' | 'Rejected' | 'Cancelled' | 'LimitBreached' | 'BoardApproved'
+export type ProposalStateType = 'Drafting' | 'AreaVetting' | 'Approved' | 'Rejected' | 'Cancelled' | 'LimitBreached' | 'BoardApproved' | 'CrossCollieryVerification' | 'HqVetting'
 
 export class ProposalState extends ValueObject<ProposalStateType> {
   private constructor(value: ProposalStateType) {
@@ -19,9 +19,11 @@ export class ProposalState extends ValueObject<ProposalStateType> {
   static CANCELLED = new ProposalState('Cancelled')
   static LIMIT_BREACHED = new ProposalState('LimitBreached')
   static BOARD_APPROVED = new ProposalState('BoardApproved')
+  static CROSS_COLLIERY_VERIFICATION = new ProposalState('CrossCollieryVerification')
+  static HQ_VETTING = new ProposalState('HqVetting')
 
   static tryCreate(value: string): Result<ProposalState, ValidationException> {
-    const validStates: ProposalStateType[] = ['Drafting', 'AreaVetting', 'Approved', 'Rejected', 'Cancelled', 'LimitBreached', 'BoardApproved']
+    const validStates: ProposalStateType[] = ['Drafting', 'AreaVetting', 'Approved', 'Rejected', 'Cancelled', 'LimitBreached', 'BoardApproved', 'CrossCollieryVerification', 'HqVetting']
     
     if (!validStates.includes(value as ProposalStateType)) {
       return Fail(new ValidationException('Invalid Proposal State', [
@@ -70,9 +72,17 @@ export class ProposalState extends ValueObject<ProposalStateType> {
     return this._value === 'BoardApproved'
   }
 
+  isCrossCollieryVerification(): boolean {
+    return this._value === 'CrossCollieryVerification'
+  }
+
+  isHqVetting(): boolean {
+    return this._value === 'HqVetting'
+  }
+
   // Business rules
   canBeEdited(): boolean {
-    return this._value === 'Drafting'
+    return this._value === 'Drafting' || this._value === 'CrossCollieryVerification'
   }
 
   canBeSubmitted(): boolean {
@@ -80,15 +90,15 @@ export class ProposalState extends ValueObject<ProposalStateType> {
   }
 
   canBeApproved(): boolean {
-    return this._value === 'AreaVetting'
+    return this._value === 'AreaVetting' || this._value === 'HqVetting'
   }
 
   canBeRejected(): boolean {
-    return this._value === 'AreaVetting' || this._value === 'Approved'
+    return this._value === 'AreaVetting' || this._value === 'HqVetting' || this._value === 'Approved'
   }
 
   canBeCancelled(): boolean {
-    return this._value === 'Drafting' || this._value === 'AreaVetting'
+    return this._value === 'Drafting' || this._value === 'AreaVetting' || this._value === 'CrossCollieryVerification' || this._value === 'HqVetting'
   }
 
   canAddPlots(): boolean {
@@ -100,19 +110,21 @@ export class ProposalState extends ValueObject<ProposalStateType> {
   }
 
   canUpdateChecklist(): boolean {
-    return this._value === 'Drafting' || this._value === 'AreaVetting'
+    return this._value === 'Drafting' || this._value === 'AreaVetting' || this._value === 'HqVetting'
   }
 
   // Valid transitions
   canTransitionTo(newState: ProposalState): boolean {
     const transitions: Record<ProposalStateType, ProposalStateType[]> = {
-      Drafting: ['AreaVetting', 'Cancelled', 'LimitBreached'],
-      AreaVetting: ['Approved', 'Rejected', 'Drafting'],
+      Drafting: ['AreaVetting', 'Cancelled', 'LimitBreached', 'CrossCollieryVerification'],
+      AreaVetting: ['HqVetting', 'Rejected', 'Drafting'],
+      HqVetting: ['Approved', 'Rejected', 'AreaVetting'],
       Approved: ['Rejected'],
       Rejected: ['Drafting'],
       Cancelled: [],
       LimitBreached: ['BoardApproved', 'Cancelled'],
       BoardApproved: ['AreaVetting'],
+      CrossCollieryVerification: ['Drafting', 'Cancelled'],
     }
 
     return transitions[this._value]?.includes(newState.value) ?? false

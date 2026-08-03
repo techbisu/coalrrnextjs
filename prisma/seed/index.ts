@@ -25,6 +25,7 @@ import { seedGrievance } from './grievance.seed'
 import { seedAcquMode } from './acqu_mode.seed'
 import { seedChkMasterNew } from './chk_master_new.seed'
 import { seedCaptchaConfig } from './captcha_config.seed'
+import { seedProposalChecklist } from './proposal_checklist.seed'
 
 const db = new PrismaClient()
 
@@ -39,6 +40,7 @@ async function main() {
     await seedCaptchaConfig(db)
     await seedAcquMode(db)
     await seedChkMasterNew(db)
+    await seedProposalChecklist(db)
     
     // 2. Master Data
     await seedTenant(db)

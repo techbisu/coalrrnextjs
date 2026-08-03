@@ -19,7 +19,10 @@ export function BackButton({ className, iconOnly = false, ...props }: BackButton
         variant="ghost"
         size="icon"
         className={cn("mt-0.5 shrink-0 text-muted-foreground hover:text-foreground h-8 w-8 -ml-2", className)}
-        onClick={() => router.back()}
+        onClick={(e) => {
+          if (props.onClick) props.onClick(e);
+          else router.back();
+        }}
         title="Go back"
         {...props}
       >
@@ -33,7 +36,10 @@ export function BackButton({ className, iconOnly = false, ...props }: BackButton
       variant="ghost"
       size="sm"
       className={cn("gap-1.5 text-muted-foreground hover:text-foreground", className)}
-      onClick={() => router.back()}
+      onClick={(e) => {
+        if (props.onClick) props.onClick(e);
+        else router.back();
+      }}
       {...props}
     >
       <ArrowLeft className="h-4 w-4" />

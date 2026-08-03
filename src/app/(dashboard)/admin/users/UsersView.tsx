@@ -1,9 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { SectionCard, DataTable, type Column, StateBadge } from '@/components/coalrr'
+import { SectionCard, DataTable, type Column, StateBadge } from '@/shared/components/coalrr'
 import { Users, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/shared/components/ui/button'
 import { user } from '@prisma/client'
 
 export function UsersView({ initialUsers }: { initialUsers: user[] }) {

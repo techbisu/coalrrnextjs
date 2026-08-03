@@ -3,7 +3,7 @@ import { authorizeApi } from '@/authorization/middleware/authorize'
 import { ok, badRequest, serverError, readJson } from '../../../_lib'
 import { getCurrentUser } from '@/lib/auth'
 import type { NextRequest } from 'next/server'
-import { AddPlotToProposalUseCase } from '@/application/use-cases/proposal'
+import { AddPlotsToProposalUseCase } from '@/application/use-cases/proposal'
 import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories'
 import { PrismaPlotRepository } from '@/infrastructure/persistence/repositories/PrismaPlotRepository'
 
@@ -22,14 +22,23 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (!body?.plot_id || !body.annexure_tag) return badRequest('plot_id and annexure_tag required')
 
     const proposalRepo = new PrismaProposalRepository()
-    const plotRepo = new PrismaPlotRepository()
-    const useCase = new AddPlotToProposalUseCase(proposalRepo, plotRepo)
+    const useCase = new AddPlotsToProposalUseCase(proposalRepo)
 
     const result = await useCase.execute({
       proposalId: id,
-      plot_id: body.plot_id,
-      annexure_tag: body.annexure_tag,
-      user_id: user.id.toString()
+      plots: [{
+        proposal_id: id,
+        plot_no: body.plot_id,
+        plot_number: body.plot_id,
+        mouza_lgd: 0,
+        total_ror_area: 0,
+        to_be_acquired_area: 0,
+        acq_status: 'DRAFT',
+        entry_by: user.id.toString(),
+      }],
+      landTypes: [],
+      mouzaLgd: 0,
+      userId: user.id.toString()
     })
 
     if (result.isFailure) {

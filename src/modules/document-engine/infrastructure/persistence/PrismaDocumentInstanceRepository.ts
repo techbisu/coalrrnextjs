@@ -22,6 +22,17 @@ export class PrismaDocumentInstanceRepository implements IDocumentInstanceReposi
     })
   }
 
+  async findLatestByTemplateAndApplication(templateCode: string, applicationId: string): Promise<DocumentInstanceWithTemplate | null> {
+    return db.document_instance.findFirst({
+      where: {
+        template_code: templateCode,
+        application_id: applicationId
+      },
+      include: { document_template: true },
+      orderBy: { entry_ts: 'desc' }
+    })
+  }
+
   async create(data: Omit<document_instance, 'id' | 'entry_ts' | 'updt_ts' | 'entry_by' | 'updt_by'>): Promise<document_instance> {
     const createData = data as any;
     if (!createData.id) createData.id = randomUUID();

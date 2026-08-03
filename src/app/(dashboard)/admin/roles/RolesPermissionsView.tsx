@@ -2,18 +2,18 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { SectionCard, DataTable, type Column } from '@/components/coalrr'
+import { SectionCard, DataTable, type Column } from '@/shared/components/coalrr'
 import { ShieldCheck, Lock, Pencil, Trash2, Key } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/shared/components/ui/button'
+import { Badge } from '@/shared/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
 import { role, permission } from '@prisma/client'
 import { RoleFormDialog } from './RoleFormDialog'
 import { RolePermissionsDialog } from './RolePermissionsDialog'
 import { PermissionFormDialog } from './PermissionFormDialog'
 import { deleteRoleAction, deletePermissionAction } from '@/modules/admin/roles/presentation/actions'
 import { toast } from 'sonner'
-import { BackButton } from '@/components/ui/back-button'
+import { BackButton } from '@/shared/components/ui/back-button'
 
 export function RolesPermissionsView({ 
   initialRoles, 

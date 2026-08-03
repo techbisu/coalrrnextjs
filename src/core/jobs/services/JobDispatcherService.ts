@@ -7,6 +7,7 @@ import { expireCaptchasHandler } from '../handlers/expireCaptchas.job'
 import { processNotificationEvent } from '../handlers/processNotificationEvent.job'
 import { dispatchNotification } from '../handlers/dispatchNotification.job'
 import { pollOutboxHandler } from '../handlers/pollOutbox.job'
+import { createReviewTasksHandler } from '../handlers/createReviewTasks.job'
 
 // Job Registry — add new handlers here, never use magic strings at call sites
 const jobHandlers: Record<string, (payload: any) => Promise<void>> = {
@@ -15,6 +16,7 @@ const jobHandlers: Record<string, (payload: any) => Promise<void>> = {
   processNotificationEvent: processNotificationEvent,
   dispatchNotification:    dispatchNotification,
   pollOutbox:              pollOutboxHandler,
+  createReviewTasks:       createReviewTasksHandler,
 }
 
 import type { Queue } from 'bullmq'

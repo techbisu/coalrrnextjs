@@ -6,24 +6,24 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { toast } from 'sonner'
-import { SectionCard } from '@/components/coalrr'
-import { Button } from '@/components/ui/button'
+import { SectionCard } from '@/shared/components/coalrr'
+import { Button } from '@/shared/components/ui/button'
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+} from '@/shared/components/ui/form'
+import { Input } from '@/shared/components/ui/input'
+import { Badge } from '@/shared/components/ui/badge'
 import { Separator } from '@/shared/components/ui/separator'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle, DialogTrigger,
-} from '@/components/ui/dialog'
+} from '@/shared/components/ui/dialog'
 import {
   User, Mail, Phone, Briefcase, Building2, MapPin, ShieldCheck,
   KeyRound, Pencil, Loader2, CalendarDays, Globe, Lock, ArrowLeft
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { NotificationControlProfile } from '@/components/profile/NotificationControlProfile'
+import { NotificationControlProfile } from '@/shared/components/profile/NotificationControlProfile'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface ProfileUser {

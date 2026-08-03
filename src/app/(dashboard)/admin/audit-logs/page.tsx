@@ -1,7 +1,9 @@
+export const dynamic = 'force-dynamic'
+
 import { Suspense } from 'react';
-import { AuditLogPageClient } from '../../audit-logs/AuditLogPageClient';
+import { AuditLogPageClient } from './AuditLogPageClient';
 import { fetchAuditLogsAction } from '@/modules/audit-log/actions';
-import { BackButton } from '@/components/ui/back-button';
+import { BackButton } from '@/shared/components/ui/back-button';
 
 export const metadata = {
   title: 'Audit Logs - Administration',

@@ -1,14 +1,9 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { ok, badRequest, notFound, serverError } from '@/app/api/_lib'
-import { ApproveBoardDeviationUseCase } from '@/application/use-cases/proposal/ApproveBoardDeviationUseCase'
-import { PrismaProposalRepository } from '@/infrastructure/persistence/repositories'
-import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
-import { uploadFileUseCase } from '@/infrastructure/di/Container'
+import { approveBoardDeviationUseCase, uploadFileUseCase } from '@/infrastructure/di/Container'
 type Ctx = { params: Promise<{ id: string }> }
 
-const proposalRepository = new PrismaProposalRepository()
-const projectRepository = new PrismaProjectRepository()
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
@@ -53,8 +48,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       }
     }
 
-    const useCase = new ApproveBoardDeviationUseCase(proposalRepository, projectRepository)
-    const result = await useCase.execute({
+    const result = await approveBoardDeviationUseCase.execute({
       proposalId: id,
       user_id: auth.user.id,
       oldLimitAcres,

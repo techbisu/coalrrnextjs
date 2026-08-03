@@ -2,6 +2,7 @@ import { IProposalRepository, ProposalDTO, PlotScheduleDTO, PlotScheduleLandType
 import { db } from '@/lib/db';
 import { Proposal, ProposalId, ScheduleCode, AcquisitionMode, ProposalState, Checklist } from '@/domain/entities/proposal';
 import { Area } from '@/domain/value-objects/Area';
+import { UserScopeService } from '@/core/authorization/services/UserScopeService';
 
 export class PrismaAcqProposalRepository implements IProposalRepository {
   constructor() {}
@@ -65,11 +66,27 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
     if (data.acquisitionMode === 'rfctlarr') acqModeId = BigInt(2);
     if (data.acquisitionMode === 'direct_purchase') acqModeId = BigInt(3);
 
+    // Ensure mine_cd and area_cd satisfy foreign key constraints
+    let validMineCd = data.collieryCode;
+    const existingMine = await db.mine_master.findUnique({ where: { mine_cd: validMineCd } });
+    if (!existingMine) {
+      const fallbackMine = await db.mine_master.findFirst();
+      if (fallbackMine) validMineCd = fallbackMine.mine_cd;
+    }
+
+    let validAreaCd = data.areaOffice;
+    const existingArea = await db.area_master.findUnique({ where: { area_cd: validAreaCd } });
+    if (!existingArea) {
+      const fallbackArea = await db.area_master.findFirst();
+      if (fallbackArea) validAreaCd = fallbackArea.area_cd;
+    }
+
     await db.acq_proposal.upsert({
       where: { proposal_id: data.id },
       update: {
         proposal_no: data.scheduleCode,
         purpose_justification: data.proposalTitle,
+        pr_scheme_ref_no: (data as any).adjacentColliery || (data as any).pr_scheme_ref_no,
         current_stage_cd: data.state,
         overall_status: data.state,
         tot_acq_area: data.totalArea,
@@ -78,11 +95,12 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
         proposal_id: data.id,
         proposal_no: data.scheduleCode,
         proposal_dt: data.notificationDate || new Date(),
-        mine_cd: data.collieryCode,
-        area_cd: data.areaOffice,
+        mine_cd: validMineCd,
+        area_cd: validAreaCd,
         proj_cd: data.projectId,
         acq_mode_id: acqModeId,
         purpose_justification: data.proposalTitle,
+        pr_scheme_ref_no: (data as any).adjacentColliery || (data as any).pr_scheme_ref_no,
         is_within_pr_limit: true,
         requires_board_approval: true,
         current_stage_cd: data.state,
@@ -172,13 +190,27 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
     plots: PlotScheduleDTO[];
     landTypes: PlotScheduleLandTypeDTO[];
   }): Promise<string> {
+    let validMineCd = data.proposal.mine_cd;
+    const existingMine = await db.mine_master.findUnique({ where: { mine_cd: validMineCd } });
+    if (!existingMine) {
+      const fallbackMine = await db.mine_master.findFirst();
+      if (fallbackMine) validMineCd = fallbackMine.mine_cd;
+    }
+
+    let validAreaCd = data.proposal.area_cd;
+    const existingArea = await db.area_master.findUnique({ where: { area_cd: validAreaCd } });
+    if (!existingArea) {
+      const fallbackArea = await db.area_master.findFirst();
+      if (fallbackArea) validAreaCd = fallbackArea.area_cd;
+    }
+
     const result = await db.$transaction(async (tx) => {
       const createdProposal = await tx.acq_proposal.create({
         data: {
           proposal_no: data.proposal.proposal_no,
           proposal_dt: data.proposal.proposal_dt,
-          mine_cd: data.proposal.mine_cd,
-          area_cd: data.proposal.area_cd,
+          mine_cd: validMineCd,
+          area_cd: validAreaCd,
           proj_cd: data.proposal.proj_cd,
           acq_mode_id: BigInt(data.proposal.acq_mode_id),
           purpose_justification: data.proposal.purpose_justification,
@@ -268,8 +300,47 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
     };
   }
 
-  async getAllProposals(): Promise<any[]> {
+  async getAllProposals(scope?: any): Promise<any[]> {
+    let where: any = {};
+    if (scope && scope.level && scope.level !== 'HQ') {
+      const scopedWhere = UserScopeService.scopeToWhere(scope, 'area_cd', 'mine_cd');
+      const areaIds: string[] = scope.level === 'AREA' ? (scope.areaIds || []) : Object.keys(scope.unitsByArea || {});
+      const mineIds: string[] = scope.level === 'UNIT' ? Object.values(scope.unitsByArea || {}).flat() as string[] : [];
+
+      const adjacentOrConditions: any[] = [];
+      if (areaIds.length > 0) {
+        adjacentOrConditions.push({ pr_scheme_ref_no: { in: areaIds } });
+        const areas = await db.area_master.findMany({ where: { area_cd: { in: areaIds } } });
+        for (const a of areas) {
+          adjacentOrConditions.push({ pr_scheme_ref_no: { contains: a.area_en, mode: 'insensitive' } });
+          adjacentOrConditions.push({ pr_scheme_ref_no: a.area_cd });
+        }
+      }
+      if (mineIds.length > 0) {
+        adjacentOrConditions.push({ pr_scheme_ref_no: { in: mineIds } });
+      }
+
+      if (adjacentOrConditions.length > 0) {
+        where = {
+          OR: [
+            scopedWhere,
+            ...adjacentOrConditions
+          ]
+        };
+      } else {
+        where = scopedWhere;
+      }
+    } else if (scope && (scope.area_cd || scope.mine_cd)) {
+      where = {
+        OR: [
+          scope,
+          { pr_scheme_ref_no: scope.area_cd || scope.mine_cd }
+        ]
+      };
+    }
+
     const props = await db.acq_proposal.findMany({
+      where,
       orderBy: { proposal_dt: 'desc' },
       include: {
         project: true,
@@ -328,6 +399,7 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
       plot_no: p.plot_no,
       mouza_lgd: Number(p.mouza_lgd),
       to_be_acquired_area: Number(p.to_be_acquired_area),
+      total_ror_area: Number((p as any).total_ror_area || 0),
       acq_status: p.acq_status,
       entry_by: p.entry_by || ''
     }));

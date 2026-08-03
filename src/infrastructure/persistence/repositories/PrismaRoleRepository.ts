@@ -68,13 +68,33 @@ export class PrismaRoleRepository implements IRoleRepository {
   }
 
   async syncPermissions(role_id: string, permissionIds: string[]): Promise<void> {
-    await db.role_has_permission.deleteMany({ where: { role_id } })
+    const role = await db.role.findFirst({
+      where: {
+        OR: [{ id: role_id }, { name: role_id }]
+      }
+    })
+
+    if (!role) {
+      console.warn(`Role "${role_id}" not found. Skipping permission sync.`)
+      return
+    }
+
+    const targetRoleId = role.id
+
+    await db.role_has_permission.deleteMany({ where: { role_id: targetRoleId } })
     if (permissionIds.length > 0) {
       const now = new Date()
-      // Force Turbopack reload to include updt_ts
-      await db.role_has_permission.createMany({
-        data: permissionIds.map(permission_id => ({ role_id, permission_id, updt_ts: now }))
+      const validPermissions = await db.permission.findMany({
+        where: { id: { in: permissionIds } },
+        select: { id: true }
       })
+      const validPermIds = validPermissions.map(p => p.id)
+
+      if (validPermIds.length > 0) {
+        await db.role_has_permission.createMany({
+          data: validPermIds.map(permission_id => ({ role_id: targetRoleId, permission_id, updt_ts: now }))
+        })
+      }
     }
     // Clear ALL caches because role permissions affect all users with this role
     await PermissionCache.invalidateAll()

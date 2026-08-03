@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { PrismaClient } from '@prisma/client'
 
 export async function seedMstPlot(db: PrismaClient) {

@@ -4,7 +4,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/sheet";
+} from "@/shared/components/ui/sheet";
 import { JsonDiffViewer } from './JsonDiffViewer';
 import { format } from 'date-fns';
 import { Terminal } from 'lucide-react';

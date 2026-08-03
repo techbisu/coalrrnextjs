@@ -1,6 +1,6 @@
 import React from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table";
+import { Badge } from "@/shared/components/ui/badge";
 import { AuditChangePayload } from "../types";
 
 export function AuditDiffViewer({ changes }: { changes: AuditChangePayload[] }) {

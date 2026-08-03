@@ -15,9 +15,10 @@ export class ProposalChecklistResolver implements IChecklistContextResolver {
 
     const plots = await this.proposalRepo.getPlotsByProposalId(entityId);
     
-    // Check Tribal / Debottar land across all plots
+    // Check Tribal / Debottar / Displacement land across all plots
     let hasTribalLand = false;
     let hasDebottarLand = false;
+    let hasDisplacement = false;
 
     for (const plot of plots) {
       const landTypes = await this.proposalRepo.getLandTypesByScheduleId(plot.schedule_id!);
@@ -35,6 +36,9 @@ export class ProposalChecklistResolver implements IChecklistContextResolver {
           if (typeName.includes('debottar') || typeName.includes('deity')) {
             hasDebottarLand = true;
           }
+          if (typeName.includes('habitation') || typeName.includes('bastu') || typeName.includes('residential') || typeName.includes('ghar') || typeName.includes('house')) {
+            hasDisplacement = true;
+          }
         }
       }
     }
@@ -44,6 +48,7 @@ export class ProposalChecklistResolver implements IChecklistContextResolver {
       acqModeId: proposal.acq_mode_id,
       HAS_TRIBAL_LAND: hasTribalLand,
       HAS_DEBOTTAR_LAND: hasDebottarLand,
+      HAS_DISPLACEMENT: hasDisplacement,
       IS_RFCTLARR: proposal.acq_mode_id === 5, // Assuming 5 is RFCTLARR, rule engine can also just check ACQ_MODE directly
       IS_BOARD_APPROVAL_REQ: proposal.requires_board_approval,
       STAGE: proposal.current_stage_cd

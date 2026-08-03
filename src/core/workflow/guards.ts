@@ -170,7 +170,7 @@ export const GUARD_REGISTRY: Record<string, TransitionGuard> = {
   WithinProjectBaseline:    new WithinProjectBaselineGuard(),
   BaselineBreached:         new BaselineBreachedGuard(),
   ChecklistFullySatisfied:  new ChecklistFullySatisfiedGuard("CL-1.1"),
-  ParallelReviewsCompleted: new ParallelReviewsCompletedGuard(["gm_planning", "gm_finance"]),
+  ParallelReviewsCompleted: new ParallelReviewsCompletedGuard(["gm_planning", "gm_safety", "gm_finance", "hod_legal"]),
   PlotNotAcquired:          new PlotNotAlreadyAcquiredGuard(),
   ThresholdMet2Ac:          new ThresholdMetGuard(),
 }

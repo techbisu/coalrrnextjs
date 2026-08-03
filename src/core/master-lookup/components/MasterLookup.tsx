@@ -7,7 +7,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@/shared/components/ui/select'
 import { useMasterQuery } from '../hooks/useMasterQuery'
 import { MasterLookupProps } from '../types'
 import { Loader2 } from 'lucide-react'

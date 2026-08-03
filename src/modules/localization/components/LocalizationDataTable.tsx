@@ -7,9 +7,9 @@ import {
   flexRender, 
   ColumnDef,
 } from '@tanstack/react-table';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
 import { TranslationDTO } from '../application/use-cases/GetTranslationsUseCase';
 import { updateTranslationAction } from '@/app/(dashboard)/admin/localization/actions';
 import { toast } from 'sonner';

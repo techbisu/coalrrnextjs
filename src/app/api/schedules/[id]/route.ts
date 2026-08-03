@@ -21,7 +21,10 @@ const acqProposalRepository = new PrismaAcqProposalRepository()
 
 export async function GET(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await authorizeApi('acquisition.view')
+    let auth = await authorizeApi('proposal.view')
+    if (auth.error) {
+      auth = await authorizeApi('acquisition.view')
+    }
     if (auth.error) return auth.error
 
     const { id } = await ctx.params

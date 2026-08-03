@@ -20,8 +20,8 @@ export class PrismaDashboardRepository implements IDashboardRepository {
       db.project.findMany(),
       db.acq_proposal.groupBy({ by: ['proj_cd'], _count: { proposal_id: true } }),
       db.compensation_payroll.groupBy({ by: ['project_id'], _count: { id: true } }),
-      db.mst_plot.findMany({ include: { mouza: true } }),
-      db.form_i_claim.findMany({ include: { mst_plot: true } }),
+      db.plot_schedule.findMany({ include: { mouza_master: true } }),
+      db.form_i_claim.findMany(),
       db.compensation_payroll.findMany({ include: { compensation_payroll_line: true } }), // removed invalid mst_project include
       db.form_d_ledger_entry.findMany({ orderBy: { paid_at: 'desc' } }),
       db.nominee_pool.findMany({ include: { nominee_pool_contribution: { include: { form_i_claim: true } } } }),

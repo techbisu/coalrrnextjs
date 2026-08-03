@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/shared/components/ui/button'
 import { CreateProposalDialog } from './CreateProposalDialog'
 
 export function NewProposalAction() {

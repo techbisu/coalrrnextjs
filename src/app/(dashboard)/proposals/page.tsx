@@ -19,8 +19,11 @@ interface PageProps {
 }
 
 export default async function ProposalsPage({ searchParams }: PageProps) {
-  const auth = await authorizeApi('acquisition.view')
-  
+  let auth = await authorizeApi('proposal.view')
+  if (auth.error) {
+    auth = await authorizeApi('acquisition.view')
+  }
+
   if (auth.error) {
     redirect('/')
   }
@@ -49,7 +52,7 @@ export default async function ProposalsPage({ searchParams }: PageProps) {
     const projectRepo = new PrismaProjectRepository()
     const listUseCase = new GetProposalsUseCase(proposalRepo, projectRepo)
     
-    const rawSchedulesResult = await listUseCase.execute()
+    const rawSchedulesResult = await listUseCase.execute({ filter: auth.user?.scope })
     const rawSchedules = rawSchedulesResult.isSuccess ? rawSchedulesResult.value : []
     
     const schedules: ScheduleListItem[] = rawSchedules.map((s: any) => ({

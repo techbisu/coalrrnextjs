@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { PayrollBuilderView } from '@/components/coalrr/views/PayrollBuilderView'
+import { PayrollBuilderView } from '@/shared/components/coalrr/views/PayrollBuilderView'
 
 export const metadata = {
   title: 'Payroll Builder - COALRR',

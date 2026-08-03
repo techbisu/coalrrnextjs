@@ -334,7 +334,7 @@ export function AddPlotDialog({
                           master="mouza_master"
                           dependsOn={{ mouza_lgd: projectMouzas.length > 0 ? projectMouzas.join(',') : '-1' }}
                           value={field.value}
-                          onChange={(val, optionData: any) => {
+                          onChange={((val: any, optionData: any) => {
                             field.onChange(val)
                             // Populate the hidden state_lgd from the selected mouza_master data
                             if (optionData?.state_lgd) {
@@ -342,7 +342,7 @@ export function AddPlotDialog({
                             } else {
                               form.setValue('state_lgd', undefined, { shouldValidate: true })
                             }
-                          }}
+                          }) as any}
                           placeholder="Search Mouza..."
                         />
                       </FormControl>

@@ -1,10 +1,10 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { SectionCard, DocumentUploader, UploadedDoc } from '@/components/coalrr'
+import { SectionCard, DocumentUploader, UploadedDoc } from '@/shared/components/coalrr'
 import { toast } from 'sonner'
 import { AlertTriangle, FileText, CheckCircle2, Loader2, Download } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Badge } from '@/shared/components/ui/badge'
+import { Button } from '@/shared/components/ui/button'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 import { ClearanceRequirementService } from '@/core/compliance/services/ClearanceRequirementService'
 

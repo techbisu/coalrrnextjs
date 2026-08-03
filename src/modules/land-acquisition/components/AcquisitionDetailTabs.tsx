@@ -5,28 +5,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Can } from '@/authorization/components/Can'
 import {
-  SectionCard, DataTable, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline,
-} from '@/components/coalrr'
+  SectionCard, DataTable, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline, ActionJustificationDialog, PartialAreaInputDialog,
+} from '@/shared/components/coalrr'
 import type {
   Column, AvailableTransition, TimelineNode, ChecklistItem, ChecklistItemStatus,
-} from '@/components/coalrr'
+} from '@/shared/components/coalrr'
 import { formatNumber, timeAgo,  } from '@/lib/utils/formatters'
 import { useUiState } from '@/providers/UiStateProvider'
 import { useAuth } from '@/authorization/providers/AuthProvider'
 import { routes } from '@/lib/url/UrlService'
 import { PlotScheduleManager } from '@/modules/proposal/components/PlotScheduleManager'
-import { GenericChecklistWorkspace } from '@/components/checklists/GenericChecklistWorkspace'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
-import { Separator } from '@/components/ui/separator'
+import { GenericChecklistWorkspace } from '@/core/checklist/components/GenericChecklistWorkspace'
+import { Button } from '@/shared/components/ui/button'
+import { Input } from '@/shared/components/ui/input'
+import { Label } from '@/shared/components/ui/label'
+import { Badge } from '@/shared/components/ui/badge'
+import { Textarea } from '@/shared/components/ui/textarea'
+import { Separator } from '@/shared/components/ui/separator'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+} from '@/shared/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
+import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
+} from '@/shared/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import {
   ClipboardList, Plus, Loader2, ArrowLeft, MapPin, Building2, Calendar, ShieldCheck,
@@ -61,22 +61,6 @@ const fetchPlots = async (filter?: any): Promise<any[]> => {
 }
 
 export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }) {
-  const mode = MODE_META[schedule.acquisition_mode] ?? {
-    label: schedule.acquisition_mode, checklistCode: 'CL-1', color: 'border-slate-300 bg-slate-50 text-slate-700',
-  }
-
-  const checklist: ModeChecklistPayload = React.useMemo(() => {
-    try {
-      const parsed = JSON.parse(schedule.mode_specific_checklist ?? '{"checklistCode":"CL-1","items":[]}')
-      return {
-        checklistCode: parsed.checklistCode ?? mode.checklistCode,
-        items: Array.isArray(parsed.items) ? parsed.items : [],
-      }
-    } catch {
-      return { checklistCode: mode.checklistCode, items: [] }
-    }
-  }, [schedule.mode_specific_checklist, mode.checklistCode])
-
   const qc = useQueryClient()
   const router = useRouter()
   const onChanged = () => {
@@ -87,31 +71,77 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="plots" className="w-full">
-        <TabsList className="w-fit">
-          <TabsTrigger value="plots"><Layers className="h-3.5 w-3.5" /> Plots &amp; Annexures</TabsTrigger>
-          <TabsTrigger value="checklist"><ListChecks className="h-3.5 w-3.5" /> CL-1 Checklist</TabsTrigger>
-          <TabsTrigger value="verify"><ShieldCheck className="h-3.5 w-3.5" /> Verification</TabsTrigger>
-          <TabsTrigger value="timeline"><History className="h-3.5 w-3.5" /> Timeline</TabsTrigger>
-        </TabsList>
+      <PendingActionBanner schedule={schedule} />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Panel - Overview & Plots (8 cols) */}
+        <div className="lg:col-span-8 space-y-6">
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="w-fit">
+            <TabsTrigger value="overview"><ListChecks className="mr-2 h-3.5 w-3.5" /> Overview</TabsTrigger>
+            <TabsTrigger value="plots"><Layers className="mr-2 h-3.5 w-3.5" /> Plots &amp; Annexures</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="plots" className="mt-4">
-          <PlotsTab schedule={schedule} onChanged={onChanged} />
-        </TabsContent>
+          <TabsContent value="overview" className="mt-4 space-y-6">
+            <ChecklistTab schedule={schedule} onChanged={onChanged} />
+            <MilestonesTab schedule={schedule} />
+          </TabsContent>
 
-        <TabsContent value="checklist" className="mt-4">
-          <ChecklistTab schedule={schedule} onChanged={onChanged} />
-        </TabsContent>
+          <TabsContent value="plots" className="mt-4">
+            <PlotsTab schedule={schedule} onChanged={onChanged} />
+          </TabsContent>
+        </Tabs>
+      </div>
 
-        <TabsContent value="verify" className="mt-4">
-          <VerificationTab schedule={schedule} onChanged={onChanged} />
-        </TabsContent>
-
-        <TabsContent value="timeline" className="mt-4">
-          <TimelineTab schedule={schedule} />
-        </TabsContent>
-      </Tabs>
+      {/* Right Panel - Timeline, Verification & Limits (4 cols) */}
+      <div className="lg:col-span-4 space-y-6">
+        <VerificationTab schedule={schedule} onChanged={onChanged} />
+        <TimelineTab schedule={schedule} />
+        <LimitsTab schedule={schedule} />
+      </div>
+      </div>
     </div>
+  )
+}
+
+function PendingActionBanner({ schedule }: { schedule: ScheduleDetail }) {
+  const { data: tasks } = useQuery({
+    queryKey: ['user-pending-tasks'],
+    queryFn: async () => {
+      const res = await fetch('/api/profile/tasks')
+      if (!res.ok) return []
+      return res.json() as Promise<Array<{
+        id: string;
+        reviewable_type: string;
+        reviewable_id: string;
+        role: string;
+        status: string;
+      }>>
+    }
+  })
+
+  // Check if any of the tasks belong to this proposal's documents (like FORM_VII)
+  // Currently, tasks only contain reviewable_id (document_instance id).
+  // Ideally, we'd need to know if that document is linked to this proposal.
+  // For this prototype, if there's any task with reviewable_type = document_signature, we show a generic banner,
+  // or we can just fetch the documents for this proposal to match.
+  // We'll assume the user is on the proposal they need to act on if it's UnitSubmitted.
+  
+  if (!tasks || tasks.length === 0) return null
+
+  // Just render the banner if there are tasks for now.
+  const hasSignatures = tasks.some(t => t.reviewable_type === 'document_signature')
+  
+  if (!hasSignatures) return null
+
+  return (
+    <Alert className="border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+      <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+      <AlertTitle className="text-sm font-bold">Action Required</AlertTitle>
+      <AlertDescription className="text-xs">
+        You have pending documents that require your signature or review. 
+        Please check your Global Inbox or the Verification tab.
+      </AlertDescription>
+    </Alert>
   )
 }
 
@@ -124,6 +154,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+// Normalize raw db state (e.g. DRAFTING -> Drafting, SUBMITTED -> UnitSubmitted)
+function getNormalizedState(stateStr: string) {
+  if (!stateStr) return 'Drafting'
+  if (stateStr === 'DRAFT' || stateStr === 'DRAFTING') return 'Drafting'
+  if (stateStr === 'SUBMITTED') return 'UnitSubmitted'
+  return stateStr
+}
+
 // ─── Tab 1: Plots & Annexures ────────────────────────────────────────────
 function PlotsTab({
   schedule, onChanged,
@@ -132,10 +170,21 @@ function PlotsTab({
   onChanged: () => void
 }) {
   const qc = useQueryClient()
-  const isDrafting = schedule.state === 'Drafting' || schedule.state === 'DRAFT' || schedule.state === 'DRAFTING';
+  const { session } = useAuth()
+  const normalizedState = getNormalizedState(schedule.state)
+  const isDrafting = normalizedState === 'Drafting'
+  
+  // Logic: Users cannot edit while verification is running.
+  // Exception: Area GM can edit/delete disputed plots when the workflow is frozen by a grievance/overlap.
+  // For this prototype, we'll assume the presence of grievances means frozen.
+  const hasGrievances = (schedule as any).grievances?.some((g: any) => !g.resolution)
+  const isAGM = session?.roles.includes('area_gm')
+  const canEdit = isDrafting || (hasGrievances && isAGM)
+
   const [addOpen, setAddOpen] = React.useState(false)
   const [editPlotId, setEditPlotId] = React.useState<string | null>(null)
   const [activeTab, setActiveTab] = React.useState<'A' | 'B' | 'C'>('A')
+  const [partialPlot, setPartialPlot] = React.useState<ScheduleItem | null>(null)
 
   const deleteItem = useMutation({
     mutationFn: async (plot_id: string) => {
@@ -152,11 +201,28 @@ function PlotsTab({
   })
 
   const updateStatus = useMutation({
-    mutationFn: async ({ plot_no, status }: { plot_no: string; status: string }) => {
+    mutationFn: async ({
+      plot_no,
+      status,
+      total_poss_area,
+      to_be_acquired_area,
+      remarks,
+    }: {
+      plot_no: string
+      status: string
+      total_poss_area?: number
+      to_be_acquired_area?: number
+      remarks?: string
+    }) => {
       const r = await fetch(`/api/proposals/${schedule.id}/plots/${plot_no}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ acq_status: status }),
+        body: JSON.stringify({
+          acq_status: status,
+          total_poss_area,
+          to_be_acquired_area,
+          remarks,
+        }),
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error ?? 'Failed to update status')
@@ -164,6 +230,7 @@ function PlotsTab({
     },
     onSuccess: () => {
       toast.success('Adjacent colliery status updated')
+      setPartialPlot(null)
       onChanged()
     },
     onError: (e: Error) => toast.error(e.message),
@@ -178,18 +245,18 @@ function PlotsTab({
     return c
   }, [schedule.items])
 
-  const columns: Column<ScheduleItem>[] = [
+  const baseColumns: Column<ScheduleItem>[] = [
     { key: 'plot_number', header: 'Plot', sortable: true, render: (r) => (
       <span className="font-mono text-xs font-medium">{r.plot_number}</span>
     ) },
     { key: 'mouza', header: 'Mouza', sortable: true, render: (r) => <span className="text-sm">{r.mouza}</span> },
     { key: 'land_type', header: 'Land Type', render: (r) => (
-      <Badge variant="outline" className={`text-[10px] ${LAND_TYPE_COLOR[r.land_type] ?? 'border-slate-300 bg-slate-50 text-slate-700'}`}>
+      <Badge variant="outline" className="text-xs font-normal font-mono bg-muted/30">
         {r.land_type}
       </Badge>
     ) },
-    { key: 'area_acres', header: 'Area (ac)', align: 'right', sortable: true, render: (r) => (
-      <span className="tabular-nums">{formatNumber(r.area_acres, 4)}</span>
+    { key: 'area_acres', header: 'Area (Acres)', align: 'right', sortable: true, render: (r) => (
+      <span className="font-mono text-xs font-semibold">{formatNumber(r.area_acres, 4)}</span>
     ) },
     { key: 'annexure_tag', header: 'Annexure', align: 'center', render: (r) => {
       const meta = ANNEXURE_META[r.annexure_tag]
@@ -199,13 +266,23 @@ function PlotsTab({
         </Badge>
       )
     } },
-    { key: '_adj_status', header: 'Adj. Colliery Status', align: 'center', render: (r) => {
+  ]
+  
+  const adjColumn: Column<ScheduleItem> = { 
+    key: '_adj_status', header: 'Adj. Colliery Status', align: 'center', render: (r) => {
       const currentStatus = r.annexure_tag === 'B' ? 'PURCHASED' : r.annexure_tag === 'C' ? 'PARTIALLY_PURCHASED' : 'PROPOSED';
       return (
         <select
           value={currentStatus}
-          disabled={updateStatus.isPending} // TODO: Disable if role is not adjacent_colliery or state is not vetting
-          onChange={(e) => updateStatus.mutate({ plot_no: r.plot_number, status: e.target.value })}
+          disabled={updateStatus.isPending}
+          onChange={(e) => {
+            const newStatus = e.target.value
+            if (newStatus === 'PARTIALLY_PURCHASED') {
+              setPartialPlot(r)
+            } else {
+              updateStatus.mutate({ plot_no: r.plot_id || r.plot_number, status: newStatus })
+            }
+          }}
           className="h-7 rounded border border-border bg-background px-1.5 text-[11px] disabled:opacity-50"
         >
           <option value="PROPOSED">None (Clear to Acquire)</option>
@@ -213,9 +290,9 @@ function PlotsTab({
           <option value="PARTIALLY_PURCHASED">Partially Purchased</option>
         </select>
       )
-    } },
-    { key: '_actions', header: '', align: 'right', render: (r) => (
-      isDrafting ? (
+    } }
+  const actionsColumn: Column<ScheduleItem> = { key: '_actions', header: '', align: 'right', render: (r) => (
+      canEdit ? (
         <div className="flex justify-end gap-2">
           <Button
             size="icon"
@@ -255,8 +332,13 @@ function PlotsTab({
       ) : (
         <Lock className="h-3 w-3 text-muted-foreground/40" />
       )
-    ) },
-  ]
+    ) }
+
+  const columns = [...baseColumns]
+  if (normalizedState === 'UnitSubmitted') {
+    columns.push(adjColumn)
+  }
+  columns.push(actionsColumn)
 
   return (
     <div className="space-y-4">
@@ -329,6 +411,24 @@ function PlotsTab({
           }
         />
       </SectionCard>
+
+      <PartialAreaInputDialog
+        isOpen={!!partialPlot}
+        onClose={() => setPartialPlot(null)}
+        plotNumber={partialPlot?.plot_number || ''}
+        totalArea={Number(partialPlot?.area_acres || 0)}
+        onSubmit={async ({ totalPossArea, toBeAcquiredArea, remarks }) => {
+          if (partialPlot) {
+            await updateStatus.mutateAsync({
+              plot_no: partialPlot.plot_id || partialPlot.plot_number,
+              status: 'PARTIALLY_PURCHASED',
+              total_poss_area: totalPossArea,
+              to_be_acquired_area: toBeAcquiredArea,
+              remarks,
+            })
+          }
+        }}
+      />
     </div>
   )
 }
@@ -473,7 +573,8 @@ function ChecklistTab({
   const qc = useQueryClient()
   const { user } = useAuth()
   
-  const showForward = schedule.state === 'UnitSubmitted'
+  const normalizedState = getNormalizedState(schedule.state)
+  const showForward = normalizedState === 'UnitSubmitted'
 
   // Forward to Area Vetting
   const forward = useMutation({
@@ -543,25 +644,118 @@ function VerificationTab({
   onChanged: () => void
 }) {
   const qc = useQueryClient()
-  const [actorRole, setActorRole] = React.useState('area_office')
+  const { user } = useAuth()
 
-  const stateKey = schedule.state as keyof typeof COMPENSATION_PAYROLL_STATES
+  const mapUserRole = (rawRole?: string) => {
+    if (!rawRole) return 'unit_office'
+    const lower = rawRole.toLowerCase()
+    if (lower.includes('unit')) return 'unit_office'
+    if (lower.includes('area')) return 'area_office'
+    if (lower.includes('lre') || lower.includes('planning')) return 'gm_planning'
+    if (lower.includes('finance')) return 'gm_finance'
+    if (lower.includes('director')) return 'director'
+    if (lower.includes('cmd')) return 'cmd'
+    return 'unit_office'
+  }
+
+  const detectedRole = mapUserRole(user?.roles?.[0])
+  const [actorRole, setActorRole] = React.useState(detectedRole)
+
+  React.useEffect(() => {
+    if (user?.roles?.[0]) {
+      setActorRole(mapUserRole(user.roles[0]))
+    }
+  }, [user?.roles])
+
+  const normalizedState = getNormalizedState(schedule.state)
+  const stateKey = normalizedState as keyof typeof COMPENSATION_PAYROLL_STATES
   const stateMeta = COMPENSATION_PAYROLL_STATES[stateKey]
-  const transitions: AvailableTransition[] = (stateMeta?.allowedTransitions ?? []).map((t) => ({
-    name: t.name,
-    label: t.label,
-    role: t.role,
-    guardFailed: null,
-  }))
+  const { data: clStatus } = useQuery<{ isComplete: boolean; missingItems: string[] }>({
+    queryKey: ['schedules', schedule.id, 'checklist-status'],
+    queryFn: async () => {
+      const r = await fetch(`/api/schedules/${schedule.id}/checklist`)
+      if (!r.ok) return { isComplete: false, missingItems: [] }
+      return r.json()
+    }
+  })
+
+  const { data: limitsData } = useQuery<{ isWithinLimit: boolean }>({
+    queryKey: ['proposals', schedule.id, 'limits'],
+    queryFn: async () => {
+      const r = await fetch(`/api/proposals/${schedule.id}/limits`)
+      if (!r.ok) return null
+      const json = await r.json()
+      return json.details
+    }
+  })
+
+  const isBreached = limitsData ? (limitsData.isWithinLimit === false) : false
+  const isSuperAdmin = user?.roles?.some((r: string) => r.toLowerCase().includes('admin'))
+
+  const transitions: AvailableTransition[] = (stateMeta?.allowedTransitions ?? [])
+    .filter((t) => {
+      // 1. Role filter: user must match transition role or be admin
+      if (!isSuperAdmin && t.role !== detectedRole) return false
+
+      // 2. Show/Hide condition filters:
+      // Hide submit_to_area if CL-1 checklist is incomplete
+      if (t.name === 'submit_to_area' && clStatus && !clStatus.isComplete) {
+        return false
+      }
+
+      // Hide submit_to_hq_parallel if project baseline is breached
+      if (t.name === 'submit_to_hq_parallel' && isBreached) {
+        return false
+      }
+
+      // Hide escalate_to_board if project baseline is intact (no breach)
+      if (t.name === 'escalate_to_board' && !isBreached) {
+        return false
+      }
+
+      return true
+    })
+    .map((t) => ({
+      name: t.name,
+      label: t.label,
+      role: t.role,
+      guardFailed: null,
+    }))
+
+  const [selectedTransition, setSelectedTransition] = React.useState<{ name: string; label: string } | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
 
   const verify = useMutation({
-    mutationFn: async (transitionName: string) => {
+    mutationFn: async ({ transitionName, comments, file }: { transitionName: string; comments?: string; file?: File | null }) => {
+      let uploadedDocId: string | null = null
+      if (file) {
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('proposal_id', schedule.id)
+          formData.append('document_type', 'JUSTIFICATION_NOTE')
+          const uploadRes = await fetch('/api/documents/upload', {
+            method: 'POST',
+            body: formData,
+          })
+          if (uploadRes.ok) {
+            const uploadJson = await uploadRes.json()
+            uploadedDocId = uploadJson.document_id || uploadJson.id || null
+          }
+        } catch (err) {
+          console.warn('Document upload error:', err)
+        }
+      }
+
       const r = await fetch(`/api/schedules/${schedule.id}/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          action: schedule.state === 'Drafting' ? 'submit' : (transitionName.includes('escalate') || transitionName.includes('reject') ? 'reject' : 'approve'),
-          comments: `Transitioned via UI`
+          action: transitionName,
+          transitionName: transitionName,
+          role: actorRole,
+          comments: comments || `Transitioned via UI`,
+          document_id: uploadedDocId
         }),
       })
       const data = await r.json()
@@ -581,45 +775,50 @@ function VerificationTab({
 
   return (
     <div className="space-y-4">
-      <SectionCard
-        title="Actor role"
-        icon={ShieldCheck}
-        description="Simulate acting as different approvers across the workflow chain."
-      >
-        <select
-          value={actorRole}
-          onChange={(e) => setActorRole(e.target.value)}
-          className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-        >
-          <option value="unit_office">Unit Office</option>
-          <option value="area_office">Area Office</option>
-          <option value="gm_planning">GM (Planning)</option>
-          <option value="gm_finance">GM (Finance)</option>
-          <option value="director">Director</option>
-          <option value="cmd">CMD</option>
-          <option value="board">Board</option>
-        </select>
-      </SectionCard>
-
       <ApprovalPanel
-        currentState={schedule.state}
+        currentState={normalizedState}
         availableTransitions={transitions}
         actorRole={actorRole}
-        onAction={(name) => verify.mutate(name)}
+        onActorRoleChange={setActorRole}
+        onAction={(name) => {
+          const tr = transitions.find((t) => t.name === name)
+          if (tr) {
+            setSelectedTransition(tr)
+            setIsDialogOpen(true)
+          }
+        }}
       />
 
-      {schedule.state === 'Drafting' && (
+      <ActionJustificationDialog
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        actionName={selectedTransition?.name || ''}
+        actionLabel={selectedTransition?.label || ''}
+        isReturn={selectedTransition?.name.includes('return') || selectedTransition?.name.includes('reject')}
+        onSubmit={async ({ comments, file }) => {
+          if (selectedTransition) {
+            await verify.mutateAsync({
+              transitionName: selectedTransition.name,
+              comments,
+              file,
+            })
+          }
+        }}
+      />
+
+
+
+      {normalizedState === 'Drafting' && (
         <Alert>
           <FileText className="h-4 w-4" />
-          <AlertTitle>Drafting — not yet submitted</AlertTitle>
+          <AlertTitle>Drafting — Land Schedule Created</AlertTitle>
           <AlertDescription>
-            Compose the plot schedule and complete the CL-1 checklist, then submit to the Unit Office
-            to begin the verification chain.
+            Compose the plot schedule and complete the compliance checklist, then submit for Adjacent Colliery &amp; Unit Office verification.
           </AlertDescription>
         </Alert>
       )}
 
-      {schedule.state === 'Published' && (
+      {normalizedState === 'Published' && (
         <Alert>
           <CheckCircle2 className="h-4 w-4" />
           <AlertTitle>Published — terminal state</AlertTitle>
@@ -632,30 +831,71 @@ function VerificationTab({
   )
 }
 
+function LimitsTab({ schedule }: { schedule: ScheduleDetail }) {
+  const { data: limits, isLoading: loadingLimits } = useQuery({
+    queryKey: ['proposals', schedule.id, 'limits'],
+    queryFn: async () => {
+      const r = await fetch(`/api/proposals/${schedule.id}/limits`)
+      if (!r.ok) throw new Error('Failed to load limits')
+      const json = await r.json()
+      return json.details
+    }
+  })
+
+  return <LimitCheckPanel limits={limits || null} loading={loadingLimits} />
+}
+
 // ─── Tab 4: Timeline ─────────────────────────────────────────────────────
 function TimelineTab({ schedule }: { schedule: ScheduleDetail }) {
-  const nodes: TimelineNode[] = COMPENSATION_PAYROLL_ORDERED_STATES.map((state) => {
+  const normalizedState = getNormalizedState(schedule.state)
+
+  const { data: limitsData } = useQuery<{ isWithinLimit: boolean }>({
+    queryKey: ['proposals', schedule.id, 'limits'],
+    queryFn: async () => {
+      const r = await fetch(`/api/proposals/${schedule.id}/limits`)
+      if (!r.ok) return null
+      const json = await r.json()
+      return json.details
+    }
+  })
+
+  const isBreached = limitsData ? (limitsData.isWithinLimit === false) : false
+  const isBoardBranchState = normalizedState === 'BoardEscalation' || normalizedState === 'BoardApproved' || normalizedState === 'LimitBreached'
+
+  // Only display Board Escalation / Board Approved nodes if a baseline breach occurs or proposal is in Board state
+  const statesToDisplay = COMPENSATION_PAYROLL_ORDERED_STATES.filter((state) => {
+    if (state === 'BoardEscalation' || state === 'BoardApproved' || state === 'LimitBreached') {
+      return isBreached || isBoardBranchState
+    }
+    return true
+  })
+
+  const nodes: TimelineNode[] = statesToDisplay.map((state) => {
     const meta = COMPENSATION_PAYROLL_STATES[state]
-    const currentState = schedule.state as keyof typeof COMPENSATION_PAYROLL_STATES
-    const isBranch = state === 'BoardEscalation'
+    const currentState = normalizedState as keyof typeof COMPENSATION_PAYROLL_STATES
+    const isBranch = state === 'BoardEscalation' || state === 'LimitBreached'
     let status: TimelineNode['status'] = 'pending'
 
-    if (currentState === 'BoardEscalation') {
-      // Linear chain up to DirectorConsent is done; CmdApproved/Published stay pending; branch is current
-      if (state === 'BoardEscalation') status = 'current'
-      else if (meta.order < COMPENSATION_PAYROLL_STATES.DirectorConsent.order) status = 'done'
-      else if (state === 'DirectorConsent') status = 'done'
+    if (currentState === 'BoardEscalation' || currentState === 'LimitBreached') {
+      if (state === 'BoardEscalation' || state === 'LimitBreached') status = 'current'
+      else if (meta.order < COMPENSATION_PAYROLL_STATES.GmLreReview.order) status = 'done'
+      else if (state === 'GmLreReview') status = 'done'
       else status = 'pending'
     } else {
       if (meta.order < COMPENSATION_PAYROLL_STATES[currentState].order) status = 'done'
       else if (state === currentState) status = 'current'
     }
 
+    const adjacentTarget = schedule.adjacent_colliery ? schedule.adjacent_colliery : (schedule.mine_cd ? `Mine ${schedule.mine_cd}` : 'Adjacent Colliery Office')
+    const collieryInfo = `Assigned Adjacent Colliery: ${adjacentTarget}`
+
     return {
       state,
       label: meta.label,
       status,
-      note: status === 'current' ? meta.description : undefined,
+      note: status === 'current' 
+        ? (state === 'UnitSubmitted' ? `${collieryInfo} — ${meta.description}` : meta.description)
+        : (state === 'UnitSubmitted' ? collieryInfo : undefined),
       isBranch,
     }
   })
@@ -668,5 +908,67 @@ function TimelineTab({ schedule }: { schedule: ScheduleDetail }) {
     >
       <StatusTimeline nodes={nodes} maxheight={460} />
     </SectionCard>
+  )
+}
+
+import { ManualMilestonePanel, Milestone } from '@/shared/components/coalrr/ManualMilestonePanel'
+import { LimitCheckPanel } from '@/shared/components/coalrr/LimitCheckPanel'
+
+function MilestonesTab({ schedule }: { schedule: ScheduleDetail }) {
+  const qc = useQueryClient()
+  const { data: milestones, isLoading } = useQuery<Milestone[]>({
+    queryKey: ['proposals', schedule.id, 'milestones'],
+    queryFn: async () => {
+      const r = await fetch(`/api/proposals/${schedule.id}/milestones`)
+      if (!r.ok) throw new Error('Failed to load milestones')
+      return r.json()
+    }
+  })
+
+  const addMilestone = useMutation({
+    mutationFn: async (newMilestone: { milestone_type: string; authority: string; reference_no?: string; outcome?: string; remarks?: string }) => {
+      const r = await fetch(`/api/proposals/${schedule.id}/milestones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newMilestone),
+      })
+      if (!r.ok) throw new Error('Failed to record milestone')
+      return r.json()
+    },
+    onSuccess: () => {
+      toast.success('Milestone recorded successfully')
+      qc.invalidateQueries({ queryKey: ['proposals', schedule.id, 'milestones'] })
+    },
+    onError: (e: Error) => toast.error('Failed to add milestone', { description: e.message })
+  })
+
+  const modeStr = String(schedule.acquisition_mode || '').toLowerCase()
+  const isDirectPurchase = modeStr.includes('direct') || modeStr === 'dp'
+
+  return (
+    <div className="space-y-4">
+      <SectionCard 
+        title={isDirectPurchase ? "Purchase Milestones & Registrations" : "Government Notifications & Statutory Milestones"} 
+        icon={CheckCircle2} 
+        description={
+          isDirectPurchase 
+            ? "Track Sale Deed Registration, Stamp Duty Clearance, Valuation Approvals, and Land Handover milestones."
+            : "Track Section 4, 7, 9, 11 gazette notifications and statutory legal clearances."
+        }
+      >
+        {isLoading ? (
+          <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+        ) : (
+          <ManualMilestonePanel 
+            milestones={milestones || []} 
+            readOnly={false} 
+            isDirectPurchase={isDirectPurchase}
+            onAddSubmit={async (m) => {
+              await addMilestone.mutateAsync(m)
+            }}
+          />
+        )}
+      </SectionCard>
+    </div>
   )
 }

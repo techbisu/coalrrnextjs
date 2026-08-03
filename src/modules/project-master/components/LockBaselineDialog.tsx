@@ -4,18 +4,18 @@ import * as React from 'react'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { DatePicker } from '@/components/ui/date-picker'
+} from '@/shared/components/ui/dialog'
+import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert'
+import { Button } from '@/shared/components/ui/button'
+import { Input } from '@/shared/components/ui/input'
+import { Label } from '@/shared/components/ui/label'
+import { DatePicker } from '@/shared/components/ui/date-picker'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { AlertTriangle, CheckCircle2, Loader2, Lock } from 'lucide-react'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
-import { DocumentUploader } from '@/components/coalrr'
-import type { UploadedDoc } from '@/components/coalrr'
+import { DocumentUploader } from '@/shared/components/coalrr'
+import type { UploadedDoc } from '@/shared/components/coalrr'
 
 interface ProjectData {
   id: string

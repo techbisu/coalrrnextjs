@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { DataTable, type Column } from '@/components/coalrr';
+import { Button } from '@/shared/components/ui/button';
+import { Badge } from '@/shared/components/ui/badge';
+import { DataTable, type Column } from '@/shared/components/coalrr';
 import { AuditDetailModal } from './AuditDetailModal';
 
 import { 
@@ -12,7 +12,7 @@ import {
   DropdownMenuLabel, 
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
+} from '@/shared/components/ui/dropdown-menu';
 import { MoreHorizontal, Eye } from 'lucide-react';
 
 export const AuditLogTable = ({ data, onPageChange, currentPage, totalRecords, loading }: any) => {

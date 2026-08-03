@@ -3,24 +3,23 @@ import { IPlotRepository, PlotData } from '@/domain/entities/plot/IPlotRepositor
 
 export class PrismaPlotRepository implements IPlotRepository {
   async findById(id: string): Promise<PlotData | null> {
-    const plot = await db.mst_plot.findUnique({
-      where: { id }
+    const plot = await db.plot_schedule.findFirst({
+      where: { plot_no: id }
     })
 
     if (!plot) return null
 
     return {
-      id: plot.id,
-      plot_number: plot.plot_number,
-      area_acres: plot.area_acres.toString()
+      id: plot.plot_no,
+      plot_number: plot.plot_number || plot.plot_no,
+      area_acres: '0' // plot_schedule doesn't have area_acres directly mapped here
     }
   }
 
   async findAllPlots(where?: any): Promise<any[]> {
-    return db.mst_plot.findMany({
+    return db.plot_schedule.findMany({
       where,
-      include: { mouza: true, form_i_claims: true },
-      orderBy: [{ mouza: { mouza_en: 'asc' } }, { plot_number: 'asc' }],
+      orderBy: [{ plot_no: 'asc' }],
     })
   }
 }

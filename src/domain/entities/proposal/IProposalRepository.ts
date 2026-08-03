@@ -74,7 +74,7 @@ export interface IProposalRepository {
   }): Promise<string>;
   
   getProposalById(proposalId: string): Promise<ProposalDTO | null>;
-  getAllProposals(): Promise<any[]>;
+  getAllProposals(filter?: any): Promise<any[]>;
   getPlotsByProposalId(proposalId: string): Promise<PlotScheduleDTO[]>;
   getLandTypesByScheduleId(scheduleId: string): Promise<PlotScheduleLandTypeDTO[]>;
   

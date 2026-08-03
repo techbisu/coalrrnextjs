@@ -7,19 +7,19 @@ import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { proposalConfig } from '@/core/config/proposal.config'
 import { useAuth } from '@/core/authorization/providers/AuthProvider'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { DatePicker } from '@/components/ui/date-picker'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/shared/components/ui/button'
+import { Input } from '@/shared/components/ui/input'
+import { Label } from '@/shared/components/ui/label'
+import { Textarea } from '@/shared/components/ui/textarea'
+import { DatePicker } from '@/shared/components/ui/date-picker'
+import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
+} from '@/shared/components/ui/dialog'
 import { AcquisitionMode, MODE_META, MODES } from '../types'
 import { formatNumber } from '@/lib/utils/formatters'
 import { useRouter } from 'next/navigation'
-import { MasterLookup } from '@/components/coalrr/MasterLookup'
+import { MasterLookup } from '@/shared/components/coalrr/MasterLookup'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 
 interface ProjectListItem {
@@ -97,6 +97,8 @@ export function CreateProposalDialog({
             proj_cd: form.project_id,
             acq_mode_id: proposalConfig.acquisitionModeIdMap[form.acquisition_mode] || 1,
             purpose_justification: form.description,
+            adjacent_colliery: form.adjacent_colliery,
+            pr_scheme_ref_no: form.adjacent_colliery,
             is_within_pr_limit: true,
             requires_board_approval: false,
             entry_by: user?.id || 'system'

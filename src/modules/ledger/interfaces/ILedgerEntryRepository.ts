@@ -1,8 +1,6 @@
-import { form_d_ledger_entry, mst_plot, mouza_master } from '@prisma/client'
+import { form_d_ledger_entry } from '@prisma/client'
 
-export type FormDLedgerEntryWithPlotAndMouza = form_d_ledger_entry & {
-  mst_plot: (mst_plot & { mouza: mouza_master }) | null
-}
+export type FormDLedgerEntryWithPlotAndMouza = form_d_ledger_entry
 
 export interface ILedgerEntryRepository {
   findManyOrderedByPaidAtDesc(): Promise<FormDLedgerEntryWithPlotAndMouza[]>

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
 import { Download, Trash2, Eye } from 'lucide-react';
 import { FileUploader } from './FileUploader';
 import { FilePreview } from './FilePreview';

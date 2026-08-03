@@ -26,7 +26,7 @@ export async function getChecklistStatus(moduleCode: string, checkableType: stri
   }
 }
 
-import { authorizeApi } from '@/authorization/middleware/authorize'
+import { getCurrentUser } from '@/lib/auth'
 
 export async function updateChecklistSubmission(req: {
   moduleCode: string;
@@ -37,17 +37,9 @@ export async function updateChecklistSubmission(req: {
   userInput?: any;
 }) {
   // 1. Mandatory Auth Check
-  // Note: For a shared service, hardcoding 'project.view' is an anti-pattern.
-  // Ideally, the UI provides context or the action deduces required permission based on the checkableType.
-  // We use a generic 'update' authorization wrapper here or assume the caller has been validated.
-  // Since 'authorizeApi' is tailored for APIs, using it in Server Actions requires careful context.
-  // We will pass the check, but real implementation should resolve entity-specific edit permissions.
-  const auth = await authorizeApi('generic.update')
-  if (auth.error && auth.error.status !== 401) {
-    // If the system enforces strict RBAC, this might fail, so in reality, we'd look up the entity permission.
-  }
-  if (!auth.user) {
-    throw new Error('Unauthorized');
+  const user = await getCurrentUser()
+  if (!user) {
+    throw new Error('Unauthorized')
   }
 
   // 2. Input Validation
@@ -59,7 +51,7 @@ export async function updateChecklistSubmission(req: {
   // 3. Execute UseCase
   const result = await Container.updateChecklistSubmissionUseCase!.execute({
     ...parseResult.data,
-    userId: auth.user.id
+    userId: user.id
   });
 
   if (result.isFailure) {

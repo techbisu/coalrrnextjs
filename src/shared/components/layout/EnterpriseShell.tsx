@@ -15,8 +15,8 @@ import packageJson from '../../../../package.json'
 import { cn } from '@/lib/utils'
 
 import { LanguageSwitcher } from '@/localization/components/LanguageSwitcher'
-import { NotificationCenter } from '@/components/notifications/NotificationCenter'
-import { AuthView } from '@/components/coalrr/views/AuthView'
+import { NotificationCenter } from '@/shared/components/notifications/NotificationCenter'
+import { AuthView } from '@/shared/components/coalrr/views/AuthView'
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard, Map, FileText, Calculator, Lock, Users, Inbox, ClipboardList,

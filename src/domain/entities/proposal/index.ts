@@ -3,7 +3,8 @@ export {
   ProposalNotEditableException, 
   ProposalNotSubmittableException,
   InvalidProposalTransitionException,
-  ChecklistItemNotFoundException
+  ChecklistItemNotFoundException,
+  DuplicatePlotException
 } from './Proposal'
 export type { ProposalProps, CreateProposalProps, UpdateProposalProps } from './Proposal'
 export { ProposalId } from './ProposalId'

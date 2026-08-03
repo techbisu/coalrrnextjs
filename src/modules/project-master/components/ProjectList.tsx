@@ -1,11 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { FilterBar, MasterLookup } from '@/components/coalrr'
+import { FilterBar, MasterLookup } from '@/shared/components/coalrr'
 import { useMasterLookup } from '@/shared/hooks/useMasterLookup'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/shared/components/ui/badge'
+import { Button } from '@/shared/components/ui/button'
+import { Progress } from '@/shared/components/ui/progress'
 import { Lock, MapPin, IndianRupee, Users, AlertTriangle, ChevronRight, Building2 } from 'lucide-react'
 import { formatINR, formatNumber } from '@/lib/utils/formatters'
 import { useQueryClient } from '@tanstack/react-query'
@@ -13,8 +13,8 @@ import { toast } from 'sonner'
 import { Can } from '@/authorization/components/Can'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
+} from '@/shared/components/ui/dialog'
+import { Input } from '@/shared/components/ui/input'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 
 // ... existing arrays ...

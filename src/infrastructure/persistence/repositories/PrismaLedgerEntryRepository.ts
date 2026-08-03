@@ -7,7 +7,6 @@ export class PrismaLedgerEntryRepository implements ILedgerEntryRepository {
   async findManyOrderedByPaidAtDesc(): Promise<FormDLedgerEntryWithPlotAndMouza[]> {
     return db.form_d_ledger_entry.findMany({
       orderBy: { paid_at: 'desc' },
-      include: { mst_plot: { include: { mouza: true } } },
     })
   }
 

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { RnrAssetView } from '@/components/coalrr/views/RnrAssetView'
+import { RnrAssetView } from '@/shared/components/coalrr/views/RnrAssetView'
 
 export const metadata = {
   title: 'R&R Asset - COALRR',

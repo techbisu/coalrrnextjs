@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AddPlotsToProposalUseCase } from '@/application/use-cases/proposal';
-import { PrismaAcqProposalRepository } from '@/infrastructure/persistence/repositories/PrismaAcqProposalRepository';
 import { AddPlotsSchema } from '@/core/validation/schemas/plot-schedule.schema';
+import { addPlotsToProposalUseCase } from '@/infrastructure/di/Container';
 import { generatePlotNo } from '@/shared/utils/plot.utils';
 import { db } from '@/lib/db';
 import { authorizeApi } from '@/core/authorization/middleware/authorize';
+import { withRequestContext } from '@/app/api/_server';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await authorizeApi('PROPOSAL_UPDATE'); // Using PROPOSAL_UPDATE or similar
-  if (auth.error) return auth.error;
+  return withRequestContext(request, async () => {
+    const auth = await authorizeApi('proposal.update');
+    if (auth.error) return auth.error;
   const userId = auth.user?.id || 'system';
 
   try {
@@ -91,10 +92,7 @@ export async function POST(
       }))
     );
 
-    const repo = new PrismaAcqProposalRepository();
-    const useCase = new AddPlotsToProposalUseCase(repo);
-
-    const result = await useCase.execute({
+    const result = await addPlotsToProposalUseCase.execute({
       proposalId,
       plots: plotDTOs,
       landTypes: landTypeDTOs,
@@ -111,4 +109,5 @@ export async function POST(
     console.error('Error adding plots:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+  });
 }

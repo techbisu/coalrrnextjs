@@ -88,6 +88,12 @@ export class ChecklistItemNotFoundException extends DomainException {
   }
 }
 
+export class DuplicatePlotException extends DomainException {
+  constructor(plotId: string) {
+    super(`Plot '${plotId}' already exists in proposal`, 'DUPLICATE_PLOT')
+  }
+}
+
 export class Proposal extends AggregateRoot<string> {
   private _scheduleCode: ScheduleCode
   private _projectId: string

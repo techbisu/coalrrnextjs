@@ -2,6 +2,7 @@ import { IUseCase } from '@/core/interfaces/UseCase.interface'
 import { Result } from '@/core/result/Result'
 import { IChecklistRepository } from '../interfaces/IChecklistRepository'
 import { ChecklistContextRegistry } from '../registry/ChecklistContextRegistry'
+import { GeneratedDocumentChecklistAdapter } from '../services/GeneratedDocumentChecklistAdapter'
 
 export interface GetChecklistStatusRequest {
   moduleCode: string;
@@ -12,7 +13,8 @@ export interface GetChecklistStatusRequest {
 export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusRequest, any> {
   constructor(
     private repo: IChecklistRepository,
-    private registry: ChecklistContextRegistry
+    private registry: ChecklistContextRegistry,
+    private documentAdapter?: GeneratedDocumentChecklistAdapter
   ) {}
 
   async execute(req: GetChecklistStatusRequest): Promise<Result<any>> {
@@ -37,11 +39,17 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
         if (rule.show_if) {
           const conditions = rule.show_if as Record<string, any>;
           for (const [key, value] of Object.entries(conditions)) {
+            // Fix: Cast BigInt to Number for JSON evaluation
+            let contextValue = context[key];
+            if (typeof contextValue === 'bigint') {
+              contextValue = Number(contextValue);
+            }
+            
             // Simple strict equality evaluator (can be replaced by json-rules-engine later)
             if (Array.isArray(value)) {
-              if (!value.includes(context[key])) shouldShow = false;
+              if (!value.includes(contextValue)) shouldShow = false;
             } else {
-              if (context[key] !== value) shouldShow = false;
+              if (contextValue !== value) shouldShow = false;
             }
           }
         }
@@ -61,7 +69,22 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
            }
         }
 
-        const isSatisfied = submission?.status === 'SUBMITTED' || submission?.status === 'AUTO_SATISFIED' || submission?.status === 'APPROVED';
+        let isSatisfied = submission?.status === 'SUBMITTED' || submission?.status === 'AUTO_SATISFIED' || submission?.status === 'APPROVED';
+        let generatedDocInfo: any = undefined;
+
+        // 6. Generated Document Type override
+        if (rule.input_schema?.type === 'generated_document' && this.documentAdapter) {
+          const docResult = await this.documentAdapter.resolveStatus(rule, req.checkableType, req.checkableId, submission);
+          if (docResult.newlySubmitted) {
+             // Refresh submission
+             submission = { status: 'SUBMITTED', document_id: docResult.generatedDocInfo.generatedDocId };
+             isSatisfied = true;
+          } else {
+             isSatisfied = docResult.status === 'complete';
+          }
+          generatedDocInfo = docResult.generatedDocInfo;
+        }
+
         if (rule.is_mandatory && !isSatisfied) {
           isComplete = false;
         }
@@ -73,6 +96,7 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
           type: rule.requirement_type,
           inputSchema: rule.input_schema,
           isMandatory: rule.is_mandatory,
+          generatedDocInfo,
           submission: submission ? {
             status: submission.status,
             documentId: submission.document_id,

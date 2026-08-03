@@ -29,8 +29,8 @@ export class ListLedgerEntriesUseCase implements IUseCase<void, LedgerEntryDTO[]
       const dtos: LedgerEntryDTO[] = entries.map((e) => ({
         id: e.id,
         plot_id: e.plot_id,
-        plot_number: e.mst_plot?.plot_number,
-        mouza: e.mst_plot?.mouza?.mouza_en,
+        plot_number: undefined,
+        mouza: undefined,
         amount_land: e.amount_land.toString(),
         amount_rnr: e.amount_rnr.toString(),
         payee_type: e.payee_type,

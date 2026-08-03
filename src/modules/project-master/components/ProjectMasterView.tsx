@@ -6,22 +6,25 @@ import { MasterCascade } from '@/core/master-lookup/components/MasterCascade'
 import { MasterFormLookup } from '@/core/master-lookup/components/MasterFormLookup'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { SectionCard, StatTile, GISMapViewer, DataTable, DocumentUploader } from '@/components/coalrr'
-import type { Column, PlotFeature } from '@/components/coalrr'
-import type { UploadedDoc } from '@/components/coalrr'
+import { SectionCard, StatTile, GISMapViewer, DataTable, DocumentUploader } from '@/shared/components/coalrr'
+import type { Column, PlotFeature } from '@/shared/components/coalrr'
+import type { UploadedDoc } from '@/shared/components/coalrr'
 import { formatINR, formatNumber,  } from '@/lib/utils/formatters'
 import { useAuth } from '@/authorization/providers/AuthProvider'
 import { useUiState } from '@/providers/UiStateProvider'
 import { routes } from '@/lib/url/UrlService'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
+import { Button } from '@/shared/components/ui/button'
+import { Input } from '@/shared/components/ui/input'
+import { Label } from '@/shared/components/ui/label'
+import { Badge } from '@/shared/components/ui/badge'
+import { Progress } from '@/shared/components/ui/progress'
+import { useRouter } from 'next/navigation'
+import { BackButton } from '@/shared/components/ui/back-button'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+} from '@/shared/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
+import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert'
 import { toast } from 'sonner'
 import {
   Building2, MapPin, Lock, ShieldCheck, IndianRupee, Users, FileText, TreePine,
@@ -34,7 +37,7 @@ import { LockBaselineDialog } from './LockBaselineDialog'
 import { FormXXIIModal } from './FormXXIIModal'
 import { ProjectBoundarySection } from './ProjectBoundarySection'
 import { ProjectList } from './ProjectList'
-import { GenericChecklistWorkspace } from '@/components/checklists/GenericChecklistWorkspace'
+import { GenericChecklistWorkspace } from '@/core/checklist/components/GenericChecklistWorkspace'
 
 export const EMPTY_FORM: ProjectFormValues = {
   name: '',
@@ -54,6 +57,7 @@ interface ProjectData {
   boundary: string; statutory_clearances: string | null
   locked_at: string | null; isLocked: boolean
   payrollCount: number; totalDisbursed: string; budgetUtilization: string
+  approvals?: any[]
   plots: Array<{ id: string; plot_number: string; mouza: string; land_type: string; area_acres: string; exhausted_area_for_jobs: string; remaining_job_quota: number }>
 }
 
@@ -80,6 +84,16 @@ async function fetchProjects(): Promise<ProjectData[]> {
     headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
   })
   if (!r.ok) throw new Error('Failed to load projects')
+  const json = await r.json()
+  return json.data || json
+}
+
+async function fetchProposals(): Promise<any[]> {
+  const r = await fetch('/api/proposals', {
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+  })
+  if (!r.ok) throw new Error('Failed to load proposals')
   const json = await r.json()
   return json.data || json
 }
@@ -172,14 +186,18 @@ import { useMasterLookup } from '@/shared/hooks/useMasterLookup'
 // ... existing imports ...
 
 export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string }) {
+  const router = useRouter()
   const t = useAppTranslation('project_master')
   const { user } = useAuth()
   const { selectedProjectId, selectProject: uiSelectProject } = useUiState()
   const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['projects'], queryFn: fetchProjects })
+  const { data: allProposals, isLoading: isLoadingProposals } = useQuery({ queryKey: ['proposals'], queryFn: fetchProposals })
   const [selectedPlotId, setSelectedPlotId] = React.useState<string | null>(null)
   
-  const [viewMode, setViewMode] = React.useState<'list' | 'details'>(user?.scope?.level === 'UNIT' ? 'details' : 'list')
+  const [viewMode, setViewMode] = React.useState<'list' | 'details'>(
+    initialMineCd || user?.scope?.level === 'UNIT' ? 'details' : 'list'
+  )
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [editOpen, setEditOpen] = React.useState(false)
@@ -205,9 +223,9 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
     uiSelectProject(id)
     if (data) {
       const p = data.find(x => x.id === id)
-      if (p) window.history.pushState(null, '', routes.project.details(p.mine_cd))
+      if (p) router.push(routes.project.details(p.mine_cd))
     }
-  }, [data, uiSelectProject])
+  }, [data, uiSelectProject, router])
 
   const handleDelete = async () => {
     if (!projectToDelete) return
@@ -230,9 +248,16 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
 
   // ... rest of the code until render ...
 
+  // Sync viewMode if we navigated back to the list URL or entered a details URL
   React.useEffect(() => {
-// ... same as before
+    if (!initialMineCd && user?.scope?.level !== 'UNIT') {
+      setViewMode('list')
+    } else if (initialMineCd) {
+      setViewMode('details')
+    }
+  }, [initialMineCd, user?.scope?.level])
 
+  React.useEffect(() => {
     if (data && data.length > 0 && !selectedProjectId) {
       if (initialMineCd) {
         const found = data.find(p => p.mine_cd === initialMineCd || p.id === initialMineCd)
@@ -314,10 +339,10 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => window.location.href = '/'} className="-ml-2 h-8 w-8 text-muted-foreground hover:text-foreground" title="Go Back">
-              <ArrowLeft className="h-5 w-5" />
-              <span className="sr-only">Go Back</span>
-            </Button>
+            <BackButton iconOnly onClick={() => {
+              if (window.history.length > 2) router.back();
+              else router.push('/dashboard');
+            }} />
             <div>
               <h2 className="text-xl font-bold tracking-tight">{t('project_master.title', 'Project Master')}</h2>
               <p className="mt-1 text-sm text-muted-foreground">{t('project_master.no_projects_desc', 'Select a project to view details or create a new one.')}</p>
@@ -381,17 +406,10 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => {
-              if (viewMode === 'details' && user?.scope?.level !== 'UNIT') {
-                setViewMode('list')
-                window.history.pushState(null, '', routes.project.list())
-              } else {
-                window.history.pushState(null, '', '/')
-              }
-            }} className="-ml-2 h-8 w-8 text-muted-foreground hover:text-foreground" title="Go Back">
-              <ArrowLeft className="h-5 w-5" />
-              <span className="sr-only">Go Back</span>
-            </Button>
+            <BackButton iconOnly onClick={() => {
+              if (window.history.length > 2) router.back();
+              else router.push('/projects');
+            }} />
             <h2 className="text-xl font-bold tracking-tight">{project.name}</h2>
             {project.isLocked ? (
               <Badge variant="outline" className="gap-1 bg-secondary text-secondary-foreground"><Lock className="h-3 w-3" /> {t('project_master.baseline_locked', 'Baseline Locked')}</Badge>
@@ -461,7 +479,7 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
               <button
                 key={p.id}
                 type="button"
-                onClick={() => { selectProject(p.id); window.history.pushState(null, '', routes.project.details(p.mine_cd)); }}
+                onClick={() => { selectProject(p.id); }}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                   active
                     ? 'border-primary/50 bg-primary/10 text-primary'
@@ -521,83 +539,138 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
         <StatTile label={t('project_master.stats.plots_registered', 'Plots Registered')} value={project.plots.length} icon={FileText} accent="teal" />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Modals */}
-        <LockBaselineDialog open={lockOpen} onOpenChange={setLockOpen} project={project} />
-        <FormXXIIModal open={formXXIIOpen} onOpenChange={setFormXXIIOpen} project={project} />
-        {/* GIS Map */}
-        <div className="lg:col-span-2">
-          <ProjectBoundarySection project={project} />
-        </div>
+      <Tabs defaultValue="overview" className="mt-6 w-full">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:w-[600px]">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="proposals">Proposals</TabsTrigger>
+          <TabsTrigger value="documents">Docs & GIS</TabsTrigger>
+          <TabsTrigger value="approvals">Board Approvals</TabsTrigger>
+        </TabsList>
 
-        {/* Dynamic Project Files & Clearances */}
-        <GenericChecklistWorkspace
-          key={`checklist-${project.id}`}
-          moduleCode="PROJECT_MASTER"
-          checkableType="project"
-          checkableId={project.id}
-          userId={user?.id || 'system'}
-        />
-      </div>
+        <TabsContent value="overview" className="space-y-4 mt-4">
+          {/* Plot schedule table */}
+          <SectionCard title={t('project_master.plot_schedule.title', 'Plot Schedule')} icon={TreePine} description={t('project_master.plot_schedule.desc', 'Master land registry (LIS mirror) with exhausted-area-for-jobs denormalized column')}>
+            <DataTable
+              columns={[
+                { key: 'plot_number', header: t('project_master.plot_schedule.cols.plot', 'Plot'), sortable: true, render: (r) => <span className="font-mono text-xs font-medium">{r.plot_number}</span> },
+                { key: 'mouza', header: t('project_master.plot_schedule.cols.mouza', 'Mouza'), sortable: true },
+                { key: 'land_type', header: t('project_master.plot_schedule.cols.type', 'Type'), render: (r) => <Badge variant="outline" className="text-xs">{r.land_type}</Badge> },
+                { key: 'area_acres', header: t('project_master.plot_schedule.cols.area', 'Area (ac)'), align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{formatNumber(r.area_acres, 4)}</span> },
+                { key: 'exhausted_area_for_jobs', header: t('project_master.plot_schedule.cols.exhausted', 'Exhausted (jobs)'), align: 'right', render: (r) => <span className="tabular-nums text-muted-foreground">{formatNumber(r.exhausted_area_for_jobs, 4)}</span> },
+                { key: 'remaining_job_quota', header: t('project_master.plot_schedule.cols.job_quota', 'Job Quota'), align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{r.remaining_job_quota}</span> },
+              ] as Column<ProjectData['plots'][0]>[]}
+              data={project.plots}
+              getRowId={(r) => r.id}
+              onRowClick={(r) => setSelectedPlotId(r.id)}
+              pageSize={10}
+            />
+          </SectionCard>
 
-      {/* Plot schedule table */}
-      <SectionCard title={t('project_master.plot_schedule.title', 'Plot Schedule')} icon={TreePine} description={t('project_master.plot_schedule.desc', 'Master land registry (LIS mirror) with exhausted-area-for-jobs denormalized column')}>
-        <DataTable
-          columns={[
-            { key: 'plot_number', header: t('project_master.plot_schedule.cols.plot', 'Plot'), sortable: true, render: (r) => <span className="font-mono text-xs font-medium">{r.plot_number}</span> },
-            { key: 'mouza', header: t('project_master.plot_schedule.cols.mouza', 'Mouza'), sortable: true },
-            { key: 'land_type', header: t('project_master.plot_schedule.cols.type', 'Type'), render: (r) => <Badge variant="outline" className="text-xs">{r.land_type}</Badge> },
-            { key: 'area_acres', header: t('project_master.plot_schedule.cols.area', 'Area (ac)'), align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{formatNumber(r.area_acres, 4)}</span> },
-            { key: 'exhausted_area_for_jobs', header: t('project_master.plot_schedule.cols.exhausted', 'Exhausted (jobs)'), align: 'right', render: (r) => <span className="tabular-nums text-muted-foreground">{formatNumber(r.exhausted_area_for_jobs, 4)}</span> },
-            { key: 'remaining_job_quota', header: t('project_master.plot_schedule.cols.job_quota', 'Job Quota'), align: 'right', sortable: true, render: (r) => <span className="tabular-nums">{r.remaining_job_quota}</span> },
-          ] as Column<ProjectData['plots'][0]>[]}
-          data={project.plots}
-          getRowId={(r) => r.id}
-          onRowClick={(r) => setSelectedPlotId(r.id)}
-          pageSize={10}
-        />
-      </SectionCard>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Budget progress */}
+            <SectionCard title={t('project_master.budget_compliance.title', 'Budget Compliance')} icon={IndianRupee} description={t('project_master.budget_compliance.desc', 'WithinProjectBaseline guard — payslips cannot exceed ceiling')}>
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm">{t('project_master.budget_compliance.disbursed', 'Disbursed vs. ceiling')}</span>
+                  <span className="text-sm tabular-nums">
+                    <span className="font-semibold">{formatINR(project.totalDisbursed)}</span>
+                    <span className="text-muted-foreground"> / {formatINR(project.total_budget_ceiling)}</span>
+                  </span>
+                </div>
+                <Progress value={Number(project.budgetUtilization)} className="h-3" indicatorClassName={Number(project.budgetUtilization) < 80 ? 'bg-primary' : 'bg-destructive'} />
+                <p className="text-xs text-muted-foreground">
+                  {Number(project.budgetUtilization) < 80
+                    ? `✓ ${t('project_master.budget_compliance.within_baseline', { defaultValue: 'Within baseline — {{pct}}% utilized, headroom for {{count}} active payroll(s).', pct: project.budgetUtilization, count: project.payrollCount })}`
+                    : `⚠ ${t('project_master.budget_compliance.breach_warning', 'Approaching ceiling — baseline breach will route payrolls to Board Escalation.')}`}
+                </p>
+              </div>
+            </SectionCard>
 
-      {/* Budget progress */}
-      <SectionCard title={t('project_master.budget_compliance.title', 'Budget Compliance')} icon={IndianRupee} description={t('project_master.budget_compliance.desc', 'WithinProjectBaseline guard — payslips cannot exceed ceiling')}>
-        <div className="space-y-2">
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm">{t('project_master.budget_compliance.disbursed', 'Disbursed vs. ceiling')}</span>
-            <span className="text-sm tabular-nums">
-              <span className="font-semibold">{formatINR(project.totalDisbursed)}</span>
-              <span className="text-muted-foreground"> / {formatINR(project.total_budget_ceiling)}</span>
-            </span>
+            {/* Area progress */}
+            <SectionCard title="Area Compliance" icon={MapPin} description="WithinProjectBaseline guard — land acquisitions cannot exceed approved limit">
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm">Acquired vs. Limit</span>
+                  <span className="text-sm tabular-nums">
+                    <span className="font-semibold">{formatNumber(project.total_acquired_area, 2)} ac</span>
+                    <span className="text-muted-foreground"> / {formatNumber(project.total_land_limit_acres, 2)} ac</span>
+                  </span>
+                </div>
+                <Progress value={Number(project.areaUtilization)} className="h-3" indicatorClassName={Number(project.areaUtilization) < 95 ? 'bg-emerald-500' : 'bg-destructive'} />
+                <p className="text-xs text-muted-foreground">
+                  {Number(project.areaUtilization) < 95
+                    ? `✓ Within baseline — ${Number(project.areaUtilization).toFixed(1)}% acquired.`
+                    : `⚠ Approaching or exceeding area limit — requires Form-XXII deviation.`}
+                </p>
+              </div>
+            </SectionCard>
           </div>
-          <Progress value={Number(project.budgetUtilization)} className="h-3" indicatorClassName={Number(project.budgetUtilization) < 80 ? 'bg-primary' : 'bg-destructive'} />
-          <p className="text-xs text-muted-foreground">
-            {Number(project.budgetUtilization) < 80
-              ? `✓ ${t('project_master.budget_compliance.within_baseline', { defaultValue: 'Within baseline — {{pct}}% utilized, headroom for {{count}} active payroll(s).', pct: project.budgetUtilization, count: project.payrollCount })}`
-              : `⚠ ${t('project_master.budget_compliance.breach_warning', 'Approaching ceiling — baseline breach will route payrolls to Board Escalation.')}`}
-          </p>
-        </div>
-      </SectionCard>
+        </TabsContent>
 
-      {/* Area progress */}
-      <SectionCard title="Area Compliance" icon={MapPin} description="WithinProjectBaseline guard — land acquisitions cannot exceed approved limit">
-        <div className="space-y-2">
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm">Acquired vs. Limit</span>
-            <span className="text-sm tabular-nums">
-              <span className="font-semibold">{formatNumber(project.total_acquired_area, 2)} ac</span>
-              <span className="text-muted-foreground"> / {formatNumber(project.total_land_limit_acres, 2)} ac</span>
-            </span>
+        <TabsContent value="proposals" className="mt-4">
+          <SectionCard title="Land Acquisition Proposals" icon={FileText} description="Proposals mapped to this project">
+            {isLoadingProposals ? (
+              <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : allProposals && allProposals.filter(p => p.project_id === project.id).length > 0 ? (
+              <ul className="space-y-3">
+                {allProposals.filter(p => p.project_id === project.id).map((a: any) => (
+                  <li
+                    key={a.id}
+                    className="flex flex-col gap-2 rounded-lg border bg-card p-3 sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                        <span className="font-mono text-xs font-semibold text-emerald-700">{a.schedule_code}</span>
+                        <Badge variant="outline" className="text-[10px] bg-background">
+                          {a.state}
+                        </Badge>
+                      </div>
+                      {a.proposal_title && (
+                        <p className="text-sm text-foreground truncate">{a.proposal_title}</p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button variant="ghost" size="sm" asChild className="h-8 text-muted-foreground hover:text-foreground">
+                        <a href={`/proposals?schedule_id=${a.id}`}>
+                          {t('common.view_proposal', 'View Proposal →')}
+                        </a>
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-6 border border-dashed rounded-lg">
+                No proposals found for this project.
+              </p>
+            )}
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-4 space-y-4">
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* GIS Map */}
+            <div className="lg:col-span-2">
+              <ProjectBoundarySection project={project} />
+            </div>
+
+            {/* Dynamic Project Files & Clearances */}
+            <GenericChecklistWorkspace
+              key={`checklist-${project.id}`}
+              moduleCode="PROJECT_MASTER"
+              checkableType="project"
+              checkableId={project.id}
+              userId={user?.id || 'system'}
+            />
           </div>
-          <Progress value={Number(project.areaUtilization)} className="h-3" indicatorClassName={Number(project.areaUtilization) < 95 ? 'bg-emerald-500' : 'bg-destructive'} />
-          <p className="text-xs text-muted-foreground">
-            {Number(project.areaUtilization) < 95
-              ? `✓ Within baseline — ${Number(project.areaUtilization).toFixed(1)}% acquired.`
-              : `⚠ Approaching or exceeding area limit — requires Form-XXII deviation.`}
-          </p>
-        </div>
-      </SectionCard>
+        </TabsContent>
 
-      {/* Form-XXII Board Approvals */}
-      <FormXXIISection projectId={project.id} />
+        <TabsContent value="approvals" className="mt-4">
+          {/* Form-XXII Board Approvals */}
+          <FormXXIISection projectId={project.id} />
+        </TabsContent>
+      </Tabs>
 
       {/* Dialogs */}
       <Dialog open={deleteConfirmOpen} onOpenChange={(open) => {
@@ -654,6 +727,7 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
         initial={editInitial!}
       />
       <LockBaselineDialog open={lockOpen} onOpenChange={setLockOpen} project={project} />
+      <FormXXIIModal open={formXXIIOpen} onOpenChange={setFormXXIIOpen} project={project} />
     </div>
   )
 }

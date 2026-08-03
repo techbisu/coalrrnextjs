@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Can } from '@/core/authorization/components/Can'
-import { StateBadge } from '@/components/coalrr'
+import { StateBadge } from '@/shared/components/coalrr'
 import { formatNumber, timeAgo } from '@/lib/utils/formatters'
 import { Button } from '@/shared/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert'

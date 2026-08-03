@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { EmploymentView } from '@/components/coalrr/views/EmploymentView'
+import { EmploymentView } from '@/shared/components/coalrr/views/EmploymentView'
 
 export const metadata = {
   title: 'Employment - COALRR',

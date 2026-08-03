@@ -11,14 +11,18 @@ import { CreateProposalSchema } from '@/core/validation/schemas/proposal.schema'
 
 export async function GET() {
   try {
-    const auth = await authorizeApi('acquisition.view')
+    let auth = await authorizeApi('proposal.view')
+    if (auth.error) {
+      auth = await authorizeApi('acquisition.view')
+    }
     if (auth.error) return auth.error
 
+    const user = await getCurrentUser()
     const proposalRepo = new PrismaAcqProposalRepository()
     const projectRepo = new PrismaProjectRepository()
     const useCase = new GetProposalsUseCase(proposalRepo, projectRepo)
     
-    const result = await useCase.execute()
+    const result = await useCase.execute({ scope: user?.scope })
     if (result.isFailure) return serverError('Failed to load schedules', String(result.error))
 
     return ok(result.value)

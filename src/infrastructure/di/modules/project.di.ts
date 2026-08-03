@@ -4,7 +4,7 @@ import { PrismaPafRepository } from '@/infrastructure/persistence/repositories/P
 import { CreateProjectUseCase } from '@/application/use-cases/project/CreateProjectUseCase'
 import { UpdateProjectUseCase } from '@/application/use-cases/project/UpdateProjectUseCase'
 import { GetProjectDashboardUseCase } from '@/application/use-cases/project/GetProjectDashboardUseCase'
-import { LockProjectUseCase } from '@/application/use-cases/project/LockProjectUseCase'
+import { GetProjectDetailUseCase } from '@/application/use-cases/project/GetProjectDetailUseCase'
 import { DeleteProjectUseCase } from '@/application/use-cases/project/DeleteProjectUseCase'
 import { BaselineLockUseCase } from '@/application/use-cases/project/BaselineLockUseCase'
 import { ApproveFormXXIIUseCase } from '@/application/use-cases/project/ApproveFormXXIIUseCase'
@@ -23,7 +23,7 @@ const globalForProjectDI = globalThis as unknown as {
   createProjectUseCase: CreateProjectUseCase | undefined
   updateProjectUseCase: UpdateProjectUseCase | undefined
   getProjectDashboardUseCase: GetProjectDashboardUseCase | undefined
-  lockProjectUseCase: LockProjectUseCase | undefined
+  getProjectDetailUseCase: GetProjectDetailUseCase | undefined
   deleteProjectUseCase: DeleteProjectUseCase | undefined
   listPafRecordsUseCase: ListPafRecordsUseCase | undefined
   createPafRecordUseCase: CreatePafRecordUseCase | undefined
@@ -44,7 +44,7 @@ const complianceService = new ComplianceMonitorService(projectRepository, locati
 export const createProjectUseCase = globalForProjectDI.createProjectUseCase ?? new CreateProjectUseCase(projectRepository)
 export const updateProjectUseCase = globalForProjectDI.updateProjectUseCase ?? new UpdateProjectUseCase(projectRepository)
 export const getProjectDashboardUseCase = globalForProjectDI.getProjectDashboardUseCase ?? new GetProjectDashboardUseCase(projectRepository)
-export const lockProjectUseCase = globalForProjectDI.lockProjectUseCase ?? new LockProjectUseCase(projectRepository)
+export const getProjectDetailUseCase = globalForProjectDI.getProjectDetailUseCase ?? new GetProjectDetailUseCase(projectRepository)
 export const deleteProjectUseCase = globalForProjectDI.deleteProjectUseCase ?? new DeleteProjectUseCase(projectRepository)
 export const baselineLockUseCase = globalForProjectDI.baselineLockUseCase ?? new BaselineLockUseCase(projectRepository)
 export const approveFormXXIIUseCase = globalForProjectDI.approveFormXXIIUseCase ?? new ApproveFormXXIIUseCase(projectRepository)
@@ -62,7 +62,7 @@ if (process.env.NODE_ENV !== 'production') {
   globalForProjectDI.createProjectUseCase = createProjectUseCase
   globalForProjectDI.updateProjectUseCase = updateProjectUseCase
   globalForProjectDI.getProjectDashboardUseCase = getProjectDashboardUseCase
-  globalForProjectDI.lockProjectUseCase = lockProjectUseCase
+  globalForProjectDI.getProjectDetailUseCase = getProjectDetailUseCase
   globalForProjectDI.deleteProjectUseCase = deleteProjectUseCase
   globalForProjectDI.listPafRecordsUseCase = listPafRecordsUseCase
   globalForProjectDI.createPafRecordUseCase = createPafRecordUseCase

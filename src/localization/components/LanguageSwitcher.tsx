@@ -3,7 +3,7 @@
 import { useTransition, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 const LOCALE_COOKIE_NAME = 'NEXT_LOCALE';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Loader2 } from 'lucide-react';
 
 type language = { code: string; name: string; native_name: string };

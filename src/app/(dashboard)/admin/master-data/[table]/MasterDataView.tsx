@@ -2,9 +2,10 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { SectionCard, DataTable, type Column } from '@/components/coalrr'
-import { Database, Pencil, ArrowLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { SectionCard, DataTable, type Column } from '@/shared/components/coalrr'
+import { ArrowLeft, Database, Pencil } from 'lucide-react'
+import { Button } from '@/shared/components/ui/button'
+import { BackButton } from '@/shared/components/ui/back-button'
 import { MasterDataClientConfig } from '@/core/config/master.config'
 import { MasterFormDialog } from './MasterFormDialog'
 
@@ -59,15 +60,7 @@ export function MasterDataView({ config, initialData }: { config: MasterDataClie
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-start gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground h-8 w-8 -ml-2"
-            onClick={() => router.back()}
-            title="Go back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <BackButton iconOnly />
           <div>
             <h2 className="text-xl font-bold tracking-tight">{config.title}</h2>
             <p className="text-sm text-muted-foreground">{config.description}</p>

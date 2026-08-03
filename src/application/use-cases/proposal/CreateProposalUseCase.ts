@@ -54,7 +54,7 @@ export class CreateProposalUseCase implements IUseCase<CreateProposalRequest, Cr
       proposedBy: request.user_name,
       proposedByRole: request.user_role,
       areaOffice: request.area_office,
-      collieryCode: project.mineCds[0] || 'UNK',
+      collieryCode: project.mineCds[0] || project.id || 'UNK',
       adjacentColliery: request.adjacent_colliery,
       notificationDate: request.notification_date,
     })

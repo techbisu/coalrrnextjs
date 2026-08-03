@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { WorkflowInboxView } from '@/components/coalrr/views/WorkflowInboxView'
+import { WorkflowInboxView } from '@/shared/components/coalrr/views/WorkflowInboxView'
 
 export const metadata = {
   title: 'Workflow Inbox - COALRR',

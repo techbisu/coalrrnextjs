@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authorizeApi } from '@/core/authorization/middleware/authorize';
 import { db } from '@/lib/db';
-import { PrismaAcqProposalRepository } from '@/infrastructure/persistence/repositories/PrismaAcqProposalRepository';
-import { UpdatePlotUseCase, DeletePlotUseCase } from '@/application/use-cases/proposal';
+import { updatePlotUseCase, deletePlotUseCase } from '@/infrastructure/di/Container';
 import { PlotScheduleSchema } from '@/core/validation/schemas/plot-schedule.schema';
 import { generatePlotNo } from '@/shared/utils/plot.utils';
+import { withRequestContext } from '@/app/api/_server';
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +13,7 @@ export async function GET(
 ) {
   const paramsData = await params;
   
-  const auth = await authorizeApi('PROPOSAL_VIEW');
+  const auth = await authorizeApi('proposal.view');
   if (auth.error) return auth.error;
 
   try {
@@ -58,12 +58,13 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string, plot_no: string }> }
 ) {
-  const paramsData = await params;
-  const proposalId = paramsData.id;
-  const plotId = paramsData.plot_no;
+  return withRequestContext(request, async () => {
+    const paramsData = await params;
+    const proposalId = paramsData.id;
+    const plotId = paramsData.plot_no;
 
-  const auth = await authorizeApi('PROPOSAL_UPDATE');
-  if (auth.error) return auth.error;
+    const auth = await authorizeApi('proposal.update');
+    if (auth.error) return auth.error;
 
   try {
     const body = await request.json();
@@ -83,8 +84,6 @@ export async function PUT(
       bataNo: validatedData.bata_no
     });
 
-    const repo = new PrismaAcqProposalRepository();
-    const useCase = new UpdatePlotUseCase(repo);
 
     const plotDTO = {
       proposal_id: proposalId,
@@ -112,7 +111,7 @@ export async function PUT(
     const plotInfo = await db.plot_schedule.findUnique({ where: { schedule_id: BigInt(paramsData.plot_no) }});
     if (!plotInfo) return NextResponse.json({ error: 'Plot not found' }, { status: 404 });
 
-    const result = await useCase.execute({
+    const result = await updatePlotUseCase.execute({
       proposalId,
       plotNo: plotInfo.plot_no,
       plotData: plotDTO,
@@ -131,29 +130,29 @@ export async function PUT(
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+  });
 }
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string, plot_no: string }> }
 ) {
-  const paramsData = await params;
-  const proposalId = paramsData.id;
-  
-  const auth = await authorizeApi('acquisition.edit');
-  if (auth.error) return auth.error;
+  return withRequestContext(request, async () => {
+    const paramsData = await params;
+    const proposalId = paramsData.id;
+    
+    const auth = await authorizeApi('proposal.update');
+    if (auth.error) return auth.error;
 
   try {
-    const repo = new PrismaAcqProposalRepository();
-    const useCase = new DeletePlotUseCase(repo);
 
     const plotInfo = await db.plot_schedule.findUnique({ where: { schedule_id: BigInt(paramsData.plot_no) }});
     if (!plotInfo) return NextResponse.json({ error: 'Plot not found' }, { status: 404 });
 
-    const result = await useCase.execute({
+    const result = await deletePlotUseCase.execute({
       proposalId,
       plotNo: plotInfo.plot_no,
-      userId: 'system'
+      userId: auth.user?.id || 'system'
     });
 
     if (result.isFailure) {
@@ -164,4 +163,5 @@ export async function DELETE(
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete plot' }, { status: 500 });
   }
+  });
 }

@@ -26,8 +26,7 @@ export type WorkflowState =
   | "UnitSubmitted"
   | "AreaVetting"
   | "HqParallelVetting"
-  | "DirectorConsent"
-  | "CmdApproved"
+  | "GmLreReview"
   | "Published"
   | "BoardEscalation"
   | "LimitBreached"
@@ -53,8 +52,8 @@ export type ActorRole =
   | "gm_planning"
   | "gm_finance"
   | "gm_safety"
-  | "director"
-  | "cmd"
+  | "hod_legal"
+  | "gm_lre"
   | "board";
 
 // ════════════════════════════════════════════════════════════════════════════
