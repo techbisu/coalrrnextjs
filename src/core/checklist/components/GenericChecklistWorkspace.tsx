@@ -9,6 +9,7 @@ import { getChecklistStatus, updateChecklistSubmission } from '@/app/actions/che
 import { CheckCircle2, UploadCloud, AlertTriangle, Eye, FileText, Loader2, Download } from 'lucide-react'
 import { DocumentUploader } from '@/shared/components/coalrr'
 import { DocumentWorkspaceModal } from '@/shared/components/coalrr/DocumentWorkspaceModal'
+import { Textarea } from '@/shared/components/ui/textarea'
 
 interface GenericChecklistWorkspaceProps {
   moduleCode: string;
@@ -24,6 +25,7 @@ export function GenericChecklistWorkspace({ moduleCode, checkableType, checkable
   const [docWorkspaceOpen, setDocWorkspaceOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
   const [replacingItemKey, setReplacingItemKey] = useState<string | null>(null)
+  const [textInputs, setTextInputs] = useState<Record<string, string>>({})
 
   const openDocWorkspace = (templateCode: string) => {
     setSelectedTemplate(templateCode)
@@ -44,16 +46,18 @@ export function GenericChecklistWorkspace({ moduleCode, checkableType, checkable
     enabled: !!checkableId
   })
 
-  const handleRealUpload = async (requirementId: string, documentId: string) => {
+  const handleRealUpload = async (requirementId: string, documentId?: string, userInput?: any) => {
     try {
       await updateChecklistSubmission({
         moduleCode,
         requirementId,
         checkableType,
         checkableId,
-        documentId
+        documentId,
+        userInput
       });
       await refetch(); // Refresh checklist UI
+
     } catch (err) {
       console.error(err);
     }
@@ -95,6 +99,14 @@ export function GenericChecklistWorkspace({ moduleCode, checkableType, checkable
                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] py-0 h-4 tracking-wider">
                             Generated Form
                           </Badge>
+                        ) : item.type === 'boolean' ? (
+                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] py-0 h-4 tracking-wider">
+                            System Check / Boolean
+                          </Badge>
+                        ) : item.type === 'text' ? (
+                          <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] py-0 h-4 tracking-wider">
+                            Data Entry
+                          </Badge>
                         ) : (
                           <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] py-0 h-4 tracking-wider">
                             Document Upload
@@ -120,6 +132,35 @@ export function GenericChecklistWorkspace({ moduleCode, checkableType, checkable
                             ? 'Regenerate Document' 
                             : 'Generate Document'}
                         </Button>
+                      </div>
+                    ) : item.type === 'boolean' ? (
+                      <div className="flex items-center gap-2 mt-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleRealUpload(item.ruleId, undefined, true)}
+                          className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                        >
+                          <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                          Confirm & Satisfy Requirement
+                        </Button>
+                      </div>
+                    ) : item.type === 'text' ? (
+                      <div className="flex flex-col gap-2 mt-2">
+                         <Textarea 
+                           placeholder="Enter required information..."
+                           value={textInputs[item.ruleId] || ''}
+                           onChange={(e) => setTextInputs(prev => ({...prev, [item.ruleId]: e.target.value}))}
+                           className="text-sm min-h-[80px]"
+                         />
+                         <Button 
+                           size="sm" 
+                           onClick={() => handleRealUpload(item.ruleId, undefined, textInputs[item.ruleId])}
+                           disabled={!textInputs[item.ruleId]?.trim()}
+                           className="w-fit"
+                         >
+                           Submit Data
+                         </Button>
                       </div>
                     ) : (
                       <DocumentUploader
@@ -196,7 +237,7 @@ export function GenericChecklistWorkspace({ moduleCode, checkableType, checkable
                           </Button>
                         )}
 
-                        {!isInherited && (
+                        {item.inputSchema?.type !== 'generated_document' && item.type !== 'generated_document' && (
                           <Button 
                             variant="outline" 
                             size="sm" 

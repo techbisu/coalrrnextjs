@@ -28,8 +28,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (!payroll) return notFound('Payroll not found')
 
     // Polymorphic review tasks — fetched separately (no FK relation per spec §3.1)
-    const reviewTasks = await db.workflow_review_task.findMany({
-      where: { reviewable_type: 'compensation_payroll', reviewable_id: recordId },
+    const reviewTasks = await (db as any).workflow_review_task.findMany({
+      where: {
+        OR: [
+          { entity_type: 'compensation_payroll', entity_id: recordId },
+          { entity_type: recordType, entity_id: recordId }
+        ]
+      },
     })
 
     // Compute guard context data
@@ -40,7 +45,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       batchTotal,
       budgetCeiling: ceiling,
       // For parallel-reviews guard: count approved sibling tasks
-      approvedReviewCount: reviewTasks.filter((r) => r.status === 'approved').length,
+      approvedReviewCount: reviewTasks.filter((r: any) => r.status === 'approved').length,
       requiredReviewCount: getReviewRolesForState(payroll.state as never)?.length ?? 0,
       // For checklist guard: assume CL-1.1 satisfied when state is past UnitSubmitted
       checklistSatisfied: payroll.state !== 'Drafting',
@@ -82,14 +87,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     for (const fx of sideEffects) {
       if (fx.type === 'spawn_review_tasks') {
         for (const role of fx.roles) {
-          const task = await db.workflow_review_task.create({
+          const task = await (db as any).workflow_review_task.create({
             data: {
-              id: randomUUID(),
-              reviewable_type: recordType,
-              reviewable_id: recordId,
+              review_task_id: randomUUID(),
+              entity_type: recordType,
+              entity_id: recordId,
               role,
               status: 'pending',
+              entry_ts: new Date(),
               updt_ts: new Date(),
+              entry_by: 'system',
+              updt_by: 'system'
             },
           })
           spawnedTasks.push({ role: task.role, status: task.status })

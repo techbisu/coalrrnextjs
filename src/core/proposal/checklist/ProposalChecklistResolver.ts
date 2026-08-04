@@ -15,10 +15,13 @@ export class ProposalChecklistResolver implements IChecklistContextResolver {
 
     const plots = await this.proposalRepo.getPlotsByProposalId(entityId);
     
-    // Check Tribal / Debottar / Displacement land across all plots
+    // Check Tribal / Debottar / Displacement / Land Types across all plots
     let hasTribalLand = false;
     let hasDebottarLand = false;
     let hasDisplacement = false;
+    let hasForestLand = false;
+    let hasTenancyLand = false;
+    let hasGovtLand = false;
 
     for (const plot of plots) {
       const landTypes = await this.proposalRepo.getLandTypesByScheduleId(plot.schedule_id!);
@@ -39,17 +42,52 @@ export class ProposalChecklistResolver implements IChecklistContextResolver {
           if (typeName.includes('habitation') || typeName.includes('bastu') || typeName.includes('residential') || typeName.includes('ghar') || typeName.includes('house')) {
             hasDisplacement = true;
           }
+          if (typeName.includes('forest')) {
+            hasForestLand = true;
+          }
+          if (typeName.includes('tenancy') || typeName.includes('raiyati') || typeName.includes('rayati')) {
+            hasTenancyLand = true;
+          }
+          if (typeName.includes('govt') || typeName.includes('patta') || typeName.includes('gair majarua') || typeName.includes('gm')) {
+            hasGovtLand = true;
+          }
         }
       }
     }
 
+    // Check project data for clearances and employment
+    let hasStatutoryClearances = false;
+    let hasEmploymentInvolvement = false;
+    const project = await db.project.findUnique({
+      where: { projCd: proposal.proj_cd }
+    });
+
+    if (project) {
+      if (project.statutoryClearances && Object.keys(project.statutoryClearances).length > 0) {
+        hasStatutoryClearances = true;
+      }
+      if ((project.totalEmpSanctioned && project.totalEmpSanctioned > 0) || (proposal.total_employment_cost_est && proposal.total_employment_cost_est.toNumber() > 0)) {
+        hasEmploymentInvolvement = true;
+      }
+    }
+
+    // Direct Purchase specific assumption for Formal Negotiation
+    // We assume if it's Direct Purchase (6), there might be formal negotiations, so we expose the flag.
+    const hasFormalNegotiation = Number(proposal.acq_mode_id) === 6;
+
     // Context map injected into the Checklist Rule Engine
     return {
-      acqModeId: proposal.acq_mode_id,
+      acqModeId: Number(proposal.acq_mode_id),
       HAS_TRIBAL_LAND: hasTribalLand,
       HAS_DEBOTTAR_LAND: hasDebottarLand,
       HAS_DISPLACEMENT: hasDisplacement,
-      IS_RFCTLARR: proposal.acq_mode_id === 5, // Assuming 5 is RFCTLARR, rule engine can also just check ACQ_MODE directly
+      HAS_FOREST_LAND: hasForestLand,
+      HAS_TENANCY_LAND: hasTenancyLand,
+      HAS_GOVT_LAND: hasGovtLand,
+      HAS_STATUTORY_CLEARANCES: hasStatutoryClearances,
+      HAS_EMPLOYMENT_INVOLVEMENT: hasEmploymentInvolvement,
+      HAS_FORMAL_NEGOTIATION: hasFormalNegotiation,
+      IS_RFCTLARR: Number(proposal.acq_mode_id) === 5,
       IS_BOARD_APPROVAL_REQ: proposal.requires_board_approval,
       STAGE: proposal.current_stage_cd
     };

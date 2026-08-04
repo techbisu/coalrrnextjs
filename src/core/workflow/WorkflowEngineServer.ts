@@ -10,19 +10,13 @@
 import 'server-only'
 import { WorkflowEngine } from './engine'
 import { loadWorkflowTransitions, invalidateWorkflowCache } from './WorkflowTransitionLoader'
+import { normalizeModuleCode } from '@/core/config/module-codes.config'
 import type {
   AttemptTransitionResult,
   GuardContext,
   RecordType,
   Transition,
 } from './types'
-
-const WORKFLOW_CODE_MAP: Record<RecordType, string> = {
-  compensation_payroll:   'COMPENSATION_PAYROLL',
-  form_i_claim:           'COMPENSATION_PAYROLL',
-  land_schedule:          'COMPENSATION_PAYROLL',
-  employment_application: 'COMPENSATION_PAYROLL',
-}
 
 export class WorkflowEngineServer extends WorkflowEngine {
   /**
@@ -33,8 +27,11 @@ export class WorkflowEngineServer extends WorkflowEngine {
   async getAvailableTransitionsAsync(
     ctx: GuardContext
   ): Promise<ReadonlyArray<Transition>> {
-    const workflowCode = WORKFLOW_CODE_MAP[ctx.recordType] ?? 'COMPENSATION_PAYROLL'
-    const all = await loadWorkflowTransitions(workflowCode)
+    const workflowCode = normalizeModuleCode(ctx.recordType)
+    let all = await loadWorkflowTransitions(workflowCode)
+    if (all.length === 0 && workflowCode !== 'COMPENSATION_PAYROLL') {
+      all = await loadWorkflowTransitions('COMPENSATION_PAYROLL')
+    }
     return all.filter((t) => t.from === ctx.currentState && t.role === ctx.actorRole)
   }
 

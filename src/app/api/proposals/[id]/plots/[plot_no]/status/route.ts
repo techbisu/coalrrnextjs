@@ -34,7 +34,7 @@ export async function PATCH(
       return NextResponse.json({ error: `Plot '${rawPlotNo}' not found` }, { status: 404 })
     }
 
-    const { acq_status, total_poss_area, to_be_acquired_area, remarks } = body
+    const { total_poss_area, to_be_acquired_area, remarks } = body
 
     const dataToUpdate: any = { acq_status }
     if (total_poss_area !== undefined) dataToUpdate.total_poss_area = Number(total_poss_area)

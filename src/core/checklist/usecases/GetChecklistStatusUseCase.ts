@@ -62,7 +62,8 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
         if (!submission && rule.inherit_from) {
            const inheritConfig = rule.inherit_from as any;
            if (inheritConfig.parent_checkable_type && context.parentId) {
-               const parentSubmission = await this.repo.findSubmission(rule.id, inheritConfig.parent_checkable_type, context.parentId);
+               const targetRuleId = inheritConfig.parent_rule_id || rule.id;
+               const parentSubmission = await this.repo.findSubmission(targetRuleId, inheritConfig.parent_checkable_type, context.parentId);
                if (parentSubmission) {
                    submission = { ...parentSubmission, status: 'AUTO_SATISFIED' };
                }

@@ -1036,45 +1036,48 @@ model signed_url_log {
 }
 
 model user {
-  email           String?            @unique
-  mobile          String?            @unique
-  aadhaar_hash    String?            @unique
-  name            String
-  password_hash   String?
-  designation     String?
-  verified_at     DateTime?
-  entry_ts        DateTime           @default(now())
-  updt_ts         DateTime
-  entry_by        String?
-  updt_by         String?
-  is_active       Boolean            @default(true)
-  id              Int                @id @default(autoincrement())
-  otp_enabled     Boolean            @default(true)
-  tenant_id       String?            @db.VarChar(50)
-  authResetTokens auth_reset_token[]
-  auth_session    auth_session[]
-  otp_sessions    otp_session[]
-  tenant          Tenant?            @relation(fields: [tenant_id], references: [tenantId], map: "fk_user_tenant")
-  user_org_scopes user_org_scope[]
+  email                   String?                   @unique
+  mobile                  String?                   @unique
+  aadhaar_hash            String?                   @unique
+  name                    String
+  password_hash           String?
+  designation             String?
+  verified_at             DateTime?
+  entry_ts                DateTime                  @default(now())
+  updt_ts                 DateTime
+  entry_by                String?
+  updt_by                 String?
+  is_active               Boolean                   @default(true)
+  id                      Int                       @id @default(autoincrement())
+  otp_enabled             Boolean                   @default(true)
+  tenant_id               String?                   @db.VarChar(50)
+  authResetTokens         auth_reset_token[]
+  auth_session            auth_session[]
+  otp_sessions            otp_session[]
+  tenant                  Tenant?                   @relation(fields: [tenant_id], references: [tenantId], map: "fk_user_tenant")
+  user_org_scopes         user_org_scope[]
+  workflow_action_history workflow_action_history[]
 
   @@index([tenant_id], map: "idx_user_tenant_id")
   @@schema("public")
 }
 
 model workflow_review_task {
-  id              String    @id
-  reviewable_type String
-  reviewable_id   String
-  role            String
-  status          String    @default("pending")
-  decided_by      String?
-  decided_at      DateTime?
-  comment         String?
-  entry_ts        DateTime  @default(now())
-  updt_ts         DateTime
-  entry_by        String?
-  updt_by         String?
+  review_task_id String    @id @default(dbgenerated("gen_random_uuid()")) @db.VarChar(64)
+  entity_type    String    @db.VarChar(64)
+  entity_id      String    @db.VarChar(64)
+  role           String    @db.VarChar(64)
+  status         String    @default("pending") @db.VarChar(32)
+  decided_by     String?   @db.VarChar(128)
+  decided_at     DateTime? @db.Timestamptz(6)
+  comment        String?
+  entry_ts       DateTime  @default(now()) @db.Timestamptz(6)
+  updt_ts        DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  entry_by       String?   @db.VarChar(64)
+  updt_by        String?   @db.VarChar(64)
 
+  @@index([entity_type, entity_id], map: "idx_wfr_task_entity")
+  @@index([role, status], map: "idx_wfr_task_role_status")
   @@schema("public")
 }
 
@@ -1344,7 +1347,7 @@ model outbox_events {
 }
 
 model workflow_transitions {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transition_id   String   @id @default(dbgenerated("gen_random_uuid()")) @db.VarChar(64)
   workflow_code   String   @db.VarChar(60)
   transition_name String   @db.VarChar(80)
   label           String   @db.VarChar(120)
@@ -1354,8 +1357,11 @@ model workflow_transitions {
   guard_key       String?  @db.VarChar(80)
   is_active       Boolean  @default(true)
   sort_order      Int      @default(0)
-  entry_by        String?  @db.VarChar(50)
+
   entry_ts        DateTime @default(now()) @db.Timestamptz(6)
+  updt_ts         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  entry_by        String?  @db.VarChar(64)
+  updt_by         String?  @db.VarChar(64)
 
   @@unique([workflow_code, transition_name], map: "uq_workflow_transition")
   @@schema("public")
@@ -1409,6 +1415,48 @@ model proposal_snapshot {
 
   @@unique([proposal_id, version])
   @@index([proposal_id], map: "idx_proposal_snapshot_proposal")
+  @@schema("public")
+}
+
+model workflow_states {
+  state_id      String   @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(64)
+  workflow_code String   @db.VarChar(60)
+  state_code    String   @db.VarChar(60)
+  label         String   @db.VarChar(120)
+  description   String?
+  color         String?  @db.VarChar(120)
+  icon          String?  @db.VarChar(60)
+  step_order    Decimal  @default(1.00) @db.Decimal(5, 2)
+  is_terminal   Boolean  @default(false)
+  is_active     Boolean  @default(true)
+  entry_ts      DateTime @default(now()) @db.Timestamptz(6)
+  updt_ts       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  entry_by      String?  @default("system") @db.VarChar(64)
+  updt_by       String?  @default("system") @db.VarChar(64)
+
+  @@unique([workflow_code, state_code], map: "uq_workflow_state")
+  @@index([workflow_code, step_order], map: "idx_wfs_code_order")
+  @@schema("public")
+}
+
+model workflow_action_history {
+  wah_id        String   @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(64)
+  entity_type   String   @db.VarChar(64)
+  entity_id     String   @db.VarChar(64)
+  workflow_code String   @db.VarChar(60)
+  action        String   @db.VarChar(80)
+  from_state    String   @db.VarChar(60)
+  to_state      String   @db.VarChar(60)
+  user_id       Int?
+  comments      String?
+  entry_ts      DateTime @default(now()) @db.Timestamptz(6)
+  updt_ts       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  entry_by      String?  @db.VarChar(64)
+  updt_by       String?  @db.VarChar(64)
+  user          user?    @relation(fields: [user_id], references: [id], onUpdate: NoAction, map: "fk_wah_user")
+
+  @@index([entity_type, entity_id, entry_ts(sort: Desc)], map: "idx_wah_polymorphic")
+  @@index([user_id], map: "idx_wah_user_id")
   @@schema("public")
 }
 

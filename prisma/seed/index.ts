@@ -26,6 +26,8 @@ import { seedAcquMode } from './acqu_mode.seed'
 import { seedChkMasterNew } from './chk_master_new.seed'
 import { seedCaptchaConfig } from './captcha_config.seed'
 import { seedProposalChecklist } from './proposal_checklist.seed'
+import { seedWorkflowStates } from './workflow_states.seed'
+import { seedWorkflowActionHistory } from './workflow_action_history.seed'
 
 const db = new PrismaClient()
 
@@ -41,6 +43,8 @@ async function main() {
     await seedAcquMode(db)
     await seedChkMasterNew(db)
     await seedProposalChecklist(db)
+    await seedWorkflowStates(db)
+    await seedWorkflowActionHistory(db)
     
     // 2. Master Data
     await seedTenant(db)

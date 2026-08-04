@@ -170,14 +170,15 @@ export function ApprovalPanel({
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {availableTransitions.map((t) => {
+              {availableTransitions.map((t, idx) => {
                 const roleMatches = !actorRole || t.role === actorRole
                 const blocked = !!t.guardFailed
                 const disabled = !roleMatches || blocked
                 const variant = transitionButtonVariant(t)
+                const itemKey = `${t.name}-${t.role || 'role'}-${idx}`
                 const button = (
                   <Button
-                    key={t.name}
+                    key={itemKey}
                     onClick={() => !disabled && onAction?.(t.name)}
                     disabled={disabled}
                     variant={variant}
@@ -193,7 +194,7 @@ export function ApprovalPanel({
                 )
                 if (disabled) {
                   return (
-                    <TooltipProvider key={t.name} delayDuration={150}>
+                    <TooltipProvider key={itemKey} delayDuration={150}>
                       <Tooltip>
                         <TooltipTrigger asChild><span>{button}</span></TooltipTrigger>
                         <TooltipContent side="bottom" className="max-w-xs">

@@ -12,7 +12,8 @@ export class DocxGeneratorEngine {
    */
   static generate(storagePath: string, data: any): Buffer {
     // 1. Try internal core engine templates directory first (e.g. for Form-XXII)
-    let templatePath = path.join(process.cwd(), 'src', 'lib', 'engines', 'docx', 'templates', storagePath)
+    const baseName = path.basename(storagePath)
+    let templatePath = path.join(process.cwd(), 'src', 'lib', 'engines', 'docx', 'templates', baseName)
     
     // 2. Fallback to uploads/templates for legacy compatibility (for custom user-uploaded templates)
     if (!fs.existsSync(templatePath)) {

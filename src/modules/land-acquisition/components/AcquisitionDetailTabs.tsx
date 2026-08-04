@@ -170,7 +170,7 @@ function PlotsTab({
   onChanged: () => void
 }) {
   const qc = useQueryClient()
-  const { session } = useAuth()
+  const { user } = useAuth()
   const normalizedState = getNormalizedState(schedule.state)
   const isDrafting = normalizedState === 'Drafting'
   
@@ -178,7 +178,7 @@ function PlotsTab({
   // Exception: Area GM can edit/delete disputed plots when the workflow is frozen by a grievance/overlap.
   // For this prototype, we'll assume the presence of grievances means frozen.
   const hasGrievances = (schedule as any).grievances?.some((g: any) => !g.resolution)
-  const isAGM = session?.roles.includes('area_gm')
+  const isAGM = user?.roles.includes('area_gm')
   const canEdit = isDrafting || (hasGrievances && isAGM)
 
   const [addOpen, setAddOpen] = React.useState(false)
@@ -913,6 +913,7 @@ function TimelineTab({ schedule }: { schedule: ScheduleDetail }) {
 
 import { ManualMilestonePanel, Milestone } from '@/shared/components/coalrr/ManualMilestonePanel'
 import { LimitCheckPanel } from '@/shared/components/coalrr/LimitCheckPanel'
+import { milestoneConfig } from '@/core/config/milestone.config'
 
 function MilestonesTab({ schedule }: { schedule: ScheduleDetail }) {
   const qc = useQueryClient()
@@ -926,13 +927,16 @@ function MilestonesTab({ schedule }: { schedule: ScheduleDetail }) {
   })
 
   const addMilestone = useMutation({
-    mutationFn: async (newMilestone: { milestone_type: string; authority: string; reference_no?: string; outcome?: string; remarks?: string }) => {
+    mutationFn: async (newMilestone: { milestone_type: string; authority: string; reference_no?: string; outcome?: string; remarks?: string; document_id?: string | null }) => {
       const r = await fetch(`/api/proposals/${schedule.id}/milestones`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newMilestone),
       })
-      if (!r.ok) throw new Error('Failed to record milestone')
+      if (!r.ok) {
+        const errData = await r.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to record milestone');
+      }
       return r.json()
     },
     onSuccess: () => {
@@ -940,6 +944,44 @@ function MilestonesTab({ schedule }: { schedule: ScheduleDetail }) {
       qc.invalidateQueries({ queryKey: ['proposals', schedule.id, 'milestones'] })
     },
     onError: (e: Error) => toast.error('Failed to add milestone', { description: e.message })
+  })
+
+  const deleteMilestone = useMutation({
+    mutationFn: async (milestoneId: string) => {
+      const r = await fetch(`/api/proposals/${schedule.id}/milestones/${milestoneId}`, {
+        method: 'DELETE',
+      })
+      if (!r.ok) {
+        const errData = await r.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to delete milestone');
+      }
+      return r.json()
+    },
+    onSuccess: () => {
+      toast.success('Milestone deleted successfully')
+      qc.invalidateQueries({ queryKey: ['proposals', schedule.id, 'milestones'] })
+    },
+    onError: (e: Error) => toast.error('Failed to delete milestone', { description: e.message })
+  })
+
+  const editMilestone = useMutation({
+    mutationFn: async ({ id, data }: { id: string, data: { milestone_type: string; authority: string; reference_no?: string; outcome?: string; remarks?: string; document_id?: string | null } }) => {
+      const r = await fetch(`/api/proposals/${schedule.id}/milestones/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!r.ok) {
+        const errData = await r.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to update milestone');
+      }
+      return r.json()
+    },
+    onSuccess: () => {
+      toast.success('Milestone updated successfully')
+      qc.invalidateQueries({ queryKey: ['proposals', schedule.id, 'milestones'] })
+    },
+    onError: (e: Error) => toast.error('Failed to update milestone', { description: e.message })
   })
 
   const modeStr = String(schedule.acquisition_mode || '').toLowerCase()
@@ -963,8 +1005,15 @@ function MilestonesTab({ schedule }: { schedule: ScheduleDetail }) {
             milestones={milestones || []} 
             readOnly={false} 
             isDirectPurchase={isDirectPurchase}
+            config={isDirectPurchase ? milestoneConfig.DP : milestoneConfig.CBA}
             onAddSubmit={async (m) => {
               await addMilestone.mutateAsync(m)
+            }}
+            onEditSubmit={async (id, m) => {
+              await editMilestone.mutateAsync({ id, data: m })
+            }}
+            onDeleteSubmit={async (id) => {
+              await deleteMilestone.mutateAsync(id)
             }}
           />
         )}

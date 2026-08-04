@@ -17,16 +17,18 @@ export const createReviewTasksHandler = async (payload: CreateReviewTasksPayload
 
   try {
     const data = roles.map(role => ({
-      id: randomUUID(),
-      reviewable_type: reviewableType,
-      reviewable_id: reviewableId,
+      review_task_id: randomUUID(),
+      entity_type: reviewableType,
+      entity_id: reviewableId,
       role: role,
       status: 'pending',
       entry_ts: new Date(),
-      updt_ts: new Date()
+      updt_ts: new Date(),
+      entry_by: 'system',
+      updt_by: 'system'
     }))
 
-    await db.workflow_review_task.createMany({
+    await (db as any).workflow_review_task.createMany({
       data,
       skipDuplicates: true
     })

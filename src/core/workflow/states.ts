@@ -73,8 +73,8 @@ const T_AREA__BOARD: Transition = {
 };
 
 const T_HQ_PLANNING__GMLRE: Transition = {
-  name: "advance_to_gmlre",
-  label: "Forward to GM LRE",
+  name: "advance_to_gmlre_planning",
+  label: "Verified & approved",
   from: "HqParallelVetting",
   to: "GmLreReview",
   role: "gm_planning",
@@ -83,7 +83,7 @@ const T_HQ_PLANNING__GMLRE: Transition = {
 
 const T_HQ_FINANCE__GMLRE: Transition = {
   name: "advance_to_gmlre_finance",
-  label: "Forward to GM LRE",
+  label: "Verified & approved",
   from: "HqParallelVetting",
   to: "GmLreReview",
   role: "gm_finance",
@@ -92,7 +92,7 @@ const T_HQ_FINANCE__GMLRE: Transition = {
 
 const T_HQ_SAFETY__GMLRE: Transition = {
   name: "advance_to_gmlre_safety",
-  label: "Forward to GM LRE",
+  label: "Verified & approved",
   from: "HqParallelVetting",
   to: "GmLreReview",
   role: "gm_safety",
@@ -101,7 +101,7 @@ const T_HQ_SAFETY__GMLRE: Transition = {
 
 const T_HQ_LEGAL__GMLRE: Transition = {
   name: "advance_to_gmlre_legal",
-  label: "Forward to GM LRE",
+  label: "Verified & approved",
   from: "HqParallelVetting",
   to: "GmLreReview",
   role: "hod_legal",
