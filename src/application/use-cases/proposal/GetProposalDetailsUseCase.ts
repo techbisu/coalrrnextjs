@@ -74,7 +74,13 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
     let totalArea = 0;
     const items = (data.plot_schedule || []).map((it: any) => {
       const landTypes = it.plot_schedule_land_type || [];
-      const landType = landTypes[0]?.landtype_master?.land_type || 'Tenancy';
+      const primaryLt = landTypes[0]?.landtype_master?.land_type || 'Tenancy';
+      const subLt = landTypes[0]?.sub_landtype?.land_type;
+      const purpose = landTypes[0]?.use_purpose;
+      
+      let landType = primaryLt;
+      if (subLt) landType += ` (${subLt})`;
+      if (purpose) landType += ` · ${purpose}`;
 
       let tag = 'A';
       if (it.acq_status === 'PURCHASED') {
@@ -99,12 +105,48 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
         mouzaLgd: it.mouza_lgd
       });
 
+      const formattedOptPlot = (it.opt_plot || it.opt_plot_number) ? formatPlotHumanReadable({
+        plotTy: it.opt_plot_ty,
+        plotNumber: it.opt_plot || it.opt_plot_number,
+        bataNo: it.opt_bata,
+        fallbackPlotNo: it.opt_plot || it.opt_plot_number,
+        stateLgd: data.project?.state_lgd,
+        mouzaLgd: it.mouza_lgd
+      }) : undefined;
+
+      const breakdownMap = new Map<string, any>();
+      landTypes.forEach((lt: any) => {
+        const primaryName = lt.landtype_master?.land_type || 'Tenancy';
+        const key = `${lt.landt_id}_${lt.area}_${lt.use_purpose || ''}`;
+        
+        if (!breakdownMap.has(key)) {
+          breakdownMap.set(key, {
+            primary_name: primaryName,
+            primary_area: Number(lt.area || 0),
+            use_purpose: lt.use_purpose || undefined,
+            sub_types: []
+          });
+        }
+        
+        if (lt.sub_landtype) {
+          breakdownMap.get(key).sub_types.push({
+            sub_name: lt.sub_landtype.land_type,
+            area_to_acquire: Number(lt.area_to_acquire || 0)
+          });
+        }
+      });
+
       return {
         id: it.schedule_id.toString(),
-        plot_id: it.schedule_id.toString(), // Using schedule_id as the plot ID for UI list
+        plot_id: it.schedule_id.toString(),
         plot_number: formattedPlot,
+        opt_plot_number: formattedOptPlot,
         mouza: it.mouza_master?.mouza_en || 'Unknown',
+        jl_no: it.jl_no || it.mouza_master?.jl_no || undefined,
+        total_ror_area: Number(it.total_ror_area || 0),
+        to_be_acquired_area: Number(it.to_be_acquired_area || 0),
         land_type: landType,
+        land_types_breakdown: Array.from(breakdownMap.values()),
         area_acres: Number(it.to_be_acquired_area || 0).toString(),
         annexure_tag: tag,
         is_active: it.acq_status !== 'CANCELLED'

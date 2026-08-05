@@ -66,7 +66,7 @@ export class ProposalChecklistResolver implements IChecklistContextResolver {
       if (project.statutoryClearances && Object.keys(project.statutoryClearances).length > 0) {
         hasStatutoryClearances = true;
       }
-      if ((project.totalEmpSanctioned && project.totalEmpSanctioned > 0) || (proposal.total_employment_cost_est && proposal.total_employment_cost_est.toNumber() > 0)) {
+      if ((project.totalEmpSanctioned && project.totalEmpSanctioned > 0) || (proposal.total_employment_cost_est && Number(proposal.total_employment_cost_est) > 0)) {
         hasEmploymentInvolvement = true;
       }
     }
@@ -78,15 +78,16 @@ export class ProposalChecklistResolver implements IChecklistContextResolver {
     // Context map injected into the Checklist Rule Engine
     return {
       acqModeId: Number(proposal.acq_mode_id),
-      HAS_TRIBAL_LAND: hasTribalLand,
-      HAS_DEBOTTAR_LAND: hasDebottarLand,
+      HAS_TRIBAL_LAND: proposal.has_tribal_land ?? hasTribalLand,
+      HAS_DEBOTTAR_LAND: proposal.has_debottar_land ?? hasDebottarLand,
+      HAS_DISPUTED_LAND: (proposal as any).is_disputed_land ?? false,
       HAS_DISPLACEMENT: hasDisplacement,
       HAS_FOREST_LAND: hasForestLand,
       HAS_TENANCY_LAND: hasTenancyLand,
       HAS_GOVT_LAND: hasGovtLand,
       HAS_STATUTORY_CLEARANCES: hasStatutoryClearances,
       HAS_EMPLOYMENT_INVOLVEMENT: hasEmploymentInvolvement,
-      HAS_FORMAL_NEGOTIATION: hasFormalNegotiation,
+      HAS_FORMAL_NEGOTIATION: proposal.has_formal_negotiation ?? hasFormalNegotiation,
       IS_RFCTLARR: Number(proposal.acq_mode_id) === 5,
       IS_BOARD_APPROVAL_REQ: proposal.requires_board_approval,
       STAGE: proposal.current_stage_cd

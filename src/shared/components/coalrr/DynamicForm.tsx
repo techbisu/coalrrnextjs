@@ -31,8 +31,17 @@ export function DynamicForm({ instanceId, fields, onSuccess, defaultValues = {} 
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
     defaultValues
   })
+
+  // Reset form when saved values arrive from the server (async)
+  useEffect(() => {
+    if (defaultValues && Object.keys(defaultValues).length > 0) {
+      form.reset(defaultValues)
+    }
+  }, [JSON.stringify(defaultValues)])
 
   // Watch all values to re-evaluate conditions
   const watchedValues = useWatch({ control: form.control })
@@ -62,27 +71,49 @@ export function DynamicForm({ instanceId, fields, onSuccess, defaultValues = {} 
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-4 border rounded-md">
-      <h3 className="text-lg font-semibold">Additional Information Required</h3>
-      {error && <div className="text-red-500 text-sm">{error}</div>}
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      {error && <div className="text-rose-500 text-xs font-semibold bg-rose-50 p-2.5 rounded border border-rose-200">{error}</div>}
       
-      {fields.map((field) => {
+      {fields.map((field: any) => {
         // Evaluate conditional rendering logic
         const shouldShow = evaluateConditions(watchedValues, field.show_if || null);
         
         if (!shouldShow) return null;
 
+        const isSelect = field.field_type === 'select';
+        const isTextarea = field.field_type === 'textarea';
+
         return (
           <div key={field.field_key} className="flex flex-col space-y-1">
-            <label className="text-sm font-medium">
-              {field.label} {field.is_required && <span className="text-destructive text-red-500">*</span>}
+            <label className="text-xs font-semibold text-slate-700">
+              {field.label} {field.is_required && <span className="text-rose-500">*</span>}
             </label>
-            <Input
-              type={field.field_type === 'date' ? 'date' : 'text'}
-              {...form.register(field.field_key)}
-            />
+            {isSelect ? (
+              <select
+                {...form.register(field.field_key)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">Select option...</option>
+                {Array.isArray(field.options) && field.options.map((opt: string) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            ) : isTextarea ? (
+              <textarea
+                {...form.register(field.field_key)}
+                rows={3}
+                className="w-full rounded-md border border-input bg-background p-2.5 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Enter details..."
+              />
+            ) : (
+              <Input
+                type={field.field_type === 'date' ? 'date' : 'text'}
+                {...form.register(field.field_key)}
+                className="text-xs h-9"
+              />
+            )}
             {form.formState.errors[field.field_key] && (
-              <span className="text-red-500 text-xs">
+              <span className="text-rose-500 text-xs font-medium">
                 {form.formState.errors[field.field_key]?.message as string}
               </span>
             )}
@@ -93,9 +124,9 @@ export function DynamicForm({ instanceId, fields, onSuccess, defaultValues = {} 
       <Button 
         type="submit" 
         disabled={isSubmitting}
-        className="mt-4"
+        className="w-full mt-4"
       >
-        {isSubmitting ? 'Saving...' : 'Save & Continue'}
+        {isSubmitting ? 'Saving...' : 'Save & Update Document'}
       </Button>
     </form>
   )

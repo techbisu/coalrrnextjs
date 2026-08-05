@@ -30,6 +30,17 @@ export interface ProposalProps {
   notificationDate: Date | null
   checklist: Checklist
   plotIds: string[]
+  proposalType?: string
+  rateTenancyWithEmp?: number
+  rateTenancyNoEmp?: number
+  rateGovtLand?: number
+  rateForestLand?: number
+  employmentProposedCount?: number
+  employmentSystem?: string
+  hasDebottarLand?: boolean
+  hasTribalLand?: boolean
+  hasDisputedLand?: boolean
+  hasFormalNegotiation?: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -45,6 +56,17 @@ export interface CreateProposalProps {
   collieryCode: string
   adjacentColliery?: string
   notificationDate?: Date
+  proposalType?: string
+  rateTenancyWithEmp?: number
+  rateTenancyNoEmp?: number
+  rateGovtLand?: number
+  rateForestLand?: number
+  employmentProposedCount?: number
+  employmentSystem?: string
+  hasDebottarLand?: boolean
+  hasTribalLand?: boolean
+  hasDisputedLand?: boolean
+  hasFormalNegotiation?: boolean
 }
 
 export interface UpdateProposalProps {
@@ -110,6 +132,17 @@ export class Proposal extends AggregateRoot<string> {
   private _notificationDate: Date | null
   private _checklist: Checklist
   private _plotIds: string[]
+  private _proposalType: string
+  private _rateTenancyWithEmp: number
+  private _rateTenancyNoEmp: number
+  private _rateGovtLand: number
+  private _rateForestLand: number
+  private _employmentProposedCount: number
+  private _employmentSystem: string
+  private _hasDebottarLand: boolean
+  private _hasTribalLand: boolean
+  private _hasDisputedLand: boolean
+  private _hasFormalNegotiation: boolean
   private _createdAt: Date
   private _updatedAt: Date
 
@@ -130,6 +163,17 @@ export class Proposal extends AggregateRoot<string> {
     this._notificationDate = props.notificationDate
     this._checklist = props.checklist
     this._plotIds = props.plotIds
+    this._proposalType = props.proposalType ?? 'STANDARD_LAP'
+    this._rateTenancyWithEmp = props.rateTenancyWithEmp ?? 0
+    this._rateTenancyNoEmp = props.rateTenancyNoEmp ?? 0
+    this._rateGovtLand = props.rateGovtLand ?? 0
+    this._rateForestLand = props.rateForestLand ?? 0
+    this._employmentProposedCount = props.employmentProposedCount ?? 0
+    this._employmentSystem = props.employmentSystem ?? 'PACKAGE_DEAL'
+    this._hasDebottarLand = props.hasDebottarLand ?? false
+    this._hasTribalLand = props.hasTribalLand ?? false
+    this._hasDisputedLand = props.hasDisputedLand ?? false
+    this._hasFormalNegotiation = props.hasFormalNegotiation ?? false
     this._createdAt = props.createdAt
     this._updatedAt = props.updatedAt
   }
@@ -187,6 +231,17 @@ export class Proposal extends AggregateRoot<string> {
       notificationDate: props.notificationDate ?? null,
       checklist: Checklist.createForMode(acquisitionMode),
       plotIds: [],
+      proposalType: props.proposalType ?? 'STANDARD_LAP',
+      rateTenancyWithEmp: props.rateTenancyWithEmp ?? 0,
+      rateTenancyNoEmp: props.rateTenancyNoEmp ?? 0,
+      rateGovtLand: props.rateGovtLand ?? 0,
+      rateForestLand: props.rateForestLand ?? 0,
+      employmentProposedCount: props.employmentProposedCount ?? 0,
+      employmentSystem: props.employmentSystem ?? 'PACKAGE_DEAL',
+      hasDebottarLand: props.hasDebottarLand ?? false,
+      hasTribalLand: props.hasTribalLand ?? false,
+      hasDisputedLand: props.hasDisputedLand ?? false,
+      hasFormalNegotiation: props.hasFormalNegotiation ?? false,
       createdAt: now,
       updatedAt: now,
     })
@@ -218,6 +273,17 @@ export class Proposal extends AggregateRoot<string> {
     totalAreaAcres: string
     notificationDate: Date | null
     modeSpecificChecklist: string
+    proposalType?: string
+    rateTenancyWithEmp?: number
+    rateTenancyNoEmp?: number
+    rateGovtLand?: number
+    rateForestLand?: number
+    employmentProposedCount?: number
+    employmentSystem?: string
+    hasDebottarLand?: boolean
+    hasTribalLand?: boolean
+    hasDisputedLand?: boolean
+    hasFormalNegotiation?: boolean
     plotIds: string[]
     createdAt: Date
     updatedAt: Date
@@ -238,6 +304,17 @@ export class Proposal extends AggregateRoot<string> {
       totalArea: Area.fromAcres(data.totalAreaAcres),
       notificationDate: data.notificationDate,
       checklist: Checklist.fromJSON(data.modeSpecificChecklist),
+      proposalType: data.proposalType,
+      rateTenancyWithEmp: data.rateTenancyWithEmp,
+      rateTenancyNoEmp: data.rateTenancyNoEmp,
+      rateGovtLand: data.rateGovtLand,
+      rateForestLand: data.rateForestLand,
+      employmentProposedCount: data.employmentProposedCount,
+      employmentSystem: data.employmentSystem,
+      hasDebottarLand: data.hasDebottarLand,
+      hasTribalLand: data.hasTribalLand,
+      hasDisputedLand: data.hasDisputedLand,
+      hasFormalNegotiation: data.hasFormalNegotiation,
       plotIds: data.plotIds,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
@@ -524,6 +601,22 @@ export class Proposal extends AggregateRoot<string> {
     return this._plotIds
   }
 
+  get hasDebottarLand(): boolean {
+    return this._hasDebottarLand
+  }
+
+  get hasTribalLand(): boolean {
+    return this._hasTribalLand
+  }
+
+  get hasDisputedLand(): boolean {
+    return this._hasDisputedLand
+  }
+
+  get hasFormalNegotiation(): boolean {
+    return this._hasFormalNegotiation
+  }
+
   get createdAt(): Date {
     return this._createdAt
   }
@@ -549,6 +642,17 @@ export class Proposal extends AggregateRoot<string> {
     totalAreaAcres: string
     notificationDate: Date | null
     modeSpecificChecklist: string
+    proposalType?: string
+    rateTenancyWithEmp?: number
+    rateTenancyNoEmp?: number
+    rateGovtLand?: number
+    rateForestLand?: number
+    employmentProposedCount?: number
+    employmentSystem?: string
+    hasDebottarLand?: boolean
+    hasTribalLand?: boolean
+    hasDisputedLand?: boolean
+    hasFormalNegotiation?: boolean
     createdAt: Date
     updatedAt: Date
   } {
@@ -565,9 +669,20 @@ export class Proposal extends AggregateRoot<string> {
       areaOffice: this._areaOffice,
       collieryCode: this._collieryCode,
       adjacentColliery: this._adjacentColliery,
-      totalAreaAcres: this._totalArea.toDecimal().toString(),
       notificationDate: this._notificationDate,
       modeSpecificChecklist: this._checklist.toJSON(),
+      proposalType: this._proposalType,
+      rateTenancyWithEmp: this._rateTenancyWithEmp,
+      rateTenancyNoEmp: this._rateTenancyNoEmp,
+      rateGovtLand: this._rateGovtLand,
+      rateForestLand: this._rateForestLand,
+      employmentProposedCount: this._employmentProposedCount,
+      employmentSystem: this._employmentSystem,
+      hasDebottarLand: this._hasDebottarLand,
+      hasTribalLand: this._hasTribalLand,
+      hasDisputedLand: this._hasDisputedLand,
+      hasFormalNegotiation: this._hasFormalNegotiation,
+      totalAreaAcres: this._totalArea.value.toString(),
       createdAt: this._createdAt,
       updatedAt: this._updatedAt,
     }

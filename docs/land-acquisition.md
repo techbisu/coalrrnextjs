@@ -58,11 +58,41 @@ Drafting → Checklist Complete → Submitted → Under Review → Approved / Re
 | `updatePlotUseCase` | `UpdatePlotUseCase` | Edit plot + land types (transactional) |
 | `deletePlotUseCase` | `DeletePlotUseCase` | Delete plot + cascade land types |
 
+### Annexure Categorization & States
+
+Plot schedule entries are categorized into 3 standard annexure states during adjacent colliery and unit review:
+- **Annexure A — Fully Clear**: The plot can be acquired fully in this proposal.
+- **Annexure B — Fully Purchased**: The plot cannot be acquired because it has already been purchased previously.
+- **Annexure C — Partially Purchased**: The plot can be acquired only for the available/remaining unacquired area.
+
+## Business Logic Rules & Categorization
+
+### Dynamic Land Type Categorization (`buildLandCategoryMap`)
+Land classification is driven dynamically by `master.landtype_master` hierarchy traversal rather than hardcoded IDs or static string names:
+- **`TENANCY`**: Private tenancy land (Rayati, etc.)
+- **`PATTA`**: Patta land / Forest Patta land
+- **`GOVT`**: Government / PSU / Prior Govt land
+- **`FOREST`**: Revenue Forest / Protected Forest / Notified Forest land
+
+### Job Count Calculation Rule
+- **Employment Quota**: Only `TENANCY` and `PATTA` land types contribute to the calculated employment quota (`Math.floor((tenancyLand + pattaLand) / 2)`).
+- **Zero Jobs**: Government and Forest land types strictly yield **0 jobs**.
+
+### Acquisition Mode Master Mapping (`master.acqu_mode`)
+- `1`: CBA (A&D) Act 1957 (`cba_act`)
+- `2`: RFCTLARR Act 2013 (`rfctlarr`)
+- `3`: LTS / Transfer of Government Land (`govt_transfer`)
+- `4`: Lease Government Land (`lease_govt`)
+- `5`: Diversion of Forest Land (`forest_diversion`)
+- `6`: Direct Purchase (`direct_purchase`)
+
+---
+
 ## Database Schema
 
 - `acq_proposal` — master proposal record (schema: `acquisition`)
-- `plot_schedule` — per-plot schedule rows linked to a proposal
-- `plot_schedule_land_type` — land type breakdown per plot
+- `plot_schedule` — per-plot schedule rows linked to a proposal (stores plot annexure state: `A`, `B`, or `C`)
+- `plot_schedule_land_type` — land type breakup per plot (`landt_id` and `sub_landt_id` mandatory), including `use_purpose` (e.g., EXCAVATION, SAFETY_ZONE, OB_DUMP, INFRASTRUCTURE, DIVERSION, REHABILITATION, OTHER) used for land-use allocation and Form XXII baseline deviation calculations.
 - `manual_milestone` — manual legal and government milestone entries
 
 ## Translations

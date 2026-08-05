@@ -34,6 +34,18 @@ export interface ProjectDashboardItem {
   budgetUtilization: string
   total_acquired_area: string
   areaUtilization: number
+  approved_tenancy_area?: string
+  approved_govt_area?: string
+  approved_patta_area?: string
+  approved_forest_area?: string
+  approved_excavation_area?: string
+  approved_safety_zone_area?: string
+  approved_ob_dump_area?: string
+  approved_infra_area?: string
+  approved_diversion_area?: string
+  approved_rehab_area?: string
+  is_combo_project?: boolean
+  linked_mine_codes?: string[]
   plots: Array<{
     id: string
     plot_number: string
@@ -131,6 +143,18 @@ export class GetProjectDashboardUseCase implements IUseCase<GetProjectDashboardR
       budgetUtilization: d.budgetUtilization.toFixed(1),
       total_acquired_area: d.total_acquired_area,
       areaUtilization: d.areaUtilization,
+      approved_tenancy_area: (d as any).approved_tenancy_area || '0',
+      approved_govt_area: (d as any).approved_govt_area || '0',
+      approved_patta_area: (d as any).approved_patta_area || '0',
+      approved_forest_area: (d as any).approved_forest_area || '0',
+      approved_excavation_area: (d as any).approved_excavation_area || '0',
+      approved_safety_zone_area: (d as any).approved_safety_zone_area || '0',
+      approved_ob_dump_area: (d as any).approved_ob_dump_area || '0',
+      approved_infra_area: (d as any).approved_infra_area || '0',
+      approved_diversion_area: (d as any).approved_diversion_area || '0',
+      approved_rehab_area: (d as any).approved_rehab_area || '0',
+      is_combo_project: (d as any).is_combo_project ?? false,
+      linked_mine_codes: (d as any).linked_mine_codes ?? [],
       plots: d.plots,
       breachedProposals: d.breachedProposals,
       boardApprovals: d.boardApprovals,

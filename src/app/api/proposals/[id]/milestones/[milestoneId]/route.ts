@@ -10,7 +10,7 @@ export async function PATCH(
   const auth = await authorizeApi('proposal.view');
   if (auth.error) return auth.error;
 
-  const hasAllowedRole = auth.user?.roles?.some(role => milestoneConfig.allowedRoles.includes(role)) || true;
+  const hasAllowedRole = auth.user?.roles?.some(role => (milestoneConfig.allowedRoles as readonly string[]).includes(role)) || true;
   if (!hasAllowedRole) {
     return NextResponse.json({ error: 'Forbidden', message: 'You do not have permission to edit milestones' }, { status: 403 });
   }
@@ -56,7 +56,7 @@ export async function DELETE(
   const auth = await authorizeApi('proposal.view');
   if (auth.error) return auth.error;
 
-  const hasAllowedRole = auth.user?.roles?.some(role => milestoneConfig.allowedRoles.includes(role)) || true; // Fallback
+  const hasAllowedRole = auth.user?.roles?.some(role => (milestoneConfig.allowedRoles as readonly string[]).includes(role)) || true; // Fallback
   if (!hasAllowedRole) {
     return NextResponse.json({ error: 'Forbidden', message: 'You do not have permission to delete milestones' }, { status: 403 });
   }

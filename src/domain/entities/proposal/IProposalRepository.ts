@@ -21,6 +21,17 @@ export interface ProposalDTO {
   overall_status: string;
   tot_acq_area?: number;
   tot_aprv_area?: number;
+  proposal_type?: string;
+  rate_tenancy_land_with_emp?: number;
+  rate_tenancy_land_no_emp?: number;
+  rate_govt_land?: number;
+  rate_forest_land?: number;
+  employment_proposed_count?: number;
+  employment_system?: string;
+  has_debottar_land?: boolean;
+  has_tribal_land?: boolean;
+  is_disputed_land?: boolean;
+  has_formal_negotiation?: boolean;
   entry_by: string;
 }
 
@@ -48,12 +59,14 @@ export interface PlotScheduleDTO {
 }
 
 export interface PlotScheduleLandTypeDTO {
-  schedule_land_type_id?: string;
+  schedule_land_type_id?: number;
   schedule_id: string;
   landt_id: number;
+  sub_landt_id?: number;
   area: number;
   area_to_acquire: number;
   area_acquired?: number;
+  use_purpose?: string;
 }
 
 export interface IProposalRepository {
@@ -77,7 +90,7 @@ export interface IProposalRepository {
   getAllProposals(filter?: any): Promise<any[]>;
   getPlotsByProposalId(proposalId: string): Promise<PlotScheduleDTO[]>;
   getLandTypesByScheduleId(scheduleId: string): Promise<PlotScheduleLandTypeDTO[]>;
-  
+  getLandTypeDetails(landtIds: (string | number)[]): Promise<any[]>;
   checkDuplicatePlots(plotNos: string[], mouzaLgd: number, excludeProposalId?: string): Promise<boolean>;
   getProposalDetailsWithPlots(proposalId: string): Promise<any>;
 

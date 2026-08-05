@@ -3,19 +3,23 @@ import { useQuery } from '@tanstack/react-query'
 export interface MasterOption {
   label: string
   value: string
+  data?: Record<string, any>
 }
 
 export interface UseMasterLookupProps {
   masterName: string
-  dependencies?: Record<string, string | number | null | undefined>
+  dependencies?: Record<string, any>
   enabled?: boolean
 }
 
 export function useMasterLookup({ masterName, dependencies, enabled = true }: UseMasterLookupProps) {
   // We only enable the query if all non-null dependencies are actually provided.
-  // E.g., if a District dropdown depends on state_lgd, and state_lgd is null, we shouldn't fetch Districts yet.
   const allDepsReady = dependencies 
-    ? Object.values(dependencies).every(val => val !== null && val !== undefined && val !== '')
+    ? Object.values(dependencies).every(val => {
+        if (val === null || val === undefined || val === '') return false
+        if (Array.isArray(val) && val.length === 0) return false
+        return true
+      })
     : true
 
   return useQuery<{ options: MasterOption[] }, Error>({
@@ -26,7 +30,13 @@ export function useMasterLookup({ masterName, dependencies, enabled = true }: Us
         const params = new URLSearchParams()
         Object.entries(dependencies).forEach(([key, value]) => {
           if (value !== null && value !== undefined && value !== '') {
-            params.append(key, String(value))
+            if (Array.isArray(value)) {
+              if (value.length > 0) {
+                params.append(key, value.join(','))
+              }
+            } else {
+              params.append(key, String(value))
+            }
           }
         })
         const qs = params.toString()

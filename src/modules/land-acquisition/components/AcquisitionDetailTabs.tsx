@@ -46,6 +46,7 @@ import {
 } from 'lucide-react'
 import { COMPENSATION_PAYROLL_STATES, COMPENSATION_PAYROLL_ORDERED_STATES } from '@/core/workflow'
 import { getChecklistStatus, updateChecklistSubmission } from '@/app/actions/checklist.actions'
+import { RoleActionBanner } from './RoleActionBanner'
 
 import {
   AcquisitionMode, MODE_META, MODES, ANNEXURE_META, LAND_TYPE_COLOR,
@@ -71,6 +72,7 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
 
   return (
     <div className="space-y-6">
+      <RoleActionBanner schedule={schedule} />
       <PendingActionBanner schedule={schedule} />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Panel - Overview & Plots (8 cols) */}
@@ -247,50 +249,99 @@ function PlotsTab({
 
   const baseColumns: Column<ScheduleItem>[] = [
     { key: 'plot_number', header: 'Plot', sortable: true, render: (r) => (
-      <span className="font-mono text-xs font-medium">{r.plot_number}</span>
+      <div className="flex flex-col gap-0.5 py-0.5">
+        <span className="font-mono text-xs font-semibold text-foreground">{r.plot_number}</span>
+        {r.opt_plot_number && (
+          <span className="font-mono text-[11px] text-muted-foreground">Prev: {r.opt_plot_number}</span>
+        )}
+        <span className="text-[11px] text-muted-foreground font-medium">
+          {r.mouza}{r.jl_no ? ` (JL No: ${r.jl_no})` : ''}
+        </span>
+      </div>
     ) },
-    { key: 'mouza', header: 'Mouza', sortable: true, render: (r) => <span className="text-sm">{r.mouza}</span> },
-    { key: 'land_type', header: 'Land Type', render: (r) => (
-      <Badge variant="outline" className="text-xs font-normal font-mono bg-muted/30">
-        {r.land_type}
-      </Badge>
+    { key: 'total_area', header: 'Total Area (ac)', align: 'right', sortable: true, render: (r) => (
+      <div className="flex flex-col items-end gap-0.5 py-0.5 font-mono text-xs">
+        <span className="font-semibold text-foreground">{formatNumber(r.total_ror_area || Number(r.area_acres || 0), 4)} ac</span>
+        <span className="text-[11px] text-muted-foreground">Acq: {formatNumber(r.to_be_acquired_area || Number(r.area_acres || 0), 4)} ac</span>
+      </div>
     ) },
-    { key: 'area_acres', header: 'Area (Acres)', align: 'right', sortable: true, render: (r) => (
-      <span className="font-mono text-xs font-semibold">{formatNumber(r.area_acres, 4)}</span>
-    ) },
+    { key: 'land_type', header: 'Land Type', render: (r) => {
+      if (r.land_types_breakdown && r.land_types_breakdown.length > 0) {
+        return (
+          <div className="flex flex-col gap-1.5 py-1 min-w-[200px]">
+            {r.land_types_breakdown.map((bt, idx) => (
+              <div key={idx} className="flex flex-col gap-0.5 bg-muted/40 p-1.5 rounded border border-border/50">
+                <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+                  <span className="text-foreground font-mono">{bt.primary_name}</span>
+                  <span className="font-mono text-[11px] text-muted-foreground">{formatNumber(bt.primary_area, 4)} ac</span>
+                </div>
+                {bt.use_purpose && (
+                  <span className="text-[10px] uppercase tracking-wide font-medium text-muted-foreground/90">
+                    Purpose: {bt.use_purpose}
+                  </span>
+                )}
+                {bt.sub_types && bt.sub_types.length > 0 && (
+                  <div className="mt-0.5 flex flex-col gap-0.5 pl-1.5 border-l-2 border-primary/30">
+                    {bt.sub_types.map((st, sIdx) => (
+                      <div key={sIdx} className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground font-mono">{st.sub_name}</span>
+                        <span className="font-mono font-medium text-foreground">{formatNumber(st.area_to_acquire, 4)} ac</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      }
+      return (
+        <Badge variant="outline" className="text-xs font-normal font-mono bg-muted/30">
+          {r.land_type}
+        </Badge>
+      )
+    } },
     { key: 'annexure_tag', header: 'Annexure', align: 'center', render: (r) => {
       const meta = ANNEXURE_META[r.annexure_tag]
+      const currentStatus = r.annexure_tag === 'B' ? 'PURCHASED' : r.annexure_tag === 'C' ? 'PARTIALLY_PURCHASED' : 'PROPOSED';
+      
+      const isAnnexureEditable = canEdit || normalizedState === 'UnitSubmitted' || !!schedule.adjacent_colliery;
+
+      if (isAnnexureEditable) {
+        return (
+          <select
+            value={currentStatus}
+            disabled={updateStatus.isPending}
+            onChange={(e) => {
+              const newStatus = e.target.value
+              if (newStatus === 'PARTIALLY_PURCHASED') {
+                setPartialPlot(r)
+              } else {
+                updateStatus.mutate({ plot_no: r.plot_id || r.plot_number, status: newStatus })
+              }
+            }}
+            className={`h-7 font-mono text-xs font-bold rounded border px-2 py-0.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary ${meta.color}`}
+            title={`Annexure ${meta.label} · ${meta.desc}`}
+          >
+            <option value="PROPOSED" className="bg-background text-foreground font-mono font-normal">Annexure A (Clear)</option>
+            <option value="PURCHASED" className="bg-background text-foreground font-mono font-normal">Annexure B (Purchased)</option>
+            <option value="PARTIALLY_PURCHASED" className="bg-background text-foreground font-mono font-normal">Annexure C (Partial)</option>
+          </select>
+        )
+      }
+
       return (
-        <Badge variant="outline" className={`font-mono text-xs ${meta.color}`}>
-          {meta.label} · {meta.desc}
+        <Badge 
+          variant="outline" 
+          className={`font-mono text-xs font-bold px-2.5 py-0.5 cursor-help ${meta.color}`}
+          title={`Annexure ${meta.label} · ${meta.desc}`}
+        >
+          {meta.label}
         </Badge>
       )
     } },
   ]
   
-  const adjColumn: Column<ScheduleItem> = { 
-    key: '_adj_status', header: 'Adj. Colliery Status', align: 'center', render: (r) => {
-      const currentStatus = r.annexure_tag === 'B' ? 'PURCHASED' : r.annexure_tag === 'C' ? 'PARTIALLY_PURCHASED' : 'PROPOSED';
-      return (
-        <select
-          value={currentStatus}
-          disabled={updateStatus.isPending}
-          onChange={(e) => {
-            const newStatus = e.target.value
-            if (newStatus === 'PARTIALLY_PURCHASED') {
-              setPartialPlot(r)
-            } else {
-              updateStatus.mutate({ plot_no: r.plot_id || r.plot_number, status: newStatus })
-            }
-          }}
-          className="h-7 rounded border border-border bg-background px-1.5 text-[11px] disabled:opacity-50"
-        >
-          <option value="PROPOSED">None (Clear to Acquire)</option>
-          <option value="PURCHASED">Already Purchased</option>
-          <option value="PARTIALLY_PURCHASED">Partially Purchased</option>
-        </select>
-      )
-    } }
   const actionsColumn: Column<ScheduleItem> = { key: '_actions', header: '', align: 'right', render: (r) => (
       canEdit ? (
         <div className="flex justify-end gap-2">
@@ -334,11 +385,7 @@ function PlotsTab({
       )
     ) }
 
-  const columns = [...baseColumns]
-  if (normalizedState === 'UnitSubmitted') {
-    columns.push(adjColumn)
-  }
-  columns.push(actionsColumn)
+  const columns = [...baseColumns, actionsColumn]
 
   return (
     <div className="space-y-4">

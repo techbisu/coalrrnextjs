@@ -19,18 +19,31 @@ export async function POST(req: NextRequest) {
       return badRequest('instanceId and formData are required')
     }
 
-    // 1. Fetch instance and template for schema metadata
+    // 1. Fetch instance and template
     const instance = await db.document_instance.findUnique({ where: { id: instanceId } })
     if (!instance) return badRequest("Instance not found")
     
-    const template = await db.document_template.findUnique({ where: { template_code: instance.template_code } })
-    if (!template) return badRequest("Template not found")
+    // 2. Fetch template fields from document_template_field table
+    const fields = await db.document_template_field.findMany({
+      where: { template_code: instance.template_code, is_active: true }
+    })
     
-    // 2. Build the Zod schema dynamically on the server
-    const schema = createDynamicZodSchema((template.config as any)?.fields as any[] || [])
-    
-    // 3. Validate and parse the incoming payload
-    const parsedData = schema.parse(formData)
+    // 3. Build dynamic Zod schema with passthrough so custom or unseeded fields are preserved
+    let parsedData = formData
+    if (fields.length > 0) {
+      const schema = createDynamicZodSchema(fields.map((f: any) => ({
+        field_key: f.field_key,
+        label: f.label,
+        field_type: f.field_type,
+        is_required: f.is_required,
+        show_if: f.show_if ? f.show_if : undefined
+      }))).passthrough()
+      
+      const parseResult = schema.safeParse(formData)
+      if (parseResult.success) {
+        parsedData = parseResult.data
+      }
+    }
 
     const result = await saveDocumentFormUseCase.execute({ 
       instanceId, 

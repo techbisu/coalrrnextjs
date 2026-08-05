@@ -20,8 +20,8 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
     if (!prop) return null;
 
     let modeVal = 'cba_act';
-    if (Number(prop.acq_mode_id) === 2) modeVal = 'rfctlarr';
-    if (Number(prop.acq_mode_id) === 3) modeVal = 'direct_purchase';
+    if (Number(prop.acq_mode_id) === 2 || Number(prop.acq_mode_id) === 5) modeVal = 'rfctlarr';
+    if (Number(prop.acq_mode_id) === 3 || Number(prop.acq_mode_id) === 6) modeVal = 'direct_purchase';
 
     const plots = prop.plot_schedule.map(p => p.plot_no);
 
@@ -41,6 +41,17 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
       totalAreaAcres: (prop.tot_acq_area || 0).toString(),
       notificationDate: prop.proposal_dt,
       modeSpecificChecklist: '{}',
+      proposalType: prop.proposal_type || 'STANDARD_LAP',
+      rateTenancyWithEmp: Number(prop.rate_tenancy_land_with_emp || 0),
+      rateTenancyNoEmp: Number(prop.rate_tenancy_land_no_emp || 0),
+      rateGovtLand: Number(prop.rate_govt_land || 0),
+      rateForestLand: Number(prop.rate_forest_land || 0),
+      employmentProposedCount: prop.employment_proposed_count || 0,
+      employmentSystem: prop.employment_system || 'PACKAGE_DEAL',
+      hasDebottarLand: prop.has_debottar_land ?? false,
+      hasTribalLand: prop.has_tribal_land ?? false,
+      hasDisputedLand: prop.is_disputed_land ?? false,
+      hasFormalNegotiation: prop.has_formal_negotiation ?? false,
       plotIds: plots,
       createdAt: prop.proposal_dt,
       updatedAt: prop.proposal_dt
@@ -48,23 +59,11 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
   }
 
   async save(proposal: Proposal): Promise<void> {
-    const data = {
-      id: proposal.id,
-      scheduleCode: proposal.scheduleCode.value,
-      proposalTitle: proposal.proposalTitle,
-      state: proposal.state.value,
-      totalArea: proposal.totalArea.toNumber(),
-      notificationDate: proposal.notificationDate,
-      collieryCode: proposal.collieryCode,
-      areaOffice: proposal.areaOffice,
-      projectId: proposal.projectId,
-      proposedBy: proposal.proposedBy,
-      acquisitionMode: proposal.acquisitionMode.value
-    };
+    const data = proposal.toPersistence();
 
     let acqModeId = BigInt(1); // cba_act
     if (data.acquisitionMode === 'rfctlarr') acqModeId = BigInt(2);
-    if (data.acquisitionMode === 'direct_purchase') acqModeId = BigInt(3);
+    if (data.acquisitionMode === 'direct_purchase') acqModeId = BigInt(6);
 
     // Ensure mine_cd and area_cd satisfy foreign key constraints
     let validMineCd = data.collieryCode;
@@ -89,7 +88,18 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
         pr_scheme_ref_no: (data as any).adjacentColliery || (data as any).pr_scheme_ref_no,
         current_stage_cd: data.state,
         overall_status: data.state,
-        tot_acq_area: data.totalArea,
+        tot_acq_area: Number(data.totalAreaAcres),
+        proposal_type: data.proposalType,
+        rate_tenancy_land_with_emp: data.rateTenancyWithEmp,
+        rate_tenancy_land_no_emp: data.rateTenancyNoEmp,
+        rate_govt_land: data.rateGovtLand,
+        rate_forest_land: data.rateForestLand,
+        employment_proposed_count: data.employmentProposedCount,
+        employment_system: data.employmentSystem,
+        has_debottar_land: data.hasDebottarLand,
+        has_tribal_land: data.hasTribalLand,
+        is_disputed_land: data.hasDisputedLand,
+        has_formal_negotiation: data.hasFormalNegotiation,
       },
       create: {
         proposal_id: data.id,
@@ -105,8 +115,19 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
         requires_board_approval: true,
         current_stage_cd: data.state,
         overall_status: data.state,
-        tot_acq_area: data.totalArea,
-        entry_by: data.proposedBy
+        tot_acq_area: Number(data.totalAreaAcres),
+        entry_by: data.proposedBy,
+        proposal_type: data.proposalType,
+        rate_tenancy_land_with_emp: data.rateTenancyWithEmp,
+        rate_tenancy_land_no_emp: data.rateTenancyNoEmp,
+        rate_govt_land: data.rateGovtLand,
+        rate_forest_land: data.rateForestLand,
+        employment_proposed_count: data.employmentProposedCount,
+        employment_system: data.employmentSystem,
+        has_debottar_land: data.hasDebottarLand,
+        has_tribal_land: data.hasTribalLand,
+        is_disputed_land: data.hasDisputedLand,
+        has_formal_negotiation: data.hasFormalNegotiation,
       }
     });
   }
@@ -221,6 +242,17 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
           total_land_cost_est: data.proposal.total_land_cost_est,
           total_rehab_cost_est: data.proposal.total_rehab_cost_est,
           total_employment_cost_est: data.proposal.total_employment_cost_est,
+          proposal_type: data.proposal.proposal_type ?? 'STANDARD_LAP',
+          rate_tenancy_land_with_emp: data.proposal.rate_tenancy_land_with_emp ?? 0,
+          rate_tenancy_land_no_emp: data.proposal.rate_tenancy_land_no_emp ?? 0,
+          rate_govt_land: data.proposal.rate_govt_land ?? 0,
+          rate_forest_land: data.proposal.rate_forest_land ?? 0,
+          employment_proposed_count: data.proposal.employment_proposed_count ?? 0,
+          employment_system: data.proposal.employment_system ?? 'PACKAGE_DEAL',
+          has_debottar_land: data.proposal.has_debottar_land ?? false,
+          has_tribal_land: data.proposal.has_tribal_land ?? false,
+          is_disputed_land: (data.proposal as any).is_disputed_land ?? false,
+          has_formal_negotiation: data.proposal.has_formal_negotiation ?? false,
           current_stage_cd: data.proposal.current_stage_cd,
           overall_status: data.proposal.overall_status,
           entry_by: data.proposal.entry_by
@@ -263,8 +295,10 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
           data: {
             schedule_id: BigInt(actualScheduleId),
             landt_id: BigInt(lt.landt_id),
+            sub_landt_id: lt.sub_landt_id ? BigInt(lt.sub_landt_id) : null,
             area: lt.area,
-            area_to_acquire: lt.area_to_acquire
+            area_to_acquire: lt.area_to_acquire,
+            use_purpose: (lt as any).use_purpose || 'EXCAVATION'
           }
         });
       }
@@ -300,43 +334,44 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
     };
   }
 
-  async getAllProposals(scope?: any): Promise<any[]> {
+  async getAllProposals(scope?: any, userContext?: { userId?: string; userName?: string }): Promise<any[]> {
     let where: any = {};
+    const orConditions: any[] = [];
+
     if (scope && scope.level && scope.level !== 'HQ') {
       const scopedWhere = UserScopeService.scopeToWhere(scope, 'area_cd', 'mine_cd');
+      orConditions.push(scopedWhere);
+
       const areaIds: string[] = scope.level === 'AREA' ? (scope.areaIds || []) : Object.keys(scope.unitsByArea || {});
       const mineIds: string[] = scope.level === 'UNIT' ? Object.values(scope.unitsByArea || {}).flat() as string[] : [];
 
-      const adjacentOrConditions: any[] = [];
       if (areaIds.length > 0) {
-        adjacentOrConditions.push({ pr_scheme_ref_no: { in: areaIds } });
+        orConditions.push({ area_cd: { in: areaIds } });
+        orConditions.push({ pr_scheme_ref_no: { in: areaIds } });
         const areas = await db.area_master.findMany({ where: { area_cd: { in: areaIds } } });
         for (const a of areas) {
-          adjacentOrConditions.push({ pr_scheme_ref_no: { contains: a.area_en, mode: 'insensitive' } });
-          adjacentOrConditions.push({ pr_scheme_ref_no: a.area_cd });
+          orConditions.push({ pr_scheme_ref_no: { contains: a.area_en, mode: 'insensitive' } });
         }
       }
       if (mineIds.length > 0) {
-        adjacentOrConditions.push({ pr_scheme_ref_no: { in: mineIds } });
-      }
-
-      if (adjacentOrConditions.length > 0) {
-        where = {
-          OR: [
-            scopedWhere,
-            ...adjacentOrConditions
-          ]
-        };
-      } else {
-        where = scopedWhere;
+        orConditions.push({ mine_cd: { in: mineIds } });
+        orConditions.push({ pr_scheme_ref_no: { in: mineIds } });
       }
     } else if (scope && (scope.area_cd || scope.mine_cd)) {
-      where = {
-        OR: [
-          scope,
-          { pr_scheme_ref_no: scope.area_cd || scope.mine_cd }
-        ]
-      };
+      orConditions.push(scope);
+      if (scope.area_cd) orConditions.push({ area_cd: scope.area_cd });
+      if (scope.mine_cd) orConditions.push({ mine_cd: scope.mine_cd });
+    }
+
+    if (userContext?.userId) {
+      orConditions.push({ entry_by: userContext.userId });
+    }
+    if (userContext?.userName) {
+      orConditions.push({ entry_by: userContext.userName });
+    }
+
+    if (orConditions.length > 0) {
+      where = { OR: orConditions };
     }
 
     const props = await db.acq_proposal.findMany({
@@ -378,7 +413,8 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
             mouza_master: true,
             plot_schedule_land_type: {
               include: {
-                landtype_master: true
+                landtype_master: true,
+                sub_landtype: true
               }
             }
           }
@@ -411,11 +447,29 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
     });
     
     return types.map(t => ({
-      schedule_land_type_id: t.schedule_land_type_id.toString(),
+      schedule_land_type_id: Number(t.schedule_land_type_id),
       schedule_id: t.schedule_id.toString(),
       landt_id: Number(t.landt_id),
+      sub_landt_id: t.sub_landt_id ? Number(t.sub_landt_id) : undefined,
       area: Number(t.area),
-      area_to_acquire: Number(t.area_to_acquire)
+      area_to_acquire: Number(t.area_to_acquire),
+      use_purpose: t.use_purpose || undefined
+    }));
+  }
+
+  async getLandTypeDetails(landtIds: (string | number)[]): Promise<any[]> {
+    if (!landtIds || landtIds.length === 0) return [];
+    
+    const landTypes = await db.landtype_master.findMany({
+      where: {
+        landt_id: { in: landtIds.map(id => BigInt(id)) }
+      }
+    });
+    
+    return landTypes.map(lt => ({
+      landt_id: lt.landt_id.toString(),
+      land_type: lt.land_type,
+      master_category: (lt as any).master_category || lt.land_type
     }));
   }
 
@@ -450,6 +504,12 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
             opt_plot: plot.opt_plot,
             opt_bata: plot.opt_bata,
             mouza_lgd: BigInt(plot.mouza_lgd),
+            jl_no: plot.jl_no || undefined,
+            state_lgd: plot.state_lgd ? BigInt(plot.state_lgd) : undefined,
+            district_lgd: plot.district_lgd ? BigInt(plot.district_lgd) : undefined,
+            block_lgd: plot.block_lgd ? BigInt(plot.block_lgd) : undefined,
+            ps_lgd: plot.ps_lgd ? BigInt(plot.ps_lgd) : undefined,
+            total_ror_area: plot.total_ror_area ?? 0,
             to_be_acquired_area: plot.to_be_acquired_area ?? (null as any),
             acq_status: plot.acq_status,
             entry_by: plot.entry_by
@@ -466,8 +526,10 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
           data: {
             schedule_id: BigInt(schedule_id),
             landt_id: BigInt(lt.landt_id),
+            sub_landt_id: lt.sub_landt_id ? BigInt(lt.sub_landt_id) : undefined,
             area: lt.area ?? (null as any),
-            area_to_acquire: lt.area_to_acquire ?? (null as any)
+            area_to_acquire: lt.area_to_acquire ?? (null as any),
+            use_purpose: lt.use_purpose || 'EXCAVATION'
           }
         });
       }
@@ -497,9 +559,16 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
           opt_plot: plotData.opt_plot,
           opt_bata: plotData.opt_bata,
           mouza_lgd: BigInt(plotData.mouza_lgd),
+          jl_no: plotData.jl_no || undefined,
+          state_lgd: plotData.state_lgd ? BigInt(plotData.state_lgd) : undefined,
+          district_lgd: plotData.district_lgd ? BigInt(plotData.district_lgd) : undefined,
+          block_lgd: plotData.block_lgd ? BigInt(plotData.block_lgd) : undefined,
+          ps_lgd: plotData.ps_lgd ? BigInt(plotData.ps_lgd) : undefined,
+          total_ror_area: plotData.total_ror_area ?? 0,
           to_be_acquired_area: plotData.to_be_acquired_area ?? (null as any),
           acq_status: plotData.acq_status,
-          entry_by: plotData.entry_by
+          entry_by: plotData.entry_by,
+          updt_by: plotData.entry_by
         }
       });
 
@@ -508,8 +577,10 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
           data: {
             schedule_id: updatedPlot.schedule_id,
             landt_id: BigInt(lt.landt_id),
+            sub_landt_id: lt.sub_landt_id ? BigInt(lt.sub_landt_id) : undefined,
             area: lt.area ?? (null as any),
-            area_to_acquire: lt.area_to_acquire ?? (null as any)
+            area_to_acquire: lt.area_to_acquire ?? (null as any),
+            use_purpose: lt.use_purpose || 'EXCAVATION'
           }
         });
       }

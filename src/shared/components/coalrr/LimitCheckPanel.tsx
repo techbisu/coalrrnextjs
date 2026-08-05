@@ -39,18 +39,23 @@ function LimitBar({ label, current, total, max, isBreached, unit }: { label: str
 
   return (
     <div className="mb-4 last:mb-0">
-      <div className="flex justify-between text-sm mb-1">
-        <span className="font-medium">{label}</span>
-        <span className="text-muted-foreground">
-          {total.toLocaleString()} / {max.toLocaleString()} {unit}
-        </span>
+      <div className="flex justify-between items-center text-xs sm:text-sm mb-1">
+        <span className="font-semibold text-slate-800">{label}</span>
+        <div className="text-right">
+          <span className="font-mono text-slate-700 font-medium">
+            {current.toLocaleString('en-IN', { maximumFractionDigits: 2 })} {unit}
+          </span>
+          <span className="text-[11px] text-muted-foreground ml-1.5">
+            (Total: {total.toLocaleString('en-IN', { maximumFractionDigits: 2 })} / {max.toLocaleString('en-IN', { maximumFractionDigits: 2 })})
+          </span>
+        </div>
       </div>
       <Progress 
         value={percentage} 
         className={`h-2 ${isBreached ? 'bg-destructive/20' : isWarning ? 'bg-orange-500/20' : ''}`} 
         indicatorClassName={isBreached ? 'bg-destructive' : isWarning ? 'bg-orange-500' : 'bg-primary'}
       />
-      {isBreached && <p className="text-xs text-destructive mt-1 flex items-center"><AlertTriangle className="h-3 w-3 mr-1"/> Limit Breached</p>}
+      {isBreached && <p className="text-xs text-destructive mt-1 flex items-center font-medium"><AlertTriangle className="h-3 w-3 mr-1"/> Limit Breached</p>}
     </div>
   )
 }

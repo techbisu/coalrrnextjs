@@ -3,18 +3,30 @@ export const proposalConfig = {
   acquisitionModeIdMap: {
     cba_act: 1,
     rfctlarr: 2,
+    lts_govt: 3,
+    lease_govt: 4,
+    forest_diversion: 5,
     direct_purchase: 6,
-    patta: 4 // Draft Project Expansion
+    inherited_land: 7,
+    la_act: 8,
+    lease_tenancy: 9,
   } as const,
 
+  primaryCreationModes: [
+    { key: 'DIRECT_PURCHASE', acqModeId: 6, label: 'Direct Purchase', sopActivity: '1.2' },
+    { key: 'RFCTLARR', acqModeId: 2, label: 'RFCTLARR Act 2013', sopActivity: '1.3' },
+    { key: 'CBA', acqModeId: 1, label: 'CBA (A&D) Act 1957', sopActivity: '1.1' },
+    { key: 'DRAFT_PR_STAGE', acqModeId: 6, label: 'Draft PR Stage (Checklist 1.4)', sopActivity: '1.4', proposalType: 'DRAFT_PR_CHECKLIST_1_4' },
+  ],
+
   // Fallback values used when proposal_no or mine/area codes are not yet provided
-  // These should only be used as a temporary draft reference, not committed to DB permanently
   fallbackProposalNoPrefix: 'PROP-',
   fallbackMineCode: 'UNK',
   fallbackAreaCode: 'UNK',
 
   defaultLimits: {
     warningThresholdPercent: 80,
+    criticalThresholdPercent: 100,
   },
 
   // Rules for auto-setting optional plot fields based on State LGD and Primary Plot Type

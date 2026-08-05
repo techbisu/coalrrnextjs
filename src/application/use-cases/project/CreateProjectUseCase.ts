@@ -8,16 +8,35 @@ import { EventBus } from '@/core/notifications/EventBus'
 import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di'
 
 export interface CreateProjectRequest {
-  name: string
-  mine_cds: string[]
+  proj_cd?: string
+  ecl_proj_cd?: string
+  name?: string
+  proj_nm?: string
+  mine_cd?: string
+  mine_cds?: string[]
   area_cd?: string
-  state_lgd?: bigint
+  state_lgd?: bigint | string | number
   pr_doc_id?: string | null
-  mouza_lgds?: bigint[]
-  total_land_limit_acres: number | string
-  land_budget: number | string
-  rr_budget: number | string
-  total_employment_quota: number
+  district_lgd?: bigint | string | number
+  block_lgds?: string[]
+  mouza_lgds?: (bigint | string | number)[]
+  total_land_limit_acres?: number | string
+  approved_tenancy_area?: number
+  approved_govt_area?: number
+  approved_patta_area?: number
+  approved_forest_area?: number
+  approved_excavation_area?: number
+  approved_safety_zone_area?: number
+  approved_ob_dump_area?: number
+  approved_infra_area?: number
+  approved_diversion_area?: number
+  approved_rehab_area?: number
+  is_combo_project?: boolean
+  linked_mine_codes?: string[]
+  land_budget?: number | string
+  rr_budget?: number | string
+  total_employment_quota?: number
+  sanctioned_employment_count?: number
   boundary?: string
   user_id: string
 }
@@ -35,24 +54,60 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
   ) {}
 
   async execute(request: CreateProjectRequest): Promise<Result<CreateProjectResponse>> {
-    // 1. Generate ECL Project Code
-    const eclProjCd = await this.projectRepository.generateEclProjCd(request.area_cd, request.mine_cds[0])
+    const areaCd = request.area_cd || 'DEFAULT'
+    const projName = request.proj_nm || request.name || 'Unnamed Project'
+    const mineCdsList = request.mine_cds || (request.mine_cd ? [request.mine_cd] : ['MINE'])
+    const primaryMineCd = mineCdsList[0] || 'MINE'
 
-    // 2. Validate and create domain entity
+    // Calculate total_land_limit_acres if not provided directly
+    const computedTotalLand = request.total_land_limit_acres
+      ? Number(request.total_land_limit_acres)
+      : (request.approved_tenancy_area || 0) + (request.approved_govt_area || 0) + (request.approved_forest_area || 0) + (request.approved_patta_area || 0)
+
+    const empQuota = request.total_employment_quota || request.sanctioned_employment_count || 0
+
+    // Auto-generate project codes if missing
+    const generatedCodes = await (this.projectRepository as any).generateProjectCodes(
+      areaCd,
+      primaryMineCd,
+      request.state_lgd
+    )
+
+    const finalProjCd = request.proj_cd && request.proj_cd.trim() !== '' ? request.proj_cd : generatedCodes.proj_cd
+    const finalEclProjCd = request.ecl_proj_cd && request.ecl_proj_cd.trim() !== '' ? request.ecl_proj_cd : generatedCodes.ecl_proj_cd
+    const finalStateLgd = request.state_lgd ? BigInt(request.state_lgd.toString()) : BigInt(generatedCodes.state_lgd)
+
+    // Validate and create domain entity
     const projectResult = Project.create({
-      projNm: request.name,
-      eclProjCd,
-      mine_cds: request.mine_cds,
+      projCd: finalProjCd,
+      projNm: projName,
+      eclProjCd: finalEclProjCd,
+      mine_cds: mineCdsList,
       area_cd: request.area_cd,
-      totalApprovedArea: request.total_land_limit_acres?.toString() || '0',
+      totalApprovedArea: computedTotalLand.toString(),
+      approved_tenancy_area: request.approved_tenancy_area,
+      approved_govt_area: request.approved_govt_area,
+      approved_patta_area: request.approved_patta_area,
+      approved_forest_area: request.approved_forest_area,
+      approved_excavation_area: request.approved_excavation_area,
+      approved_safety_zone_area: request.approved_safety_zone_area,
+      approved_ob_dump_area: request.approved_ob_dump_area,
+      approved_infra_area: request.approved_infra_area,
+      approved_diversion_area: request.approved_diversion_area,
+      approved_rehab_area: request.approved_rehab_area,
+      is_combo_project: request.is_combo_project,
+      linked_mine_codes: request.linked_mine_codes,
       landBudget: request.land_budget?.toString() || '0',
       rrBudget: request.rr_budget?.toString() || '0',
-      totalEmpSanctioned: request.total_employment_quota || 0,
+      totalEmpSanctioned: empQuota,
       tenantId: 'ecl',
-      state_lgd: request.state_lgd,
+      state_lgd: finalStateLgd,
+      district_lgd: request.district_lgd !== undefined ? Number(request.district_lgd) : undefined,
+      block_lgds: request.block_lgds ? request.block_lgds.map(String) : [],
+      mouza_lgds: request.mouza_lgds ? request.mouza_lgds.map(String) : [],
       pr_doc_id: request.pr_doc_id ?? undefined,
-      total_land_limit_acres: request.total_land_limit_acres,
-      total_employment_quota: request.total_employment_quota,
+      total_land_limit_acres: computedTotalLand,
+      total_employment_quota: empQuota,
       boundary: request.boundary,
     })
 
@@ -62,14 +117,15 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
 
     const project = projectResult.value
 
-    // 2. Persist (Repository should also handle mouza_lgds if needed in the future, 
-    // but right now it's not strictly part of the Project aggregate root yet, we can do it via a service or repository update method)
+    // 2. Persist
     await this.projectRepository.save(project)
     // Always sync project locations (this also creates the baseline ProjAprv if missing)
     await this.projectRepository.updateProjectLocations(
       project.id.toString(), 
       project.mineCds,
-      request.mouza_lgds || []
+      request.mouza_lgds ? request.mouza_lgds.map(String) : [],
+      request.district_lgd ? String(request.district_lgd) : undefined,
+      request.block_lgds ? request.block_lgds.map(String) : []
     )
     
     // Link the PR document in file_attachment if provided

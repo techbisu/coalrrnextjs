@@ -38,9 +38,25 @@ export class DocxGeneratorEngine {
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
+      // Return empty string for any placeholder not present in data
+      // This prevents docxtemplater from rendering "undefined" for missing tags
+      nullGetter() { return '' },
     })
     
-    doc.render(data)
+    // Sanitize: convert undefined / null / NaN to empty string so docxtemplater
+    // never renders the literal string "undefined" for any placeholder
+    const sanitized: Record<string, any> = {}
+    for (const [key, value] of Object.entries(data as Record<string, any>)) {
+      if (value === null || value === undefined) {
+        sanitized[key] = ''
+      } else if (typeof value === 'number' && isNaN(value)) {
+        sanitized[key] = ''
+      } else {
+        sanitized[key] = value
+      }
+    }
+
+    doc.render(sanitized)
     
     return doc.getZip().generate({ type: 'nodebuffer' })
   }

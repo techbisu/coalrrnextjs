@@ -56,6 +56,8 @@ export async function GET(
           filters[key] = colConfig?.type === 'number'
             ? { in: list.map(v => useBigInt ? BigInt(v) : Number(v)) }
             : { in: list }
+        } else if (value === 'null') {
+          filters[key] = null
         } else {
           filters[key] = colConfig?.type === 'number'
             ? (useBigInt ? BigInt(value) : Number(value))
@@ -80,27 +82,17 @@ export async function GET(
       return filters
     }
 
-    // When labelFormat is active, fetch all columns (omit select entirely)
-    const buildSelect = () => {
-      if (config.labelFormat) return null
-      return { [primaryKey]: true, [labelKey]: true }
-    }
-
     let records: any[]
     try {
-      const sel = buildSelect()
       records = await (db as any)[modelName].findMany({
         where: buildWhere(true),
-        ...(sel ? { select: sel } : {}),
         take: 2000, // generous upper bound for client-side filtering
         orderBy: { [labelKey]: 'asc' },
       })
     } catch {
       // Fallback: retry with Number instead of BigInt
-      const sel = buildSelect()
       records = await (db as any)[modelName].findMany({
         where: buildWhere(false),
-        ...(sel ? { select: sel } : {}),
         take: 2000,
         orderBy: { [labelKey]: 'asc' },
       })

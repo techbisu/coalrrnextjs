@@ -1,5 +1,4 @@
 import { Prisma } from '@prisma/client'
-import { Audit } from '@/core/audit/services/AuditService'
 import { auditConfig } from '@/core/config/audit.config'
 import { getRequestContext } from '@/core/context/RequestContext'
 
@@ -83,16 +82,18 @@ export const withAuditExtension = Prisma.defineExtension({
           !EXCLUDED_MODELS.includes(modelName) &&
           !EXCLUDED_MODELS.includes(model as string)
         ) {
-          Audit.updateRecord(
-            model,
-            'CREATE',
-            undefined,
-            undefined,
-            result,
-            userId,
-            ipAddress,
-            userAgent
-          ).catch(console.error)
+          import('@/core/audit/services/AuditService').then(({ Audit }) => {
+            Audit.updateRecord(
+              model,
+              'CREATE',
+              undefined,
+              undefined,
+              result,
+              userId,
+              ipAddress,
+              userAgent
+            ).catch(console.error)
+          }).catch(() => {})
         }
 
         return result
@@ -132,16 +133,18 @@ export const withAuditExtension = Prisma.defineExtension({
           !EXCLUDED_MODELS.includes(modelName) &&
           !EXCLUDED_MODELS.includes(model as string)
         ) {
-          Audit.updateRecord(
-            model,
-            'UPDATE',
-            (args as any).where,
-            oldData,
-            result,
-            userId,
-            ipAddress,
-            userAgent
-          ).catch(console.error)
+          import('@/core/audit/services/AuditService').then(({ Audit }) => {
+            Audit.updateRecord(
+              model,
+              'UPDATE',
+              (args as any).where,
+              oldData,
+              result,
+              userId,
+              ipAddress,
+              userAgent
+            ).catch(console.error)
+          }).catch(() => {})
         }
 
         return result
@@ -157,16 +160,18 @@ export const withAuditExtension = Prisma.defineExtension({
           !EXCLUDED_MODELS.includes(modelName) &&
           !EXCLUDED_MODELS.includes(model as string)
         ) {
-          Audit.updateRecord(
-            model,
-            'DELETE',
-            (args as any).where,
-            result,
-            undefined,
-            userId,
-            ipAddress,
-            userAgent
-          ).catch(console.error)
+          import('@/core/audit/services/AuditService').then(({ Audit }) => {
+            Audit.updateRecord(
+              model,
+              'DELETE',
+              (args as any).where,
+              result,
+              undefined,
+              userId,
+              ipAddress,
+              userAgent
+            ).catch(console.error)
+          }).catch(() => {})
         }
 
         return result

@@ -6,7 +6,7 @@ import { useMasterLookup } from '@/shared/hooks/useMasterLookup'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
 import { Progress } from '@/shared/components/ui/progress'
-import { Lock, MapPin, IndianRupee, Users, AlertTriangle, ChevronRight, Building2 } from 'lucide-react'
+import { Lock, MapPin, IndianRupee, Users, AlertTriangle, ChevronRight, Layers, FileText, CheckCircle2 } from 'lucide-react'
 import { formatINR, formatNumber } from '@/lib/utils/formatters'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -17,7 +17,6 @@ import {
 import { Input } from '@/shared/components/ui/input'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 
-// ... existing arrays ...
 const PROJECT_COLORS = [
   'bg-blue-500/10 text-blue-700 border-blue-200 dark:text-blue-400 dark:border-blue-900',
   'bg-emerald-500/10 text-emerald-700 border-emerald-200 dark:text-emerald-400 dark:border-emerald-900',
@@ -29,28 +28,6 @@ const PROJECT_COLORS = [
   'bg-orange-500/10 text-orange-700 border-orange-200 dark:text-orange-400 dark:border-orange-900'
 ]
 
-const PROJECT_BORDERS = [
-  'border-l-blue-500',
-  'border-l-emerald-500',
-  'border-l-violet-500',
-  'border-l-amber-500',
-  'border-l-rose-500',
-  'border-l-cyan-500',
-  'border-l-fuchsia-500',
-  'border-l-orange-500'
-]
-
-const PROJECT_PROGRESS_COLORS = [
-  'bg-blue-500',
-  'bg-emerald-500',
-  'bg-violet-500',
-  'bg-amber-500',
-  'bg-rose-500',
-  'bg-cyan-500',
-  'bg-fuchsia-500',
-  'bg-orange-500'
-]
-
 function getProjectColorIndex(id: string) {
   let hash = 0
   for (let i = 0; i < id.length; i++) {
@@ -60,11 +37,27 @@ function getProjectColorIndex(id: string) {
 }
 
 interface ProjectData {
-  id: string; name: string; mine_cd: string; ecl_proj_cd?: string; area_cd?: string;
-  total_land_limit_acres: string; total_budget_ceiling: string; total_employment_quota: number
-  total_acquired_area: string; areaUtilization: number;
-  locked_at: string | null; isLocked: boolean
-  payrollCount: number; totalDisbursed: string; budgetUtilization: string
+  id: string
+  name: string
+  mine_cd: string
+  ecl_proj_cd?: string
+  area_cd?: string
+  total_land_limit_acres: string
+  total_budget_ceiling: string
+  total_employment_quota: number
+  total_acquired_area: string
+  areaUtilization: number
+  locked_at: string | null
+  isLocked: boolean
+  payrollCount: number
+  totalDisbursed: string
+  budgetUtilization: string
+  is_combo_project?: boolean
+  linked_mine_codes?: string[]
+  approved_tenancy_area?: string | number
+  approved_govt_area?: string | number
+  approved_forest_area?: string | number
+  proposals_count?: number
 }
 
 interface ProjectListProps {
@@ -76,7 +69,7 @@ interface ProjectListProps {
 export function ProjectList({ projects, onSelectProject, selectedProjectId }: ProjectListProps) {
   const t = useAppTranslation('project_master')
   const [searchQuery, setSearchQuery] = React.useState('')
-  const [filterLocked, setFilterLocked] = React.useState<boolean | null>(null) // null = all, true = locked, false = draft
+  const [filterLocked, setFilterLocked] = React.useState<boolean | null>(null)
   const [filterArea, setFilterArea] = React.useState<string | undefined>()
   const [filterMine, setFilterMine] = React.useState<string | undefined>()
 
@@ -134,10 +127,11 @@ export function ProjectList({ projects, onSelectProject, selectedProjectId }: Pr
 
   return (
     <div className="space-y-4">
+      {/* Filter Controls Bar */}
       <FilterBar 
         searchQuery={searchQuery} 
         onSearchChange={setSearchQuery}
-      searchPlaceholder={t('search_placeholder')}
+        searchPlaceholder={t('search_placeholder', 'Search by project name, code, or mine...')}
         hasActiveFilters={filterLocked !== null || !!filterMine || !!filterArea}
         onClearFilters={() => {
           setFilterLocked(null)
@@ -166,156 +160,191 @@ export function ProjectList({ projects, onSelectProject, selectedProjectId }: Pr
             disabled={!filterArea}
           />
           <div className="flex bg-muted p-1 rounded-md">
-          <button 
-            onClick={() => setFilterLocked(null)}
-            className={`px-3 py-1 text-xs rounded-sm transition-colors ${filterLocked === null ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            All
-          </button>
-          <button 
-            onClick={() => setFilterLocked(true)}
-            className={`px-3 py-1 text-xs rounded-sm transition-colors flex items-center gap-1 ${filterLocked === true ? 'bg-background shadow-sm text-secondary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            Locked
-          </button>
-          <button 
-            onClick={() => setFilterLocked(false)}
-            className={`px-3 py-1 text-xs rounded-sm transition-colors flex items-center gap-1 ${filterLocked === false ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            Draft
-          </button>
-        </div>
+            <button 
+              onClick={() => setFilterLocked(null)}
+              className={`px-2.5 py-0.5 text-xs rounded-sm transition-colors ${filterLocked === null ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              All
+            </button>
+            <button 
+              onClick={() => setFilterLocked(true)}
+              className={`px-2.5 py-0.5 text-xs rounded-sm transition-colors flex items-center gap-1 ${filterLocked === true ? 'bg-background shadow-sm font-medium text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Locked
+            </button>
+            <button 
+              onClick={() => setFilterLocked(false)}
+              className={`px-2.5 py-0.5 text-xs rounded-sm transition-colors flex items-center gap-1 ${filterLocked === false ? 'bg-background shadow-sm font-medium text-amber-700 dark:text-amber-400' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Draft
+            </button>
+          </div>
         </div>
       </FilterBar>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
+      {/* Responsive Executive Project Card Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {projects.length === 0 ? (
           <div className="col-span-full py-16 px-6 text-center bg-card border border-dashed rounded-xl flex flex-col items-center justify-center">
-            <h3 className="text-lg font-medium text-foreground">{t('no_projects_found')}</h3>
-            <p className="text-muted-foreground mt-2">{t('no_projects_desc', 'There are no projects available in the system yet. Please create one to get started.')}</p>
+            <h3 className="text-base font-semibold text-foreground">{t('no_projects_found', 'No projects registered')}</h3>
+            <p className="text-xs text-muted-foreground mt-1">{t('no_projects_desc', 'There are no project PR Report baselines in the system yet. Click "New Project" to register one.')}</p>
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div className="col-span-full py-12 text-center text-muted-foreground bg-card border border-dashed rounded-xl">
-            {t('no_projects_found')}
+          <div className="col-span-full py-12 text-center text-xs text-muted-foreground bg-card border border-dashed rounded-xl">
+            No projects match the selected search & filter criteria.
           </div>
         ) : (
           filteredProjects.map(project => {
             const colorIdx = getProjectColorIndex(project.id)
             const colorClass = PROJECT_COLORS[colorIdx]
-            const progressClass = PROJECT_PROGRESS_COLORS[colorIdx]
             
-            const areaPct = Number(project.total_land_limit_acres) > 0 
-              ? (Number(project.total_acquired_area) / Number(project.total_land_limit_acres)) * 100 
-              : 0
+            const areaAcquired = Number(project.total_acquired_area || 0)
+            const areaLimit = Number(project.total_land_limit_acres || 0)
+            const areaPct = areaLimit > 0 ? Math.min((areaAcquired / areaLimit) * 100, 100) : 0
+            const isCombo = project.is_combo_project || (project.linked_mine_codes && project.linked_mine_codes.length > 0)
             
             return (
               <div 
                 key={project.id}
                 onClick={() => onSelectProject(project.id)}
-                className={`group relative flex flex-col bg-card border rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${selectedProjectId === project.id ? 'ring-2 ring-primary border-transparent' : 'border-border'}`}
+                className={`group relative flex flex-col justify-between bg-card border rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:border-amber-400/80 cursor-pointer ${
+                  selectedProjectId === project.id ? 'ring-2 ring-amber-500 border-transparent bg-amber-50/10' : 'border-border'
+                }`}
               >
-                {/* Card Header Background */}
-                <div className={`h-24 w-full absolute top-0 left-0 bg-gradient-to-br from-background to-muted opacity-50 z-0`}></div>
-                
-                {/* Status Badge */}
-                <div className="absolute top-4 right-4 z-10">
-                  <Badge variant={project.isLocked ? "default" : "secondary"} className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 shadow-sm ${project.isLocked ? 'bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-400' : ''}`}>
-                    {project.isLocked ? <><Lock className="h-3 w-3 mr-1" />{t('baseline_locked')}</> : t('draft', 'Draft')}
-                  </Badge>
-                </div>
-
-                <div className="p-6 pt-5 flex-1 flex flex-col z-10">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className={`h-14 w-14 shrink-0 rounded-2xl flex items-center justify-center font-bold text-xl shadow-inner ${colorClass}`}>
-                      {project.name.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div className="flex flex-col pr-12">
-                      <h3 className="font-semibold text-lg leading-tight line-clamp-1" title={project.name}>{project.name}</h3>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <Badge variant="outline" className="text-[10px] font-mono bg-background text-muted-foreground border-dashed px-1.5">
-                          {project.ecl_proj_cd || project.mine_cd}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground font-medium line-clamp-1">
-                          {mineMap.has(project.mine_cd) ? mineMap.get(project.mine_cd) : ''}
-                        </span>
+                {/* Top Section: Header & Status Badges */}
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`h-11 w-11 shrink-0 rounded-xl flex items-center justify-center font-bold text-base shadow-sm ${colorClass}`}>
+                        {project.name.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-base leading-snug text-foreground truncate" title={project.name}>
+                          {project.name}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                          <span className="font-mono font-medium text-foreground">{project.ecl_proj_cd || project.id}</span>
+                          <span>•</span>
+                          <span>Area: <strong className="text-foreground">{project.area_cd || '—'}</strong></span>
+                          <span>•</span>
+                          <span>Mine: <strong className="text-foreground">{project.mine_cd}</strong></span>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Lock / Draft Status */}
+                    <div className="shrink-0 flex items-center gap-1">
+                      {isCombo && (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] uppercase font-bold tracking-tight">
+                          <Layers className="h-2.5 w-2.5 mr-1" /> Combo
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className={`text-[10px] font-semibold uppercase tracking-tight ${
+                        project.isLocked 
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300' 
+                          : 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
+                      }`}>
+                        {project.isLocked ? <><Lock className="h-2.5 w-2.5 mr-1" /> Locked</> : 'Draft'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Type-Wise PR Baseline Abstract Breakdown */}
+                  <div className="my-3 rounded-lg bg-muted/40 p-2.5 border border-border/50 text-xs grid grid-cols-3 gap-2">
+                    <div>
+                      <div className="text-[10px] uppercase font-medium text-muted-foreground">Tenancy Baseline</div>
+                      <div className="font-mono font-semibold text-foreground">{formatNumber(project.approved_tenancy_area || 0, 2)} ac</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-medium text-muted-foreground">Govt Baseline</div>
+                      <div className="font-mono font-semibold text-foreground">{formatNumber(project.approved_govt_area || 0, 2)} ac</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-medium text-muted-foreground">Forest Baseline</div>
+                      <div className="font-mono font-semibold text-foreground">{formatNumber(project.approved_forest_area || 0, 2)} ac</div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Metrics Grid */}
-                <div 
-                  className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-slate-800/50 bg-slate-50/50 dark:bg-slate-900/20 cursor-pointer"
-                  onClick={() => onSelectProject(project.id)}
-                >
-                  {/* Area */}
-                  <div className="p-3 space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <MapPin className="h-3.5 w-3.5" />
-                      <span className="text-[10px] font-medium uppercase tracking-wider">Area</span>
+                {/* Metric Summary Progress Cards */}
+                <div>
+                  <div className="grid grid-cols-3 gap-2 py-2 border-t border-border/60 text-xs">
+                    {/* Land Utilization */}
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <MapPin className="h-3 w-3 text-emerald-600" />
+                        <span>Land Capacity</span>
+                      </div>
+                      <div className="font-mono text-xs font-bold text-foreground">
+                        {formatNumber(areaAcquired, 1)} / {formatNumber(areaLimit, 1)} ac
+                      </div>
+                      <Progress value={areaPct} className="h-1.5" indicatorClassName={areaPct > 100 ? 'bg-red-500' : areaPct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'} />
                     </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-sm font-semibold tabular-nums">{formatNumber(project.total_acquired_area, 2)}</span>
-                      <span className="text-[10px] text-muted-foreground">/ {formatNumber(project.total_land_limit_acres, 0)} ac</span>
+
+                    {/* Financial Budget */}
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <IndianRupee className="h-3 w-3 text-amber-600" />
+                        <span>Budget Ceiling</span>
+                      </div>
+                      <div className="font-mono text-xs font-bold text-foreground">
+                        {formatINR(project.total_budget_ceiling || 0)}
+                      </div>
+                      <Progress value={Number(project.budgetUtilization || 0)} className="h-1.5" indicatorClassName={Number(project.budgetUtilization || 0) > 100 ? 'bg-red-500' : 'bg-amber-500'} />
                     </div>
-                    <Progress value={areaPct} className="h-1" indicatorClassName={areaPct < 90 ? 'bg-emerald-500' : 'bg-destructive'} />
+
+                    {/* Job Quota */}
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <Users className="h-3 w-3 text-violet-600" />
+                        <span>Job Quota</span>
+                      </div>
+                      <div className="font-mono text-xs font-bold text-foreground">
+                        {project.payrollCount || 0} / {project.total_employment_quota || 0}
+                      </div>
+                      <Progress value={project.total_employment_quota ? ((project.payrollCount || 0) / project.total_employment_quota) * 100 : 0} className="h-1.5" indicatorClassName="bg-violet-500" />
+                    </div>
                   </div>
 
-                  {/* Budget */}
-                  <div className="p-3 space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <IndianRupee className="h-3.5 w-3.5" />
-                      <span className="text-[10px] font-medium uppercase tracking-wider">Budget</span>
+                  {/* Card Footer: Action & Quick Info */}
+                  <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 text-muted-foreground text-[11px]">
+                      {project.proposals_count !== undefined && (
+                        <span className="flex items-center gap-1 font-medium text-foreground">
+                          <FileText className="h-3 w-3 text-amber-600" /> {project.proposals_count} Proposals
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-sm font-semibold tabular-nums">{Number(project.budgetUtilization).toFixed(0)}%</span>
-                      <span className="text-[10px] text-muted-foreground">used</span>
-                    </div>
-                    <Progress value={Number(project.budgetUtilization)} className="h-1" indicatorClassName={Number(project.budgetUtilization) < 80 ? 'bg-amber-500' : 'bg-destructive'} />
-                  </div>
 
-                  {/* Employment */}
-                  <div className="p-3 space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <Users className="h-3.5 w-3.5" />
-                      <span className="text-[10px] font-medium uppercase tracking-wider">Jobs</span>
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-sm font-semibold tabular-nums">{project.payrollCount || 0}</span>
-                      <span className="text-[10px] text-muted-foreground">/ {project.total_employment_quota}</span>
-                    </div>
-                    <Progress value={project.total_employment_quota ? ((project.payrollCount || 0) / project.total_employment_quota) * 100 : 0} className="h-1" indicatorClassName="bg-violet-500" />
-                  </div>
-                </div>
+                    <div className="flex items-center gap-2">
+                      {!project.isLocked && (
+                        <Can permission="project.delete">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive px-2"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setProjectToDelete({ id: project.id, name: project.name })
+                              setDeleteConfirmName('')
+                              setDeleteConfirmOpen(true)
+                            }}
+                          >
+                            <AlertTriangle className="mr-1 h-3 w-3" /> Delete
+                          </Button>
+                        </Can>
+                      )}
 
-                {/* Footer Action */}
-                <div className="p-3 border-t border-slate-100 dark:border-slate-800/50 flex justify-between items-center bg-white dark:bg-card">
-                  <div className="flex items-center gap-2">
-                    {!project.isLocked && (
-                      <Can permission="project.delete">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive px-2"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setProjectToDelete({ id: project.id, name: project.name })
-                            setDeleteConfirmName('')
-                            setDeleteConfirmOpen(true)
-                          }}
-                        >
-                          <AlertTriangle className="mr-1.5 h-3.5 w-3.5" /> Delete
-                        </Button>
-                      </Can>
-                    )}
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="h-7 text-xs font-semibold text-amber-700 dark:text-amber-400 group-hover:bg-amber-500/10"
+                        onClick={() => onSelectProject(project.id)}
+                      >
+                        Overview <ChevronRight className="ml-0.5 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </Button>
+                    </div>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    className="w-full sm:w-auto text-xs font-medium h-8 group-hover:bg-primary/5"
-                    onClick={() => onSelectProject(project.id)}
-                  >
-                    View Details <ChevronRight className="ml-1 h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
-                  </Button>
                 </div>
               </div>
             )
@@ -323,6 +352,7 @@ export function ProjectList({ projects, onSelectProject, selectedProjectId }: Pr
         )}
       </div>
 
+      {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onOpenChange={(open) => {
         setDeleteConfirmOpen(open)
         if (!open) {
@@ -332,11 +362,11 @@ export function ProjectList({ projects, onSelectProject, selectedProjectId }: Pr
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('delete_project', 'Delete Project')}</DialogTitle>
+            <DialogTitle>{t('delete_project', 'Delete Project Baseline')}</DialogTitle>
             <DialogDescription>
-              {t('delete_confirm_desc', 'Are you sure you want to delete this project? This action cannot be undone.')}
+              Are you sure you want to delete this project baseline? This action cannot be undone.
               <br /><br />
-              {t('delete_confirm_type', 'Type the project name')} <strong className="text-foreground">{projectToDelete?.name}</strong> {t('delete_confirm_exactly', 'exactly as shown below to confirm.')}
+              Type the project name <strong className="text-foreground">{projectToDelete?.name}</strong> exactly as shown below to confirm.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -348,7 +378,7 @@ export function ProjectList({ projects, onSelectProject, selectedProjectId }: Pr
             />
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>{t('cancel')}</Button>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>{t('cancel', 'Cancel')}</Button>
             <Button 
               variant="destructive" 
               onClick={handleDelete}

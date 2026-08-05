@@ -3,11 +3,10 @@ import { IProposalRepository, ProposalDTO } from '@/domain/entities/proposal';
 import { IProjectRepository } from '@/domain/entities/project'
 
 export interface GetProposalsRequest {
-  filter?: {
-    mine_cd?: string;
-    area_cd?: string;
-  }
-  scope?: any
+  filter?: any;
+  scope?: any;
+  userId?: string;
+  userName?: string;
 }
 
 export class GetProposalsUseCase implements IUseCase<GetProposalsRequest, any[]> {
@@ -19,7 +18,8 @@ export class GetProposalsUseCase implements IUseCase<GetProposalsRequest, any[]>
   async execute(request?: GetProposalsRequest): Promise<Result<any[]>> {
     try {
       const scopeArg = request?.scope || request?.filter
-      const proposals = await this.proposalRepo.getAllProposals(scopeArg)
+      const userContext = { userId: request?.userId, userName: request?.userName }
+      const proposals = await (this.proposalRepo as any).getAllProposals(scopeArg, userContext)
       
       const dtos = proposals.map(p => {
         let total = 0

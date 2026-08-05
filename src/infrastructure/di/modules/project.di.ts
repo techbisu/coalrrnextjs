@@ -19,58 +19,32 @@ import { GetPafRecordUseCase } from '@/application/use-cases/paf/GetPafRecordUse
 import { UpdatePafRecordUseCase } from '@/application/use-cases/paf/UpdatePafRecordUseCase'
 import { DeletePafRecordUseCase } from '@/application/use-cases/paf/DeletePafRecordUseCase'
 
-const globalForProjectDI = globalThis as unknown as {
-  createProjectUseCase: CreateProjectUseCase | undefined
-  updateProjectUseCase: UpdateProjectUseCase | undefined
-  getProjectDashboardUseCase: GetProjectDashboardUseCase | undefined
-  getProjectDetailUseCase: GetProjectDetailUseCase | undefined
-  deleteProjectUseCase: DeleteProjectUseCase | undefined
-  listPafRecordsUseCase: ListPafRecordsUseCase | undefined
-  createPafRecordUseCase: CreatePafRecordUseCase | undefined
-  getPafRecordUseCase: GetPafRecordUseCase | undefined
-  updatePafRecordUseCase: UpdatePafRecordUseCase | undefined
-  deletePafRecordUseCase: DeletePafRecordUseCase | undefined
-  baselineLockUseCase: BaselineLockUseCase | undefined
-  approveFormXXIIUseCase: ApproveFormXXIIUseCase | undefined
-  generateFormXXIIUseCase: GenerateFormXXIIUseCase | undefined
-  projectChecklistResolver: ProjectChecklistResolver | undefined
+export function getProjectRepository() {
+  return new PrismaProjectRepository()
 }
 
-const projectRepository = new PrismaProjectRepository()
-const pafRepository = new PrismaPafRepository()
-const locationRepository = new PrismaProjectApprovalLocationRepository()
-const complianceService = new ComplianceMonitorService(projectRepository, locationRepository)
-
-export const createProjectUseCase = globalForProjectDI.createProjectUseCase ?? new CreateProjectUseCase(projectRepository)
-export const updateProjectUseCase = globalForProjectDI.updateProjectUseCase ?? new UpdateProjectUseCase(projectRepository)
-export const getProjectDashboardUseCase = globalForProjectDI.getProjectDashboardUseCase ?? new GetProjectDashboardUseCase(projectRepository)
-export const getProjectDetailUseCase = globalForProjectDI.getProjectDetailUseCase ?? new GetProjectDetailUseCase(projectRepository)
-export const deleteProjectUseCase = globalForProjectDI.deleteProjectUseCase ?? new DeleteProjectUseCase(projectRepository)
-export const baselineLockUseCase = globalForProjectDI.baselineLockUseCase ?? new BaselineLockUseCase(projectRepository)
-export const approveFormXXIIUseCase = globalForProjectDI.approveFormXXIIUseCase ?? new ApproveFormXXIIUseCase(projectRepository)
-export const generateFormXXIIUseCase = globalForProjectDI.generateFormXXIIUseCase ?? new GenerateFormXXIIUseCase(projectRepository, complianceService)
-
-export const projectChecklistResolver = globalForProjectDI.projectChecklistResolver ?? new ProjectChecklistResolver(projectRepository)
-
-export const listPafRecordsUseCase = globalForProjectDI.listPafRecordsUseCase ?? new ListPafRecordsUseCase(pafRepository)
-export const createPafRecordUseCase = globalForProjectDI.createPafRecordUseCase ?? new CreatePafRecordUseCase(pafRepository)
-export const getPafRecordUseCase = globalForProjectDI.getPafRecordUseCase ?? new GetPafRecordUseCase(pafRepository)
-export const updatePafRecordUseCase = globalForProjectDI.updatePafRecordUseCase ?? new UpdatePafRecordUseCase(pafRepository)
-export const deletePafRecordUseCase = globalForProjectDI.deletePafRecordUseCase ?? new DeletePafRecordUseCase(pafRepository)
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForProjectDI.createProjectUseCase = createProjectUseCase
-  globalForProjectDI.updateProjectUseCase = updateProjectUseCase
-  globalForProjectDI.getProjectDashboardUseCase = getProjectDashboardUseCase
-  globalForProjectDI.getProjectDetailUseCase = getProjectDetailUseCase
-  globalForProjectDI.deleteProjectUseCase = deleteProjectUseCase
-  globalForProjectDI.listPafRecordsUseCase = listPafRecordsUseCase
-  globalForProjectDI.createPafRecordUseCase = createPafRecordUseCase
-  globalForProjectDI.getPafRecordUseCase = getPafRecordUseCase
-  globalForProjectDI.updatePafRecordUseCase = updatePafRecordUseCase
-  globalForProjectDI.deletePafRecordUseCase = deletePafRecordUseCase
-  globalForProjectDI.baselineLockUseCase = baselineLockUseCase
-  globalForProjectDI.approveFormXXIIUseCase = approveFormXXIIUseCase
-  globalForProjectDI.generateFormXXIIUseCase = generateFormXXIIUseCase
-  globalForProjectDI.projectChecklistResolver = projectChecklistResolver
+export function getPafRepository() {
+  return new PrismaPafRepository()
 }
+
+export const projectRepository = getProjectRepository()
+export const pafRepository = getPafRepository()
+export const locationRepository = new PrismaProjectApprovalLocationRepository()
+export const complianceService = new ComplianceMonitorService(projectRepository, locationRepository)
+
+export const createProjectUseCase = new CreateProjectUseCase(getProjectRepository())
+export const updateProjectUseCase = new UpdateProjectUseCase(getProjectRepository())
+export const getProjectDashboardUseCase = new GetProjectDashboardUseCase(getProjectRepository())
+export const getProjectDetailUseCase = new GetProjectDetailUseCase(getProjectRepository())
+export const deleteProjectUseCase = new DeleteProjectUseCase(getProjectRepository())
+export const baselineLockUseCase = new BaselineLockUseCase(getProjectRepository())
+export const approveFormXXIIUseCase = new ApproveFormXXIIUseCase(getProjectRepository())
+export const generateFormXXIIUseCase = new GenerateFormXXIIUseCase(getProjectRepository(), complianceService)
+
+export const projectChecklistResolver = new ProjectChecklistResolver(getProjectRepository())
+
+export const listPafRecordsUseCase = new ListPafRecordsUseCase(pafRepository)
+export const createPafRecordUseCase = new CreatePafRecordUseCase(pafRepository)
+export const getPafRecordUseCase = new GetPafRecordUseCase(pafRepository)
+export const updatePafRecordUseCase = new UpdatePafRecordUseCase(pafRepository)
+export const deletePafRecordUseCase = new DeletePafRecordUseCase(pafRepository)

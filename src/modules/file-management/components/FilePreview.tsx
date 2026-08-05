@@ -56,16 +56,7 @@ export function FilePreview({ file_id, mime_type, original_name, className = '' 
 
 
     if (mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mime_type === 'application/msword') {
-      const docxPreviewUrl = `${downloadUrl}?preview=true#toolbar=0&navpanes=0&scrollbar=0`;
-      return (
-        <div className="w-full h-full p-2 md:p-4 bg-slate-100 flex flex-col items-center overflow-hidden">
-          <iframe 
-            src={docxPreviewUrl} 
-            className="w-full max-w-5xl bg-white shadow-xl rounded-sm border border-slate-200 flex-1 mb-8"
-            onLoad={() => setLoading(false)}
-          />
-        </div>
-      );
+      return <DocxPreviewContent downloadUrl={downloadUrl} setLoading={setLoading} />;
     }
 
 
@@ -95,6 +86,83 @@ export function FilePreview({ file_id, mime_type, original_name, className = '' 
         </div>
       )}
       {renderContent()}
+    </div>
+  );
+}
+
+function DocxPreviewContent({ downloadUrl, setLoading }: { downloadUrl: string; setLoading: (loading: boolean) => void }) {
+  const [htmlContent, setHtmlContent] = useState<string | null>(null);
+  const [useIframe, setUseIframe] = useState<boolean>(false);
+  const [docxError, setDocxError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+
+    fetch(`${downloadUrl}?preview=true`)
+      .then((res) => {
+        const contentType = res.headers.get('Content-Type') || '';
+        if (contentType.includes('application/pdf')) {
+          setUseIframe(true);
+          setLoading(false);
+          return null;
+        }
+        return res.arrayBuffer();
+      })
+      .then(async (arrayBuffer) => {
+        if (!arrayBuffer || !isMounted) return;
+        try {
+          const result = await mammoth.convertToHtml({ arrayBuffer });
+          if (isMounted) {
+            setHtmlContent(result.value);
+          }
+        } catch (err: any) {
+          if (isMounted) {
+            setDocxError(err.message || 'Failed to render document preview');
+          }
+        } finally {
+          if (isMounted) setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          setDocxError(err.message);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [downloadUrl]);
+
+  if (useIframe) {
+    return (
+      <div className="w-full h-full p-2 md:p-4 bg-slate-100 flex flex-col items-center overflow-hidden">
+        <iframe
+          src={`${downloadUrl}?preview=true#toolbar=0&navpanes=0&scrollbar=0`}
+          className="w-full max-w-5xl bg-white shadow-xl rounded-sm border border-slate-200 flex-1 mb-8"
+          onLoad={() => setLoading(false)}
+        />
+      </div>
+    );
+  }
+
+  if (docxError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center bg-white rounded shadow border max-w-md my-auto mx-auto">
+        <p className="text-sm text-rose-500 font-semibold mb-2">Preview Error</p>
+        <p className="text-xs text-slate-600">{docxError}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full h-full p-4 md:p-8 bg-slate-100 overflow-y-auto flex justify-center">
+      <div
+        className="w-full max-w-4xl bg-white p-8 md:p-12 shadow-lg border border-slate-200 text-slate-900 rounded-sm prose prose-slate max-w-none text-sm leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: htmlContent || '<p className="text-slate-400 italic">Rendering document preview…</p>' }}
+      />
     </div>
   );
 }

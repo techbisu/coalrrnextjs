@@ -16,7 +16,8 @@ export class ResolverRegistry {
   getResolver(templateCode: string): IDocumentResolver {
     const resolver = this.resolvers.get(templateCode)
     if (!resolver) {
-      throw new Error(`No resolver found for template code: ${templateCode}`)
+      // Fallback resolver for custom / unknown template codes
+      return this.resolvers.get('FORM_VII') || new FormVIIResolver()
     }
     return resolver
   }

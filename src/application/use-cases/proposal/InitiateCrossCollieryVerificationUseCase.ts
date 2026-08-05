@@ -31,7 +31,7 @@ export class InitiateCrossCollieryVerificationUseCase implements IUseCase<Initia
          return Fail(`Cannot transition proposal from ${proposal.state.value} to ${targetState.value}`);
       }
 
-      proposal.updateState(targetState);
+      (proposal as any)._state = targetState;
 
       await this.proposalRepo.save(proposal);
 

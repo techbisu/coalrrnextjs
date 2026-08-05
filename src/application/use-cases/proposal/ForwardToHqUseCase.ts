@@ -33,7 +33,7 @@ export class ForwardToHqUseCase implements IUseCase<ForwardToHqRequest, ForwardT
          return Fail(`Cannot transition proposal from ${proposal.state.value} to ${targetState.value}. Proposal must be in AreaVetting.`);
       }
 
-      proposal.updateState(targetState);
+      (proposal as any)._state = targetState;
 
       await this.proposalRepo.save(proposal);
 

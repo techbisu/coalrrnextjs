@@ -3,17 +3,19 @@
 The Document Engine is a Clean Architecture module responsible for managing the lifecycle of documents (Draft vs Generated, Dynamic Forms, Signatures) and orchestrating generation. It relies on the pure core engine (`src/lib/engines/docx`) for actual zip and XML manipulation.
 
 ## Core Architecture
-- **Core Engine (`src/lib/engines/docx`)**: Pure, stateless `.docx` generation logic.
+- **Core Engine (`src/lib/engines/docx`)**: Pure, stateless `.docx` generation logic with `nullGetter()` protection.
 - **Application Layer (`src/modules/document-engine/application/use-cases`)**: Clean Use Cases (`StartDocumentWorkspaceUseCase`, `GenerateDocumentUseCase`).
-- **API Layer (`src/app/api/document-engine`)**: Secure REST API endpoints orchestrating the Use Cases.
-- **Shared UI (`src/components/coalrr/DocumentWorkspaceModal.tsx`)**: Reusable platform UI widget.
+- **API Layer (`src/app/api/document-engine`)**: Secure REST API endpoints orchestrating Use Cases (`/workspace`, `/generate`, `/sign`, `/save-form`).
+- **Shared UI (`src/shared/components/coalrr/DocumentWorkspaceModal.tsx`)**: Reusable platform UI workspace with dynamic forms, auto-collapsible panels, and sequential signature workflows.
+- **File Management & HTML Preview (`FilePreview.tsx`)**: Renders `.docx` documents instantly in-browser using `mammoth.convertToHtml()`.
 
 ## Core Features
-- **Idempotent Workspaces**: Workspaces are initialized as Drafts. Re-running the generation will cleanly overwrite the same file and database row rather than creating duplicates.
-- **Dynamic Form Engine**: Fields defined in the database dynamically render as a React form.
-- **Shared Validation**: Uses Zod to validate input dynamically on both the React frontend (via `react-hook-form`) and the Next.js API layer.
-- **Advanced Conditional Logic**: Fields can be hidden or shown dynamically based on complex JSON `$show_if` rules (e.g. `$eq`, `$gt`, `$and`).
-- **State-Based Signature Routing**: Signatures are dynamically injected into the document based on the Application's specific `workflow_state`.
+- **Idempotent Workspaces**: Workspaces are initialized as Drafts. Re-running generation cleanly overwrites the buffer and updates `document_instance`.
+- **Dynamic Form Engine**: Fields defined in `document_template_field` dynamically render as a React form with `.passthrough()` Zod validation.
+- **Auto-Collapsible Sidebar Card**: Form inputs ("Additional Information") auto-collapse upon saving/submitting, giving full focus to the preview and signatures.
+- **Permission-Driven Signature Routing (`sig_permission`)**: Signature steps store exact permission names (`<template>.sign.<role>`) in `document_template_signature.sig_permission`.
+- **Sequential Signature Pipeline**: Signatures are sorted by `display_order`. Step $N+1$ unlocks strictly after Step $N$ is signed.
+- **In-Browser Mammoth HTML Preview**: Browser renders `.docx` buffers natively via HTML conversion without requiring server-side LibreOffice instances.
 
 ---
 
@@ -30,15 +32,14 @@ Create a Microsoft Word document. Place variables inside single curly braces `{}
   {itemName} - {itemCost}
   {/items}
   ```
-- Signatures: `{Sig_GM_Page1}`
+- Signatures & Seals: `{Sig_GM_Page1}`, `{LandOfficer_Name}`, `{LandOfficer_Date}`
 
 ### Step 2: Store the File
 For system-critical templates that must be tracked by version control, place your `.docx` file in the core engine's internal templates directory:
 `src/lib/engines/docx/templates/FormXXIV_Template.docx`. 
-*(Note: If users upload custom templates through the UI later, they will fallback to the `uploads/templates/` folder).*
 
 ### Step 3: Database Registry (`document_template`)
-Register the core template in the database. Notice how the `storage_path` only needs the filename if it sits in the default internal directory.
+Register the core template in the database.
 ```sql
 INSERT INTO document_template (id, template_code, template_name, storage_path)
 VALUES (gen_random_uuid(), 'FORM-XXIV', 'Land Acquisition Notice', 'FormXXIV_Template.docx');
@@ -51,176 +52,94 @@ INSERT INTO document_template_field (id, template_code, field_key, label, field_
 VALUES 
 (gen_random_uuid(), 'FORM-XXIV', 'NoticeDate', 'Notice Date', 'date', true, 1, null),
 (gen_random_uuid(), 'FORM-XXIV', 'CustomRemarks', 'Remarks (Govt Only)', 'text', false, 2, 
-  -- Example of complex conditional formatting: Only show if ModeGovtTransfer equals 1
   '{"ModeGovtTransfer": {"$eq": "1"}}'::jsonb
 );
 ```
 
-### Step 5: Configure Signature Routing (`document_template_signature`)
-Define who needs to sign the document before the final generation, and where their signatures should be injected.
+### Step 5: Configure Permission Signature Routing (`document_template_signature`)
+Define signature steps in `document_template_signature` using explicit **permission names** in `sig_permission`:
+
 ```sql
-INSERT INTO document_template_signature (id, template_code, role, workflow_state, placeholders, is_required, display_order)
+INSERT INTO document_template_signature 
+  (id, template_code, sig_permission, workflow_state, placeholders, is_required, display_order)
 VALUES 
--- The General Manager signs if the workflow state is exactly 'PENDING_GM_APPROVAL'
-(gen_random_uuid(), 'FORM-XXIV', 'GeneralManager', 'PENDING_GM_APPROVAL', '["Sig_GM_Page1", "Sig_GM_Page4"]'::jsonb, true, 1),
--- The Agent signs universally regardless of state
-(gen_random_uuid(), 'FORM-XXIV', 'Agent', null, '["Sig_Agent"]'::jsonb, true, 2);
+  -- Step 1: Requires permission 'form_xxiv.sign.land_cell_member'
+  (gen_random_uuid(), 'FORM-XXIV', 'form_xxiv.sign.land_cell_member', 'AreaVetted', '{"name":"LandCell_Name","date":"LandCell_Date"}'::jsonb, true, 1),
+  -- Step 2: Requires permission 'form_xxiv.sign.land_officer'
+  (gen_random_uuid(), 'FORM-XXIV', 'form_xxiv.sign.land_officer', 'AreaVetted', '{"name":"LandOfficer_Name","date":"LandOfficer_Date"}'::jsonb, true, 2),
+  -- Step 3: Requires permission 'form_xxiv.sign.area_gm'
+  (gen_random_uuid(), 'FORM-XXIV', 'form_xxiv.sign.area_gm', 'Approved', '{"name":"AreaGM_Name","date":"AreaGM_Date"}'::jsonb, true, 3);
 ```
 
-### Step 6: Create the Backend Resolver
-Create a class in `src/modules/document-engine/application/resolvers/FormXXIVResolver.ts` that implements `IDocumentResolver`. This class fetches backend data and merges it with the dynamic form data.
+### Step 6: Seed Permission to Roles (`permission` & `role_has_permission`)
+```sql
+-- 1. Create permission
+INSERT INTO "permission" (id, name, guard_name, updt_ts)
+VALUES (gen_random_uuid(), 'form_xxiv.sign.land_cell_member', 'web', NOW());
 
-```typescript
-import { IDocumentResolver, ResolvedDocumentData, ResolverContext } from '../ResolverRegistry'
-
-export class FormXXIVResolver implements IDocumentResolver {
-  async resolve(applicationId: string, context?: ResolverContext): Promise<ResolvedDocumentData> {
-    // 1. Fetch Backend Data
-    // const applicationData = await db.application.findUnique(...)
-
-    // 2. Extract Form Data (from Step 4)
-    const customData = context?.form_data || {};
-
-    return {
-      fields: {
-        // Map backend data
-        "ApplicantName": "John Doe",
-        "ModeGovtTransfer": "1", // Triggers the show_if rule from Step 4
-        // Map custom form data
-        "NoticeDate": customData.NoticeDate || '',
-        "Remarks": customData.CustomRemarks || '',
-      },
-      tables: {
-        "items": [ { "itemName": "Parcel A", "itemCost": "$500" } ]
-      }
-    }
-  }
-}
-```
-
-### Step 7: Register the Resolver
-Finally, link your template code to your new resolver inside `src/modules/document-engine/application/ResolverRegistry.ts`.
-
-```typescript
-import { FormXXIVResolver } from './resolvers/FormXXIVResolver'
-
-export class ResolverRegistry {
-  private resolvers: Map<string, IDocumentResolver> = new Map()
-
-  constructor() {
-    // Register here
-    this.resolvers.set('FORM-XXIV', new FormXXIVResolver())
-  }
-}
+-- 2. Link permission to role
+INSERT INTO "role_has_permission" (role_id, permission_id, updt_ts)
+SELECT r.id, p.id, NOW()
+FROM "role" r, "permission" p
+WHERE r.name = 'area_officer' AND p.name = 'form_xxiv.sign.land_cell_member';
 ```
 
 ---
 
-## Reusability: Using the Engine in Any Module
+## Permission-Driven & Sequential Signature Architecture
 
-The Document Engine is highly decoupled and can be dropped into **any** module (e.g., Land Acquisition, HR, Finance) simply by rendering the `DocumentWorkspaceModal` component.
-
-### Example: Triggering from the UI
-```tsx
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { DocumentWorkspaceModal } from '@/components/coalrr';
-
-export function LandAcquisitionDetailView({ applicationId }: { applicationId: string }) {
-  const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
-
-  return (
-    <div>
-      <h1>Land Acquisition Details</h1>
-      
-      {/* 1. Trigger Button */}
-      <Button onClick={() => setIsWorkspaceOpen(true)}>
-        Generate Form XXIV
-      </Button>
-
-      {/* 2. Reusable Workspace Component */}
-      <DocumentWorkspaceModal
-        isOpen={isWorkspaceOpen}
-        onOpenChange={setIsWorkspaceOpen}
-        templateCode="FORM-XXIV"
-        businessId={applicationId}
-      />
-    </div>
-  );
-}
+### 1. `sig_permission` Column Mapping
+`document_template_signature.sig_permission` stores the explicit permission string:
 ```
-*That's it! The modal automatically communicates with the `/api/document-engine/...` endpoints to handle fetching the template, rendering the dynamic form, capturing signatures, and saving the final `.docx` file.*
+<template_code_lowercase>.sign.<role_code_lowercase>
+```
+
+#### Examples:
+- **Form XXII**:
+  - `form_xxii.sign.area_land_cell_member` (Step 1)
+  - `form_xxii.sign.area_land_officer` (Step 2)
+  - `form_xxii.sign.area_gm` (Step 3)
+- **Form VII**:
+  - `form_vii.sign.acq_land_clerk` (Step 1)
+  - `form_vii.sign.acq_surveyor` (Step 2)
+  - `form_vii.sign.acq_project_manager` (Step 3)
+  - `form_vii.sign.acq_land_officer` (Step 5)
+  - `form_vii.sign.acq_agm` (Step 6)
+
+### 2. Sequential Step Enforcement
+Signature steps are executed strictly in order of `display_order`:
+- **Step 1**: Available immediately to authorized users.
+- **Step 2**: Remains `Locked (Step 1 Pending)` until Step 1 signature is submitted and recorded in `document_instance.signature_data_json`.
+- **Step 3**: Unlocks only after Step 2 signature is recorded.
 
 ---
 
-## Advanced Examples
+## FormXXIIResolver & Document Engine Business Logic
 
-### 1. Advanced Conditional Rules (`$show_if`)
-You can chain complex MongoDB-style query operators in the `document_template_field` table to make your forms incredibly smart.
+### 1. File-Scoped Module Hoisting (`getFormVal`)
+The `getFormVal` helper is defined at file scope (outside class methods) to ensure zero TDZ (Temporal Dead Zone) hoisting errors:
+- Normalizes `formData` key lookup across `PascalCase`, `camelCase`, `snake_case`.
+- Provides fallback defaults across DB columns and administrative strings (`"NO - Within Approved Limits"`).
 
-```json
-{
-  "$and": [
-    { "ModeGovtTransfer": { "$eq": "1" } },
-    { "LandAreaHectares": { "$gt": 50 } },
-    { "ProjectState": { "$in": ["Jharkhand", "West Bengal"] } }
-  ]
-}
-```
-*If a user configures this JSON rule on a "Rehabilitation Plan Upload" field, that field will ONLY render on the React form if the transfer is Govt, the area is > 50 Hectares, AND the state is Jharkhand or WB.*
+### 2. Form XXII Use-Wise Deviation Placeholders
+Row 3 (Deviation) of the Use-wise table supports the following placeholder aliases:
+- **Excavating Area**: `{DevExcavating}`, `{DevExcavation}`, `{DevExcavatingArea}`, `{dev_excavating}`
+- **Safety Zone**: `{DevSafetyZone}`, `{DevSafety}`, `{DevSafetyZoneArea}`, `{dev_safety_zone}`
+- **OB Dump**: `{DevObDump}`, `{DevOb}`, `{DevObDumpArea}`, `{dev_ob_dump}`
+- **Infrastructure**: `{DevInfrastructure}`, `{DevInfra}`, `{DevInfrastructureArea}`, `{dev_infrastructure}`
+- **Diversion**: `{DevDiversion}`, `{DevDiversionArea}`, `{dev_diversion}`
+- **Rehabilitation**: `{DevRehabilitation}`, `{DevRehab}`, `{DevRehabilitationArea}`, `{dev_rehabilitation}`
+- **Other Purpose**: `{DevOther}`, `{DevOtherPurpose}`, `{DevOtherArea}`, `{dev_other}`
+- **Total Deviation**: `{DevTotal}` (Type-Wise), `{DevUseTotal}` / `{dev_use_total}` (Use-Wise)
 
-### 2. Advanced Document Tables (`docxtemplater`)
-If your resolver returns an array in the `tables` object, you can generate dynamic rows inside your `.docx` file.
+---
 
-**Resolver Return Data:**
-```typescript
-tables: {
-  "Nominees": [ 
-    { "Name": "Alice", "Share": "50%" },
-    { "Name": "Bob", "Share": "50%" }
-  ]
-}
-```
+## API Endpoints Reference
 
-**Inside your Microsoft Word Template:**
-Draw a standard table in Word. In the first cell of the row you want to repeat, put `{#Nominees}`. In the last cell, put `{/Nominees}`.
+| Route | Method | Payload / Parameters | Description |
+| :--- | :--- | :--- | :--- |
+| `/api/document-engine/workspace` | `POST` | `{ templateCode, applicationId, extraData }` | Initializes workspace draft, returns fields, signatures, and user permissions |
+| `/api/document-engine/generate` | `POST` | `{ instanceId }` | Resolves fields, applies signatures, generates `.docx` buffer, saves file |
+| `/api/document-engine/sign` | `POST` | `{ instanceId, sig_permission, signatureText }` | Records signature entry in `signature_data_json` and auto-regenerates document |
+| `/api/document-engine/save-form` | `POST` | `{ instanceId, formData }` | Saves form data with `.passthrough()` Zod schema validation |
 
-| Nominee Name | Share Percentage |
-|--------------|------------------|
-| `{#Nominees}{Name}` | `{Share}{/Nominees}` |
-
-*When generated, docxtemplater will automatically duplicate the table row for Alice and Bob perfectly.*
-
-### 3. Passing Extra Context to the Resolver (`extraData`)
-If your backend database queries require more than just the `applicationId` (for example, you also need a `projectId`), you can pass arbitrary context from the UI straight into the Resolver.
-
-**In the UI:**
-```tsx
-<DocumentWorkspaceModal
-  templateCode="FORM-XXIV"
-  businessId={applicationId}
-  extraData={{ projectId: "PROJ-999" }}
-  isOpen={isOpen}
-  onOpenChange={setIsOpen}
-/>
-```
-
-**In the Backend Resolver:**
-The `extraData` is immediately forwarded to the `context.form_data` object in your resolver.
-
-```typescript
-export class FormXXIVResolver implements IDocumentResolver {
-  async resolve(applicationId: string, context?: ResolverContext): Promise<ResolvedDocumentData> {
-    
-    // 1. Grab the extra context passed from the UI
-    const projectId = context?.form_data?.projectId;
-
-    // 2. Query the database using both IDs
-    const data = await db.application.findUnique({
-      where: { id: applicationId, project_id: projectId }
-    });
-
-    return { fields: {}, tables: {} };
-  }
-}
-```

@@ -4,13 +4,14 @@
  */
 export const dynamic = 'force-dynamic'
 
-// Force recompile to clear stale Next.js cache after formatting plot schedule output
+// Force recompile to clear stale Next.js cache after DI container updates
 import { NextResponse } from 'next/server'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { serverError, ok } from '../_lib'
 import type { NextRequest } from 'next/server'
 import { validateBody, validateQuery } from '@/application/middleware/validation'
-import { CreateProjectSchema, PaginationSchema } from '@/application/validators/schemas'
+import { PaginationSchema } from '@/application/validators/schemas'
+import { CreateProjectSchema } from '@/shared/schemas/project.schema'
 import { createProjectUseCase, getProjectDashboardUseCase } from '@/infrastructure/di/Container'
 import { apiRateLimiter, getClientIdentifier } from '@/infrastructure/security'
 import { DomainException, ValidationException } from '@/core/errors'

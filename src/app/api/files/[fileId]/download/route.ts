@@ -111,12 +111,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
       }
     }
 
-    // 5. Stream response
+    // 5. Stream response (no-store for preview so regenerated documents refresh instantly)
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': mime_type,
         'Content-Disposition': `inline; filename="${original_name}"`, 
-        'Cache-Control': 'private, max-age=3600',
+        'Cache-Control': isPreview ? 'no-cache, no-store, must-revalidate' : 'private, max-age=60',
       },
     });
   } catch (error: any) {

@@ -210,7 +210,9 @@ export const MASTER_REGISTRY: Record<string, MasterDataConfig> = {
     primaryKey: 'landt_id',
     columns: [
       { key: 'landt_id', label: 'Land Type ID', type: 'number', required: true },
-      { key: 'land_type', label: 'Land Type', type: 'string', required: true }
+      { key: 'land_type', label: 'Land Type', type: 'string', required: true },
+      { key: 'p_id', label: 'Parent ID', type: 'number' },
+      { key: 'is_active', label: 'Active', type: 'boolean' }
     ]
   },
   'acqu_mode': {

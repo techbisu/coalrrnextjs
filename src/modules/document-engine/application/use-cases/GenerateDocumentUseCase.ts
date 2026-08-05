@@ -35,11 +35,26 @@ export class GenerateDocumentUseCase implements IUseCase<GenerateDocumentDTO, an
       const signatures = Array.isArray(instance.signature_data_json) ? instance.signature_data_json : []
       const pendingQueue = Array.isArray(instance.resolver_signatures_json) ? instance.resolver_signatures_json : []
       
-      for (const sig of signatures as { role: string; signatureText: string }[]) {
-        const rule = pendingQueue.find((q: any) => q.role === sig.role) as any
-        if (rule && Array.isArray(rule.placeholders)) {
-          for (const placeholder of rule.placeholders) {
-            (resolvedData.fields as any)[placeholder] = sig.signatureText
+      for (const sig of signatures as { role?: string; sig_permission?: string; signatureText: string; signedAt?: string }[]) {
+        const sigPerm = sig.sig_permission || sig.role
+        const rule = pendingQueue.find((q: any) => (q.sig_permission || q.role) === sigPerm) as any
+        if (rule && rule.placeholders) {
+          if (Array.isArray(rule.placeholders)) {
+            for (const placeholder of rule.placeholders) {
+              const cleanKey = String(placeholder).replace(/[\{\}]/g, '').trim()
+              ;(resolvedData.fields as any)[cleanKey] = sig.signatureText
+            }
+          } else if (typeof rule.placeholders === 'object') {
+            for (const [k, ph] of Object.entries(rule.placeholders)) {
+              if (typeof ph === 'string') {
+                const cleanKey = ph.replace(/[\{\}]/g, '').trim()
+                if (k.toLowerCase().includes('date')) {
+                  (resolvedData.fields as any)[cleanKey] = sig.signedAt ? new Date(sig.signedAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')
+                } else {
+                  (resolvedData.fields as any)[cleanKey] = sig.signatureText
+                }
+              }
+            }
           }
         }
       }
@@ -51,7 +66,11 @@ export class GenerateDocumentUseCase implements IUseCase<GenerateDocumentDTO, an
       })
 
       // 4. Generate the document buffer using the Core Engine
-      const buf = DocxGeneratorEngine.generate(template.storage_path, resolvedData.fields)
+      const mergedPayload = {
+        ...(resolvedData.fields as any),
+        ...(resolvedData.tables as any),
+      }
+      const buf = DocxGeneratorEngine.generate(template.storage_path, mergedPayload)
       
       // 5. Save via uploadFileUseCase
       const originalName = `${template.template_code}_${instance.application_id}.docx`

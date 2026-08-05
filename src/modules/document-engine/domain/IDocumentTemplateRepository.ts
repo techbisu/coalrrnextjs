@@ -1,4 +1,4 @@
-import { document_template, document_template_field } from '@prisma/client'
+import { document_template, document_template_field, document_template_signature } from '@prisma/client'
 
 export type DocumentTemplateWithFields = document_template & {
   fields: document_template_field[]
@@ -7,4 +7,5 @@ export type DocumentTemplateWithFields = document_template & {
 export interface IDocumentTemplateRepository {
   findByCode(templateCode: string): Promise<DocumentTemplateWithFields | null>
   findAll(): Promise<document_template[]>
+  findSignatureRules(templateCode: string): Promise<document_template_signature[]>
 }

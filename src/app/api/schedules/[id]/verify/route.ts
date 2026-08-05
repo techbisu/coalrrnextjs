@@ -97,8 +97,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     const engine = new WorkflowEngine()
     const guardCtx = {
+      recordId: id,
       recordType: 'land_schedule' as const,
-      currentState: normalizedState,
+      currentState: normalizedState as any,
       actorRole: actorRole,
       checklistStatus: isChecklistComplete ? ('COMPLETED' as const) : ('INCOMPLETE' as const),
       isBaselineBreached: isBaselineBreached,

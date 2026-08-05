@@ -14,8 +14,20 @@ export interface CreateProposalRequest {
   proposal_title: string
   description?: string
   area_office?: string
+  colliery_code?: string
   adjacent_colliery?: string
   notification_date?: Date
+  proposal_no?: string
+  proposal_type?: string
+  rate_tenancy_land_with_emp?: number
+  rate_tenancy_land_no_emp?: number
+  rate_govt_land?: number
+  rate_forest_land?: number
+  employment_proposed_count?: number
+  employment_system?: string
+  has_debottar_land?: boolean
+  has_tribal_land?: boolean
+  has_formal_negotiation?: boolean
   user_id: string
   user_name: string
   user_role: string
@@ -53,10 +65,20 @@ export class CreateProposalUseCase implements IUseCase<CreateProposalRequest, Cr
       description: request.description,
       proposedBy: request.user_name,
       proposedByRole: request.user_role,
-      areaOffice: request.area_office,
-      collieryCode: project.mineCds[0] || project.id || 'UNK',
+      areaOffice: request.area_office || (project as any).area_cd || 'UNK',
+      collieryCode: request.colliery_code || project.mineCds[0] || project.id || 'UNK',
       adjacentColliery: request.adjacent_colliery,
       notificationDate: request.notification_date,
+      proposalType: request.proposal_type,
+      rateTenancyWithEmp: request.rate_tenancy_land_with_emp,
+      rateTenancyNoEmp: request.rate_tenancy_land_no_emp,
+      rateGovtLand: request.rate_govt_land,
+      rateForestLand: request.rate_forest_land,
+      employmentProposedCount: request.employment_proposed_count,
+      employmentSystem: request.employment_system,
+      hasDebottarLand: request.has_debottar_land,
+      hasTribalLand: request.has_tribal_land,
+      hasFormalNegotiation: request.has_formal_negotiation,
     })
 
     if (proposalResult.isFailure) {

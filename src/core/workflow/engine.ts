@@ -115,7 +115,7 @@ export class WorkflowEngine {
   ): ReadonlyArray<SideEffect> {
     const effects: SideEffect[] = [];
 
-    switch (newState) {
+    switch (newState as string) {
       case "HqParallelVetting": {
         const roles = getReviewRolesForState(newState);
         if (roles.length > 0) {

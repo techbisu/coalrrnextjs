@@ -59,62 +59,44 @@ export class PrismaProjectRepository implements IProjectRepository {
     };
   }
   
-  async generateEclProjCd(areaCd?: string, mineCd?: string): Promise<string> {
-    const year = new Date().getFullYear();
-    let shortCode = areaCd || 'UNK';
-    let mineCode = mineCd || 'UNK';
+  async generateProjectCodes(areaCd: string, mineCd: string, stateLgd?: number | string): Promise<{ proj_cd: string; ecl_proj_cd: string; state_lgd: number }> {
+    const area = await db.area_master.findUnique({
+      where: { area_cd: areaCd }
+    });
 
-    if (areaCd) {
-      const area = await db.area_master.findUnique({
-        where: { area_cd: areaCd }
-      });
-      if (area && area.short_nm) {
-        shortCode = area.short_nm;
-      }
-    }
+    const derivedStateLgd = stateLgd ? Number(stateLgd) : (area?.state_lgd ? Number(area.state_lgd) : 19);
+    const areaShortNm = (area?.short_nm && area.short_nm.trim() !== '') ? area.short_nm.trim() : areaCd;
 
-    const template = PROJECT_CONFIG.eclProjCdFormat;
-    
-    // We need to find the max sequence for the prefix BEFORE {SEQ}
-    // Assuming {SEQ} is always at the end of the format
-    const prefixTemplate = template.split('{SEQ}')[0];
-    const prefix = prefixTemplate
-      .replace('{AREA}', shortCode)
-      .replace('{MINE}', mineCode)
-      .replace('{YEAR}', year.toString());
-
-    // Find the max sequence for this prefix
-    const latestProject = await db.project.findFirst({
+    // Count existing projects in this area_cd for area-wise serial number
+    const areaProjectsCount = await db.project.count({
       where: {
-        eclProjCd: {
-          startsWith: prefix
+        approvals: {
+          some: {
+            locations: {
+              some: {
+                mineCd: mineCd
+              }
+            }
+          }
         }
-      },
-      orderBy: {
-        eclProjCd: 'desc'
-      },
-      select: {
-        eclProjCd: true
       }
     });
 
-    let nextSequence = 1;
-    if (latestProject && latestProject.eclProjCd) {
-      // We need to extract the sequence part
-      // Since prefix is everything before {SEQ}, the rest is the sequence
-      const seqStr = latestProject.eclProjCd.substring(prefix.length);
-      const parsedSeq = parseInt(seqStr, 10);
-      if (!isNaN(parsedSeq)) {
-        nextSequence = parsedSeq + 1;
-      }
-    }
+    const totalInArea = await db.project.count();
+    const seqNum = (totalInArea + 1).toString().padStart(4, '0');
 
-    const paddedSequence = nextSequence.toString().padStart(4, '0');
-    return template
-      .replace('{AREA}', shortCode)
-      .replace('{MINE}', mineCode)
-      .replace('{YEAR}', year.toString())
-      .replace('{SEQ}', paddedSequence);
+    // proj_cd format: <state_lgd><area_cd><mine_cd><0001>
+    const proj_cd = `${derivedStateLgd}${areaCd}${mineCd}${seqNum}`;
+
+    // ecl_proj_cd format: ECL/<AREA_SHORT_CD>/<MINE_SHORT_CD>/<0001>
+    const ecl_proj_cd = `ECL/${areaShortNm}/${mineCd}/${seqNum}`;
+
+    return { proj_cd, ecl_proj_cd, state_lgd: derivedStateLgd };
+  }
+
+  async generateEclProjCd(areaCd?: string, mineCd?: string): Promise<string> {
+    const codes = await this.generateProjectCodes(areaCd || 'UNK', mineCd || 'UNK');
+    return codes.ecl_proj_cd;
   }
   async findById(id: string): Promise<Project | null> {
     const data = await db.project.findUnique({
@@ -147,6 +129,18 @@ export class PrismaProjectRepository implements IProjectRepository {
       projectDesc: data.projectDesc,
       totalApprovedArea: data.totalApprovedArea?.toString() || '0',
       totalAcquiredArea: data.totalAcquiredArea?.toString() || '0',
+      approvedTenancyArea: data.approved_tenancy_area ? Number(data.approved_tenancy_area) : 0,
+      approvedGovtArea: data.approved_govt_area ? Number(data.approved_govt_area) : 0,
+      approvedPattaArea: data.approved_patta_area ? Number(data.approved_patta_area) : 0,
+      approvedForestArea: data.approved_forest_area ? Number(data.approved_forest_area) : 0,
+      approvedExcavationArea: data.approved_excavation_area ? Number(data.approved_excavation_area) : 0,
+      approvedSafetyZoneArea: data.approved_safety_zone_area ? Number(data.approved_safety_zone_area) : 0,
+      approvedObDumpArea: data.approved_ob_dump_area ? Number(data.approved_ob_dump_area) : 0,
+      approvedInfraArea: data.approved_infra_area ? Number(data.approved_infra_area) : 0,
+      approvedDiversionArea: data.approved_diversion_area ? Number(data.approved_diversion_area) : 0,
+      approvedRehabArea: data.approved_rehab_area ? Number(data.approved_rehab_area) : 0,
+      isComboProject: data.is_combo_project ?? false,
+      linkedMineCodes: data.linked_mine_codes || [],
       totalEmpSanctioned: data.totalEmpSanctioned || 0,
       totalEmpCompleted: data.totalEmpCompleted || 0,
       landBudget: data.landBudget?.toString() || '0',
@@ -196,6 +190,18 @@ export class PrismaProjectRepository implements IProjectRepository {
       projectDesc: p.projectDesc,
       totalApprovedArea: p.totalApprovedArea?.toString() || '0',
       totalAcquiredArea: p.totalAcquiredArea?.toString() || '0',
+      approvedTenancyArea: p.approved_tenancy_area ? Number(p.approved_tenancy_area) : 0,
+      approvedGovtArea: p.approved_govt_area ? Number(p.approved_govt_area) : 0,
+      approvedPattaArea: p.approved_patta_area ? Number(p.approved_patta_area) : 0,
+      approvedForestArea: p.approved_forest_area ? Number(p.approved_forest_area) : 0,
+      approvedExcavationArea: p.approved_excavation_area ? Number(p.approved_excavation_area) : 0,
+      approvedSafetyZoneArea: p.approved_safety_zone_area ? Number(p.approved_safety_zone_area) : 0,
+      approvedObDumpArea: p.approved_ob_dump_area ? Number(p.approved_ob_dump_area) : 0,
+      approvedInfraArea: p.approved_infra_area ? Number(p.approved_infra_area) : 0,
+      approvedDiversionArea: p.approved_diversion_area ? Number(p.approved_diversion_area) : 0,
+      approvedRehabArea: p.approved_rehab_area ? Number(p.approved_rehab_area) : 0,
+      isComboProject: p.is_combo_project ?? false,
+      linkedMineCodes: p.linked_mine_codes || [],
       totalEmpSanctioned: p.totalEmpSanctioned || 0,
       totalEmpCompleted: p.totalEmpCompleted || 0,
       landBudget: p.landBudget?.toString() || '0',
@@ -246,6 +252,18 @@ export class PrismaProjectRepository implements IProjectRepository {
       projectDesc: data.projectDesc,
       totalApprovedArea: data.totalApprovedArea?.toString() || '0',
       totalAcquiredArea: data.totalAcquiredArea?.toString() || '0',
+      approvedTenancyArea: data.approved_tenancy_area ? Number(data.approved_tenancy_area) : 0,
+      approvedGovtArea: data.approved_govt_area ? Number(data.approved_govt_area) : 0,
+      approvedPattaArea: data.approved_patta_area ? Number(data.approved_patta_area) : 0,
+      approvedForestArea: data.approved_forest_area ? Number(data.approved_forest_area) : 0,
+      approvedExcavationArea: data.approved_excavation_area ? Number(data.approved_excavation_area) : 0,
+      approvedSafetyZoneArea: data.approved_safety_zone_area ? Number(data.approved_safety_zone_area) : 0,
+      approvedObDumpArea: data.approved_ob_dump_area ? Number(data.approved_ob_dump_area) : 0,
+      approvedInfraArea: data.approved_infra_area ? Number(data.approved_infra_area) : 0,
+      approvedDiversionArea: data.approved_diversion_area ? Number(data.approved_diversion_area) : 0,
+      approvedRehabArea: data.approved_rehab_area ? Number(data.approved_rehab_area) : 0,
+      isComboProject: data.is_combo_project ?? false,
+      linkedMineCodes: data.linked_mine_codes || [],
       totalEmpSanctioned: data.totalEmpSanctioned || 0,
       totalEmpCompleted: data.totalEmpCompleted || 0,
       landBudget: data.landBudget?.toString() || '0',
@@ -270,6 +288,18 @@ export class PrismaProjectRepository implements IProjectRepository {
         projectDesc: data.projectDesc,
         totalApprovedArea: data.totalApprovedArea ? new Decimal(data.totalApprovedArea) : null,
         totalAcquiredArea: data.totalAcquiredArea ? new Decimal(data.totalAcquiredArea) : null,
+        approved_tenancy_area: new Decimal(data.approvedTenancyArea ?? 0),
+        approved_govt_area: new Decimal(data.approvedGovtArea ?? 0),
+        approved_patta_area: new Decimal(data.approvedPattaArea ?? 0),
+        approved_forest_area: new Decimal(data.approvedForestArea ?? 0),
+        approved_excavation_area: new Decimal(data.approvedExcavationArea ?? 0),
+        approved_safety_zone_area: new Decimal(data.approvedSafetyZoneArea ?? 0),
+        approved_ob_dump_area: new Decimal(data.approvedObDumpArea ?? 0),
+        approved_infra_area: new Decimal(data.approvedInfraArea ?? 0),
+        approved_diversion_area: new Decimal(data.approvedDiversionArea ?? 0),
+        approved_rehab_area: new Decimal(data.approvedRehabArea ?? 0),
+        is_combo_project: data.isComboProject ?? false,
+        linked_mine_codes: data.linkedMineCodes || [],
         totalEmpSanctioned: data.totalEmpSanctioned,
         totalEmpCompleted: data.totalEmpCompleted,
         landBudget: data.landBudget ? new Decimal(data.landBudget) : null,
@@ -293,6 +323,18 @@ export class PrismaProjectRepository implements IProjectRepository {
         projectDesc: data.projectDesc,
         totalApprovedArea: data.totalApprovedArea ? new Decimal(data.totalApprovedArea) : null,
         totalAcquiredArea: data.totalAcquiredArea ? new Decimal(data.totalAcquiredArea) : null,
+        approved_tenancy_area: new Decimal(data.approvedTenancyArea ?? 0),
+        approved_govt_area: new Decimal(data.approvedGovtArea ?? 0),
+        approved_patta_area: new Decimal(data.approvedPattaArea ?? 0),
+        approved_forest_area: new Decimal(data.approvedForestArea ?? 0),
+        approved_excavation_area: new Decimal(data.approvedExcavationArea ?? 0),
+        approved_safety_zone_area: new Decimal(data.approvedSafetyZoneArea ?? 0),
+        approved_ob_dump_area: new Decimal(data.approvedObDumpArea ?? 0),
+        approved_infra_area: new Decimal(data.approvedInfraArea ?? 0),
+        approved_diversion_area: new Decimal(data.approvedDiversionArea ?? 0),
+        approved_rehab_area: new Decimal(data.approvedRehabArea ?? 0),
+        is_combo_project: data.isComboProject ?? false,
+        linked_mine_codes: data.linkedMineCodes || [],
         totalEmpSanctioned: data.totalEmpSanctioned,
         totalEmpCompleted: data.totalEmpCompleted,
         landBudget: data.landBudget ? new Decimal(data.landBudget) : null,
@@ -306,7 +348,13 @@ export class PrismaProjectRepository implements IProjectRepository {
     })
   }
 
-  async updateLocations(projectId: string, mineCds: string[], mouzaLgds: string[]): Promise<void> {
+  async updateProjectLocations(
+    projectId: string, 
+    mineCds: string[], 
+    mouzaLgds: (bigint | string)[],
+    districtLgd?: string,
+    blockLgds?: string[]
+  ): Promise<void> {
     const project = await db.project.findUnique({ where: { projCd: projectId } });
     if (!project) return;
     
@@ -321,12 +369,52 @@ export class PrismaProjectRepository implements IProjectRepository {
           aprvCd,
           projCd: projectId,
           aprvArea: project.totalApprovedArea,
+          approved_tenancy_area: project.approved_tenancy_area,
+          approved_govt_area: project.approved_govt_area,
+          approved_patta_area: project.approved_patta_area,
+          approved_forest_area: project.approved_forest_area,
+          approved_excavation_area: project.approved_excavation_area,
+          approved_safety_zone_area: project.approved_safety_zone_area,
+          approved_ob_dump_area: project.approved_ob_dump_area,
+          approved_infra_area: project.approved_infra_area,
+          approved_diversion_area: project.approved_diversion_area,
+          approved_rehab_area: project.approved_rehab_area,
           empSanc: project.totalEmpSanctioned,
           landCap: project.landBudget,
           rrCap: project.rrBudget,
+          land_budget: project.landBudget,
+          rr_budget: project.rrBudget,
+          districtLgd: districtLgd || undefined,
+          blockLgd: blockLgds && blockLgds.length > 0 ? blockLgds.join(',') : undefined,
+          mouzaLgd: mouzaLgds && mouzaLgds.length > 0 ? mouzaLgds.map(String).join(',') : undefined,
           aprvDt: new Date(),
           isActive: true,
           remark: 'Baseline Approval',
+        }
+      });
+    } else {
+      await db.projAprv.update({
+        where: { aprvCd: existingAprv.aprvCd },
+        data: {
+          aprvArea: project.totalApprovedArea,
+          approved_tenancy_area: project.approved_tenancy_area,
+          approved_govt_area: project.approved_govt_area,
+          approved_patta_area: project.approved_patta_area,
+          approved_forest_area: project.approved_forest_area,
+          approved_excavation_area: project.approved_excavation_area,
+          approved_safety_zone_area: project.approved_safety_zone_area,
+          approved_ob_dump_area: project.approved_ob_dump_area,
+          approved_infra_area: project.approved_infra_area,
+          approved_diversion_area: project.approved_diversion_area,
+          approved_rehab_area: project.approved_rehab_area,
+          empSanc: project.totalEmpSanctioned,
+          landCap: project.landBudget,
+          rrCap: project.rrBudget,
+          land_budget: project.landBudget,
+          rr_budget: project.rrBudget,
+          districtLgd: districtLgd || existingAprv.districtLgd,
+          blockLgd: blockLgds && blockLgds.length > 0 ? blockLgds.join(',') : existingAprv.blockLgd,
+          mouzaLgd: mouzaLgds && mouzaLgds.length > 0 ? mouzaLgds.map(String).join(',') : existingAprv.mouzaLgd,
         }
       });
     }
@@ -376,9 +464,6 @@ export class PrismaProjectRepository implements IProjectRepository {
     }
   }
 
-  async updateProjectLocations(projectId: string, mineCds: string[], mouzaLgds: bigint[]): Promise<void> {
-    await this.updateLocations(projectId, mineCds, mouzaLgds.map(String));
-  }
 
   async syncProjectDocuments(projectId: string, fileIds: string[], userId: string): Promise<void> {
     if (!fileIds || fileIds.length === 0) return;
@@ -571,6 +656,18 @@ export class PrismaProjectRepository implements IProjectRepository {
         projectDesc: p.projectDesc,
         totalApprovedArea: p.totalApprovedArea?.toString() || '0',
         totalAcquiredArea: totalAcquiredAreaNum.toString(),
+        approvedTenancyArea: p.approved_tenancy_area ? Number(p.approved_tenancy_area) : 0,
+        approvedGovtArea: p.approved_govt_area ? Number(p.approved_govt_area) : 0,
+        approvedPattaArea: p.approved_patta_area ? Number(p.approved_patta_area) : 0,
+        approvedForestArea: p.approved_forest_area ? Number(p.approved_forest_area) : 0,
+        approvedExcavationArea: p.approved_excavation_area ? Number(p.approved_excavation_area) : 0,
+        approvedSafetyZoneArea: p.approved_safety_zone_area ? Number(p.approved_safety_zone_area) : 0,
+        approvedObDumpArea: p.approved_ob_dump_area ? Number(p.approved_ob_dump_area) : 0,
+        approvedInfraArea: p.approved_infra_area ? Number(p.approved_infra_area) : 0,
+        approvedDiversionArea: p.approved_diversion_area ? Number(p.approved_diversion_area) : 0,
+        approvedRehabArea: p.approved_rehab_area ? Number(p.approved_rehab_area) : 0,
+        isComboProject: p.is_combo_project ?? false,
+        linkedMineCodes: p.linked_mine_codes || [],
         totalEmpSanctioned: p.totalEmpSanctioned || 0,
         totalEmpCompleted: p.totalEmpCompleted || 0,
         landBudget: p.landBudget?.toString() || '0',
@@ -695,7 +792,19 @@ export class PrismaProjectRepository implements IProjectRepository {
         statutory_clearances: p.statutoryClearances ? String(p.statutoryClearances) : null,
         total_acquired_area: totalAcquiredAreaNum,
         areaUtilization,
-        boundary: p.boundary || null,   // ← boundary JSON string from DB
+        boundary: p.boundary || null,
+        approved_tenancy_area: p.approved_tenancy_area ? p.approved_tenancy_area.toString() : '0',
+        approved_govt_area: p.approved_govt_area ? p.approved_govt_area.toString() : '0',
+        approved_patta_area: p.approved_patta_area ? p.approved_patta_area.toString() : '0',
+        approved_forest_area: p.approved_forest_area ? p.approved_forest_area.toString() : '0',
+        approved_excavation_area: p.approved_excavation_area ? p.approved_excavation_area.toString() : '0',
+        approved_safety_zone_area: p.approved_safety_zone_area ? p.approved_safety_zone_area.toString() : '0',
+        approved_ob_dump_area: p.approved_ob_dump_area ? p.approved_ob_dump_area.toString() : '0',
+        approved_infra_area: p.approved_infra_area ? p.approved_infra_area.toString() : '0',
+        approved_diversion_area: p.approved_diversion_area ? p.approved_diversion_area.toString() : '0',
+        approved_rehab_area: p.approved_rehab_area ? p.approved_rehab_area.toString() : '0',
+        is_combo_project: p.is_combo_project ?? false,
+        linked_mine_codes: p.linked_mine_codes ?? [],
       }
     })
   }

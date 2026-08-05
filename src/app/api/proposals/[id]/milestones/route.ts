@@ -52,7 +52,7 @@ export async function POST(
   const auth = await authorizeApi('proposal.view');
   if (auth.error) return auth.error;
 
-  const hasAllowedRole = auth.user?.roles?.some(role => milestoneConfig.allowedRoles.includes(role)) || true; // Allow true as fallback for now
+  const hasAllowedRole = auth.user?.roles?.some(role => (milestoneConfig.allowedRoles as readonly string[]).includes(role)) || true; // Allow true as fallback for now
   if (!hasAllowedRole) {
     return NextResponse.json({ error: 'Forbidden', message: 'You do not have permission to add milestones' }, { status: 403 });
   }

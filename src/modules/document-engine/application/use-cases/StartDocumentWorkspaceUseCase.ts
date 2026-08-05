@@ -22,10 +22,24 @@ export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWork
     try {
       const { templateCode, applicationId, extraData = {}, userId = 'system' } = request
       
-      // 1. Check for existing draft
+      // 1. Check for existing draft and refresh its resolver fields
       const existingDraft = await this.instanceRepository.findDraft(templateCode, applicationId)
       if (existingDraft) {
-        return Ok(existingDraft)
+        const resolver = this.resolverRegistry.getResolver(templateCode)
+        const resolvedData = await resolver.resolve(applicationId, { form_data: existingDraft.form_data || extraData })
+        
+        await this.instanceRepository.update(existingDraft.id, {
+          resolver_fields_json: resolvedData.fields as any,
+          resolver_tables_json: resolvedData.tables as any,
+          form_data: { ...(existingDraft.form_data as any), ...extraData }
+        })
+
+        // Auto-generate docx so preview is immediately ready
+        const { generateDocumentUseCase } = await import('@/infrastructure/di/Container')
+        await generateDocumentUseCase.execute({ instanceId: existingDraft.id })
+        
+        const refreshedDraft = await this.instanceRepository.findById(existingDraft.id)
+        return Ok(refreshedDraft || existingDraft)
       }
 
       // 2. Validate template
@@ -38,24 +52,16 @@ export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWork
       const resolver = this.resolverRegistry.getResolver(templateCode)
       const resolvedData = await resolver.resolve(applicationId, { form_data: extraData })
 
-      // 4. Fetch Signature Routing Rules
-      const { db } = await import('@/lib/db')
-      const workflowState = resolvedData.fields?.status || resolvedData.fields?.workflow_state || null
-      
-      const signatureRules = await db.document_template_signature.findMany({
-        where: {
-          template_code: templateCode,
-          OR: [
-            { workflow_state: null },
-            { workflow_state: workflowState }
-          ]
-        }
-      })
+      // 4. Fetch Signature Routing Rules via Repository
+      const signatureRules = await this.templateRepository.findSignatureRules(templateCode)
 
-      const pendingSignatures = signatureRules.map(rule => ({
-        role: rule.role,
+      const pendingSignatures = signatureRules.map((rule: any) => ({
+        id: rule.id,
+        sig_permission: rule.sig_permission || rule.role,
+        role: rule.sig_permission || rule.role,
         placeholders: rule.placeholders,
-        is_required: rule.is_required
+        is_required: rule.is_required,
+        display_order: rule.display_order
       }))
 
       // 5. Create document instance
@@ -100,7 +106,13 @@ export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWork
         })
       }
 
-      return Ok(instance)
+      // Auto-generate docx on new instance creation so preview is immediately ready
+      const { generateDocumentUseCase } = await import('@/infrastructure/di/Container')
+      await generateDocumentUseCase.execute({ instanceId: instance.id })
+      
+      const refreshedInstance = await this.instanceRepository.findById(instance.id)
+
+      return Ok(refreshedInstance || instance)
     } catch (error: any) {
       return Fail(error.message)
     }

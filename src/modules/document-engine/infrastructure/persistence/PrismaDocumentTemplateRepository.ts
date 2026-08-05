@@ -27,4 +27,11 @@ export class PrismaDocumentTemplateRepository implements IDocumentTemplateReposi
       orderBy: { template_name: 'asc' }
     })
   }
+
+  async findSignatureRules(templateCode: string): Promise<any[]> {
+    return db.document_template_signature.findMany({
+      where: { template_code: templateCode },
+      orderBy: { display_order: 'asc' }
+    })
+  }
 }

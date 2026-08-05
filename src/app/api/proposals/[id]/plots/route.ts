@@ -13,7 +13,7 @@ export async function POST(
   return withRequestContext(request, async () => {
     const auth = await authorizeApi('proposal.update');
     if (auth.error) return auth.error;
-  const userId = auth.user?.id || 'system';
+    const userId = auth.user?.id || auth.user?.email || auth.user?.name || 'system';
 
   try {
     const paramsData = await params;
@@ -33,7 +33,12 @@ export async function POST(
 
     const mouzaData = await db.mouza_master.findUnique({
       where: { mouza_lgd: BigInt(mouzaLgd) },
-      select: { state_lgd: true }
+      select: {
+        jl_no: true,
+        state_lgd: true,
+        district_lgd: true,
+        block_lgd: true
+      }
     });
 
     let stateLgd = mouzaData?.state_lgd?.toString();
@@ -76,6 +81,11 @@ export async function POST(
         opt_plot: p.opt_plot,
         opt_bata: p.opt_bata,
         mouza_lgd: Number(p.mouza_lgd),
+        jl_no: mouzaData?.jl_no || undefined,
+        state_lgd: mouzaData?.state_lgd ? Number(mouzaData.state_lgd) : (p.state_lgd ? Number(p.state_lgd) : undefined),
+        district_lgd: mouzaData?.district_lgd ? Number(mouzaData.district_lgd) : undefined,
+        block_lgd: mouzaData?.block_lgd ? Number(mouzaData.block_lgd) : undefined,
+        ps_lgd: (mouzaData as any)?.ps_lgd ? Number((mouzaData as any).ps_lgd) : undefined,
         total_ror_area: p.total_ror_area || 0,
         to_be_acquired_area: p.to_be_acquired_area || 0,
         acq_status: p.acq_status,
@@ -84,12 +94,16 @@ export async function POST(
     });
 
     const landTypeDTOs = validatedData.plots.flatMap(p => 
-      p.land_types.map(lt => ({
-        schedule_id: p.plot_no, // Mapped locally, UseCase/Repo handles actual schedule_id linking
-        landt_id: Number(lt.landt_id),
-        area: lt.area,
-        area_to_acquire: lt.area_to_acquire
-      }))
+      (p.land_types || []).flatMap(lt => 
+        (lt.sub_types || []).map(sub => ({
+          schedule_id: p.plot_no,
+          landt_id: Number(lt.landt_id),
+          sub_landt_id: Number(sub.sub_landt_id),
+          area: lt.area || p.to_be_acquired_area || p.total_ror_area || 0,
+          area_to_acquire: sub.area_to_acquire || lt.area || p.to_be_acquired_area || p.total_ror_area || 0,
+          use_purpose: lt.use_purpose || 'EXCAVATION'
+        }))
+      )
     );
 
     const result = await addPlotsToProposalUseCase.execute({

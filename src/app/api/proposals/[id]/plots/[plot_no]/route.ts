@@ -41,11 +41,27 @@ export async function GET(
       to_be_acquired_area: Number(plot.to_be_acquired_area),
       acq_status: plot.acq_status,
       entry_by: plot.entry_by,
-      land_types: plot.plot_schedule_land_type.map((lt: any) => ({
-        landt_id: lt.landt_id.toString(),
-        area: Number(lt.area),
-        area_to_acquire: Number(lt.area_to_acquire)
-      }))
+      land_types: Object.values(
+        plot.plot_schedule_land_type.reduce((acc: any, lt: any) => {
+          const id = Number(lt.landt_id);
+          const key = `${id}_${lt.area}_${lt.use_purpose || 'EXCAVATION'}`;
+          if (!acc[key]) {
+            acc[key] = {
+              landt_id: id,
+              area: Number(lt.area),
+              use_purpose: lt.use_purpose || 'EXCAVATION',
+              sub_types: []
+            };
+          }
+          if (lt.sub_landt_id) {
+            acc[key].sub_types.push({
+              sub_landt_id: Number(lt.sub_landt_id),
+              area_to_acquire: Number(lt.area_to_acquire)
+            });
+          }
+          return acc;
+        }, {})
+      )
     };
 
     return NextResponse.json(responseData);
@@ -72,7 +88,12 @@ export async function PUT(
 
     const mouzaData = await db.mouza_master.findUnique({ 
       where: { mouza_lgd: BigInt(validatedData.mouza_lgd) },
-      select: { state_lgd: true }
+      select: {
+        jl_no: true,
+        state_lgd: true,
+        district_lgd: true,
+        block_lgd: true
+      }
     });
     const stateLgd = mouzaData?.state_lgd?.toString() || '';
     
@@ -85,6 +106,8 @@ export async function PUT(
     });
 
 
+    const userId = auth.user?.id || auth.user?.email || auth.user?.name || 'system';
+
     const plotDTO = {
       proposal_id: proposalId,
       plot_no: validatedData.plot_no,
@@ -95,18 +118,27 @@ export async function PUT(
       opt_plot: validatedData.opt_plot,
       opt_bata: validatedData.opt_bata,
       mouza_lgd: Number(validatedData.mouza_lgd),
+      jl_no: mouzaData?.jl_no || undefined,
+      state_lgd: mouzaData?.state_lgd ? Number(mouzaData.state_lgd) : (validatedData.state_lgd ? Number(validatedData.state_lgd) : undefined),
+      district_lgd: mouzaData?.district_lgd ? Number(mouzaData.district_lgd) : undefined,
+      block_lgd: mouzaData?.block_lgd ? Number(mouzaData.block_lgd) : undefined,
+      ps_lgd: (mouzaData as any)?.ps_lgd ? Number((mouzaData as any).ps_lgd) : undefined,
       total_ror_area: validatedData.total_ror_area || 0,
       to_be_acquired_area: validatedData.to_be_acquired_area || 0,
       acq_status: validatedData.acq_status,
-      entry_by: auth.user?.id || 'system'
+      entry_by: userId
     };
 
-    const landTypesDTO = validatedData.land_types.map(lt => ({
-      schedule_id: paramsData.plot_no,
-      landt_id: Number(lt.landt_id),
-      area: lt.area,
-      area_to_acquire: lt.area_to_acquire
-    }));
+    const landTypesDTO = validatedData.land_types.flatMap(lt => 
+      lt.sub_types.map(sub => ({
+        schedule_id: paramsData.plot_no,
+        landt_id: Number(lt.landt_id),
+        sub_landt_id: Number(sub.sub_landt_id),
+        area: lt.area,
+        area_to_acquire: sub.area_to_acquire,
+        use_purpose: lt.use_purpose || 'EXCAVATION'
+      }))
+    );
 
     const plotInfo = await db.plot_schedule.findUnique({ where: { schedule_id: BigInt(paramsData.plot_no) }});
     if (!plotInfo) return NextResponse.json({ error: 'Plot not found' }, { status: 404 });
@@ -116,7 +148,7 @@ export async function PUT(
       plotNo: plotInfo.plot_no,
       plotData: plotDTO,
       landTypesData: landTypesDTO,
-      userId: validatedData.entry_by
+      userId: userId
     });
 
     if (result.isFailure) {
