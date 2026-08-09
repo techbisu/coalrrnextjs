@@ -4,6 +4,7 @@ export interface FileRecordProps {
   checksum: string;
   ownerId: string;
   tags?: string[] | null;
+  isActive?: boolean;
 }
 
 export class FileRecord {
@@ -18,6 +19,7 @@ export class FileRecord {
   get checksum() { return this.props.checksum; }
   get ownerId() { return this.props.ownerId; }
   get tags() { return this.props.tags; }
+  get isActive() { return this.props.isActive; }
 }
 
 export interface FileVersionProps {

@@ -71,8 +71,8 @@ export interface PlotScheduleLandTypeDTO {
 
 export interface IProposalRepository {
   // --- DDD Interface ---
-  findById(id: string): Promise<Proposal | null>;
-  save(proposal: Proposal): Promise<void>;
+  findById(id: string, tx?: any): Promise<Proposal | null>;
+  save(proposal: Proposal, tx?: any): Promise<void>;
   
   isPlotInActiveProposal(plotId: string, excludeProposalId?: string): Promise<boolean>;
   addPlotToProposal(proposalId: string, plotId: string, annexureTag: string): Promise<void>;

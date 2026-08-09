@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Plus, Loader2, AlertCircle, CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Plus, Loader2, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { proposalConfig } from '@/core/config/proposal.config'
@@ -16,10 +16,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/aler
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/shared/components/ui/dialog'
-import { AcquisitionMode, MODE_META, MODES } from '../types'
-import { formatNumber } from '@/lib/utils/formatters'
+import { AcquisitionMode, MODE_META, STANDARD_ACQ_MODES } from '../types'
 import { useRouter } from 'next/navigation'
-import { MasterLookup } from '@/shared/components/coalrr/MasterLookup'
+import { ProjectSelect } from '@/shared/components/coalrr/selects'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 
 interface ProjectListItem {
@@ -68,7 +67,6 @@ export function CreateProposalDialog({
     proposal_no: '',
     description: '',
     mine_cd: '',
-    adjacent_colliery: '',
     notification_date: '',
     rate_tenancy_land_with_emp: 0,
     rate_tenancy_land_no_emp: 0,
@@ -76,9 +74,6 @@ export function CreateProposalDialog({
     rate_forest_land: 0,
     employment_proposed_count: 0,
     employment_system: 'PACKAGE_DEAL',
-    has_debottar_land: false,
-    has_tribal_land: false,
-    has_formal_negotiation: false,
   })
 
   React.useEffect(() => {
@@ -88,11 +83,6 @@ export function CreateProposalDialog({
       setForm((f) => ({ ...f, mine_cd: (p as any).mine_cd || '' }))
     }
   }, [form.project_id, lockedProjects, form.mine_cd])
-
-  const selectedProject = React.useMemo(() => 
-    lockedProjects.find(p => p.id === form.project_id),
-    [lockedProjects, form.project_id]
-  )
 
   const create = useMutation({
     mutationFn: async () => {
@@ -107,7 +97,9 @@ export function CreateProposalDialog({
           mine_cd: form.mine_cd || selectedProject?.mine_cd || proposalConfig.fallbackMineCode,
           area_cd: selectedProject?.area_cd || proposalConfig.fallbackAreaCode,
           proj_cd: form.project_id,
-          acq_mode_id: proposalConfig.acquisitionModeIdMap[form.acquisition_mode as keyof typeof proposalConfig.acquisitionModeIdMap] || 6,
+          acq_mode_id: form.proposal_type === 'DRAFT_PR_CHECKLIST_1_4' 
+            ? 6 
+            : (proposalConfig.acquisitionModeIdMap[form.acquisition_mode as keyof typeof proposalConfig.acquisitionModeIdMap] || 6),
           proposal_type: form.proposal_type,
           purpose_justification: form.description,
           rate_tenancy_land_with_emp: Number(form.rate_tenancy_land_with_emp),
@@ -116,9 +108,9 @@ export function CreateProposalDialog({
           rate_forest_land: Number(form.rate_forest_land),
           employment_proposed_count: Number(form.employment_proposed_count),
           employment_system: form.employment_system,
-          has_debottar_land: form.has_debottar_land,
-          has_tribal_land: form.has_tribal_land,
-          has_formal_negotiation: form.has_formal_negotiation,
+          has_debottar_land: false,
+          has_tribal_land: false,
+          has_formal_negotiation: false,
         }),
       })
       const data = await r.json()
@@ -132,10 +124,9 @@ export function CreateProposalDialog({
       setStep(1)
       setForm({
         project_id: '', acquisition_mode: 'direct_purchase', proposal_type: 'STANDARD_LAP', proposal_no: '', description: '',
-        mine_cd: '', adjacent_colliery: '', notification_date: '',
+        mine_cd: '', notification_date: '',
         rate_tenancy_land_with_emp: 0, rate_tenancy_land_no_emp: 0, rate_govt_land: 0, rate_forest_land: 0,
         employment_proposed_count: 0, employment_system: 'PACKAGE_DEAL',
-        has_debottar_land: false, has_tribal_land: false, has_formal_negotiation: false,
       })
       onOpenChange(false)
       router.refresh()
@@ -143,7 +134,9 @@ export function CreateProposalDialog({
     onError: (e: Error) => toast.error(e.message || t('proposal_create_error')),
   })
 
-  const canAdvanceStep1 = form.project_id && form.acquisition_mode && form.proposal_no.trim()
+  const canAdvanceStep1 = form.proposal_type === 'DRAFT_PR_CHECKLIST_1_4' 
+    ? Boolean(form.project_id && form.proposal_no.trim())
+    : Boolean(form.project_id && form.acquisition_mode && form.proposal_no.trim())
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -151,24 +144,19 @@ export function CreateProposalDialog({
         <DialogHeader>
           <DialogTitle>Initiate Land Acquisition Proposal</DialogTitle>
           <DialogDescription>
-            Step {step} of 3 — Enter proposal parameters and SOP requirements.
+            Step {step} of 2 — Enter primary proposal parameters and compensation rates.
           </DialogDescription>
 
           {/* Stepper Progress Bar */}
           <div className="mt-2 flex items-center justify-between border-b pb-3 text-xs font-medium text-muted-foreground">
             <div className={`flex items-center gap-1.5 ${step >= 1 ? 'font-bold text-amber-600' : ''}`}>
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[11px] text-amber-800">1</span>
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[11px] text-amber-800 font-bold">1</span>
               Mode & Basic Info
             </div>
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
             <div className={`flex items-center gap-1.5 ${step >= 2 ? 'font-bold text-amber-600' : ''}`}>
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[11px] text-amber-800">2</span>
-              Per-Acre Rates
-            </div>
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            <div className={`flex items-center gap-1.5 ${step >= 3 ? 'font-bold text-amber-600' : ''}`}>
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[11px] text-amber-800">3</span>
-              SOP Exceptional Cases
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[11px] text-amber-800 font-bold">2</span>
+              Per-Acre Rates & Justification
             </div>
           </div>
         </DialogHeader>
@@ -177,7 +165,7 @@ export function CreateProposalDialog({
           {/* STEP 1: Primary Creation Mode & Project Selector */}
           {step === 1 && (
             <div className="grid gap-4">
-              {/* Proposal Type Selector (Standard vs Draft PR Stage) */}
+              {/* Proposal Type Selector */}
               <div className="space-y-1">
                 <Label className="text-xs font-medium text-muted-foreground">Proposal Workflow Type</Label>
                 <div className="grid grid-cols-2 gap-2">
@@ -221,44 +209,40 @@ export function CreateProposalDialog({
                     </AlertDescription>
                   </Alert>
                 ) : (
-                  <select
-                    value={form.project_id}
-                    onChange={(e) => setForm({ ...form, project_id: e.target.value })}
-                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-                  >
-                    <option value="">Select Project</option>
-                    {lockedProjects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} · Mine: {p.mine_cd} {p.is_combo_project ? '· [COMBO MINE PROJECT]' : ''}
-                      </option>
-                    ))}
-                  </select>
+                <ProjectSelect
+                  lockedOnly
+                  value={form.project_id}
+                  onChange={(val) => setForm({ ...form, project_id: typeof val === 'string' ? val : (Array.isArray(val) ? val[0] : '') })}
+                  placeholder="Select Target Mining Project from DB..."
+                />
                 )}
               </div>
 
-              {/* Acquisition mode picker */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium text-muted-foreground">Primary Acquisition Mode</Label>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {MODES.map((m) => {
-                    const meta = MODE_META[m]
-                    const selected = form.acquisition_mode === m
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setForm({ ...form, acquisition_mode: m })}
-                        className={`flex flex-col items-start rounded-md border px-3 py-2 text-left transition ${
-                          selected ? meta.color + ' ring-2 ring-offset-1 ring-amber-400' : 'border-border bg-card hover:border-amber-300'
-                        }`}
-                      >
-                        <span className="font-mono text-[10px] font-bold uppercase">{meta.checklistCode}</span>
-                        <span className="mt-0.5 text-xs font-medium leading-tight">{meta.label}</span>
-                      </button>
-                    )
-                  })}
+              {/* Acquisition mode picker — only shown for Standard Acquisition Proposals */}
+              {form.proposal_type === 'STANDARD_LAP' && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-muted-foreground">Primary Acquisition Mode</Label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {STANDARD_ACQ_MODES.map((m) => {
+                      const meta = MODE_META[m]
+                      const selected = form.acquisition_mode === m
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setForm({ ...form, acquisition_mode: m })}
+                          className={`flex flex-col items-start rounded-md border px-3 py-2 text-left transition ${
+                            selected ? meta.color + ' ring-2 ring-offset-1 ring-amber-400' : 'border-border bg-card hover:border-amber-300'
+                          }`}
+                        >
+                          <span className="font-mono text-[10px] font-bold uppercase">{meta.checklistCode}</span>
+                          <span className="mt-0.5 text-xs font-medium leading-tight">{meta.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
@@ -281,30 +265,17 @@ export function CreateProposalDialog({
                   <div className="min-h-[1.25rem]"></div>
                 </div>
               </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-medium text-muted-foreground">Inevitable Justification for Land Acquisition (Form-XXII Item 8)</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="Explain why the proposed procurement of land is inevitable for mine expansion and operational continuity..."
-                  rows={3}
-                />
-                <div className="min-h-[1.25rem] text-[11px] text-muted-foreground">
-                  This justification will populate Form-XXII Item 8.
-                </div>
-              </div>
             </div>
           )}
 
-          {/* STEP 2: Per-Acre Compensation Rates */}
+          {/* STEP 2: Per-Acre Compensation Rates & Justification */}
           {step === 2 && (
             <div className="grid gap-4">
               <Alert className="bg-amber-50/50 border-amber-200">
                 <AlertCircle className="h-4 w-4 text-amber-600" />
-                <AlertTitle className="text-xs font-semibold text-amber-900">Techno-Economic Calculation Sheet Parameters</AlertTitle>
+                <AlertTitle className="text-xs font-semibold text-amber-900">Techno-Economic Parameters (Form-XXII)</AlertTitle>
                 <AlertDescription className="text-xs text-amber-800">
-                  Enter proposed per-acre compensation rates for land estimation in Form-XXII Item 10.
+                  Enter proposed per-acre compensation rates for land valuation estimates. Exceptional case flags (Debottar, Tribal) are configured inside the proposal workspace later if applicable.
                 </AlertDescription>
               </Alert>
 
@@ -316,7 +287,6 @@ export function CreateProposalDialog({
                     value={form.rate_tenancy_land_with_emp}
                     onChange={(e) => setForm({ ...form, rate_tenancy_land_with_emp: parseFloat(e.target.value) || 0 })}
                   />
-                  <div className="min-h-[1.25rem]"></div>
                 </div>
 
                 <div className="space-y-1">
@@ -326,7 +296,6 @@ export function CreateProposalDialog({
                     value={form.rate_tenancy_land_no_emp}
                     onChange={(e) => setForm({ ...form, rate_tenancy_land_no_emp: parseFloat(e.target.value) || 0 })}
                   />
-                  <div className="min-h-[1.25rem]"></div>
                 </div>
 
                 <div className="space-y-1">
@@ -336,7 +305,6 @@ export function CreateProposalDialog({
                     value={form.rate_govt_land}
                     onChange={(e) => setForm({ ...form, rate_govt_land: parseFloat(e.target.value) || 0 })}
                   />
-                  <div className="min-h-[1.25rem]"></div>
                 </div>
 
                 <div className="space-y-1">
@@ -346,80 +314,16 @@ export function CreateProposalDialog({
                     value={form.rate_forest_land}
                     onChange={(e) => setForm({ ...form, rate_forest_land: parseFloat(e.target.value) || 0 })}
                   />
-                  <div className="min-h-[1.25rem]"></div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: SOP Exceptional Case Toggles & Employment */}
-          {step === 3 && (
-            <div className="grid gap-4">
-              <div className="space-y-3 rounded-md border p-3 bg-card">
-                <Label className="text-xs font-bold text-foreground">SOP Exceptional Case Declarations</Label>
-                
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.has_debottar_land}
-                    onChange={(e) => setForm({ ...form, has_debottar_land: e.target.checked })}
-                    className="h-4 w-4 rounded border-border"
-                  />
-                  <span><strong>Debottar Land (Deity Land) Involved</strong> — Mandates Board of Revenue / District Judge Approval</span>
-                </label>
-
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.has_tribal_land}
-                    onChange={(e) => setForm({ ...form, has_tribal_land: e.target.checked })}
-                    className="h-4 w-4 rounded border-border"
-                  />
-                  <span><strong>Tribal Land Involved (CNT / SPT Act)</strong> — Mandates District Authority Transfer Approval</span>
-                </label>
-
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.has_formal_negotiation}
-                    onChange={(e) => setForm({ ...form, has_formal_negotiation: e.target.checked })}
-                    className="h-4 w-4 rounded border-border"
-                  />
-                  <span><strong>Formal Rate Negotiation Held</strong> — Mandates uploading Tripartite Minutes of Meeting</span>
-                </label>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium text-muted-foreground">Proposed Employment Jobs Count</Label>
-                  <Input
-                    type="number"
-                    value={form.employment_proposed_count}
-                    onChange={(e) => setForm({ ...form, employment_proposed_count: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium text-muted-foreground">Employment Package System</Label>
-                  <select
-                    value={form.employment_system}
-                    onChange={(e) => setForm({ ...form, employment_system: e.target.value })}
-                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-                  >
-                    <option value="PACKAGE_DEAL">Package Deal (CIL R&R Policy)</option>
-                    <option value="TAGGED">Tagged Plot Scheme</option>
-                    <option value="NONE">No Employment (Direct Cash Compensation)</option>
-                  </select>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs font-medium text-muted-foreground">Purpose & Justification</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Inevitable Justification for Land Acquisition (Form-XXII Item 8)</Label>
                 <Textarea
                   value={form.description || ''}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="Enter proposal justification for Form-XXII Item 8..."
-                  className="min-h-16"
+                  placeholder="Explain why the proposed procurement of land is inevitable for mine expansion..."
+                  className="min-h-16 text-xs"
                 />
               </div>
             </div>
@@ -435,7 +339,7 @@ export function CreateProposalDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           )}
 
-          {step < 3 ? (
+          {step < 2 ? (
             <Button onClick={() => setStep(step + 1)} disabled={!canAdvanceStep1}>
               Next Step <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
@@ -443,9 +347,10 @@ export function CreateProposalDialog({
             <Button
               onClick={() => create.mutate()}
               disabled={create.isPending}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
             >
               {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
-              Submit Land Proposal
+              Initiate Land Proposal
             </Button>
           )}
         </DialogFooter>

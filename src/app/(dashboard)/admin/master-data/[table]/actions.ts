@@ -25,9 +25,8 @@ export async function createMasterRecord(modelName: string, data: any) {
       entity_name: modelName,
       user_id: auth.user.id,
       remarks: JSON.stringify(data)
-    })
-
-    EventBus.publish({
+    });
+    await EventBus.publish({
       event_name: 'MASTER_DATA_UPDATED',
       module: 'admin',
       user_id: auth.user.id,
@@ -60,9 +59,8 @@ export async function updateMasterRecord(modelName: string, pkField: string, id:
       entity_id: id,
       user_id: auth.user.id,
       remarks: JSON.stringify(data)
-    })
-
-    EventBus.publish({
+    });
+    await EventBus.publish({
       event_name: 'MASTER_DATA_UPDATED',
       module: 'admin',
       user_id: auth.user.id,

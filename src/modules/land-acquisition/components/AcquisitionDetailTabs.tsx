@@ -5,8 +5,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Can } from '@/authorization/components/Can'
 import {
-  SectionCard, DataTable, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline, ActionJustificationDialog, PartialAreaInputDialog,
+  SectionCard, DataTable, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline, ActionJustificationDialog, PartialAreaInputDialog, WorkflowTimelineFeed, ProposalActionCenterBanner,
 } from '@/shared/components/coalrr'
+import { ProposalOverviewSection } from './sections/ProposalOverviewSection'
 import type {
   Column, AvailableTransition, TimelineNode, ChecklistItem, ChecklistItemStatus,
 } from '@/shared/components/coalrr'
@@ -46,7 +47,6 @@ import {
 } from 'lucide-react'
 import { COMPENSATION_PAYROLL_STATES, COMPENSATION_PAYROLL_ORDERED_STATES } from '@/core/workflow'
 import { getChecklistStatus, updateChecklistSubmission } from '@/app/actions/checklist.actions'
-import { RoleActionBanner } from './RoleActionBanner'
 
 import {
   AcquisitionMode, MODE_META, MODES, ANNEXURE_META, LAND_TYPE_COLOR,
@@ -72,24 +72,32 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
 
   return (
     <div className="space-y-6">
-      <RoleActionBanner schedule={schedule} />
       <PendingActionBanner schedule={schedule} />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Panel - Overview & Plots (8 cols) */}
         <div className="lg:col-span-8 space-y-6">
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="w-fit">
+          <TabsList className="w-fit flex-wrap">
             <TabsTrigger value="overview"><ListChecks className="mr-2 h-3.5 w-3.5" /> Overview</TabsTrigger>
+            <TabsTrigger value="checklist"><FileText className="mr-2 h-3.5 w-3.5" /> Compliance Checklist</TabsTrigger>
             <TabsTrigger value="plots"><Layers className="mr-2 h-3.5 w-3.5" /> Plots &amp; Annexures</TabsTrigger>
+            <TabsTrigger value="milestones"><Calendar className="mr-2 h-3.5 w-3.5" /> Statutory Milestones</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-4 space-y-6">
+            <ProposalOverviewSection schedule={schedule} />
+          </TabsContent>
+
+          <TabsContent value="checklist" className="mt-4 space-y-6">
             <ChecklistTab schedule={schedule} onChanged={onChanged} />
-            <MilestonesTab schedule={schedule} />
           </TabsContent>
 
           <TabsContent value="plots" className="mt-4">
             <PlotsTab schedule={schedule} onChanged={onChanged} />
+          </TabsContent>
+
+          <TabsContent value="milestones" className="mt-4">
+            <MilestonesTab schedule={schedule} />
           </TabsContent>
         </Tabs>
       </div>
@@ -106,44 +114,28 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
 }
 
 function PendingActionBanner({ schedule }: { schedule: ScheduleDetail }) {
-  const { data: tasks } = useQuery({
-    queryKey: ['user-pending-tasks'],
+  const { user } = useAuth()
+  const { data: clStatus } = useQuery<{ isComplete: boolean; completedCount?: number; totalCount?: number }>({
+    queryKey: ['schedules', schedule.id, 'checklist-status'],
     queryFn: async () => {
-      const res = await fetch('/api/profile/tasks')
-      if (!res.ok) return []
-      return res.json() as Promise<Array<{
-        id: string;
-        reviewable_type: string;
-        reviewable_id: string;
-        role: string;
-        status: string;
-      }>>
+      const r = await fetch(`/api/schedules/${schedule.id}/checklist`)
+      if (!r.ok) return { isComplete: false, completedCount: 0, totalCount: 0 }
+      return r.json()
     }
   })
 
-  // Check if any of the tasks belong to this proposal's documents (like FORM_VII)
-  // Currently, tasks only contain reviewable_id (document_instance id).
-  // Ideally, we'd need to know if that document is linked to this proposal.
-  // For this prototype, if there's any task with reviewable_type = document_signature, we show a generic banner,
-  // or we can just fetch the documents for this proposal to match.
-  // We'll assume the user is on the proposal they need to act on if it's UnitSubmitted.
-  
-  if (!tasks || tasks.length === 0) return null
-
-  // Just render the banner if there are tasks for now.
-  const hasSignatures = tasks.some(t => t.reviewable_type === 'document_signature')
-  
-  if (!hasSignatures) return null
-
   return (
-    <Alert className="border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
-      <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-      <AlertTitle className="text-sm font-bold">Action Required</AlertTitle>
-      <AlertDescription className="text-xs">
-        You have pending documents that require your signature or review. 
-        Please check your Global Inbox or the Verification tab.
-      </AlertDescription>
-    </Alert>
+    <ProposalActionCenterBanner
+      proposalId={schedule.id}
+      proposalNo={schedule.schedule_code || `PROP-${schedule.id.slice(0, 8)}`}
+      currentStage={getNormalizedState(schedule.state)}
+      userRole={user?.roles?.[0] || 'unit_office'}
+      checklistSummary={clStatus ? {
+        total: (clStatus as any).totalCount || 12,
+        completed: (clStatus as any).completedCount || ((clStatus as any).isComplete ? 12 : 8),
+        isComplete: Boolean(clStatus.isComplete),
+      } : undefined}
+    />
   )
 }
 
@@ -648,29 +640,11 @@ function ChecklistTab({
     <div className="space-y-4">
       <GenericChecklistWorkspace
         moduleCode="LAND_ACQ_PROPOSAL"
-        checkableType="proposal"
+        checkableType="acq_proposal"
         checkableId={schedule.id}
         userId={user?.id || 'system'}
         title="Compliance Checklist"
-        description={`Mode-specific compliance items for ${MODE_META[schedule.acquisition_mode]?.label ?? schedule.acquisition_mode}. 'Forward to Area Vetting' enabled once all required items are complete.`}
-        action={(isComplete) => showForward && (
-          <>
-            <Separator className="my-3" />
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">
-                Once all required items are complete, forward to area office for vetting.
-              </p>
-              <Button
-                onClick={() => forward.mutate()}
-                disabled={forward.isPending || !isComplete}
-                className="bg-emerald-600 hover:bg-emerald-700"
-              >
-                {forward.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-                Forward to Area Vetting
-              </Button>
-            </div>
-          </>
-        )}
+        description={`Mode-specific compliance items for ${MODE_META[schedule.acquisition_mode]?.label ?? schedule.acquisition_mode}. Completeness status is automatically validated by the Workflow Engine.`}
       />
     </div>
   )
@@ -842,11 +816,12 @@ function VerificationTab({
         actionName={selectedTransition?.name || ''}
         actionLabel={selectedTransition?.label || ''}
         isReturn={selectedTransition?.name.includes('return') || selectedTransition?.name.includes('reject')}
-        onSubmit={async ({ comments, file }) => {
+        onSubmit={async ({ comments, targetRecipient, file }) => {
           if (selectedTransition) {
+            const finalRemarks = targetRecipient ? `${targetRecipient}. ${comments}`.trim() : comments
             await verify.mutateAsync({
               transitionName: selectedTransition.name,
-              comments,
+              comments: finalRemarks,
               file,
             })
           }
@@ -948,13 +923,17 @@ function TimelineTab({ schedule }: { schedule: ScheduleDetail }) {
   })
 
   return (
-    <SectionCard
-      title="Workflow Timeline"
-      icon={History}
-      description="Finite state machine — spec §2.3.1. BoardEscalation is a branch off AreaVetting / DirectorConsent."
-    >
-      <StatusTimeline nodes={nodes} maxheight={460} />
-    </SectionCard>
+    <div className="space-y-6">
+      <SectionCard
+        title="Workflow Stage Stepper"
+        icon={History}
+        description="Finite state machine stage stepper — spec §2.3.1."
+      >
+        <StatusTimeline nodes={nodes} maxheight={320} />
+      </SectionCard>
+
+      <WorkflowTimelineFeed moduleCode="LAND_SCHEDULE" entityId={schedule.id} maxHeight={480} />
+    </div>
   )
 }
 

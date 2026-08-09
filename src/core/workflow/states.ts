@@ -117,9 +117,41 @@ const T_HQ__GMLRE: Transition = {
   guard: parallelReviewsGuard,
 };
 
-const T_GMLRE__PUBLISHED: Transition = {
+const T_GMLRE__SEC7_PREP: Transition = {
+  name: "advance_to_sec7_prep",
+  label: "Advance to Section 7 Preparation (Automated)",
+  from: "GmLreReview",
+  to: "Sec7Preparation",
+  role: "gm_lre",
+};
+
+const T_GMLRE__DOCKET: Transition = {
+  name: "issue_docket",
+  label: "Issue Proposal Docket",
+  from: "GmLreReview",
+  to: "DocketIssued",
+  role: "gm_lre",
+};
+
+const T_DOCKET__MANUAL: Transition = {
+  name: "approve_manually",
+  label: "Manual Approval & Sign-off",
+  from: "DocketIssued",
+  to: "ManuallyApproved",
+  role: "gm_lre",
+};
+
+const T_MANUAL__PUBLISHED: Transition = {
   name: "publish",
   label: "Publish Award (Manual Forwarding Complete)",
+  from: "ManuallyApproved",
+  to: "Published",
+  role: "gm_lre",
+};
+
+const T_GMLRE__PUBLISHED: Transition = {
+  name: "publish_direct",
+  label: "Publish Award (Direct)",
   from: "GmLreReview",
   to: "Published",
   role: "gm_lre",
@@ -173,6 +205,14 @@ const T_BOARD__RETURN_AREA: Transition = {
   role: "board",
 };
 
+const T_UNIT__CROSS_COLLIERY: Transition = {
+  name: "forward_for_cross_colliery",
+  label: "Forward for Cross-Colliery Boundary & Form-VII Vetting",
+  from: "UnitSubmitted",
+  to: "CrossCollieryVerification",
+  role: "unit_office",
+};
+
 // ════════════════════════════════════════════════════════════════════════════
 // State metadata
 // ════════════════════════════════════════════════════════════════════════════
@@ -193,7 +233,7 @@ export const COMPENSATION_PAYROLL_STATES: Readonly<
     icon: "FileEdit",
     order: 1,
     isTerminal: false,
-    allowedTransitions: [T_DRAFTING__UNIT, T_UNIT__AREA],
+    allowedTransitions: [T_DRAFTING__UNIT],
   },
   UnitSubmitted: {
     label: "Unit Submitted & Cross-Colliery Verification",
@@ -203,7 +243,16 @@ export const COMPENSATION_PAYROLL_STATES: Readonly<
     icon: "Send",
     order: 2,
     isTerminal: false,
-    allowedTransitions: [T_UNIT__RETURN],
+    allowedTransitions: [T_UNIT__CROSS_COLLIERY],
+  },
+  CrossCollieryVerification: {
+    label: "Cross-Colliery Verification",
+    description: "Plot schedule verified across adjacent colliery boundaries for LIS overlaps.",
+    color: "bg-cyan-100 text-cyan-700 border-cyan-300",
+    icon: "GitCompare",
+    order: 2.5,
+    isTerminal: false,
+    allowedTransitions: [T_UNIT__AREA, T_UNIT__RETURN],
   },
   AreaVetting: {
     label: "Area Vetting",
@@ -225,6 +274,15 @@ export const COMPENSATION_PAYROLL_STATES: Readonly<
     isTerminal: false,
     allowedTransitions: [T_HQ_PLANNING__GMLRE, T_HQ_FINANCE__GMLRE, T_HQ_SAFETY__GMLRE, T_HQ_LEGAL__GMLRE, T_HQ__GMLRE, T_HQ_PLANNING__RETURN_AREA, T_HQ_FINANCE__RETURN_AREA],
   },
+  HqVetting: {
+    label: "HQ Vetting",
+    description: "Headquarters level vetting and clearance.",
+    color: "bg-purple-100 text-purple-700 border-purple-300",
+    icon: "Building",
+    order: 4.5,
+    isTerminal: false,
+    allowedTransitions: [T_HQ__GMLRE],
+  },
   GmLreReview: {
     label: "GM LRE Consolidation",
     description: "GM (LRE) consolidates recommendations and advances the file to terminal state.",
@@ -232,7 +290,34 @@ export const COMPENSATION_PAYROLL_STATES: Readonly<
     icon: "UserCheck",
     order: 5,
     isTerminal: false,
-    allowedTransitions: [T_GMLRE__PUBLISHED, T_GMLRE__RETURN_HQ],
+    allowedTransitions: [T_GMLRE__DOCKET, T_GMLRE__PUBLISHED, T_GMLRE__RETURN_HQ, T_GMLRE__SEC7_PREP],
+  },
+  Sec7Preparation: {
+    label: "Section 7 Preparation",
+    description: "Section 4 Notification completed. Preparing for Section 7 Gazette.",
+    color: "bg-blue-100 text-blue-700 border-blue-300",
+    icon: "FileText",
+    order: 5.1,
+    isTerminal: false,
+    allowedTransitions: [], // Transitions from here depend on further workflow modeling
+  },
+  DocketIssued: {
+    label: "Docket Issued",
+    description: "Proposal docket generated and issued for final vetting and execution.",
+    color: "bg-indigo-100 text-indigo-700 border-indigo-300",
+    icon: "FileText",
+    order: 5.5,
+    isTerminal: false,
+    allowedTransitions: [T_DOCKET__MANUAL],
+  },
+  ManuallyApproved: {
+    label: "Manually Approved",
+    description: "Manual sign-off and approval completed prior to ledger publishing.",
+    color: "bg-teal-100 text-teal-700 border-teal-300",
+    icon: "Award",
+    order: 5.8,
+    isTerminal: false,
+    allowedTransitions: [T_MANUAL__PUBLISHED],
   },
   Published: {
     label: "Published",
@@ -241,6 +326,42 @@ export const COMPENSATION_PAYROLL_STATES: Readonly<
     color: "bg-emerald-100 text-emerald-700 border-emerald-300",
     icon: "CheckCircle2",
     order: 6,
+    isTerminal: true,
+    allowedTransitions: [],
+  },
+  Approved: {
+    label: "Approved",
+    description: "Proposal fully approved.",
+    color: "bg-emerald-100 text-emerald-700 border-emerald-300",
+    icon: "CheckCircle",
+    order: 6.5,
+    isTerminal: true,
+    allowedTransitions: [],
+  },
+  Rejected: {
+    label: "Rejected",
+    description: "Proposal rejected during vetting.",
+    color: "bg-red-100 text-red-700 border-red-300",
+    icon: "XCircle",
+    order: 7,
+    isTerminal: true,
+    allowedTransitions: [],
+  },
+  Cancelled: {
+    label: "Cancelled",
+    description: "Proposal cancelled by initiator.",
+    color: "bg-slate-100 text-slate-700 border-slate-300",
+    icon: "Ban",
+    order: 8,
+    isTerminal: true,
+    allowedTransitions: [],
+  },
+  Closed: {
+    label: "Closed",
+    description: "Proposal file closed.",
+    color: "bg-gray-100 text-gray-700 border-gray-300",
+    icon: "Archive",
+    order: 9,
     isTerminal: true,
     allowedTransitions: [],
   },

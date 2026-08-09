@@ -363,6 +363,22 @@ export class Proposal extends AggregateRoot<string> {
     return { isSuccess: true, isFailure: false, value: undefined, error: null }
   }
 
+  transitionTo(newState: ProposalState, actorId?: string, comments?: string): Result<void> {
+    const previousState = this._state
+    this._state = newState
+    this._updatedAt = new Date()
+
+    this.addDomainEvent(createDomainEvent('PROPOSAL_STATE_TRANSITIONED', this.id, {
+      scheduleCode: this._scheduleCode.value,
+      previousState: previousState.value,
+      newState: newState.value,
+      actorId: actorId ?? 'system',
+      comments: comments ?? '',
+    }))
+
+    return { isSuccess: true, isFailure: false, value: undefined, error: null }
+  }
+
   submit(isLimitBreached: boolean = false): Result<void> {
     if (!this._state.canBeSubmitted()) {
       return Fail('Cannot submit from state')

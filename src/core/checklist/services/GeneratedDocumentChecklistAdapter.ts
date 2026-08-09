@@ -66,7 +66,7 @@ export class GeneratedDocumentChecklistAdapter {
       (!existingSubmission || existingSubmission.status !== 'SUBMITTED')
     ) {
       await this.checklistRepository.upsertSubmission({
-        requirement_id: rule.id,
+        requirement_id: (rule as any).chk_id || rule.id,
         checkable_type: checkableType,
         checkable_id: checkableId,
         status: 'SUBMITTED',

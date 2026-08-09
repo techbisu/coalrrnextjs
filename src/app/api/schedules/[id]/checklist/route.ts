@@ -1,3 +1,4 @@
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { ok, badRequest, serverError, readJson } from '../../../_lib'
 import { getCurrentUser } from '@/lib/auth'
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   try {
     const { id } = await ctx.params
     const mandatoryRules = await db.checklist_requirement_rule.findMany({
-      where: { module_code: 'LAND_ACQ_PROPOSAL', is_mandatory: true, is_active: true }
+      where: { module_code: { in: [MODULE_CODES.LAND_SCHEDULE, 'LAND_ACQ_PROPOSAL', 'LAND_SCHEDULE'] }, is_mandatory: true, is_active: true }
     })
 
     const submissions = await db.checklist_submission.findMany({
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     })
 
     const completedReqIds = new Set(submissions.map(s => s.requirement_id))
-    const missingRules = mandatoryRules.filter(r => !completedReqIds.has(r.id))
+    const missingRules = mandatoryRules.filter(r => !completedReqIds.has((r as any).chk_id || (r as any).id))
     const isComplete = missingRules.length === 0
 
     return ok({

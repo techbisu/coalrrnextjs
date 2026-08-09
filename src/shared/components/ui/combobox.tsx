@@ -66,7 +66,7 @@ export function Combobox({
   }, [value])
 
   const selectedOptions = React.useMemo(
-    () => options.filter((o) => selectedValues.includes(String(o.value))),
+    () => options.filter((o) => selectedValues.includes(String(o.value)) || selectedValues.includes(String(o.label))),
     [options, selectedValues]
   )
 

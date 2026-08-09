@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { authorizeApi } from '@/core/authorization/middleware/authorize';
 import fs from 'fs';
 import path from 'path';
+import { uploadConfig } from '@/core/config/upload.config';
 
 export async function GET(request: Request, { params }: { params: Promise<{ fileId: string }> }) {
   const file_id = (await params).fileId;
@@ -65,7 +66,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
         const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
         
         // Generate QR code image buffer (PNG)
-        const qrUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://portal.company.com'}/verify/${file_id}`;
+        const qrUrl = `${uploadConfig.qrBaseUrl}/verify/${file_id}`;
         const qrCodeBuffer = await QRCode.toBuffer(qrUrl, { margin: 1, scale: 4 });
         const qrImage = await pdfDoc.embedPng(qrCodeBuffer);
         const qrDims = qrImage.scale(0.28); // scale down the QR code more for safe area
@@ -78,13 +79,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
         for (const page of pages) {
           const { width } = page.getSize();
           
-          // Draw footer text at the bottom left
+          // Draw solid white background block to hide previously scanned footprints
+          page.drawRectangle({
+            x: 0,
+            y: 0,
+            width: width,
+            height: 55,
+            color: rgb(1, 1, 1),
+          });
+
+          // Draw footer text at the bottom left with text wrapping
           page.drawText(footerText, {
             x: 40,
-            y: 30, // pushed up slightly to safe area
+            y: 35, // pushed up into safe area
             size: 8,
             font: helvetica,
             color: rgb(0.3, 0.3, 0.3),
+            maxWidth: width - qrDims.width - 100, // ensure text wraps before hitting QR code
+            lineHeight: 10,
           });
 
           // Draw actual QR code image at the bottom right

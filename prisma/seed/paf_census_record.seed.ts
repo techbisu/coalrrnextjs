@@ -6,7 +6,7 @@ export async function seedPafCensusRecord(db: PrismaClient) {
   console.log('🌱 Seeding paf_census_record...')
 
   const claims = await db.form_i_claim.findMany()
-  const plots = await db.mst_plot.findMany()
+  const plots = await db.plot_schedule.findMany()
 
   if (claims.length === 0 || plots.length === 0) return
 

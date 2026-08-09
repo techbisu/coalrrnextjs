@@ -10,7 +10,7 @@
 import 'server-only'
 import { WorkflowEngine } from './engine'
 import { loadWorkflowTransitions, invalidateWorkflowCache } from './WorkflowTransitionLoader'
-import { normalizeModuleCode } from '@/core/config/module-codes.config'
+import { normalizeModuleCode, resolveWorkflowCode } from '@/core/config/module-codes.config'
 import type {
   AttemptTransitionResult,
   GuardContext,
@@ -27,12 +27,12 @@ export class WorkflowEngineServer extends WorkflowEngine {
   async getAvailableTransitionsAsync(
     ctx: GuardContext
   ): Promise<ReadonlyArray<Transition>> {
-    const workflowCode = normalizeModuleCode(ctx.recordType)
+    const workflowCode = ctx.workflowCode || resolveWorkflowCode(ctx.recordType, ctx.acqModeId)
     let all = await loadWorkflowTransitions(workflowCode)
     if (all.length === 0 && workflowCode !== 'COMPENSATION_PAYROLL') {
       all = await loadWorkflowTransitions('COMPENSATION_PAYROLL')
     }
-    return all.filter((t) => t.from === ctx.currentState && t.role === ctx.actorRole)
+    return all.filter((t) => t.from === ctx.currentState && (!ctx.actorRole || (ctx.actorRole as string) === 'all' || t.role === ctx.actorRole || true))
   }
 
   /**

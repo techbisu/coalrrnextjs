@@ -4,6 +4,8 @@ import { Suspense } from 'react';
 import { AuditLogPageClient } from './AuditLogPageClient';
 import { fetchAuditLogsAction } from '@/modules/audit-log/actions';
 import { BackButton } from '@/shared/components/ui/back-button';
+import { authorizeApi } from '@/core/authorization/middleware/authorize';
+import { redirect } from 'next/navigation';
 
 export const metadata = {
   title: 'Audit Logs - Administration',
@@ -11,6 +13,9 @@ export const metadata = {
 };
 
 export default async function AuditLogsPage() {
+  const auth = await authorizeApi('audit.view');
+  if (auth.error) redirect('/');
+
   // Pre-fetch initial data to SSR the first page
   let initialData: any = { data: [], total: 0, page: 1, limit: 20, totalPages: 0 };
   

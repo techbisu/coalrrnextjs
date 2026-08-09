@@ -9,8 +9,9 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
 
   // --- DDD Interface ---
 
-  async findById(id: string): Promise<Proposal | null> {
-    const prop = await db.acq_proposal.findUnique({
+  async findById(id: string, tx?: any): Promise<Proposal | null> {
+    const client = tx || db;
+    const prop = await client.acq_proposal.findUnique({
       where: { proposal_id: id },
       include: {
         plot_schedule: true
@@ -58,7 +59,8 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
     });
   }
 
-  async save(proposal: Proposal): Promise<void> {
+  async save(proposal: Proposal, tx?: any): Promise<void> {
+    const client = tx || db;
     const data = proposal.toPersistence();
 
     let acqModeId = BigInt(1); // cba_act
@@ -67,27 +69,27 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
 
     // Ensure mine_cd and area_cd satisfy foreign key constraints
     let validMineCd = data.collieryCode;
-    const existingMine = await db.mine_master.findUnique({ where: { mine_cd: validMineCd } });
+    const existingMine = await client.mine_master.findUnique({ where: { mine_cd: validMineCd } });
     if (!existingMine) {
-      const fallbackMine = await db.mine_master.findFirst();
+      const fallbackMine = await client.mine_master.findFirst();
       if (fallbackMine) validMineCd = fallbackMine.mine_cd;
     }
 
     let validAreaCd = data.areaOffice;
-    const existingArea = await db.area_master.findUnique({ where: { area_cd: validAreaCd } });
+    const existingArea = await client.area_master.findUnique({ where: { area_cd: validAreaCd } });
     if (!existingArea) {
-      const fallbackArea = await db.area_master.findFirst();
+      const fallbackArea = await client.area_master.findFirst();
       if (fallbackArea) validAreaCd = fallbackArea.area_cd;
     }
 
-    await db.acq_proposal.upsert({
+    await client.acq_proposal.upsert({
       where: { proposal_id: data.id },
       update: {
         proposal_no: data.scheduleCode,
         purpose_justification: data.proposalTitle,
         pr_scheme_ref_no: (data as any).adjacentColliery || (data as any).pr_scheme_ref_no,
-        current_stage_cd: data.state,
-        overall_status: data.state,
+        current_stage_cd: data.state.slice(0, 30),
+        overall_status: data.state.slice(0, 20),
         tot_acq_area: Number(data.totalAreaAcres),
         proposal_type: data.proposalType,
         rate_tenancy_land_with_emp: data.rateTenancyWithEmp,
@@ -113,8 +115,8 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
         pr_scheme_ref_no: (data as any).adjacentColliery || (data as any).pr_scheme_ref_no,
         is_within_pr_limit: true,
         requires_board_approval: true,
-        current_stage_cd: data.state,
-        overall_status: data.state,
+        current_stage_cd: data.state.slice(0, 30),
+        overall_status: data.state.slice(0, 20),
         tot_acq_area: Number(data.totalAreaAcres),
         entry_by: data.proposedBy,
         proposal_type: data.proposalType,

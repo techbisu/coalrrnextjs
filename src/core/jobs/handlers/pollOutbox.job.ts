@@ -1,7 +1,7 @@
 /**
  * pollOutbox Job Handler
  *
- * Triggered by JobDispatcherService whenever EventBus.publish() writes
+ * Triggered by JobDispatcherService whenever await EventBus.publish() writes
  * a new row to outbox_events.
  *
  * Dev:  executes immediately in-process (JobDispatcherService dev mode).

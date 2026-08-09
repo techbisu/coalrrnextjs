@@ -11,6 +11,7 @@ const envSchema = z.object({
   
   // Global Toggles
   GLOBAL_OTP_ENABLED: z.string().optional().transform(v => v !== 'false'),
+  NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3000'),
   
   // Email Variables
   SMTP_HOST: z.string().optional(),

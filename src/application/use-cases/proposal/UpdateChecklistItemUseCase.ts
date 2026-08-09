@@ -1,6 +1,7 @@
 /**
  * Update Checklist Item Use Case - Update a specific checklist item status.
  */
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 import { IUseCase, Result, Fail, Ok } from '@/core'
 import { IProposalRepository } from '@/domain/entities/proposal'
 import { EventBus } from '@/core/notifications/EventBus'
@@ -43,7 +44,7 @@ export class UpdateChecklistItemUseCase implements IUseCase<UpdateChecklistItemR
     // Audit logging
     AuditQueue.push({
       event_type: 'UPDATE_CHECKLIST_ITEM',
-      entity_name: 'land_schedule',
+      entity_name: MODULE_CODES.LAND_SCHEDULE,
       entity_id: proposal.id,
       user_id: request.user_id,
       remarks: JSON.stringify({ itemKey: request.itemKey, status: request.status }),

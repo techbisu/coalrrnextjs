@@ -160,22 +160,31 @@ export function ApprovalPanel({
 
         <Separator />
 
-        {/* Action buttons */}
-        <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Available Actions</p>
+        {/* Action buttons — Sequential Display & Prerequisite Enforcement */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Available Stage Actions</p>
+            {availableTransitions.length > 0 && (
+              <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
+                {availableTransitions.length} {availableTransitions.length === 1 ? 'Action' : 'Sequential Actions'}
+              </Badge>
+            )}
+          </div>
+
           {availableTransitions.length === 0 ? (
             <div className="flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
               <Lock className="h-3.5 w-3.5" />
               No transitions available from this state (terminal or awaiting upstream action).
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2">
               {availableTransitions.map((t, idx) => {
                 const roleMatches = !actorRole || t.role === actorRole
                 const blocked = !!t.guardFailed
                 const disabled = !roleMatches || blocked
                 const variant = transitionButtonVariant(t)
                 const itemKey = `${t.name}-${t.role || 'role'}-${idx}`
+
                 const button = (
                   <Button
                     key={itemKey}
@@ -184,26 +193,34 @@ export function ApprovalPanel({
                     variant={variant}
                     size="sm"
                     className={cn(
-                      variant === 'default' && !blocked && 'bg-emerald-600 hover:bg-emerald-700',
-                      variant === 'outline' && 'border-amber-400 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950',
+                      "w-full justify-between h-auto py-2.5 px-3 text-xs font-medium transition-all shadow-sm",
+                      variant === 'default' && !blocked && 'bg-emerald-600 hover:bg-emerald-700 text-white font-semibold',
+                      variant === 'outline' && 'border-amber-400 text-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950',
+                      disabled && "opacity-60 cursor-not-allowed bg-slate-100 text-slate-500 border-slate-200"
                     )}
                   >
-                    {t.label}
-                    <ArrowRight className="h-3.5 w-3.5" />
+                    <span className="flex items-center gap-2 truncate">
+                      <span className="w-5 h-5 rounded-full bg-slate-200/80 text-slate-700 font-mono text-[10px] flex items-center justify-center font-bold shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span className="truncate">{t.label}</span>
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0 ml-1" />
                   </Button>
                 )
+
                 if (disabled) {
                   return (
                     <TooltipProvider key={itemKey} delayDuration={150}>
                       <Tooltip>
-                        <TooltipTrigger asChild><span>{button}</span></TooltipTrigger>
+                        <TooltipTrigger asChild><div>{button}</div></TooltipTrigger>
                         <TooltipContent side="bottom" className="max-w-xs">
                           {blocked ? (
                             <>
                               <p className="flex items-center gap-1.5 font-medium text-rose-600">
-                                <ShieldAlert className="h-3.5 w-3.5" /> Guard failed
+                                <ShieldAlert className="h-3.5 w-3.5" /> Prerequisite Incomplete
                               </p>
-                              <p className="mt-1 text-xs">{t.guardFailed!.reason}</p>
+                              <p className="mt-1 text-xs text-slate-200">{t.guardFailed!.reason}</p>
                             </>
                           ) : (
                             <p className="text-xs">Requires role: <span className="font-medium">{ROLE_LABELS[t.role] ?? t.role}</span></p>
@@ -213,6 +230,7 @@ export function ApprovalPanel({
                     </TooltipProvider>
                   )
                 }
+
                 return button
               })}
             </div>

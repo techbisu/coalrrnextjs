@@ -8,6 +8,7 @@ import { processNotificationEvent } from '../handlers/processNotificationEvent.j
 import { dispatchNotification } from '../handlers/dispatchNotification.job'
 import { pollOutboxHandler } from '../handlers/pollOutbox.job'
 import { createReviewTasksHandler } from '../handlers/createReviewTasks.job'
+import { syncChecklistContextHandler } from '../handlers/syncChecklistContext.job'
 
 // Job Registry — add new handlers here, never use magic strings at call sites
 const jobHandlers: Record<string, (payload: any) => Promise<void>> = {
@@ -17,6 +18,7 @@ const jobHandlers: Record<string, (payload: any) => Promise<void>> = {
   dispatchNotification:    dispatchNotification,
   pollOutbox:              pollOutboxHandler,
   createReviewTasks:       createReviewTasksHandler,
+  syncChecklistContext:    syncChecklistContextHandler,
 }
 
 import type { Queue } from 'bullmq'
@@ -54,7 +56,10 @@ export class JobDispatcherService {
       // Option C: immediate in-process execution — no Redis required
       console.log(`[JobDispatcherService] Executing '${jobName}' synchronously (dev)`)
       try {
-        await handler(payload)
+        const { runWithRequestContext } = await import('@/core/context/RequestContext')
+        await runWithRequestContext({ userId: 'JOB: ' + jobName }, async () => {
+          await handler(payload)
+        })
       } catch (error) {
         console.error(`[JobDispatcherService] Job '${jobName}' failed:`, error)
       }

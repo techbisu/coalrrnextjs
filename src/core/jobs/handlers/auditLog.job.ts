@@ -14,20 +14,21 @@ export interface AuditLogJobPayload {
 
 export const auditLogHandler = async (job: AuditLogJobPayload): Promise<void> => {
   if (job.type === 'CUSTOM_ACTIVITY') {
-    const { activity, userId, ipAddress, userAgent } = job.payload
+    const { activity, userId, ipAddress, userAgent, timestamp } = job.payload
     
     const activityLogResult = ActivityLog.create({
       activity,
       actionBy: userId,
       ipAddress,
-      userAgent
+      userAgent,
+      timestamp
     })
 
     if (activityLogResult.isSuccess && activityLogResult.value) {
       await auditRepository.saveActivityLog(activityLogResult.value)
     }
   } else if (job.type === 'RECORD_CHANGE') {
-    const { table, action, conditions, oldData, newData, userId, ipAddress, userAgent } = job.payload
+    const { table, action, conditions, oldData, newData, userId, ipAddress, userAgent, timestamp } = job.payload
     
     let activityMessage = ''
     let appLogId: string | null = null;
@@ -64,7 +65,8 @@ export const auditLogHandler = async (job: AuditLogJobPayload): Promise<void> =>
         tableName: table,
         conditions,
         oldData: finalOldData,
-        newData: finalNewData
+        newData: finalNewData,
+        timestamp
       })
 
       if (appLogResult.isFailure || !appLogResult.value) {
@@ -92,7 +94,8 @@ export const auditLogHandler = async (job: AuditLogJobPayload): Promise<void> =>
       actionBy: userId,
       ipAddress,
       userAgent,
-      applicationLogId: appLogId
+      applicationLogId: appLogId,
+      timestamp
     })
 
     if (activityLogResult.isSuccess && activityLogResult.value) {

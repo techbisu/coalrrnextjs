@@ -132,6 +132,9 @@ Row 3 (Deviation) of the Use-wise table supports the following placeholder alias
 - **Other Purpose**: `{DevOther}`, `{DevOtherPurpose}`, `{DevOtherArea}`, `{dev_other}`
 - **Total Deviation**: `{DevTotal}` (Type-Wise), `{DevUseTotal}` / `{dev_use_total}` (Use-Wise)
 
+### 3. Query Service Abstraction
+Resolvers (e.g., `FormXXIIResolver`, `FormVIIResolver`) MUST NOT query Prisma `db` directly to maintain Clean Architecture service layer rules. They inject `IDocumentQueryService` (implemented via `PrismaDocumentQueryService`) to safely fetch necessary domain data (proposals, projects, plots).
+
 ---
 
 ## API Endpoints Reference

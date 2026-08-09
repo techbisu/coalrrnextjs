@@ -6,4 +6,5 @@ export const uploadConfig = {
   maxFilesPerUpload: env.UPLOAD_MAX_FILES,
   storageProvider: env.STORAGE_PROVIDER,
   enableVirusScan: env.ENABLE_VIRUS_SCAN && env.NODE_ENV === 'production',
+  qrBaseUrl: env.NEXT_PUBLIC_APP_URL,
 } as const;

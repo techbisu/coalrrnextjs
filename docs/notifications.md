@@ -1,6 +1,21 @@
-# Event Notification Implementation Guide
+# Notifications Module
 
-This guide explains how to implement and trigger background notifications across different channels (IN_APP, SMS, EMAIL) and recipient targets (Role, EventUser, SpecificUser) using the central `EventBus` and `JobDispatcherService`.
+**What it does:**  
+The notifications module provides a centralized, event-driven framework for routing and delivering messages across different channels (IN_APP, SMS, EMAIL). It decouples business logic from notification delivery by relying on a central EventBus, which writes to an outbox for background processing.
+
+**Data Flow:**  
+Business Entity / UseCase → `EventBus.publish()` → `outbox_events` table → Background Job (`JobDispatcherService`) → `RecipientResolver` (reads `notification_rule`) → Template Engine → Notification Delivery (e.g., In-App, Email).
+
+**Key Files Touched:**  
+- `src/core/notifications/EventBus.ts`
+- `src/core/notifications/services/RecipientResolver.ts`
+- `prisma/seed/seed-project-notification.ts`
+- `prisma/seed/seed-file-notification.ts`
+- UseCases triggering events (e.g., `UploadFileUseCase.ts`, `Project.ts`)
+
+**Packages Used:**  
+- `bullmq` / `ioredis`: For robust, Redis-backed background job queuing in production.
+- `@prisma/client`: For outbox writes within the same business transaction and for seeding the registry.
 
 ---
 
@@ -36,61 +51,65 @@ export class ApproveDocumentUseCase {
 
 ---
 
-## 2. Registering the Event & Rules in the Database (Raw SQL)
+## 2. Registering the Event & Rules in the Database (Prisma Seed)
 
-For the background worker to know what to do with an event like `USER_LOGIN_OTP`, you must register it in the database and create routing rules. 
+For the background worker to know what to do with an event, you must register the event, create a template, and map it to recipients via a notification rule. We manage this through Prisma Seed scripts.
 
-**Note**: Do not use `prisma db seed`. Always use raw SQL scripts for inserting events and rules to maintain explicit control over the registry.
+Create or update a seed file (e.g., `prisma/seed/seed-example-notification.ts`):
 
-Create a seed file (e.g., `seed_auth_otp.sql`):
+```typescript
+import { PrismaClient } from '@prisma/client'
+import crypto from 'crypto'
 
-```sql
--- 1. Insert Events
-INSERT INTO "event_registry" ("id", "event_name", "module", "description", "updt_ts")
-VALUES 
-  (gen_random_uuid(), 'USER_LOGIN_OTP', 'auth', 'Triggered when user logs in and requires OTP via SMS', NOW()),
-  (gen_random_uuid(), 'USER_LOGIN_OTP_EMAIL_FALLBACK', 'auth', 'Triggered when SMS OTP fails and fallback to EMAIL is required', NOW())
-ON CONFLICT ("event_name") DO NOTHING;
+export async function seedExampleNotification(db: PrismaClient) {
+  // 1. Register Event
+  const event = await db.event_registry.upsert({
+    where: { event_name: 'DOCUMENT_APPROVED' },
+    update: {},
+    create: {
+      id: crypto.randomUUID(),
+      event_name: 'DOCUMENT_APPROVED',
+      module: 'documents',
+      description: 'Triggered when a document is approved',
+      updt_ts: new Date()
+    }
+  })
 
--- 2. Insert Templates
--- Notice the use of {{otpCode}} mustache syntax for variables
-INSERT INTO "notification_template" ("id", "code", "channel", "subject", "body", "updt_ts")
-VALUES 
-  (gen_random_uuid(), 'TPL_LOGIN_OTP_SMS', 'SMS', NULL, 'Your COALRR login OTP is {{otpCode}}. Valid for 10 minutes.', NOW()),
-  (gen_random_uuid(), 'TPL_LOGIN_OTP_EMAIL', 'EMAIL', 'COALRR Login Verification Code', '<p>Your COALRR login OTP is <b>{{otpCode}}</b>. It is valid for 10 minutes. Please do not share this code.</p>', NOW())
-ON CONFLICT ("code") DO NOTHING;
+  // 2. Create Template
+  // Notice the use of {{docName}} mustache syntax for variables
+  const template = await db.notification_template.upsert({
+    where: { code: 'TPL_DOC_APPROVED_INAPP' },
+    update: {},
+    create: {
+      id: crypto.randomUUID(),
+      code: 'TPL_DOC_APPROVED_INAPP',
+      channel: 'IN_APP',
+      subject: 'Document Approved: {{docName}}',
+      body: 'The document {{docName}} was approved by {{approvedBy}}.',
+      updt_ts: new Date()
+    }
+  })
 
--- 3. Insert Rules for SMS
--- We use subqueries to dynamically link the rule to the event and template by their unique names
-INSERT INTO "notification_rule" ("id", "event_id", "template_id", "recipient_resolver", "priority", "updt_ts")
-SELECT 
-  gen_random_uuid(),
-  (SELECT "id" FROM "event_registry" WHERE "event_name" = 'USER_LOGIN_OTP'),
-  (SELECT "id" FROM "notification_template" WHERE "code" = 'TPL_LOGIN_OTP_SMS'),
-  'EventUser', -- Target: The user passed in `user_id` payload
-  '1',         -- Urgent Priority
-  NOW()
-WHERE NOT EXISTS (
-  SELECT 1 FROM "notification_rule" 
-  WHERE "event_id" = (SELECT "id" FROM "event_registry" WHERE "event_name" = 'USER_LOGIN_OTP')
-  AND "template_id" = (SELECT "id" FROM "notification_template" WHERE "code" = 'TPL_LOGIN_OTP_SMS')
-);
-
--- 4. Insert Rules for Email Fallback
-INSERT INTO "notification_rule" ("id", "event_id", "template_id", "recipient_resolver", "priority", "updt_ts")
-SELECT 
-  gen_random_uuid(),
-  (SELECT "id" FROM "event_registry" WHERE "event_name" = 'USER_LOGIN_OTP_EMAIL_FALLBACK'),
-  (SELECT "id" FROM "notification_template" WHERE "code" = 'TPL_LOGIN_OTP_EMAIL'),
-  'EventUser', -- Target: The user passed in `user_id` payload
-  '1',         -- Urgent Priority
-  NOW()
-WHERE NOT EXISTS (
-  SELECT 1 FROM "notification_rule" 
-  WHERE "event_id" = (SELECT "id" FROM "event_registry" WHERE "event_name" = 'USER_LOGIN_OTP_EMAIL_FALLBACK')
-  AND "template_id" = (SELECT "id" FROM "notification_template" WHERE "code" = 'TPL_LOGIN_OTP_EMAIL')
-);
+  // 3. Create Rule (Mapping Event + Template to a Role)
+  const existingRule = await db.notification_rule.findFirst({
+    where: { event_id: event.id, template_id: template.id, recipient_resolver: 'Role:Super Administrator' }
+  })
+  if (!existingRule) {
+    await db.notification_rule.create({
+      data: {
+        id: crypto.randomUUID(),
+        event_id: event.id,
+        template_id: template.id,
+        recipient_resolver: 'Role:Super Administrator',
+        is_active: true,
+        updt_ts: new Date()
+      }
+    })
+  }
+}
 ```
+
+After creating the script, ensure it is executed in `prisma/seed/index.ts`.
 
 ---
 
@@ -106,18 +125,7 @@ The `recipient_resolver` column dictates who receives the notification. It suppo
 
 ---
 
-## 4. Understanding the Priority Queue
-
-The `priority` field in `notification_rule` determines how fast the background worker will process the job in BullMQ (Production):
-
-- `"1"` = **Urgent** (Use only for OTPs, 2FA, and critical security alerts)
-- `"2"` = **High** (Action required immediately, e.g., Approval assigned to you)
-- `"3"` = **Normal** (Standard informational events, standard IN_APP logs)
-- `"4"` = **Low** (Bulk reports, weekly digests)
-
----
-
-## 5. Notification Variables (Mustache templating)
+## 4. Notification Variables (Mustache templating)
 
 When writing `body` or `subject` for a template, you can inject any variable passed inside the `data` object of `EventBus.publish` using double curly braces: `{{variableName}}`.
 

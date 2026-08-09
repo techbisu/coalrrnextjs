@@ -5,7 +5,7 @@ import { createHash, randomUUID } from 'crypto'
 export async function seedFormIClaim(db: PrismaClient) {
   console.log('🌱 Seeding form_i_claim...')
 
-  const plots = await db.mst_plot.findMany()
+  const plots = await db.plot_schedule.findMany()
   if (plots.length < 4) {
     console.log('Skipping form_i_claim seed, not enough plots found')
     return

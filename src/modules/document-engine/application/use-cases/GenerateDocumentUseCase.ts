@@ -4,7 +4,7 @@ import { IDocumentInstanceRepository } from '../../domain/IDocumentInstanceRepos
 import { IDocumentTemplateRepository } from '../../domain/IDocumentTemplateRepository'
 import { ResolverRegistry } from '../ResolverRegistry'
 import { DocxGeneratorEngine } from '@/lib/engines'
-import { uploadFileUseCase } from '@/infrastructure/di/Container'
+import { uploadFileUseCase, deleteFileUseCase } from '@/infrastructure/di/Container'
 
 export interface GenerateDocumentDTO {
   instanceId: string
@@ -72,7 +72,16 @@ export class GenerateDocumentUseCase implements IUseCase<GenerateDocumentDTO, an
       }
       const buf = DocxGeneratorEngine.generate(template.storage_path, mergedPayload)
       
-      // 5. Save via uploadFileUseCase
+      // 5. If a previously generated file exists for this instance, replace/delete it first to maintain a single file instance
+      if (instance.generated_docx_path) {
+        try {
+          await deleteFileUseCase.execute({ fileId: instance.generated_docx_path })
+        } catch (delErr: any) {
+          console.warn('Failed to delete previous generated docx file:', delErr.message)
+        }
+      }
+
+      // 6. Save new generated file via uploadFileUseCase
       const originalName = `${template.template_code}_${instance.application_id}.docx`
       
       const uploadResult = await uploadFileUseCase.execute({
@@ -80,10 +89,11 @@ export class GenerateDocumentUseCase implements IUseCase<GenerateDocumentDTO, an
           originalName: originalName,
           mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           sizeBytes: buf.length,
-          ownerId: 'system',
+          ownerId: 'docx_engine',
           entityType: 'document_instance',
           entityId: instance.id,
-          module: 'document-engine'
+          module: 'docxengine',
+          isActive: false
       })
       
       if (uploadResult.isFailure) {

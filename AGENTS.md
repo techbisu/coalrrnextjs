@@ -47,6 +47,7 @@ dev=immediate, prod=BullMQ/Redis, via JobDispatcherService only — background-j
 
 ## Config
 no hardcoded values — module-wise config files + validated env vars — config-management.md
+MUST use exported constants (`ACQ_LAND_SCHEDULE`, `CHECKABLE_ENTITY_TYPES`, `MODULE_CODES`) everywhere in application — no raw magic strings.
 
 ## Package hygiene
 stable, secure, maintained, enterprise-fit deps only — package-hygiene.md

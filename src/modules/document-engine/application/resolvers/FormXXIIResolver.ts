@@ -1,5 +1,5 @@
 import { IDocumentResolver, DocumentResolverResult } from '../../domain/IDocumentResolver'
-import { db } from '@/lib/db'
+import { IDocumentQueryService } from '../queries/IDocumentQueryService'
 import { buildLandCategoryMap } from '@/core/compliance/utils/landCategoryMap'
 
 function getFormVal(formData: any, ...keys: string[]): string {
@@ -13,23 +13,23 @@ function getFormVal(formData: any, ...keys: string[]): string {
 
 // FormXXIIResolver updated: 2026-08-05T16:55:50Z
 export class FormXXIIResolver implements IDocumentResolver {
+  constructor(private queryService?: IDocumentQueryService) {}
+
   async resolve(businessId: string, context?: Record<string, any>): Promise<DocumentResolverResult> {
+    if (!this.queryService) throw new Error('QueryService not injected')
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(businessId);
 
     // 1. Fetch the Proposal (acq_proposal) if businessId is UUID
     let proposal: any = null;
     if (isUuid) {
-      proposal = await db.acq_proposal.findUnique({
-        where: { proposal_id: businessId },
-        include: { acqu_mode: true }
-      });
+      proposal = await this.queryService.getProposal(businessId)
     }
 
     let isProjectSimulation = false;
     let project: any = null;
     
     if (proposal && proposal.proj_cd) {
-      const p = await db.project.findUnique({ where: { projCd: proposal.proj_cd } });
+      const p = await this.queryService.getProject(proposal.proj_cd)
       if (p) {
         project = {
           name: p.projNm,
@@ -57,7 +57,7 @@ export class FormXXIIResolver implements IDocumentResolver {
 
     if (!proposal) {
       // Check if businessId is a project ID (projCd)
-      const proj = await db.project.findUnique({ where: { projCd: businessId } });
+      const proj = await this.queryService.getProject(businessId)
       if (proj) {
         isProjectSimulation = true;
         project = {
@@ -94,19 +94,7 @@ export class FormXXIIResolver implements IDocumentResolver {
 
     // 2. Fetch the Plot details (items) using correct relation `acq_proposal`
     const [items, landCategoryMap] = await Promise.all([
-      db.plot_schedule.findMany({
-        where: isUuid 
-          ? { proposal_id: businessId }
-          : { acq_proposal: { proj_cd: businessId } },
-        include: {
-          plot_schedule_land_type: {
-            include: {
-              landtype_master: true,
-              sub_landtype: true
-            }
-          }
-        }
-      }),
+      this.queryService.getPlots(businessId, isUuid, true),
       buildLandCategoryMap()
     ])
 

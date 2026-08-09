@@ -1,13 +1,13 @@
 import type { PrismaClient } from '@prisma/client'
-import { v4 as uuidv4 } from 'uuid'
 
 /**
  * Seed: Proposal Checklist Requirements (CL1 — LAND_ACQ_PROPOSAL module)
  * 
- * These rules are evaluated per proposal and gate the submission flow.
- * show_if: { acqModeId: [1] }  → CBA Act only
- * show_if: { acqModeId: [2] }  → RFCTLARR only
- * show_if: null                → always show
+ * Mode Mapping:
+ * acqModeId = 1 → CBA (A&D) Act 1957
+ * acqModeId = 2 → RFCTLARR Act 2013
+ * acqModeId = 6 → Direct Purchase
+ * null → Universal across all modes
  */
 export async function seedProposalChecklist(db: PrismaClient) {
   console.log('🌱 Seeding checklist_requirement_rule [LAND_ACQ_PROPOSAL]...')
@@ -15,7 +15,7 @@ export async function seedProposalChecklist(db: PrismaClient) {
   const MODULE = 'LAND_ACQ_PROPOSAL'
 
   const rules = [
-    // === UNIVERSAL REQUIREMENTS (all modes) ===
+    // === UNIVERSAL REQUIREMENTS (All Acquisition Modes) ===
     {
       id: 'PROP_CL_001',
       module_code: MODULE,
@@ -41,7 +41,7 @@ export async function seedProposalChecklist(db: PrismaClient) {
       module_code: MODULE,
       requirement_type: 'CUSTOM',
       title: 'Reconciliation Certificate (Form VII)',
-      description: 'Copy of reconciliation certificate (Form VII) duly signed by competent authority.',
+      description: 'Copy of reconciliation certificate (Form VII) duly signed by competent authority (12 Signature Flow).',
       is_mandatory: true,
       display_order: 30,
       show_if: null,
@@ -117,6 +117,39 @@ export async function seedProposalChecklist(db: PrismaClient) {
       display_order: 100,
       show_if: null,
     },
+    {
+      id: 'PROP_CL_GEN_XXII',
+      module_code: MODULE,
+      requirement_type: 'CUSTOM',
+      title: 'Form XXII',
+      description: 'Generated Form XXII (Baseline Techno-Economic Allocation Sheet)',
+      is_mandatory: true,
+      display_order: 110,
+      show_if: null,
+      input_schema: { type: 'generated_document', template_code: 'FORM_XXII', auto_complete_on_final: true },
+    },
+
+    // === DIRECT PURCHASE SPECIFIC (acqModeId = 6) ===
+    {
+      id: 'PROP_CL_DP_601',
+      module_code: MODULE,
+      requirement_type: 'DOCUMENT_UPLOAD',
+      title: 'Landowner Title Search & Legal Opinion Report (13 Years)',
+      description: 'Search report and legal opinion from Panel Advocate certifying clear and marketable title of land for past 13 years.',
+      is_mandatory: true,
+      display_order: 200,
+      show_if: { acqModeId: [6] },
+    },
+    {
+      id: 'PROP_CL_DP_602',
+      module_code: MODULE,
+      requirement_type: 'DOCUMENT_UPLOAD',
+      title: 'Tripartite Rate Valuation Committee Minutes',
+      description: 'Minutes of Meeting of Tripartite Valuation Committee recommending agreed rate per acre for tenancy land.',
+      is_mandatory: true,
+      display_order: 210,
+      show_if: { acqModeId: [6] },
+    },
 
     // === CBA ACT SPECIFIC (acqModeId = 1) ===
     {
@@ -126,7 +159,7 @@ export async function seedProposalChecklist(db: PrismaClient) {
       title: 'Copy of Notification under Section 4 (CBA)',
       description: 'Copy of Notification under Section 4 of the CBA Act.',
       is_mandatory: true,
-      display_order: 110,
+      display_order: 300,
       show_if: { acqModeId: [1] },
     },
     {
@@ -136,7 +169,7 @@ export async function seedProposalChecklist(db: PrismaClient) {
       title: 'Copy of Notification under Section 7 (CBA)',
       description: 'Copy of Notification under Section 7 of the CBA Act.',
       is_mandatory: false,
-      display_order: 120,
+      display_order: 310,
       show_if: { acqModeId: [1] },
     },
     {
@@ -146,7 +179,7 @@ export async function seedProposalChecklist(db: PrismaClient) {
       title: 'Five-Point Certificate (Form XVI)',
       description: 'A FIVE-POINT certificate in Form XVI.',
       is_mandatory: true,
-      display_order: 130,
+      display_order: 320,
       show_if: { acqModeId: [1] },
       input_schema: { type: 'generated_document', template_code: 'FORM_XVI', auto_complete_on_final: true },
     },
@@ -157,18 +190,63 @@ export async function seedProposalChecklist(db: PrismaClient) {
       title: 'Standard Checklist (ECL/CMD/LRE Office Order)',
       description: 'A standard Check List as circulated through Office Order (Ref. No. ECL/CMD/LRE/ANG/Check-list/1071 Date 25th Nov 2005).',
       is_mandatory: true,
-      display_order: 140,
+      display_order: 330,
       show_if: { acqModeId: [1] },
     },
     {
-      id: 'PROP_CL_105',
+      id: 'PROP_CL_GEN_III',
       module_code: MODULE,
-      requirement_type: 'DOCUMENT_UPLOAD',
-      title: 'Statutory Clearances (DGMS etc.)',
-      description: 'Copies of statutory clearances like approval obtained from DGMS etc., if obtained.',
+      requirement_type: 'CUSTOM',
+      title: 'Form III',
+      description: 'Generated Form III (CBA Gazette Notice)',
       is_mandatory: false,
-      display_order: 150,
+      display_order: 340,
       show_if: { acqModeId: [1] },
+      input_schema: { type: 'generated_document', template_code: 'FORM_III', auto_complete_on_final: true },
+    },
+    {
+      id: 'PROP_CL_GEN_II',
+      module_code: MODULE,
+      requirement_type: 'CUSTOM',
+      title: 'Form II',
+      description: 'Generated Form II (CBA Sec 4 Schedule)',
+      is_mandatory: false,
+      display_order: 350,
+      show_if: { acqModeId: [1] },
+      input_schema: { type: 'generated_document', template_code: 'FORM_II', auto_complete_on_final: true },
+    },
+    {
+      id: 'PROP_CL_GEN_VIII',
+      module_code: MODULE,
+      requirement_type: 'CUSTOM',
+      title: 'Form VIII',
+      description: 'Generated Form VIII (CBA Vesting Notice)',
+      is_mandatory: false,
+      display_order: 360,
+      show_if: { acqModeId: [1] },
+      input_schema: { type: 'generated_document', template_code: 'FORM_VIII', auto_complete_on_final: true },
+    },
+    {
+      id: 'PROP_CL_GEN_XXIV',
+      module_code: MODULE,
+      requirement_type: 'CUSTOM',
+      title: 'Form XXIV',
+      description: 'Generated Form XXIV (CBA Compensation Matrix)',
+      is_mandatory: false,
+      display_order: 370,
+      show_if: { acqModeId: [1] },
+      input_schema: { type: 'generated_document', template_code: 'FORM_XXIV', auto_complete_on_final: true },
+    },
+    {
+      id: 'PROP_CL_GEN_1A',
+      module_code: MODULE,
+      requirement_type: 'CUSTOM',
+      title: 'Form 1A/1B',
+      description: 'Generated Form 1A/1B (CBA Assessment Sheet)',
+      is_mandatory: false,
+      display_order: 380,
+      show_if: { acqModeId: [1] },
+      input_schema: { type: 'generated_document', template_code: 'FORM_1A_1B', auto_complete_on_final: true },
     },
 
     // === RFCTLARR SPECIFIC (acqModeId = 2) ===
@@ -179,7 +257,7 @@ export async function seedProposalChecklist(db: PrismaClient) {
       title: 'Board Approval Copy (RFCTLARR)',
       description: 'A copy of the Board approval for acquisition under RFCTLARR Act 2013.',
       is_mandatory: true,
-      display_order: 210,
+      display_order: 400,
       show_if: { acqModeId: [2] },
     },
 
@@ -191,7 +269,7 @@ export async function seedProposalChecklist(db: PrismaClient) {
       title: 'Approval — District Authority for Tribal Land',
       description: 'Copy of approval of District Authority for purchase of Tribal Land.',
       is_mandatory: true,
-      display_order: 310,
+      display_order: 500,
       show_if: { HAS_TRIBAL_LAND: true },
     },
 
@@ -203,107 +281,36 @@ export async function seedProposalChecklist(db: PrismaClient) {
       title: 'Approval — Employment Against Debottar Land',
       description: 'Approval of employment against the debottar land.',
       is_mandatory: true,
-      display_order: 410,
-      show_if: { HAS_DEBOTTAR_LAND: true },
-    },
-
-    // === GENERATED DOCUMENTS (FORMS) ===
-    {
-      id: 'PROP_CL_GEN_XXII',
-      module_code: MODULE,
-      requirement_type: 'CUSTOM',
-      title: 'Form XXII',
-      description: 'Generated Form XXII',
-      is_mandatory: false,
-      display_order: 500,
-      show_if: null,
-      input_schema: { type: 'generated_document', template_code: 'FORM_XXII', auto_complete_on_final: true },
-    },
-    {
-      id: 'PROP_CL_GEN_III',
-      module_code: MODULE,
-      requirement_type: 'CUSTOM',
-      title: 'Form III',
-      description: 'Generated Form III',
-      is_mandatory: false,
       display_order: 510,
-      show_if: null,
-      input_schema: { type: 'generated_document', template_code: 'FORM_III', auto_complete_on_final: true },
-    },
-    {
-      id: 'PROP_CL_GEN_II',
-      module_code: MODULE,
-      requirement_type: 'CUSTOM',
-      title: 'Form II',
-      description: 'Generated Form II',
-      is_mandatory: false,
-      display_order: 520,
-      show_if: null,
-      input_schema: { type: 'generated_document', template_code: 'FORM_II', auto_complete_on_final: true },
-    },
-    {
-      id: 'PROP_CL_GEN_VIII',
-      module_code: MODULE,
-      requirement_type: 'CUSTOM',
-      title: 'Form VIII',
-      description: 'Generated Form VIII',
-      is_mandatory: false,
-      display_order: 530,
-      show_if: null,
-      input_schema: { type: 'generated_document', template_code: 'FORM_VIII', auto_complete_on_final: true },
-    },
-    {
-      id: 'PROP_CL_GEN_XXIV',
-      module_code: MODULE,
-      requirement_type: 'CUSTOM',
-      title: 'Form XXIV',
-      description: 'Generated Form XXIV',
-      is_mandatory: false,
-      display_order: 540,
-      show_if: null,
-      input_schema: { type: 'generated_document', template_code: 'FORM_XXIV', auto_complete_on_final: true },
-    },
-    {
-      id: 'PROP_CL_GEN_1A',
-      module_code: MODULE,
-      requirement_type: 'CUSTOM',
-      title: 'Form 1A/1B',
-      description: 'Generated Form 1A/1B',
-      is_mandatory: false,
-      display_order: 550,
-      show_if: null,
-      input_schema: { type: 'generated_document', template_code: 'FORM_1A_1B', auto_complete_on_final: true },
+      show_if: { HAS_DEBOTTAR_LAND: true },
     },
   ]
 
   for (const rule of rules) {
     await db.checklist_requirement_rule.upsert({
-      where: { id: rule.id },
+      where: { chk_code: rule.id },
       update: {
         title: rule.title,
         description: rule.description,
         is_mandatory: rule.is_mandatory,
         display_order: rule.display_order,
-        show_if: rule.show_if ? rule.show_if as any : undefined,
-        input_schema: (rule as any).input_schema ? (rule as any).input_schema : undefined,
+        show_if: rule.show_if ? rule.show_if as any : null,
+        input_schema: (rule as any).input_schema ? (rule as any).input_schema : null,
         is_active: true,
       },
       create: {
-        id: rule.id,
+        chk_code: rule.id,
         module_code: rule.module_code,
         requirement_type: rule.requirement_type,
         title: rule.title,
         description: rule.description ?? null,
         is_mandatory: rule.is_mandatory,
         display_order: rule.display_order,
-        show_if: rule.show_if ? rule.show_if as any : undefined,
-        input_schema: (rule as any).input_schema ? (rule as any).input_schema : undefined,
-        is_active: true,
-        entry_by: 'seed',
-        updt_by: 'seed',
+        show_if: rule.show_if ? rule.show_if as any : null,
+        input_schema: (rule as any).input_schema ? (rule as any).input_schema : null,
+        entry_by: 'system',
+        updt_by: 'system',
       },
     })
   }
-
-  console.log(`  ✅ Seeded ${rules.length} LAND_ACQ_PROPOSAL checklist rules`)
 }

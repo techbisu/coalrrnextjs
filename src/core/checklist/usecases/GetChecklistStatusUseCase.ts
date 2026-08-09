@@ -56,13 +56,13 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
 
         if (!shouldShow) continue;
 
-        let submission = submissionsByReqId.get(rule.id);
+        let submission = submissionsByReqId.get((rule as any).chk_id || rule.id);
         
         // 5. Handle Auto-Fetch Inheritance bidirectionality
         if (!submission && rule.inherit_from) {
            const inheritConfig = rule.inherit_from as any;
            if (inheritConfig.parent_checkable_type && context.parentId) {
-               const targetRuleId = inheritConfig.parent_rule_id || rule.id;
+               const targetRuleId = inheritConfig.parent_rule_id || (rule as any).chk_id || rule.id;
                const parentSubmission = await this.repo.findSubmission(targetRuleId, inheritConfig.parent_checkable_type, context.parentId);
                if (parentSubmission) {
                    submission = { ...parentSubmission, status: 'AUTO_SATISFIED' };
@@ -91,7 +91,8 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
         }
 
         items.push({
-          ruleId: rule.id,
+          ruleId: (rule as any).chk_id || rule.id,
+          chkCode: rule.chk_code,
           title: rule.title,
           description: rule.description,
           type: rule.requirement_type,

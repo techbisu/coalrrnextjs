@@ -141,21 +141,21 @@ export function FormXXIIModal({
           <div className="grid gap-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-1.5">
-                <Label>Proposed Additional Area (Acres)</Label>
+                <Label>{t('project.form.proposedArea', 'Proposed Additional Area (Acres)')}</Label>
                 <Input
                   type="number"
                   value={proposedArea}
                   onChange={(e) => setProposedArea(e.target.value)}
-                  placeholder="e.g. 50"
+                  placeholder={t('project.form.proposedAreaPlaceholder', 'e.g. 50')}
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>Proposed Additional Jobs</Label>
+                <Label>{t('project.form.proposedJobs', 'Proposed Additional Jobs')}</Label>
                 <Input
                   type="number"
                   value={proposedJobs}
                   onChange={(e) => setProposedJobs(e.target.value)}
-                  placeholder="e.g. 10"
+                  placeholder={t('project.form.proposedJobsPlaceholder', 'e.g. 10')}
                 />
               </div>
             </div>
@@ -216,19 +216,19 @@ export function FormXXIIModal({
 
                 <div className="grid grid-cols-2 gap-4 mt-2 border-t pt-4">
                   <div className="grid gap-1.5">
-                    <Label htmlFor="approval-date">Board Approval Date *</Label>
+                    <Label htmlFor="approval-date">{t('project.form.boardApprovalDate', 'Board Approval Date *')}</Label>
                     <DatePicker
                       value={approvalDate}
                       onChange={(d) => setApprovalDate(d ? format(d, 'yyyy-MM-dd') : '')}
                     />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label htmlFor="approval-ref">Board Ref / File No *</Label>
+                    <Label htmlFor="approval-ref">{t('project.form.boardRef', 'Board Ref / File No *')}</Label>
                     <Input
                       id="approval-ref"
                       value={approvalRefNo}
                       onChange={(e) => setApprovalRefNo(e.target.value)}
-                      placeholder="e.g. CIL/BOARD/2026/02"
+                      placeholder={t('project.form.boardRefPlaceholder', 'e.g. CIL/BOARD/2026/02')}
                     />
                   </div>
                 </div>
@@ -236,9 +236,9 @@ export function FormXXIIModal({
                 <div className="grid gap-3 mt-4 border-t pt-4">
                   <h4 className="text-sm font-semibold text-muted-foreground">{t('statutory_clearance')}</h4>
                   <div className="grid gap-1.5">
-                    <Label>DGMS Clearance Status</Label>
+                    <Label>{t('project.form.dgmsStatus', 'DGMS Clearance Status')}</Label>
                     <Select value={dgmsStatus} onValueChange={setDgmsStatus}>
-                      <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t('project.form.selectStatus', 'Select status...')} /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Obtained">{t('clearance_obtained')}</SelectItem>
                         <SelectItem value="Pending">{t('clearance_pending')} / Applied</SelectItem>
@@ -247,9 +247,9 @@ export function FormXXIIModal({
                     </Select>
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Environment Clearance Status</Label>
+                    <Label>{t('project.form.envStatus', 'Environment Clearance Status')}</Label>
                     <Select value={envStatus} onValueChange={setEnvStatus}>
-                      <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t('project.form.selectStatus', 'Select status...')} /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Obtained">{t('clearance_obtained')}</SelectItem>
                         <SelectItem value="Pending">{t('clearance_pending')} / Applied</SelectItem>
@@ -258,9 +258,9 @@ export function FormXXIIModal({
                     </Select>
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Forest Clearance Status</Label>
+                    <Label>{t('project.form.forestStatus', 'Forest Clearance Status')}</Label>
                     <Select value={forestStatus} onValueChange={setForestStatus}>
-                      <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t('project.form.selectStatus', 'Select status...')} /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Obtained">{t('clearance_obtained')}</SelectItem>
                         <SelectItem value="Pending">{t('clearance_pending')} / Applied</SelectItem>
@@ -272,7 +272,7 @@ export function FormXXIIModal({
 
 
                 <div className="grid gap-1.5 mt-4 border-t pt-4">
-                  <Label>Form-XXII Approved Document *</Label>
+                  <Label>{t('project.form.formXXIIDoc', 'Form-XXII Approved Document *')}</Label>
                   <DocumentUploader
                     checklist_item_key="FORM_XXII_DOC"
                     mode="single"

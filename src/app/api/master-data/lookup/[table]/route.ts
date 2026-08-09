@@ -48,8 +48,9 @@ export async function GET(
 
       // Cascade dependency filters (e.g. district_lgd=704 → filter blocks by district)
       searchParams.forEach((value, key) => {
-        if (key === 'values' || key === 'activeOnly' || !value) return
+        if (key === 'values' || key === 'activeOnly' || key === 'ignore_scope' || !value) return
         const colConfig = config.columns.find(c => c.key === key)
+        if (!colConfig) return
 
         if (value.includes(',')) {
           const list = value.split(',').filter(Boolean)

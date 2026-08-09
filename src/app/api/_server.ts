@@ -41,7 +41,7 @@ export async function withRequestContext<T>(
   const ipAddress = await getRealIp().catch(() => undefined)
   return runWithRequestContext(
     {
-      userId: user?.id ? String(user.id) : 'system',
+      userId: user?.id ? String(user.id) : undefined,
       ipAddress: ipAddress ?? undefined,
       userAgent: h.get('user-agent') ?? undefined,
     },

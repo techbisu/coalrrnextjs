@@ -19,6 +19,7 @@ export interface UploadFileRequest {
   entityType?: string
   entityId?: string
   module?: string
+  isActive?: boolean
 }
 
 export class UploadFileUseCase implements IUseCase<UploadFileRequest, FileRecord> {
@@ -71,7 +72,8 @@ export class UploadFileUseCase implements IUseCase<UploadFileRequest, FileRecord
         originalName: request.originalName,
         ownerId,
         checksum: uploadResult.checksum,
-        tags: request.tags
+        tags: request.tags,
+        isActive: request.isActive
       })
 
       const fileVersion = FileVersion.create({
@@ -96,6 +98,18 @@ export class UploadFileUseCase implements IUseCase<UploadFileRequest, FileRecord
           userId: ownerId
         }
       })
+
+      const { EventBus } = await import('@/core/notifications/EventBus')
+      await EventBus.publish({
+        event_name: 'FILE_UPLOADED',
+        module: request.module || 'file-management',
+        user_id: ownerId,
+        entity_id: fileId,
+        data: {
+          fileId: fileRecord.id,
+          fileName: request.originalName,
+        }
+      })
     }
 
     // Attach to Entity
@@ -113,6 +127,19 @@ export class UploadFileUseCase implements IUseCase<UploadFileRequest, FileRecord
       } else if (request.module) {
         await this.repo.appendAttachmentModule(existingAttachment.id, existingAttachment.module || '', request.module)
       }
+
+      const { EventBus } = await import('@/core/notifications/EventBus')
+      await EventBus.publish({
+        event_name: 'FILE_ASSIGNED',
+        module: request.module || 'file-management',
+        user_id: ownerId,
+        entity_id: request.entityId,
+        data: {
+          fileId: fileRecord.id,
+          fileName: request.originalName,
+          entityType: request.entityType,
+        }
+      })
     }
 
     return Ok(fileRecord)

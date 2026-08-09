@@ -66,6 +66,68 @@ async function main() {
     })
   }
 
+  console.log('Seeding PROJECT_BASELINE_LOCKED notification rule...')
+
+  // 1. Register Event
+  const lockEvent = await db.event_registry.upsert({
+    where: { event_name: 'PROJECT_BASELINE_LOCKED' },
+    update: {},
+    create: {
+      id: crypto.randomUUID(),
+      event_name: 'PROJECT_BASELINE_LOCKED',
+      module: 'project-master',
+      description: 'Triggered when a project baseline is locked',
+      updt_ts: new Date()
+    }
+  })
+
+  // 2. Create IN_APP Template
+  const lockTemplate = await db.notification_template.upsert({
+    where: { code: 'TPL_PROJECT_LOCKED_INAPP' },
+    update: {},
+    create: {
+      id: crypto.randomUUID(),
+      code: 'TPL_PROJECT_LOCKED_INAPP',
+      channel: 'IN_APP',
+      subject: 'Project Locked: {{name}}',
+      body: 'The baseline for project {{name}} (Colliery: {{mine_cd}}) has been locked.',
+      updt_ts: new Date()
+    }
+  })
+
+  // 3. Create Rule
+  const existingLockRule = await db.notification_rule.findFirst({
+    where: { event_id: lockEvent.id, template_id: lockTemplate.id, recipient_resolver: 'Role:Super Administrator' }
+  })
+  if (!existingLockRule) {
+    await db.notification_rule.create({
+      data: {
+        id: crypto.randomUUID(),
+        event_id: lockEvent.id,
+        template_id: lockTemplate.id,
+        recipient_resolver: 'Role:Super Administrator',
+        is_active: true,
+        updt_ts: new Date()
+      }
+    })
+  }
+
+  const existingLockUnitRule = await db.notification_rule.findFirst({
+    where: { event_id: lockEvent.id, template_id: lockTemplate.id, recipient_resolver: 'Role:Unit Officer' }
+  })
+  if (!existingLockUnitRule) {
+    await db.notification_rule.create({
+      data: {
+        id: crypto.randomUUID(),
+        event_id: lockEvent.id,
+        template_id: lockTemplate.id,
+        recipient_resolver: 'Role:Unit Officer',
+        is_active: true,
+        updt_ts: new Date()
+      }
+    })
+  }
+
   console.log('Notification rule seeded successfully!')
 }
 

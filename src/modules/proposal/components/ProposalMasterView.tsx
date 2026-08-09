@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { SectionCard } from '@/shared/components/coalrr/SectionCard'
-import { MasterLookup } from '@/shared/components/coalrr/MasterLookup'
+import { ProjectSelect, AreaSelect, MineSelect } from '@/shared/components/coalrr/selects'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Checkbox } from '@/shared/components/ui/checkbox'
@@ -181,8 +181,7 @@ export function ProposalMasterView() {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-muted-foreground">Project</label>
-            <MasterLookup 
-              masterName="project" 
+            <ProjectSelect 
               value={proposal.proj_cd}
               onChange={v => setProposal({...proposal, proj_cd: v as string})}
               placeholder="Select project..."
@@ -190,8 +189,7 @@ export function ProposalMasterView() {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-muted-foreground">Area Office</label>
-            <MasterLookup 
-              masterName="area_master" 
+            <AreaSelect 
               value={proposal.area_cd}
               onChange={v => setProposal({...proposal, area_cd: v as string})}
               placeholder="Select area..."
@@ -199,8 +197,8 @@ export function ProposalMasterView() {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-muted-foreground">Colliery / Mine</label>
-            <MasterLookup 
-              masterName="mine_master" 
+            <MineSelect 
+              areaCd={proposal.area_cd}
               value={proposal.mine_cd}
               onChange={v => setProposal({...proposal, mine_cd: v as string})}
               placeholder="Select mine..."

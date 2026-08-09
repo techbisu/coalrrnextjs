@@ -61,9 +61,27 @@
 - Accessibility: labels on all inputs, keyboard navigation, ARIA where shadcn doesn't
   already provide it
 
+## Workflow Action Controls & Single Source of Truth
+- Workflow stage action buttons MUST live exclusively inside **`ApprovalPanel` ("Actor Role & Approval Chain")** on the right sidebar.
+- Stage actions MUST be rendered in explicit **Numbered Sequential Order (Step 1, Step 2...)** with active green primary buttons and locked prerequisite tooltips.
+- NEVER create duplicate top alert banners (`RoleActionBanner` is deprecated and banned) — duplicate banners confuse users and violate single source of truth rules.
+
+## Master Data Dropdowns & Reusable Component Library
+- Whenever ANY master data selection is rendered in UI, it MUST use the dedicated domain component from `@/shared/components/coalrr/selects` (`<AreaSelect />`, `<MineSelect />`, `<MouzaSelect />`, `<LandTypeSelect />`, `<LandClassSelect />`, `<AnnexureTagSelect />`, `<UserSelect />`, `<StateSelect />`, `<DistrictSelect />`, `<BlockSelect />`, `<ProjectSelect />`).
+- **Cascading Master Dropdowns**: Every master dropdown field (e.g., Mouza, Block, Mine) MUST be filtered by its parent dropdown selection. The child dropdown MUST be explicitly `disabled` until the parent selection is made. No master dropdown should allow orphaned selections if a parent hierarchy exists.
+- **Universal Filter Props**:
+  - `ignoreScope?: boolean`: Set `true` to bypass user area/mine scope boundary and show options company-wide.
+  - `ignoreCascade?: boolean`: Set `true` to bypass parent cascade dependencies.
+  - `showAllOption?: boolean`: Set `true` to prepend an *"All Options"* choice for filter bars.
+  - `isMulti?: boolean`: Set `true` for multi-select checkboxes.
+- NEVER hardcode static arrays, mock lists, or static JSON files for master data dropdown choices (e.g. static area lists, hardcoded mine codes are banned).
+
 ## Forbidden
 - Never introduce a second UI/component library alongside shadcn
 - Never inline custom CSS/styled-components when Tailwind tokens already cover it
 - Never force a bespoke design for something a package/existing component already does well
 - Never let ui-ux-pro-max generate a new design direction per page — MASTER.md is fixed
   once approved; changing it requires explicit user approval, not an agent decision
+- Never add top alert banner action controls (`RoleActionBanner`) alongside `ApprovalPanel`
+- Never hardcode static arrays or mock lists for master data dropdown choices
+- Never render a child master dropdown (e.g., Mouza) without explicitly filtering it by its parent (e.g., Block), and never leave it enabled before the parent is selected.

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { ok, badRequest, serverError, notFound } from '../../../_lib'
 import type { NextRequest } from 'next/server'
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     // Fetch mandatory checklist rules & submissions for proposal
     const mandatoryRules = await db.checklist_requirement_rule.findMany({
-      where: { module_code: 'LAND_ACQ_PROPOSAL', is_mandatory: true, is_active: true }
+      where: { module_code: { in: [MODULE_CODES.LAND_SCHEDULE, 'LAND_ACQ_PROPOSAL', 'LAND_SCHEDULE'] }, is_mandatory: true, is_active: true }
     })
 
     const submissions = await db.checklist_submission.findMany({
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     })
 
     const completedReqIds = new Set(submissions.map(s => s.requirement_id))
-    const missingRules = mandatoryRules.filter(r => !completedReqIds.has(r.id))
+    const missingRules = mandatoryRules.filter(r => !completedReqIds.has((r as any).chk_id || (r as any).id))
     const isChecklistComplete = missingRules.length === 0
 
     // Fetch limits for baseline check
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const engine = new WorkflowEngine()
     const guardCtx = {
       recordId: id,
-      recordType: 'land_schedule' as const,
+      recordType: MODULE_CODES.LAND_SCHEDULE,
       currentState: normalizedState as any,
       actorRole: actorRole,
       checklistStatus: isChecklistComplete ? ('COMPLETED' as const) : ('INCOMPLETE' as const),
@@ -122,14 +123,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     const newState = transitionResult.newState
 
-    // Update acq_proposal state in DB
+    // Update acq_proposal state in DB (safely truncating overall_status and updt_by to match VarChar(20) limits)
     const updated = await db.acq_proposal.update({
       where: { proposal_id: id },
       data: {
-        current_stage_cd: newState,
-        overall_status: newState,
+        current_stage_cd: newState.slice(0, 30),
+        overall_status: newState.slice(0, 20),
         updt_ts: BigInt(Math.floor(Date.now() / 1000)),
-        updt_by: auth.user?.name || auth.user?.email || 'system'
+        updt_by: String(auth.user?.id || 1)
       }
     })
 

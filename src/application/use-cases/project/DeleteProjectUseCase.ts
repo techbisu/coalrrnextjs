@@ -39,7 +39,7 @@ export class DeleteProjectUseCase implements IUseCase<DeleteProjectRequest, Dele
     await this.projectRepository.delete(request.id)
 
     // 3. Publish events
-    EventBus.publish({
+    await EventBus.publish({
       event_name: 'PROJECT_DELETED',
       module: 'project-master',
       user_id: request.user_id,

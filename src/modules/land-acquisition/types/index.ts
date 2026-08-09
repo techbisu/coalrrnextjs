@@ -7,7 +7,8 @@ export const MODE_META: Record<AcquisitionMode, { label: string; checklistCode: 
   patta:           { label: 'Draft Project Expansion',     checklistCode: 'CL-1.4', color: 'border-teal-300 bg-teal-50 text-teal-700' },
 }
 
-export const MODES: AcquisitionMode[] = ['cba_act', 'direct_purchase', 'rfctlarr', 'patta']
+export const MODES: AcquisitionMode[] = ['direct_purchase', 'cba_act', 'rfctlarr', 'patta']
+export const STANDARD_ACQ_MODES: AcquisitionMode[] = ['direct_purchase', 'cba_act', 'rfctlarr']
 
 export const ANNEXURE_META: Record<'A' | 'B' | 'C', { label: string; color: string; desc: string }> = {
   A: { label: 'A', color: 'border-emerald-300 bg-emerald-50 text-emerald-700',     desc: 'Fully Clear (can acquire fully)' },

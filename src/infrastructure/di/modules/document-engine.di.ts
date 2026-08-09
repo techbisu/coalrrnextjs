@@ -4,6 +4,7 @@ import { StartDocumentWorkspaceUseCase } from '@/modules/document-engine/applica
 import { SaveDocumentFormUseCase } from '@/modules/document-engine/application/use-cases/SaveDocumentFormUseCase'
 import { GenerateDocumentUseCase } from '@/modules/document-engine/application/use-cases/GenerateDocumentUseCase'
 import { ResolverRegistry } from '@/modules/document-engine/application/ResolverRegistry'
+import { PrismaDocumentQueryService } from '@/modules/document-engine/infrastructure/persistence/PrismaDocumentQueryService'
 
 const globalForDocEngineDI = globalThis as unknown as {
   startDocumentWorkspaceUseCase: StartDocumentWorkspaceUseCase | undefined
@@ -13,7 +14,8 @@ const globalForDocEngineDI = globalThis as unknown as {
 
 const documentInstanceRepository = new PrismaDocumentInstanceRepository()
 const documentTemplateRepository = new PrismaDocumentTemplateRepository()
-const resolverRegistry = new ResolverRegistry()
+const documentQueryService = new PrismaDocumentQueryService()
+const resolverRegistry = new ResolverRegistry(documentQueryService)
 
 export const startDocumentWorkspaceUseCase = globalForDocEngineDI.startDocumentWorkspaceUseCase ?? new StartDocumentWorkspaceUseCase(
   documentInstanceRepository,

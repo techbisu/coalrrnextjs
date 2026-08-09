@@ -19,7 +19,6 @@ import { AddPlotsToProposalUseCase } from '@/application/use-cases/proposal/AddP
 import { UpdatePlotUseCase } from '@/application/use-cases/proposal/UpdatePlotUseCase'
 import { DeletePlotUseCase } from '@/application/use-cases/proposal/DeletePlotUseCase'
 import { ApproveBoardDeviationUseCase } from '@/application/use-cases/proposal/ApproveBoardDeviationUseCase'
-import { ProposalWorkflowService } from '@/modules/proposal/services/ProposalWorkflowService'
 import { ProposalDocumentPackageService } from '@/modules/proposal/services/ProposalDocumentPackageService'
 
 const globalForProposalDI = globalThis as unknown as {
@@ -32,7 +31,6 @@ const globalForProposalDI = globalThis as unknown as {
   updatePlotUseCase: UpdatePlotUseCase | undefined
   deletePlotUseCase: DeletePlotUseCase | undefined
   approveBoardDeviationUseCase: ApproveBoardDeviationUseCase | undefined
-  proposalWorkflowService: ProposalWorkflowService | undefined
   proposalDocumentPackageService: ProposalDocumentPackageService | undefined
 }
 
@@ -84,10 +82,6 @@ export const approveBoardDeviationUseCase =
   globalForProposalDI.approveBoardDeviationUseCase ??
   new ApproveBoardDeviationUseCase(acqProposalRepository, projectRepository)
 
-export const proposalWorkflowService =
-  globalForProposalDI.proposalWorkflowService ??
-  new ProposalWorkflowService(acqProposalRepository)
-
 export const proposalDocumentPackageService =
   globalForProposalDI.proposalDocumentPackageService ??
   new ProposalDocumentPackageService()
@@ -102,6 +96,5 @@ if (process.env.NODE_ENV !== 'production') {
   globalForProposalDI.updatePlotUseCase = updatePlotUseCase
   globalForProposalDI.deletePlotUseCase = deletePlotUseCase
   globalForProposalDI.approveBoardDeviationUseCase = approveBoardDeviationUseCase
-  globalForProposalDI.proposalWorkflowService = proposalWorkflowService
   globalForProposalDI.proposalDocumentPackageService = proposalDocumentPackageService
 }

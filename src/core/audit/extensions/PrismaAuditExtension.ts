@@ -10,7 +10,7 @@ const NO_AUDIT_FIELDS_MODELS = auditConfig.noAuditFieldsModels as readonly strin
 function injectAuditFields(
   model: string,
   args: any,
-  userId: string,
+  userId: string | undefined | null,
   operation: 'create' | 'update'
 ) {
   if (!args.data) return
@@ -76,6 +76,7 @@ export const withAuditExtension = Prisma.defineExtension({
 
         injectAuditFields(String(model), args, userId, 'create')
 
+        const txTimestamp = new Date()
         const result = await query(args)
 
         if (
@@ -91,7 +92,8 @@ export const withAuditExtension = Prisma.defineExtension({
               result,
               userId,
               ipAddress,
-              userAgent
+              userAgent,
+              txTimestamp
             ).catch(console.error)
           }).catch(() => {})
         }
@@ -127,6 +129,7 @@ export const withAuditExtension = Prisma.defineExtension({
 
         injectAuditFields(String(model), args, userId, 'update')
 
+        const txTimestamp = new Date()
         const result = await query(args)
 
         if (
@@ -142,7 +145,8 @@ export const withAuditExtension = Prisma.defineExtension({
               result,
               userId,
               ipAddress,
-              userAgent
+              userAgent,
+              txTimestamp
             ).catch(console.error)
           }).catch(() => {})
         }
@@ -153,6 +157,7 @@ export const withAuditExtension = Prisma.defineExtension({
       async delete({ model, args, query }) {
         const { userId, ipAddress, userAgent } = getRequestContext()
 
+        const txTimestamp = new Date()
         const result = await query(args)
 
         const modelName = String(model).toLowerCase()
@@ -169,7 +174,8 @@ export const withAuditExtension = Prisma.defineExtension({
               undefined,
               userId,
               ipAddress,
-              userAgent
+              userAgent,
+              txTimestamp
             ).catch(console.error)
           }).catch(() => {})
         }

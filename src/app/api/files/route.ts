@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
     // Build the query to search by original_name
     const whereClause: any = {
-      status: 'ACTIVE'
+      is_active: true
     };
 
     if (query && query.trim() !== '') {

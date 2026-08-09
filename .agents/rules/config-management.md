@@ -55,10 +55,15 @@ service URLs.
 3. Never let a UseCase, component, or service read `process.env` directly —
    always through env.ts → module config
 
+## Module & Checkable Entity Naming Rule (MANDATORY)
+- ALL module codes and checkable entity types MUST use single exported constants from `src/core/config/module-codes.config.ts` (`MODULE_CODES`, `CHECKABLE_ENTITY_TYPES`, e.g., `CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE` or `ACQ_LAND_SCHEDULE = 'acq_land_schedule'`).
+- Raw string aliases like `'land_schedule'`, `'acq_proposal'`, `'proposal'` scattered inline across application code or API routes are STRICTLY FORBIDDEN.
+
 ## Forbidden
 - Never hardcode: page sizes, timeout values, retry counts, file size/type limits,
   approval deadline days, currency symbols, date formats, queue names, threshold
   percentages (e.g. "80% budget warning") — all go in the relevant module config
+- Never hardcode raw entity / checkable type strings inline — always import `ACQ_LAND_SCHEDULE` or `CHECKABLE_ENTITY_TYPES`
 - Never read `process.env.X` directly outside `src/core/config/env.ts`
 - Never commit `.env` — only `.env.example` with placeholder values and comments
 

@@ -3,13 +3,14 @@
  * Intercepts Limit Breaches for Form-XXII routing.
  */
 import { IUseCase, Result, Fail, Ok } from '@/core'
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 import { IProposalRepository } from '@/domain/entities/proposal'
 import { IProjectRepository } from '@/domain/entities/project/ProjectRepository.interface'
 import { ProjectLimitService } from '@/core/compliance/services/ProjectLimitService'
 import { GetChecklistStatusUseCase } from '@/core/checklist/usecases/GetChecklistStatusUseCase'
+import { ACQ_LAND_SCHEDULE } from '@/core/config/module-codes.config'
 import { EventBus } from '@/core/notifications/EventBus'
 import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di'
-import { NotFoundException } from '@/core/errors'
 
 export interface SubmitProposalRequest {
   proposalId: string
@@ -56,8 +57,8 @@ export class SubmitProposalUseCase implements IUseCase<SubmitProposalRequest, Su
 
     // 3b. Gate on checklist completeness (query actual DB submissions)
     const checklistResult = await this.checklistStatusUseCase.execute({
-      moduleCode: 'LAND_ACQ_PROPOSAL',
-      checkableType: 'land_schedule',
+      moduleCode: MODULE_CODES.LAND_SCHEDULE,
+      checkableType: ACQ_LAND_SCHEDULE,
       checkableId: request.proposalId,
     })
 
@@ -80,8 +81,7 @@ export class SubmitProposalUseCase implements IUseCase<SubmitProposalRequest, Su
 
     // 6. Publish events
     const domainEvents = proposal.clearDomainEvents()
-    for (const event of domainEvents) {
-      EventBus.publish({
+    for (const event of domainEvents) { await EventBus.publish({
         event_name: event.event_type,
         module: 'land-acquisition',
         user_id: request.user_id,
@@ -96,7 +96,7 @@ export class SubmitProposalUseCase implements IUseCase<SubmitProposalRequest, Su
     // 7. Audit logging
     AuditQueue.push({
       event_type: isLimitBreached ? 'PROPOSAL_LIMIT_BREACHED' : 'SUBMIT_PROPOSAL',
-      entity_name: 'land_schedule',
+      entity_name: MODULE_CODES.LAND_SCHEDULE,
       entity_id: proposal.id,
       user_id: request.user_id,
       remarks: request.comments ?? (isLimitBreached ? 'Limit breached! Blocked standard approval.' : 'Submitted for Area Vetting'),

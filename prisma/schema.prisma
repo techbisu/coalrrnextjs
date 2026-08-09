@@ -68,25 +68,6 @@ model cast_master {
   @@schema("master")
 }
 
-model chk_master_new {
-  chk_id           Int      @id
-  chk_description  String?
-  chk_type         String?  @db.VarChar(15)
-  chk_sub_type     String?  @db.VarChar(15)
-  chk_inp_type     String?  @db.VarChar(50)
-  acq_mode_id      BigInt?
-  entry_by         String?  @db.VarChar(10)
-  updt_by          String?  @db.VarChar(10)
-  entry_ts         BigInt?
-  updt_ts          BigInt?
-  is_initial       Boolean?
-  noti_type        String?  @db.VarChar(30)
-  chk_inp_instruc  String?
-  local_vernacular String?
-
-  @@schema("master")
-}
-
 model district_master {
   district_lgd      BigInt   @id
   district_en       String   @db.VarChar(255)
@@ -151,6 +132,7 @@ model mine_master {
   mine_remarks      String?
   adjacent_mine_ids String[]         @default([])
   acq_proposal      acq_proposal[]
+  project_mines     project_mine[]
   user_org_scopes   user_org_scope[]
 
   @@schema("master")
@@ -280,10 +262,10 @@ model Project {
   approved_diversion_area   Decimal?       @default(0) @db.Decimal(12, 4)
   approved_rehab_area       Decimal?       @default(0) @db.Decimal(12, 4)
   is_combo_project          Boolean?       @default(false)
-  linked_mine_codes         String[]       @default([]) @db.VarChar(255)
   acq_proposal              acq_proposal[]
   approvals                 ProjAprv[]
   tenant                    Tenant?        @relation(fields: [tenantId], references: [tenantId], onDelete: NoAction, onUpdate: NoAction, map: "fk_project_tenant")
+  project_mines             project_mine[]
 
   @@index([isActive], map: "idx_project_is_active")
   @@index([tenantId], map: "idx_project_tenant_id")
@@ -341,8 +323,6 @@ model ProjAprv {
 model ProjAprvLocation {
   aprvLocationCode String   @id(map: "pk_proj_aprv_location") @map("aprv_location_code") @db.VarChar(10)
   aprvCd           BigInt   @map("aprv_cd")
-  areaCd           String?  @map("area_cd") @db.VarChar(30)
-  mineCd           String?  @map("mine_cd") @db.VarChar(30)
   mouzaLgd         BigInt   @map("mouza_lgd")
   approvedArea     Decimal  @default(0) @map("approved_area") @db.Decimal(12, 4)
   locationRemark   String?  @map("location_remark")
@@ -357,6 +337,20 @@ model ProjAprvLocation {
   @@index([aprvCd], map: "idx_proj_aprv_location_aprv_cd")
   @@index([mouzaLgd], map: "idx_proj_aprv_location_mouza_lgd")
   @@map("proj_aprv_location")
+  @@schema("master")
+}
+
+model project_mine {
+  proj_cd    String      @db.VarChar(30)
+  mine_cd    String      @db.VarChar(30)
+  is_primary Boolean?    @default(false)
+  entry_by   String?     @db.VarChar(20)
+  entry_ts   BigInt?     @default(dbgenerated("date_part('epoch'::text, now())"))
+  mine       mine_master @relation(fields: [mine_cd], references: [mine_cd], onDelete: Cascade, map: "fk_project_mine_mine")
+  project    Project     @relation(fields: [proj_cd], references: [projCd], onDelete: Cascade, map: "fk_project_mine_proj")
+
+  @@id([proj_cd, mine_cd], map: "pk_project_mine")
+  @@map("project_mine")
   @@schema("master")
 }
 
@@ -681,12 +675,12 @@ model file_record {
   original_name   String
   owner_id        String?
   tags            String?
-  status          String            @default("ACTIVE")
   checksum        String?           @unique
   entry_ts        DateTime          @default(now())
   updt_ts         DateTime
   entry_by        String?
   updt_by         String?
+  is_active       Boolean           @default(true)
   file_attachment file_attachment[]
   file_version    file_version[]
 
@@ -823,19 +817,6 @@ model model_has_role {
 
   @@id([role_id, model_type, model_id])
   @@index([model_type, model_id])
-  @@schema("public")
-}
-
-model mst_mouza {
-  id       String   @id
-  name     String
-  district String
-  state    String
-  entry_ts DateTime @default(now())
-  updt_ts  DateTime
-  entry_by String?
-  updt_by  String?
-
   @@schema("public")
 }
 
@@ -1217,45 +1198,60 @@ model auth_reset_token {
 }
 
 model checklist_requirement_rule {
-  id                     String   @id @db.VarChar(50)
-  module_code            String   @db.VarChar(50)
-  requirement_type       String   @db.VarChar(30)
-  title                  String   @db.VarChar(255)
+  chk_code               String                 @unique @db.VarChar(50)
+  module_code            String                 @db.VarChar(50)
+  requirement_type       String                 @db.VarChar(30)
+  title                  String                 @db.VarChar(255)
   description            String?
   input_schema           Json?
   show_if                Json?
   inherit_from           Json?
   sync_to_parent         Json?
-  min_responses_required Int      @default(1)
-  is_mandatory           Boolean  @default(true)
-  display_order          Int      @default(0)
+  min_responses_required Int                    @default(1)
+  is_mandatory           Boolean                @default(true)
+  display_order          Int                    @default(0)
   local_vernacular       String?
-  is_active              Boolean  @default(true)
-  entry_ts               DateTime @default(now())
-  updt_ts                DateTime @default(now())
-  entry_by               String?  @db.VarChar(50)
-  updt_by                String?  @db.VarChar(50)
+  is_active              Boolean                @default(true)
+  entry_ts               DateTime               @default(now())
+  updt_ts                DateTime               @default(now())
+  entry_by               String?                @db.VarChar(50)
+  updt_by                String?                @db.VarChar(50)
+  chk_id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  checklist_submission   checklist_submission[]
 
   @@index([module_code, is_active], map: "idx_checklist_rule_module")
+  @@index([chk_code], map: "idx_checklist_rule_chk_code")
   @@schema("master")
 }
 
 model checklist_submission {
-  id                 String   @id @db.VarChar(50)
-  requirement_id     String   @db.VarChar(50)
-  checkable_type     String   @db.VarChar(50)
-  checkable_id       String   @db.VarChar(50)
-  status             String   @db.VarChar(20)
-  document_id        String?  @db.VarChar(50)
-  user_input         Json?
-  respondent_context Json?
-  entry_ts           DateTime @default(now())
-  updt_ts            DateTime @default(now())
-  entry_by           String?  @db.VarChar(50)
-  updt_by            String?  @db.VarChar(50)
+  id                         String                     @id @db.VarChar(50)
+  checkable_type             String                     @db.VarChar(50)
+  checkable_id               String                     @db.VarChar(50)
+  status                     String                     @db.VarChar(20)
+  document_id                String?                    @db.VarChar(50)
+  user_input                 Json?
+  respondent_context         Json?
+  entry_ts                   DateTime                   @default(now())
+  updt_ts                    DateTime                   @default(now())
+  entry_by                   String?                    @db.VarChar(50)
+  updt_by                    String?                    @db.VarChar(50)
+  requirement_id             String                     @db.Uuid
+  checklist_requirement_rule checklist_requirement_rule @relation(fields: [requirement_id], references: [chk_id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([checkable_type, checkable_id, requirement_id, respondent_context], map: "idx_checklist_submission_unique")
+  @@unique([requirement_id, checkable_type, checkable_id], map: "uq_checklist_submission_entity_rule")
   @@index([checkable_type, checkable_id], map: "idx_checklist_submission_entity")
+  @@schema("public")
+}
+
+model checklist_entity_context {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  checkable_type String   @db.VarChar(50)
+  checkable_id   String   @db.VarChar(50)
+  context_data   Json     @default("{}")
+  updt_ts        DateTime @default(now()) @updatedAt
+
+  @@unique([checkable_type, checkable_id])
   @@schema("public")
 }
 
@@ -1304,6 +1300,7 @@ model acq_proposal {
   project                    Project         @relation(fields: [proj_cd], references: [projCd], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_proj")
   plot_schedule              plot_schedule[]
 
+  @@index([acq_mode_id, current_stage_cd, overall_status], map: "idx_acq_proposal_mode_stage")
   @@schema("acquisition")
 }
 
@@ -1386,20 +1383,22 @@ model outbox_events {
 }
 
 model workflow_transitions {
-  transition_id   String   @id @default(dbgenerated("gen_random_uuid()")) @db.VarChar(64)
-  workflow_code   String   @db.VarChar(60)
-  transition_name String   @db.VarChar(80)
-  label           String   @db.VarChar(120)
-  from_state      String   @db.VarChar(60)
-  to_state        String   @db.VarChar(60)
-  required_role   String   @db.VarChar(60)
-  guard_key       String?  @db.VarChar(80)
-  is_active       Boolean  @default(true)
-  sort_order      Int      @default(0)
-  entry_by        String?  @db.VarChar(50)
-  entry_ts        DateTime @default(now()) @db.Timestamptz(6)
-  updt_ts         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
-  updt_by         String?  @db.VarChar(64)
+  transition_id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.VarChar(64)
+  workflow_code         String   @db.VarChar(60)
+  transition_name       String   @db.VarChar(80)
+  label                 String   @db.VarChar(120)
+  from_state            String   @db.VarChar(60)
+  to_state              String   @db.VarChar(60)
+  required_role         String   @db.VarChar(60)
+  guard_key             String?  @db.VarChar(80)
+  is_active             Boolean  @default(true)
+  sort_order            Int      @default(0)
+  entry_by              String?  @db.VarChar(50)
+  entry_ts              DateTime @default(now()) @db.Timestamptz(6)
+  updt_ts               DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  updt_by               String?  @db.VarChar(64)
+  routing_type          String?  @default("FORCED") @db.VarChar(30)
+  target_options_source String?  @db.VarChar(60)
 
   @@unique([workflow_code, transition_name], map: "uq_workflow_transition")
   @@schema("public")
@@ -1415,7 +1414,7 @@ model deadline_tracker {
   closed_at     DateTime? @db.Timestamptz(6)
   entry_by      String    @db.VarChar(64)
   entry_ts      DateTime  @default(now()) @db.Timestamptz(6)
-  updt_ts       DateTime  @default(now()) @db.Timestamptz(6)
+  updt_ts       DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
   @@index([entity_type, entity_id], map: "idx_deadline_entity")
   @@schema("public")
@@ -1439,6 +1438,7 @@ model manual_milestone {
 
   @@index([entity_type, entity_id], map: "idx_manual_milestone_entity")
   @@index([milestone_type, outcome], map: "idx_manual_milestone_type")
+  @@index([entity_type, entity_id, sent_at(sort: Desc)], map: "idx_manual_milestone_entity_sent")
   @@schema("public")
 }
 
@@ -1478,24 +1478,100 @@ model workflow_states {
 }
 
 model workflow_action_history {
-  wah_id        String   @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(64)
-  entity_type   String   @db.VarChar(64)
-  entity_id     String   @db.VarChar(64)
-  workflow_code String   @db.VarChar(60)
-  action        String   @db.VarChar(80)
-  from_state    String   @db.VarChar(60)
-  to_state      String   @db.VarChar(60)
-  user_id       Int?
-  comments      String?
-  entry_ts      DateTime @default(now()) @db.Timestamptz(6)
-  updt_ts       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
-  entry_by      String?  @db.VarChar(64)
-  updt_by       String?  @db.VarChar(64)
-  user          user?    @relation(fields: [user_id], references: [id], onUpdate: NoAction, map: "fk_wah_user")
+  wah_id                 String   @id @default(dbgenerated("(gen_random_uuid())::text")) @db.VarChar(64)
+  entity_type            String   @db.VarChar(64)
+  entity_id              String   @db.VarChar(64)
+  workflow_code          String   @db.VarChar(60)
+  action                 String   @db.VarChar(80)
+  from_state             String   @db.VarChar(60)
+  to_state               String   @db.VarChar(60)
+  user_id                Int?
+  comments               String?
+  entry_ts               DateTime @default(now()) @db.Timestamptz(6)
+  updt_ts                DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  entry_by               String?  @db.VarChar(64)
+  updt_by                String?  @db.VarChar(64)
+  target_recipient_label String?  @db.VarChar(160)
+  recommendations_json   Json?
+  annexure_notes         String?
+  user                   user?    @relation(fields: [user_id], references: [id], onUpdate: NoAction, map: "fk_wah_user")
 
   @@index([entity_type, entity_id, entry_ts(sort: Desc)], map: "idx_wah_polymorphic")
   @@index([user_id], map: "idx_wah_user_id")
   @@schema("public")
+}
+
+model chk_master_new {
+  chk_id           Int      @id
+  chk_description  String?
+  chk_type         String?  @db.VarChar(15)
+  chk_sub_type     String?  @db.VarChar(15)
+  chk_inp_type     String?  @db.VarChar(50)
+  acq_mode_id      BigInt?
+  entry_by         String?  @db.VarChar(10)
+  updt_by          String?  @db.VarChar(10)
+  entry_ts         BigInt?
+  updt_ts          BigInt?
+  is_initial       Boolean?
+  noti_type        String?  @db.VarChar(30)
+  chk_inp_instruc  String?
+  local_vernacular String?
+
+  @@schema("master")
+}
+
+model mst_mouza {
+  id       String   @id
+  name     String
+  district String
+  state    String
+  entry_ts DateTime @default(now())
+  updt_ts  DateTime
+  entry_by String?
+  updt_by  String?
+
+  @@schema("public")
+}
+
+model plot_schedule_history {
+  history_id             BigInt   @id @default(autoincrement())
+  sys_action             String   @db.VarChar(10)
+  sys_timestamp          DateTime @default(now()) @db.Timestamptz(6)
+  schedule_id            BigInt?
+  proposal_id            String?  @db.Uuid
+  plot_no                String?  @db.VarChar(30)
+  mouza_lgd              BigInt?
+  jl_no                  String?  @db.VarChar(10)
+  to_be_acquired_area    Decimal? @db.Decimal(12, 4)
+  acq_status             String?  @db.VarChar(20)
+  remarks                String?
+  entry_by               String?  @db.VarChar(10)
+  updt_by                String?  @db.VarChar(10)
+  entry_ts               BigInt?
+  updt_ts                BigInt?
+  del_ts                 BigInt?
+  scheme_cd              BigInt?
+  plot_ty                String?  @db.VarChar(3)
+  plot_number            String?  @db.VarChar(15)
+  bata_no                String?  @db.VarChar(15)
+  opt_plot_ty            String?  @db.VarChar(3)
+  opt_plot               String?  @db.VarChar(15)
+  opt_bata               String?  @db.VarChar(15)
+  state_lgd              BigInt?
+  district_lgd           BigInt?
+  block_lgd              BigInt?
+  ps_lgd                 BigInt?
+  poss_proposal_id       String?  @db.Uuid
+  poss_status            String?  @db.VarChar(20)
+  poss_remarks           String?
+  total_poss_area        Decimal? @db.Decimal(12, 4)
+  to_be_acquired_area_rm Decimal? @db.Decimal(12, 4)
+  total_poss_area_rm     Decimal? @db.Decimal(12, 4)
+  total_ror_area         Decimal? @db.Decimal(12, 4)
+
+  @@index([proposal_id], map: "idx_plot_schedule_hist_proposal")
+  @@index([sys_timestamp], map: "idx_plot_schedule_hist_time")
+  @@schema("acquisition")
 }
 
 enum ScopeLevel {

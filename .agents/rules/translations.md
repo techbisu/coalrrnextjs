@@ -8,11 +8,13 @@
 - This applies to: UI components, form labels, table headers, toast/error messages,
   validation error messages (see validation.md), email/PDF templates, seed data labels
 
-## Before creating any new page/component/module
+## Before creating any new page/component/module/form
 1. search_graph for the existing translation hook/service (per src/localization/services/)
    — reuse it, never build a second i18n mechanism
 2. Define translation keys using a consistent namespace: `<module>.<entity>.<field/label>`
    e.g. `proposal.status.approved`, `project.form.title`, `payroll.error.invalidDate`
+3. **Form-Level Enforcement:** You MUST use the translation hook (`t()`) in **every form level** (field labels, placeholders, tooltips, validation messages, and dropdown options).
+4. **Proper Naming Registry:** Form fields must follow strict naming: `<module>.form.<field_name>`. Do not mix flat names or use generic names like `name` or `type` without the module namespace.
 
 ## Seed — module-wise translation sync (mandatory)
 - Every module with user-facing labels/enums/status values MUST have a matching section

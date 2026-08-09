@@ -1,7 +1,16 @@
-# Data Scope Boundaries
+# Data Scope Boundaries & User Scope Enforcement
 
-1. **Active Scope**: A user has only ONE active scope at a time (`effective_to IS NULL`).
-2. **Levels**: HQ, AREA, UNIT.
-3. **visibilityWhere**: All data queries must pass through `UserScopeService.visibilityWhere()` to append the organizational filtering + personal creator/approver fallback.
-4. **Mine Adjacency**: Adjacency is a bidirectional array of `mine_cd`s on the `mine_master`. Modifying it fires a trigger to sync the array in both directions.
-5. **No Ad Hoc Wheres**: Do not build scope filters manually in use cases. Pass the filter down to repositories from the helper.
+## Core Requirements
+1. **Active Scope Single Source of Truth**: User organizational scope is resolved dynamically from `user_org_scope` where `effective_to IS NULL`.
+2. **Scope Hierarchy Levels**:
+   - **`HQ`**: Full company-wide access across all Areas and Mines.
+   - **`AREA`**: Restricted to all mines under `area_cd`.
+   - **`UNIT`**: Restricted to `mine_cd` or proposals explicitly forwarded to that mine as a target recipient (`pr_scheme_ref_no` / `adjacent_mine_ids`).
+3. **Mandatory Repository Usage**:
+   - ALL database queries returning projects, land proposals, plot schedules, or compliance records MUST apply `UserScopeService.scopeToWhere(scope, 'area_cd', 'mine_cd')`.
+   - Passes organizational filters + creator fallback (`entry_by = userId`) automatically.
+4. **No Manual Filter Construction**:
+   - NEVER construct raw inline `where: { area_cd: ... }` checks inside UseCases or API routes.
+   - ALWAYS delegate to `UserScopeService`.
+5. **Bidirectional Mine Adjacency**:
+   - Adjacency is stored in `mine_master.adjacent_mine_ids`. Modifying an adjacent mine relationship syncs the array bidirectionally across both colliery master records.

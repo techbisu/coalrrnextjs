@@ -150,140 +150,17 @@ export function ProjectFormDialog({
               onCancel={() => onOpenChange(false)}
             />
           ) : (
-            /* Edit Mode Form */
-            <Form {...(form as any)}>
-              <form onSubmit={onSubmit} className="grid gap-5" id="project-form">
-                <FormField
-                  control={form.control as any}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Project Name *</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="e.g. Bhubaneswari OCP Phase-III" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label>State</Label>
-                    <MasterFormLookup
-                      control={form.control as any}
-                      name="state_lgd"
-                      master="state_master"
-                      placeholder="Select State..."
-                      disabled={!!user?.state_lgd}
-                      searchable
-                    />
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label>Area</Label>
-                    <MasterCascade
-                      control={form.control as any}
-                      chain={[
-                        {
-                          master: 'area_master',
-                          name: 'area_cd',
-                          dependsOn: [{ field: 'state_lgd', param: 'state_lgd' }],
-                          placeholder: 'Select Area...',
-                          searchable: true
-                        }
-                      ]}
-                    />
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label>Mine / Colliery</Label>
-                    <MasterCascade
-                      control={form.control as any}
-                      chain={[
-                        {
-                          master: 'mine_master',
-                          name: 'mine_cds',
-                          dependsOn: [{ field: 'area_cd', param: 'area_cd' }],
-                          placeholder: 'Select Mine...',
-                          searchable: true,
-                          isMulti: true
-                        }
-                      ]}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control as any}
-                    name="total_land_limit_acres"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Land limit (acres)</FormLabel>
-                        <FormControl>
-                          <Input {...field} inputMode="decimal" placeholder="450.0000" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control as any}
-                    name="total_employment_quota"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Employment quota</FormLabel>
-                        <FormControl>
-                          <Input {...field} type="number" inputMode="numeric" placeholder="0" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control as any}
-                    name="land_budget"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Land Budget (INR)</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} min="0" step="any" placeholder="0" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control as any}
-                    name="rr_budget"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>R&R Budget (INR)</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} min="0" step="any" placeholder="0" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="pt-4 border-t flex items-center justify-end gap-3">
-                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={mutation.isPending} form="project-form">
-                    {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
-                  </Button>
-                </div>
-              </form>
-            </Form>
+            <ProjectWizardForm 
+              mode="edit"
+              projectId={project_id}
+              initialValues={formValues}
+              onSuccess={() => {
+                qc.invalidateQueries({ queryKey: ['projects'] })
+                onOpenChange(false)
+                if (project_id) onSaved?.(project_id)
+              }}
+              onCancel={() => onOpenChange(false)}
+            />
           )}
         </div>
       </DialogContent>

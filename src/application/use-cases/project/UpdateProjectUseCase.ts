@@ -91,8 +91,7 @@ export class UpdateProjectUseCase implements IUseCase<UpdateProjectRequest, Upda
 
     // 4. Publish events
     const domainEvents = project.clearDomainEvents()
-    for (const event of domainEvents) {
-      EventBus.publish({
+    for (const event of domainEvents) { await EventBus.publish({
         event_name: event.event_type,
         module: 'project-master',
         user_id: request.user_id,

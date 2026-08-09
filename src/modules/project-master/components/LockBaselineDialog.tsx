@@ -14,7 +14,6 @@ import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { AlertTriangle, CheckCircle2, Loader2, Lock } from 'lucide-react'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
-import { DocumentUploader } from '@/shared/components/coalrr'
 import type { UploadedDoc } from '@/shared/components/coalrr'
 
 interface ProjectData {
@@ -46,12 +45,11 @@ export function LockBaselineDialog({
       setTypedName('')
       setApprovalDate('')
       setApprovalRefNo('')
-      setDoc(null)
     }
   }, [open])
 
   const nameMatches = typedName.trim() === project.name
-  const isFormValid = nameMatches && approvalDate && approvalRefNo && doc
+  const isFormValid = nameMatches && approvalDate && approvalRefNo
 
   const lockMutation = useMutation({
     mutationFn: async () => {
@@ -62,7 +60,6 @@ export function LockBaselineDialog({
         approvedJobs: project.total_employment_quota,
         approvalDate,
         approvalRefNo,
-        docId: doc ? doc.id : undefined,
         mouzaLgds: project.mouza_lgds
       }
       
@@ -123,36 +120,22 @@ export function LockBaselineDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-1.5">
-              <Label htmlFor="approval-date">Approval Date *</Label>
+              <Label htmlFor="approval-date">{t('project.form.approvalDate', 'Approval Date *')}</Label>
               <DatePicker
                 value={approvalDate}
                 onChange={(date) => setApprovalDate(date ? format(date, 'yyyy-MM-dd') : '')}
-                placeholder="Select approval date"
+                placeholder={t('project.form.approvalDatePlaceholder', 'Select approval date')}
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="approval-ref">Board Ref / File No *</Label>
+              <Label htmlFor="approval-ref">{t('project.form.boardRef', 'Board Ref / File No *')}</Label>
               <Input
                 id="approval-ref"
                 value={approvalRefNo}
                 onChange={(e) => setApprovalRefNo(e.target.value)}
-                placeholder="e.g. CIL/BOARD/2026/01"
+                placeholder={t('project.form.boardRefPlaceholder', 'e.g. CIL/BOARD/2026/01')}
               />
             </div>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label>Initial Baseline Approval Document (Form-I / Board Resolution) *</Label>
-            <DocumentUploader
-              checklist_item_key="INITIAL_BASELINE_DOC"
-              mode="single"
-              documents={doc ? [doc] : []}
-              onChange={(docs) => setDoc(Array.isArray(docs) ? docs[0] : docs)}
-              onRemove={() => setDoc(null)}
-              entity_type="mst_project"
-              entity_id={project.id}
-              module="project-master"
-            />
           </div>
         </div>
 

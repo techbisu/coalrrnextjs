@@ -32,6 +32,7 @@ class MockProjectRepository implements IProjectRepository {
   lock = vi.fn()
   updateProjectLocations = vi.fn()
   syncProjectDocuments = vi.fn()
+  approveFormXXII = vi.fn()
 }
 
 describe('CreateProjectUseCase', () => {

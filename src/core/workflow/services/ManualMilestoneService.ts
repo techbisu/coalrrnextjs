@@ -1,6 +1,7 @@
 import { Result, Ok, Fail } from '@/core'
 import { db } from '@/lib/db'
-import { auditQueue } from '@/infrastructure/di/modules/core.di'
+import { auditQueue, Container } from '@/infrastructure/di/modules/core.di'
+import { milestoneConfig } from '@/core/config/milestone.config'
 
 export interface RecordMilestoneDTO {
   entity_type: string;
@@ -18,7 +19,28 @@ export interface RecordMilestoneDTO {
 export class ManualMilestoneService {
   async recordMilestone(data: RecordMilestoneDTO): Promise<Result<any>> {
     try {
-      const milestone = await db.manual_milestone.create({
+      // Validation: Enforce logical sequence based on milestoneConfig
+      const allMilestones = [...milestoneConfig.CBA, ...milestoneConfig.DP];
+      const milestoneDef = allMilestones.find(m => m.id === data.milestone_type);
+
+      if (milestoneDef && milestoneDef.requires && milestoneDef.requires.length > 0) {
+        // Fetch existing milestones for this entity
+        const existingHistory = await this.getHistory(data.entity_type, data.entity_id);
+        const existingTypes = new Set(existingHistory.isSuccess ? existingHistory.value.map((m: any) => m.milestone_type) : []);
+
+        const missingDeps = milestoneDef.requires.filter(req => !existingTypes.has(req));
+        
+        if (missingDeps.length > 0) {
+          const missingLabels = missingDeps.map(req => {
+            const depDef = allMilestones.find(m => m.id === req);
+            return depDef ? depDef.label : req;
+          }).join(', ');
+          
+          return Fail(`Cannot record ${milestoneDef.label}. Missing prerequisite milestones: ${missingLabels}`);
+        }
+      }
+
+      const milestone = await (db as any).manual_milestone.create({
         data: {
           entity_type: data.entity_type,
           entity_id: data.entity_id,
@@ -53,35 +75,37 @@ export class ManualMilestoneService {
     }
   }
 
+  async getHistory(entityType: string, entityId: string): Promise<Result<any[]>> {
+    try {
+      const records = await (db as any).manual_milestone.findMany({
+        where: {
+          entity_type: entityType,
+          entity_id: entityId
+        },
+        orderBy: {
+          sent_at: 'asc'
+        }
+      })
+      return Ok(records)
+    } catch (e: any) {
+      console.error('ManualMilestoneService.getHistory error:', e)
+      return Fail(e.message)
+    }
+  }
+
   private async createProposalSnapshot(proposalId: string, userId: string) {
     const proposalData = await db.acq_proposal.findUnique({
-      where: { proposal_id: proposalId },
-      include: {
-        plot_schedule: true,
-      }
+      where: { proposal_id: proposalId }
     })
 
     if (!proposalData) return
 
-    await db.proposal_snapshot.create({
+    await (db as any).proposal_snapshot.create({
       data: {
         proposal_id: proposalId,
-        snapshot_type: 'MILESTONE_SNAPSHOT',
-        data: proposalData as any,
-        generated_by: userId
+        snapshot_data: proposalData,
+        created_by: userId
       }
     })
-  }
-
-  async getHistory(entityType: string, entityId: string): Promise<Result<any[]>> {
-    try {
-      const history = await db.manual_milestone.findMany({
-        where: { entity_type: entityType, entity_id: entityId },
-        orderBy: { sent_at: 'desc' }
-      })
-      return Ok(history)
-    } catch (e: any) {
-      return Fail(e.message)
-    }
   }
 }

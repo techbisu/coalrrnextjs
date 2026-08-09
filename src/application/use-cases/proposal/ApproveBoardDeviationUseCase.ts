@@ -1,6 +1,7 @@
 /**
  * Approve Board Deviation Use Case - Unlocks a LIMIT_BREACHED proposal.
  */
+import { MODULE_CODES, ACQ_LAND_SCHEDULE } from '@/core/config/module-codes.config'
 import { IUseCase, Result, Fail, Ok } from '@/core'
 import { IProposalRepository } from '@/domain/entities/proposal'
 import { IProjectRepository } from '@/domain/entities/project'
@@ -71,7 +72,7 @@ export class ApproveBoardDeviationUseCase implements IUseCase<ApproveBoardDeviat
           {
             id: randomUUID(),
             file_id: request.signedDocumentFileId,
-            entity_type: 'land_schedule',
+            entity_type: ACQ_LAND_SCHEDULE,
             entity_id: proposal.id,
             module: 'land-acquisition',
             attached_by: request.user_id,
@@ -101,8 +102,7 @@ export class ApproveBoardDeviationUseCase implements IUseCase<ApproveBoardDeviat
 
     // 7. Publish events
     const domainEvents = proposal.clearDomainEvents()
-    for (const event of domainEvents) {
-      EventBus.publish({
+    for (const event of domainEvents) { await EventBus.publish({
         event_name: event.event_type,
         module: 'land-acquisition',
         user_id: request.user_id,
@@ -117,7 +117,7 @@ export class ApproveBoardDeviationUseCase implements IUseCase<ApproveBoardDeviat
     // 8. Audit logging
     AuditQueue.push({
       event_type: 'PROPOSAL_BOARD_APPROVED',
-      entity_name: 'land_schedule',
+      entity_name: MODULE_CODES.LAND_SCHEDULE,
       entity_id: proposal.id,
       user_id: request.user_id,
       remarks: request.comments ?? 'Board approved the deviation limits',
@@ -137,10 +137,10 @@ export class ApproveBoardDeviationUseCase implements IUseCase<ApproveBoardDeviat
       entity_id: project.id,
       user_id: request.user_id,
       remarks: revisedRemarks,
-    })
+    });
 
     // 8b. Publish to Notification Framework (triggers IN_APP notification)
-    EventBus.publish({
+    await EventBus.publish({
       event_name: 'PROJECT_LIMIT_REVISED',
       module: 'project-master',
       user_id: request.user_id,

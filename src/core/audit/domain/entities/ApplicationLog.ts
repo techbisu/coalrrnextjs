@@ -17,6 +17,7 @@ export interface CreateApplicationLogProps {
   conditions?: any | null
   oldData?: any | null
   newData?: any | null
+  timestamp?: Date
 }
 
 export class ApplicationLog extends Entity<string> {
@@ -32,7 +33,7 @@ export class ApplicationLog extends Entity<string> {
       return Fail('Table name is required')
     }
 
-    const now = new Date()
+    const now = props.timestamp || new Date()
     const log = new ApplicationLog({
       id: randomUUID(),
       tableName: props.tableName.trim(),

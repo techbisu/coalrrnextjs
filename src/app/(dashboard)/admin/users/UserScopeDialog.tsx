@@ -15,7 +15,7 @@ import {
 } from '@/shared/components/ui/form'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select'
 import { MapPin, Loader2 } from 'lucide-react'
-import { MasterLookup } from '@/shared/components/coalrr/MasterLookup'
+import { AreaSelect, MineSelect } from '@/shared/components/coalrr/selects'
 
 const scopeSchema = z.object({
   scopeLevel: z.enum(['HQ', 'AREA', 'UNIT']),
@@ -130,8 +130,8 @@ export function UserScopeDialog({ userId, userName, currentScope, onSuccess, tri
               <FormField control={form.control} name="areaCd" render={({ field }) => (
                 <FormItem className="flex flex-col mt-2">
                   <FormLabel>Area</FormLabel>
-                  <MasterLookup 
-                    masterName="area_master"
+                  <AreaSelect 
+                    ignoreScope
                     value={field.value} 
                     onChange={field.onChange} 
                     placeholder="Select Area"
@@ -145,9 +145,9 @@ export function UserScopeDialog({ userId, userName, currentScope, onSuccess, tri
               <FormField control={form.control} name="mineCd" render={({ field }) => (
                 <FormItem className="flex flex-col mt-2">
                   <FormLabel>Mine / Unit</FormLabel>
-                  <MasterLookup 
-                    masterName="mine_master"
-                    dependencies={{ area_cd: selectedArea }}
+                  <MineSelect 
+                    areaCd={selectedArea}
+                    ignoreScope
                     value={field.value} 
                     onChange={field.onChange} 
                     placeholder="Select Mine"

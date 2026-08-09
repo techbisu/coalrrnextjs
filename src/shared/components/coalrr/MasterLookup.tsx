@@ -2,11 +2,11 @@
 
 import * as React from 'react'
 import { Combobox } from '@/shared/components/ui/combobox'
-import { useMasterLookup, UseMasterLookupProps } from '@/hooks/useMasterLookup'
+import { useMasterLookup, UseMasterLookupProps } from '@/shared/hooks/useMasterLookup'
 
 export interface MasterLookupProps extends Omit<UseMasterLookupProps, 'enabled'> {
   value?: string | string[]
-  onChange?: (value: string | string[]) => void
+  onChange?: (value: string | string[], option?: any) => void
   placeholder?: string
   disabled?: boolean
   className?: string

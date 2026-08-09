@@ -17,6 +17,7 @@ export interface IProjectRepository {
   delete(id: string): Promise<void>
   exists(id: string): Promise<boolean>
   lock(id: string, user_id: string): Promise<boolean>
+  approveFormXXII(project: Project, approval: any, locations: any[]): Promise<void>
 }
 
 export interface IProjectQueryOptions extends IQueryOptions {

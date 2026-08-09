@@ -36,9 +36,7 @@ export class AddMouzaToProjectUseCase implements IUseCase<AddMouzaToProjectReque
     }
 
     // Since it's authorized (or project isn't locked yet), we can add it to the project mouzas mapping
-    await this.projectRepository.updateProjectLocations(request.projectId, project.mineCds, [request.mouzaLgd])
-
-    EventBus.publish({
+    await this.projectRepository.updateProjectLocations(request.projectId, project.mineCds, [request.mouzaLgd]); await EventBus.publish({
       event_name: 'MOUZA_ADDED_TO_PROJECT',
       module: 'project-master',
       user_id: request.userId,

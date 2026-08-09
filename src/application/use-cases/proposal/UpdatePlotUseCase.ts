@@ -1,6 +1,7 @@
 import { IUseCase, Result, Fail, Ok } from '@/core';
 import { IProposalRepository, PlotScheduleDTO, PlotScheduleLandTypeDTO } from '@/domain/entities/proposal';
 import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di';
+import { jobDispatcher } from '@/core/jobs/services/JobDispatcherService';
 
 export interface UpdatePlotRequest {
   proposalId: string;
@@ -37,6 +38,12 @@ export class UpdatePlotUseCase implements IUseCase<UpdatePlotRequest, UpdatePlot
         entity_id: request.proposalId,
         user_id: request.userId,
         remarks: `Updated plot ${request.plotNo}`
+      });
+
+      // Sync checklist context
+      await jobDispatcher.dispatch('syncChecklistContext', {
+        moduleCode: 'LAND_ACQ_PROPOSAL',
+        entityId: request.proposalId
       });
 
       return Ok({

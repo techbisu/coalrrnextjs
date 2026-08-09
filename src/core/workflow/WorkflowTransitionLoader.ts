@@ -12,6 +12,7 @@ import 'server-only'
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { GUARD_REGISTRY } from "./guards";
+import { ConfigCacheService } from "@/core/config/cache/ConfigCacheService";
 import type { ActorRole, Transition } from "./types";
 
 // ─── Zod schema — validates each DB row ─────────────────────────────────────
@@ -62,11 +63,8 @@ export async function loadWorkflowTransitions(
     return cached.transitions
   }
 
-  // Cache miss or expired — load from DB
-  const rows = await (db as any).workflow_transitions.findMany({
-    where: { workflow_code: workflowCode, is_active: true },
-    orderBy: { sort_order: "asc" },
-  })
+  // Load from ConfigCacheService (L1 Process Memory + L2 Redis)
+  const rows = await ConfigCacheService.getWorkflowTransitions(workflowCode)
 
   const transitions: Transition[] = rows.map((row: unknown) => {
     const parsed = DbTransitionSchema.parse(row)

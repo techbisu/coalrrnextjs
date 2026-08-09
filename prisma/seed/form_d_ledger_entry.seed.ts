@@ -6,13 +6,13 @@ export async function seedFormDLedgerEntry(db: PrismaClient) {
   console.log('🌱 Seeding form_d_ledger_entry...')
 
   const project = await db.project.findFirst()
-  const plots = await db.mst_plot.findMany()
+  const plots = await db.plot_schedule.findMany()
 
   if (!project || plots.length < 2) return
 
   const ledgerRows = [
-    { plot_id: plots[0].id, amount_land: '3125000.00', amount_rnr: '450000.00', payee: 'Ramesh Kumar Sahoo', utr: 'UTR8823419012', daysAgo: 5 },
-    { plot_id: plots[1].id, amount_land: '2062500.00', amount_rnr: '280000.00', payee: 'Sita Devi Mohanty', utr: 'UTR8823419013', daysAgo: 4 },
+    { plot_id: plots[0].plot_no, amount_land: '3125000.00', amount_rnr: '450000.00', payee: 'Ramesh Kumar Sahoo', utr: 'UTR8823419012', daysAgo: 5 },
+    { plot_id: plots[1].plot_no, amount_land: '2062500.00', amount_rnr: '280000.00', payee: 'Sita Devi Mohanty', utr: 'UTR8823419013', daysAgo: 4 },
   ]
   
   const existing = await db.form_d_ledger_entry.findFirst()

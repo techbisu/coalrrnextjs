@@ -24,13 +24,22 @@
 export type WorkflowState =
   | "Drafting"
   | "UnitSubmitted"
+  | "CrossCollieryVerification"
   | "AreaVetting"
   | "HqParallelVetting"
+  | "HqVetting"
   | "GmLreReview"
-  | "Published"
   | "BoardEscalation"
   | "LimitBreached"
-  | "BoardApproved";
+  | "BoardApproved"
+  | "DocketIssued"
+  | "ManuallyApproved"
+  | "Published"
+  | "Approved"
+  | "Rejected"
+  | "Cancelled"
+  | "Closed"
+  | "Sec7Preparation";
 
 /**
  * Record types that participate in a workflow (spec §2.3 polymorphic).
@@ -41,7 +50,11 @@ export type RecordType =
   | "compensation_payroll"
   | "form_i_claim"
   | "land_schedule"
-  | "employment_application";
+  | "employment_application"
+  | "LAND_SCHEDULE"
+  | "COMPENSATION_PAYROLL"
+  | "EMPLOYMENT_APP"
+  | "FORM_I_CLAIM";
 
 /**
  * Roles that can drive transitions (mirrors Prisma `workflow_review_task.role`).
@@ -54,7 +67,8 @@ export type ActorRole =
   | "gm_safety"
   | "hod_legal"
   | "gm_lre"
-  | "board";
+  | "board"
+  | "system";
 
 // ════════════════════════════════════════════════════════════════════════════
 // Guard types
@@ -72,6 +86,8 @@ export interface GuardContext {
   readonly recordType: RecordType;
   readonly actorRole: ActorRole;
   readonly currentState: WorkflowState;
+  readonly acqModeId?: string | number;
+  readonly workflowCode?: string;
   readonly data?: Readonly<Record<string, unknown>>;
 }
 

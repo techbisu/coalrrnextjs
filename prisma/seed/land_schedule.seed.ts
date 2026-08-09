@@ -5,7 +5,7 @@ export async function seedLandSchedule(db: PrismaClient) {
   console.log('🌱 Seeding acq_proposal...')
 
   const project = await db.project.findFirst()
-  const plots = await db.mst_plot.findMany()
+  const plots = await db.plot_schedule.findMany()
 
   if (!project || plots.length < 4) return
   

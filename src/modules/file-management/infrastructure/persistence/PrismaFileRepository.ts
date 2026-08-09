@@ -19,6 +19,8 @@ export class PrismaFileRepository implements IFileRepository {
         checksum: existing.checksum || '',
         ownerId: existing.owner_id || 'system',
         tags: existing.tags ? JSON.parse(existing.tags) : null,
+        // @ts-ignore: mapping pending prisma generate
+        isActive: existing.is_active ?? true,
       }),
       activeVersionNumber: existing.file_version[0]?.version_number || 1
     }
@@ -39,6 +41,8 @@ export class PrismaFileRepository implements IFileRepository {
         checksum: existing.checksum || '',
         ownerId: existing.owner_id || 'system',
         tags: existing.tags ? JSON.parse(existing.tags) : null,
+        // @ts-ignore: mapping pending prisma generate
+        isActive: existing.is_active ?? true,
       }),
       activeVersion: FileVersion.create({
         id: existing.file_version[0].id,
@@ -63,6 +67,7 @@ export class PrismaFileRepository implements IFileRepository {
         original_name: file.originalName,
         owner_id: file.ownerId,
         checksum: file.checksum,
+        is_active: file.isActive ?? true,
         tags: file.tags ? JSON.stringify(file.tags) : null,
         updt_ts: new Date(),
         file_version: {
@@ -111,7 +116,7 @@ export class PrismaFileRepository implements IFileRepository {
   async softDelete(id: string): Promise<void> {
     await db.file_record.update({
       where: { id },
-      data: { status: 'SOFT_DELETED', updt_ts: new Date() }
+      data: { is_active: false, updt_ts: new Date() }
     })
   }
 

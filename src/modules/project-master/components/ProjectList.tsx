@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { FilterBar, MasterLookup } from '@/shared/components/coalrr'
+import { FilterBar, AreaSelect, MineSelect } from '@/shared/components/coalrr'
 import { useMasterLookup } from '@/shared/hooks/useMasterLookup'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
@@ -16,6 +16,22 @@ import {
 } from '@/shared/components/ui/dialog'
 import { Input } from '@/shared/components/ui/input'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  createColumnHelper,
+  getSortedRowModel,
+  SortingState
+} from '@tanstack/react-table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/shared/components/ui/table'
 
 const PROJECT_COLORS = [
   'bg-blue-500/10 text-blue-700 border-blue-200 dark:text-blue-400 dark:border-blue-900',
@@ -125,6 +141,178 @@ export function ProjectList({ projects, onSelectProject, selectedProjectId }: Pr
     }
   }
 
+  // --- Table Setup ---
+  const [sorting, setSorting] = React.useState<SortingState>([])
+  const columnHelper = createColumnHelper<ProjectData>()
+
+  const columns = React.useMemo(() => [
+    columnHelper.accessor('name', {
+      header: 'Project Details',
+      cell: info => {
+        const p = info.row.original
+        const colorIdx = getProjectColorIndex(p.id)
+        const colorClass = PROJECT_COLORS[colorIdx]
+        return (
+          <div className="flex items-center gap-3">
+            <div className={`h-10 w-10 shrink-0 rounded-lg flex items-center justify-center font-bold text-sm shadow-sm ${colorClass}`}>
+              {p.name.substring(0, 2).toUpperCase()}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="font-semibold text-sm text-foreground truncate max-w-[200px]" title={p.name}>
+                {p.name}
+              </span>
+              <span className="font-mono text-xs text-muted-foreground mt-0.5">
+                {p.ecl_proj_cd || p.id}
+              </span>
+            </div>
+          </div>
+        )
+      }
+    }),
+    columnHelper.display({
+      id: 'location',
+      header: 'Location',
+      cell: info => {
+        const p = info.row.original
+        return (
+          <div className="flex flex-col gap-1 text-[11px] text-muted-foreground uppercase tracking-tight">
+            <span>Area: <strong className="text-foreground">{p.area_cd || '—'}</strong></span>
+            <span>Mine: <strong className="text-foreground">{p.mine_cd}</strong></span>
+          </div>
+        )
+      }
+    }),
+    columnHelper.display({
+      id: 'baselines',
+      header: () => <div className="text-right">Baselines (Acres)</div>,
+      cell: info => {
+        const p = info.row.original
+        return (
+          <div className="grid grid-cols-1 gap-1 text-[10px] uppercase font-medium tracking-tight text-right text-muted-foreground">
+            <div className="flex justify-end gap-3">
+              <span>Tenancy:</span>
+              <span className="font-mono text-foreground font-semibold w-12">{formatNumber(p.approved_tenancy_area || 0, 2)}</span>
+            </div>
+            <div className="flex justify-end gap-3">
+              <span>Govt:</span>
+              <span className="font-mono text-foreground font-semibold w-12">{formatNumber(p.approved_govt_area || 0, 2)}</span>
+            </div>
+            <div className="flex justify-end gap-3">
+              <span>Forest:</span>
+              <span className="font-mono text-foreground font-semibold w-12">{formatNumber(p.approved_forest_area || 0, 2)}</span>
+            </div>
+          </div>
+        )
+      }
+    }),
+    columnHelper.display({
+      id: 'metrics',
+      header: 'Key Metrics',
+      cell: info => {
+        const p = info.row.original
+        const areaAcquired = Number(p.total_acquired_area || 0)
+        const areaLimit = Number(p.total_land_limit_acres || 0)
+        const areaPct = areaLimit > 0 ? Math.min((areaAcquired / areaLimit) * 100, 100) : 0
+
+        const budgetPct = Number(p.budgetUtilization || 0)
+        
+        return (
+          <div className="w-[160px] flex flex-col gap-2.5">
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] text-muted-foreground uppercase tracking-tight font-medium">
+                <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-emerald-600"/> Land (ac)</span>
+                <span className="font-mono">{formatNumber(areaAcquired, 1)} / {formatNumber(areaLimit, 1)}</span>
+              </div>
+              <Progress value={areaPct} className="h-1.5" indicatorClassName={areaPct > 100 ? 'bg-red-500' : areaPct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'} />
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] text-muted-foreground uppercase tracking-tight font-medium">
+                <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3 text-amber-600"/> Budget</span>
+                <span className="font-mono">{budgetPct.toFixed(1)}%</span>
+              </div>
+              <Progress value={budgetPct} className="h-1.5" indicatorClassName={budgetPct > 100 ? 'bg-red-500' : 'bg-amber-500'} />
+            </div>
+          </div>
+        )
+      }
+    }),
+    columnHelper.display({
+      id: 'status',
+      header: 'Status',
+      cell: info => {
+        const p = info.row.original
+        const isCombo = p.is_combo_project || (p.linked_mine_codes && p.linked_mine_codes.length > 0)
+        return (
+          <div className="flex flex-col gap-1.5 items-start">
+            <Badge variant="outline" className={`text-[10px] font-semibold uppercase tracking-tight ${
+              p.isLocked 
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300' 
+                : 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
+            }`}>
+              {p.isLocked ? <><Lock className="h-2.5 w-2.5 mr-1" /> Locked</> : 'Draft'}
+            </Badge>
+            {isCombo && (
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] uppercase font-bold tracking-tight">
+                <Layers className="h-2.5 w-2.5 mr-1" /> Combo
+              </Badge>
+            )}
+          </div>
+        )
+      }
+    }),
+    columnHelper.display({
+      id: 'actions',
+      header: '',
+      cell: info => {
+        const p = info.row.original
+        return (
+          <div className="flex items-center justify-end gap-2">
+            {!p.isLocked && (
+              <Can permission="project.delete">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setProjectToDelete({ id: p.id, name: p.name })
+                    setDeleteConfirmName('')
+                    setDeleteConfirmOpen(true)
+                  }}
+                  title="Delete Project"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                </Button>
+              </Can>
+            )}
+            <Button 
+              variant="secondary" 
+              size="sm"
+              className="h-8 text-xs font-semibold hover:bg-amber-100 hover:text-amber-900 dark:hover:bg-amber-900/50 dark:hover:text-amber-100"
+              onClick={(e) => {
+                e.stopPropagation()
+                onSelectProject(p.id)
+              }}
+            >
+              Overview <ChevronRight className="ml-1 h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )
+      }
+    })
+  ], [onSelectProject, setProjectToDelete, setDeleteConfirmName, setDeleteConfirmOpen])
+
+  const table = useReactTable({
+    data: filteredProjects,
+    columns,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  })
+
   return (
     <div className="space-y-4">
       {/* Filter Controls Bar */}
@@ -140,22 +328,22 @@ export function ProjectList({ projects, onSelectProject, selectedProjectId }: Pr
         }}
       >
         <div className="flex items-center gap-2 flex-wrap">
-          <MasterLookup
-            masterName="area_master"
+          <AreaSelect
+            showAllOption
             value={filterArea}
             onChange={(v) => {
               setFilterArea(v as string)
               setFilterMine(undefined)
             }}
-            placeholder="Select Area..."
+            placeholder={t('project.form.areaPlaceholder', 'Select Area...')}
             className="w-[140px] h-8 text-xs"
           />
-          <MasterLookup
-            masterName="mine_master"
-            dependencies={{ area_cd: filterArea }}
+          <MineSelect
+            areaCd={filterArea}
+            showAllOption
             value={filterMine}
             onChange={(v) => setFilterMine(v as string)}
-            placeholder="Select Mine..."
+            placeholder={t('project.form.minePlaceholder', 'Select Mine...')}
             className="w-[140px] h-8 text-xs"
             disabled={!filterArea}
           />
@@ -182,174 +370,60 @@ export function ProjectList({ projects, onSelectProject, selectedProjectId }: Pr
         </div>
       </FilterBar>
 
-      {/* Responsive Executive Project Card Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {projects.length === 0 ? (
-          <div className="col-span-full py-16 px-6 text-center bg-card border border-dashed rounded-xl flex flex-col items-center justify-center">
-            <h3 className="text-base font-semibold text-foreground">{t('no_projects_found', 'No projects registered')}</h3>
-            <p className="text-xs text-muted-foreground mt-1">{t('no_projects_desc', 'There are no project PR Report baselines in the system yet. Click "New Project" to register one.')}</p>
-          </div>
-        ) : filteredProjects.length === 0 ? (
-          <div className="col-span-full py-12 text-center text-xs text-muted-foreground bg-card border border-dashed rounded-xl">
-            No projects match the selected search & filter criteria.
-          </div>
-        ) : (
-          filteredProjects.map(project => {
-            const colorIdx = getProjectColorIndex(project.id)
-            const colorClass = PROJECT_COLORS[colorIdx]
-            
-            const areaAcquired = Number(project.total_acquired_area || 0)
-            const areaLimit = Number(project.total_land_limit_acres || 0)
-            const areaPct = areaLimit > 0 ? Math.min((areaAcquired / areaLimit) * 100, 100) : 0
-            const isCombo = project.is_combo_project || (project.linked_mine_codes && project.linked_mine_codes.length > 0)
-            
-            return (
-              <div 
-                key={project.id}
-                onClick={() => onSelectProject(project.id)}
-                className={`group relative flex flex-col justify-between bg-card border rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:border-amber-400/80 cursor-pointer ${
-                  selectedProjectId === project.id ? 'ring-2 ring-amber-500 border-transparent bg-amber-50/10' : 'border-border'
-                }`}
-              >
-                {/* Top Section: Header & Status Badges */}
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`h-11 w-11 shrink-0 rounded-xl flex items-center justify-center font-bold text-base shadow-sm ${colorClass}`}>
-                        {project.name.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-semibold text-base leading-snug text-foreground truncate" title={project.name}>
-                          {project.name}
-                        </h3>
-                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
-                          <span className="font-mono font-medium text-foreground">{project.ecl_proj_cd || project.id}</span>
-                          <span>•</span>
-                          <span>Area: <strong className="text-foreground">{project.area_cd || '—'}</strong></span>
-                          <span>•</span>
-                          <span>Mine: <strong className="text-foreground">{project.mine_cd}</strong></span>
-                        </div>
-                      </div>
+      {/* Elegant Enterprise Data Table */}
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+        <Table>
+          <TableHeader className="bg-muted/30">
+            {table.getHeaderGroups().map(headerGroup => (
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                {headerGroup.headers.map(header => (
+                  <TableHead key={header.id} className="text-xs font-medium uppercase tracking-wider text-muted-foreground h-11 bg-transparent px-4">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map(row => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                  className={`cursor-pointer transition-colors hover:bg-muted/50 ${selectedProjectId === row.original.id ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''}`}
+                  onClick={() => onSelectProject(row.original.id)}
+                >
+                  {row.getVisibleCells().map(cell => (
+                    <TableCell key={cell.id} className="py-4 px-4 align-middle">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-[400px] text-center">
+                  <div className="flex flex-col items-center justify-center text-muted-foreground">
+                    <div className="bg-muted/50 p-4 rounded-full mb-4">
+                      <FileText className="h-8 w-8 text-muted-foreground/70" />
                     </div>
-
-                    {/* Lock / Draft Status */}
-                    <div className="shrink-0 flex items-center gap-1">
-                      {isCombo && (
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] uppercase font-bold tracking-tight">
-                          <Layers className="h-2.5 w-2.5 mr-1" /> Combo
-                        </Badge>
-                      )}
-                      <Badge variant="outline" className={`text-[10px] font-semibold uppercase tracking-tight ${
-                        project.isLocked 
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300' 
-                          : 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
-                      }`}>
-                        {project.isLocked ? <><Lock className="h-2.5 w-2.5 mr-1" /> Locked</> : 'Draft'}
-                      </Badge>
-                    </div>
+                    <p className="text-base font-semibold text-foreground">{t('no_projects_found', 'No projects found')}</p>
+                    <p className="text-sm mt-1 max-w-[250px] leading-relaxed">
+                      {projects.length === 0 
+                        ? t('no_projects_desc', 'There are no project baselines yet. Register one to get started.') 
+                        : 'Adjust your search and filter criteria to find what you are looking for.'}
+                    </p>
                   </div>
-
-                  {/* Type-Wise PR Baseline Abstract Breakdown */}
-                  <div className="my-3 rounded-lg bg-muted/40 p-2.5 border border-border/50 text-xs grid grid-cols-3 gap-2">
-                    <div>
-                      <div className="text-[10px] uppercase font-medium text-muted-foreground">Tenancy Baseline</div>
-                      <div className="font-mono font-semibold text-foreground">{formatNumber(project.approved_tenancy_area || 0, 2)} ac</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase font-medium text-muted-foreground">Govt Baseline</div>
-                      <div className="font-mono font-semibold text-foreground">{formatNumber(project.approved_govt_area || 0, 2)} ac</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase font-medium text-muted-foreground">Forest Baseline</div>
-                      <div className="font-mono font-semibold text-foreground">{formatNumber(project.approved_forest_area || 0, 2)} ac</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Metric Summary Progress Cards */}
-                <div>
-                  <div className="grid grid-cols-3 gap-2 py-2 border-t border-border/60 text-xs">
-                    {/* Land Utilization */}
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <MapPin className="h-3 w-3 text-emerald-600" />
-                        <span>Land Capacity</span>
-                      </div>
-                      <div className="font-mono text-xs font-bold text-foreground">
-                        {formatNumber(areaAcquired, 1)} / {formatNumber(areaLimit, 1)} ac
-                      </div>
-                      <Progress value={areaPct} className="h-1.5" indicatorClassName={areaPct > 100 ? 'bg-red-500' : areaPct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'} />
-                    </div>
-
-                    {/* Financial Budget */}
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <IndianRupee className="h-3 w-3 text-amber-600" />
-                        <span>Budget Ceiling</span>
-                      </div>
-                      <div className="font-mono text-xs font-bold text-foreground">
-                        {formatINR(project.total_budget_ceiling || 0)}
-                      </div>
-                      <Progress value={Number(project.budgetUtilization || 0)} className="h-1.5" indicatorClassName={Number(project.budgetUtilization || 0) > 100 ? 'bg-red-500' : 'bg-amber-500'} />
-                    </div>
-
-                    {/* Job Quota */}
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <Users className="h-3 w-3 text-violet-600" />
-                        <span>Job Quota</span>
-                      </div>
-                      <div className="font-mono text-xs font-bold text-foreground">
-                        {project.payrollCount || 0} / {project.total_employment_quota || 0}
-                      </div>
-                      <Progress value={project.total_employment_quota ? ((project.payrollCount || 0) / project.total_employment_quota) * 100 : 0} className="h-1.5" indicatorClassName="bg-violet-500" />
-                    </div>
-                  </div>
-
-                  {/* Card Footer: Action & Quick Info */}
-                  <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2 text-muted-foreground text-[11px]">
-                      {project.proposals_count !== undefined && (
-                        <span className="flex items-center gap-1 font-medium text-foreground">
-                          <FileText className="h-3 w-3 text-amber-600" /> {project.proposals_count} Proposals
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {!project.isLocked && (
-                        <Can permission="project.delete">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-7 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive px-2"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setProjectToDelete({ id: project.id, name: project.name })
-                              setDeleteConfirmName('')
-                              setDeleteConfirmOpen(true)
-                            }}
-                          >
-                            <AlertTriangle className="mr-1 h-3 w-3" /> Delete
-                          </Button>
-                        </Can>
-                      )}
-
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="h-7 text-xs font-semibold text-amber-700 dark:text-amber-400 group-hover:bg-amber-500/10"
-                        onClick={() => onSelectProject(project.id)}
-                      >
-                        Overview <ChevronRight className="ml-0.5 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          })
-        )}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       {/* Delete Confirmation Dialog */}

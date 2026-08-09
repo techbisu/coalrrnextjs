@@ -1,31 +1,41 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { SectionCard } from '@/shared/components/coalrr'
-import { Badge } from '@/shared/components/ui/badge'
-import { Button } from '@/shared/components/ui/button'
 import { useQuery } from '@tanstack/react-query'
-import { getChecklistStatus, updateChecklistSubmission } from '@/app/actions/checklist.actions'
-import { CheckCircle2, UploadCloud, AlertTriangle, Eye, FileText, Loader2, Download } from 'lucide-react'
-import { DocumentUploader } from '@/shared/components/coalrr'
+import { updateChecklistSubmission } from '@/app/actions/checklist.actions'
+import { FileText, Loader2, AlertCircle } from 'lucide-react'
 import { DocumentWorkspaceModal } from '@/shared/components/coalrr/DocumentWorkspaceModal'
-import { Textarea } from '@/shared/components/ui/textarea'
+import { ChecklistHeaderProgress } from './ChecklistHeaderProgress'
+import { GeneratedFormsSection } from './sections/GeneratedFormsSection'
+import { OperationalChecklistSection } from './sections/OperationalChecklistSection'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
+import { ACQ_LAND_SCHEDULE, MODULE_CODES } from '@/core/config/module-codes.config'
 
 interface GenericChecklistWorkspaceProps {
-  moduleCode: string;
-  checkableType: string;
+  moduleCode?: string;
+  checkableType?: string;
   checkableId: string;
-  userId: string;
+  userId?: string;
   title?: string;
   description?: string;
+  readonly?: boolean;
   action?: (isComplete: boolean) => React.ReactNode;
 }
 
-export function GenericChecklistWorkspace({ moduleCode, checkableType, checkableId, userId, title = "Project Files & Clearances", description = "Dynamic requirements engine (replaces legacy static clearances)", action }: GenericChecklistWorkspaceProps) {
+export function GenericChecklistWorkspace({
+  moduleCode = MODULE_CODES.LAND_SCHEDULE,
+  checkableType = ACQ_LAND_SCHEDULE,
+  checkableId,
+  userId,
+  title = "Project Files & Statutory Clearances",
+  description = "Dynamic rules engine managing operational compliance and legal document generation",
+  readonly = false,
+  action
+}: GenericChecklistWorkspaceProps) {
   const [docWorkspaceOpen, setDocWorkspaceOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
-  const [replacingItemKey, setReplacingItemKey] = useState<string | null>(null)
-  const [textInputs, setTextInputs] = useState<Record<string, string>>({})
+  const [activeTab, setActiveTab] = useState<'generated' | 'operational'>('generated')
 
   const openDocWorkspace = (templateCode: string) => {
     setSelectedTemplate(templateCode)
@@ -46,7 +56,7 @@ export function GenericChecklistWorkspace({ moduleCode, checkableType, checkable
     enabled: !!checkableId
   })
 
-  const handleRealUpload = async (requirementId: string, documentId?: string, userInput?: any) => {
+  const handleSubmitRequirement = async (requirementId: string, documentId?: string, userInput?: any) => {
     try {
       await updateChecklistSubmission({
         moduleCode,
@@ -56,237 +66,141 @@ export function GenericChecklistWorkspace({ moduleCode, checkableType, checkable
         documentId,
         userInput
       });
-      await refetch(); // Refresh checklist UI
-
+      await refetch();
     } catch (err) {
-      console.error(err);
+      console.error('Error submitting checklist requirement:', err);
     }
   }
 
   if (loading) return (
-    <SectionCard title="Project Files & Clearances" icon={FileText} description="Uploaded documents and statutory clearances">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground p-4">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading checklist... ({checkableId})
+    <SectionCard title={title} icon={FileText} description={description}>
+      <div className="flex items-center justify-center gap-3 p-12 text-sm text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        <span>Loading dynamic checklist & resolving compliance rules... ({checkableId})</span>
       </div>
     </SectionCard>
   )
-  if (isError) return <div className="p-4 text-red-500">Error loading checklist: {error?.message || 'Unknown error'}</div>
-  if (!data) return <div className="p-4 text-red-500">Error: No checklist data returned</div>
 
-  const missingItems = data.items.filter((item: any) => !(item.submission?.status === 'SUBMITTED' || item.submission?.status === 'AUTO_SATISFIED' || item.submission?.status === 'APPROVED'))
-  const uploadedItems = data.items.filter((item: any) => item.submission?.status === 'SUBMITTED' || item.submission?.status === 'AUTO_SATISFIED' || item.submission?.status === 'APPROVED')
+  if (isError) return (
+    <SectionCard title={title} icon={FileText} description={description}>
+      <div className="flex items-center gap-3 p-6 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+        <AlertCircle className="h-5 w-5 shrink-0" />
+        <div>
+          <p className="font-semibold">Error loading checklist</p>
+          <p className="text-xs opacity-90">{error?.message || 'Unknown error occurred while resolving checklist context'}</p>
+        </div>
+      </div>
+    </SectionCard>
+  )
 
-  const isComplete = missingItems.length === 0;
+  if (!data || !Array.isArray(data.items)) return (
+    <SectionCard title={title} icon={FileText} description={description}>
+      <div className="p-6 text-sm text-muted-foreground text-center">
+        No checklist rules configured for module: <code className="font-mono">{moduleCode}</code>
+      </div>
+    </SectionCard>
+  )
+
+  const items = data.items;
+
+  // Separate Generated Documents (Docx Engine) from Operational Items
+  const generatedForms = items.filter((item: any) =>
+    item.inputSchema?.type === 'generated_document' ||
+    item.type === 'generated_document' ||
+    item.inputSchema?.template_code ||
+    item.inputSchema?.templateCode
+  );
+
+  const operationalItems = items.filter((item: any) =>
+    item.inputSchema?.type !== 'generated_document' &&
+    item.type !== 'generated_document' &&
+    !item.inputSchema?.template_code &&
+    !item.inputSchema?.templateCode
+  );
+
+  // Status Metrics
+  const totalItems = items.length;
+  const satisfiedItemsCount = items.filter((item: any) =>
+    item.submission?.status === 'SUBMITTED' ||
+    item.submission?.status === 'AUTO_SATISFIED' ||
+    item.submission?.status === 'APPROVED' ||
+    item.generatedDocInfo?.status === 'COMPLETED'
+  ).length;
+
+  const mandatoryItems = items.filter((item: any) => item.isMandatory);
+  const satisfiedMandatoryCount = mandatoryItems.filter((item: any) =>
+    item.submission?.status === 'SUBMITTED' ||
+    item.submission?.status === 'AUTO_SATISFIED' ||
+    item.submission?.status === 'APPROVED' ||
+    item.generatedDocInfo?.status === 'COMPLETED'
+  ).length;
+
+  const isComplete = mandatoryItems.length === 0 || satisfiedMandatoryCount === mandatoryItems.length;
 
   return (
     <SectionCard title={title} icon={FileText} description={description}>
-      <div className="space-y-6 max-h-[500px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        
-        {/* Missing Clearances Upload / Gen */}
-        {missingItems.length > 0 && (
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-rose-600 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" /> Required Uploads
-            </h4>
-            <div className="space-y-3">
-              {missingItems.map((item: any) => (
-                <div key={item.ruleId} className="rounded-md border border-rose-200 bg-rose-50/50 p-4 dark:border-rose-900/50 dark:bg-rose-900/10 flex flex-col gap-3">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="font-semibold text-sm text-foreground">{item.title}</span>
-                      <div className="flex items-center gap-2">
-                        {item.inputSchema?.type === 'generated_document' || item.type === 'generated_document' ? (
-                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] py-0 h-4 tracking-wider">
-                            Generated Form
-                          </Badge>
-                        ) : item.type === 'boolean' ? (
-                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] py-0 h-4 tracking-wider">
-                            System Check / Boolean
-                          </Badge>
-                        ) : item.type === 'text' ? (
-                          <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] py-0 h-4 tracking-wider">
-                            Data Entry
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] py-0 h-4 tracking-wider">
-                            Document Upload
-                          </Badge>
-                        )}
-                        {item.isMandatory && <Badge variant="destructive" className="text-[10px] py-0 h-4 uppercase tracking-wider">Required</Badge>}
-                      </div>
-                    </div>
-                    {item.description && <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>}
-                  </div>
-                  <div className="w-full pt-1 border-t border-rose-100 dark:border-rose-900/30">
-                    {(item.inputSchema?.type === 'generated_document' || item.type === 'generated_document' || item.inputSchema?.template_code || item.inputSchema?.templateCode) ? (
-                      <div className="flex items-center gap-2 mt-2">
-                        <Button 
-                          variant="default" 
-                          size="sm" 
-                          onClick={() => openDocWorkspace(item.generatedDocInfo?.templateCode || item.inputSchema?.template_code || item.inputSchema?.templateCode || 'FORM_XXII')}
-                        >
-                          <FileText className="mr-1.5 h-4 w-4" />
-                          {item.generatedDocInfo?.status === 'DRAFT' || item.generatedDocInfo?.status === 'INCOMPLETE' 
-                            ? 'Continue Draft' 
-                            : item.generatedDocInfo?.status === 'COMPLETED' 
-                            ? 'Regenerate Document' 
-                            : 'Generate Document'}
-                        </Button>
-                      </div>
-                    ) : item.type === 'boolean' ? (
-                      <div className="flex items-center gap-2 mt-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleRealUpload(item.ruleId, undefined, true)}
-                          className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                        >
-                          <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                          Confirm & Satisfy Requirement
-                        </Button>
-                      </div>
-                    ) : item.type === 'text' ? (
-                      <div className="flex flex-col gap-2 mt-2">
-                         <Textarea 
-                           placeholder="Enter required information..."
-                           value={textInputs[item.ruleId] || ''}
-                           onChange={(e) => setTextInputs(prev => ({...prev, [item.ruleId]: e.target.value}))}
-                           className="text-sm min-h-[80px]"
-                         />
-                         <Button 
-                           size="sm" 
-                           onClick={() => handleRealUpload(item.ruleId, undefined, textInputs[item.ruleId])}
-                           disabled={!textInputs[item.ruleId]?.trim()}
-                           className="w-fit"
-                         >
-                           Submit Data
-                         </Button>
-                      </div>
-                    ) : (
-                      <DocumentUploader
-                        checklist_item_key={item.ruleId}
-                        mode="single"
-                        label="Upload required document"
-                        entity_type={checkableType}
-                        entity_id={checkableId}
-                        module={moduleCode}
-                        onChange={(doc: any) => handleRealUpload(item.ruleId, doc.id)}
-                      />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+      <div className="space-y-6">
+        {/* Header Progress Banner */}
+        <ChecklistHeaderProgress
+          totalItems={totalItems}
+          satisfiedItemsCount={satisfiedItemsCount}
+          mandatoryItemsCount={mandatoryItems.length}
+          satisfiedMandatoryCount={satisfiedMandatoryCount}
+          generatedFormsCount={generatedForms.length}
+          operationalItemsCount={operationalItems.length}
+        />
+
+        {/* Dual Section Tabs */}
+        <Tabs defaultValue={generatedForms.length > 0 ? "generated" : "operational"} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 p-1 bg-muted/60 rounded-xl">
+            <TabsTrigger
+              value="generated"
+              className="rounded-lg text-xs font-semibold py-2.5 data-[state=active]:bg-card data-[state=active]:shadow-sm"
+              disabled={generatedForms.length === 0}
+            >
+              Docx Generated Forms ({generatedForms.length})
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="operational"
+              className="rounded-lg text-xs font-semibold py-2.5 data-[state=active]:bg-card data-[state=active]:shadow-sm"
+            >
+              Operational Clearances & Uploads ({operationalItems.length})
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab 1: Docx Engine Generated Forms */}
+          {generatedForms.length > 0 && (
+            <TabsContent value="generated" className="mt-0 focus-visible:outline-none">
+              <GeneratedFormsSection
+                items={generatedForms}
+                onOpenWorkspace={openDocWorkspace}
+                readonly={readonly}
+              />
+            </TabsContent>
+          )}
+
+          {/* Tab 2: Operational Compliance & FileManager Uploads */}
+          <TabsContent value="operational" className="mt-0 focus-visible:outline-none">
+            <OperationalChecklistSection
+              items={operationalItems}
+              checkableType={checkableType}
+              checkableId={checkableId}
+              moduleCode={moduleCode}
+              onSubmit={handleSubmitRequirement}
+              readonly={readonly}
+            />
+          </TabsContent>
+        </Tabs>
+
+        {action && (
+          <div className="pt-4 border-t border-border">
+            {action(isComplete)}
           </div>
         )}
-
-        {/* Uploaded Files List */}
-        <div className="space-y-3">
-          <h4 className="text-sm font-semibold flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Uploaded Documents
-          </h4>
-          {uploadedItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic">No files uploaded yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {uploadedItems.map((item: any) => {
-                const isInherited = item.submission?.status === 'AUTO_SATISFIED'
-                return (
-                  <div key={item.ruleId} className="rounded-md border border-emerald-200 bg-emerald-50/30 p-4 dark:border-emerald-900/50 dark:bg-emerald-900/10 flex flex-col gap-3">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="font-semibold text-sm text-foreground">{item.title}</span>
-                        <div className="flex items-center gap-2">
-                          {isInherited ? (
-                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px] py-0 h-4 uppercase tracking-wider">Inherited</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px] py-0 h-4 uppercase tracking-wider">Uploaded</Badge>
-                          )}
-                          <Badge variant="outline" className="font-mono text-[10px] bg-background/50">{item.ruleId}</Badge>
-                        </div>
-                      </div>
-                      {item.description && <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-3 border-t border-emerald-100 dark:border-emerald-900/30 gap-3">
-                      <div className="flex items-center gap-2 text-sm text-emerald-600 font-medium">
-                        <CheckCircle2 className="w-5 h-5" />
-                        {isInherited ? 'Automatically satisfied from Project Master' : (
-                           item.submission?.updtTs 
-                             ? `Uploaded on ${new Date(item.submission.updtTs).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}`
-                             : 'Successfully Uploaded'
-                        )}
-                      </div>
-                      
-                      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                        {item.submission?.userInput && (
-                          <div className="text-[10px] text-muted-foreground bg-muted px-2 py-1.5 rounded-md max-w-[250px] truncate">
-                            {typeof item.submission.userInput === 'object' ? JSON.stringify(item.submission.userInput) : item.submission.userInput}
-                          </div>
-                        )}
-                        
-                        {(item.inputSchema?.type === 'generated_document' || item.type === 'generated_document' || item.inputSchema?.template_code || item.inputSchema?.templateCode) && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => openDocWorkspace(item.generatedDocInfo?.templateCode || item.inputSchema?.template_code || item.inputSchema?.templateCode || 'FORM_XXII')}
-                            className="text-xs bg-background"
-                          >
-                            <FileText className="mr-1.5 h-3.5 w-3.5" />
-                            Regenerate
-                          </Button>
-                        )}
-
-                        {item.inputSchema?.type !== 'generated_document' && item.type !== 'generated_document' && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => setReplacingItemKey(replacingItemKey === item.ruleId ? null : item.ruleId)}
-                            className="text-xs bg-background"
-                          >
-                            <UploadCloud className="mr-1.5 h-3.5 w-3.5" />
-                            {replacingItemKey === item.ruleId ? 'Cancel Replace' : 'Replace / Resubmit'}
-                          </Button>
-                        )}
-
-                        {item.submission?.documentId && (
-                          <Button variant="outline" size="sm" asChild className="w-full sm:w-auto text-xs bg-background">
-                            <a href={`/api/files/${item.submission.documentId}/download`} target="_blank" rel="noreferrer">
-                              <Download className="mr-1.5 h-3.5 w-3.5" />
-                              View Document
-                            </a>
-                          </Button>
-                        )}
-                      </div>
-
-                      {replacingItemKey === item.ruleId && (
-                        <div className="w-full pt-3 border-t border-emerald-200 dark:border-emerald-900/50 mt-2">
-                          <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-2">Upload a replacement document for this checklist item:</p>
-                          <DocumentUploader
-                            checklist_item_key={item.ruleId}
-                            mode="single"
-                            label="Upload replacement file"
-                            entity_type={checkableType}
-                            entity_id={checkableId}
-                            module={moduleCode}
-                            onChange={async (doc: any) => {
-                              await handleRealUpload(item.ruleId, doc.id)
-                              setReplacingItemKey(null)
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-        
-        {action && action(isComplete)}
       </div>
 
+      {/* Docx Engine Workspace Modal */}
       {docWorkspaceOpen && selectedTemplate && (
         <DocumentWorkspaceModal
           isOpen={docWorkspaceOpen}

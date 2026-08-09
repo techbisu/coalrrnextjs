@@ -2,6 +2,7 @@
  * Create Proposal Use Case - Application service for creating new land acquisition proposals.
  */
 import { IUseCase, Result, Fail, Ok } from '@/core'
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 import { Proposal, IProposalRepository } from '@/domain/entities/proposal'
 import { IProjectRepository } from '@/domain/entities/project'
 import { EventBus } from '@/core/notifications/EventBus'
@@ -92,8 +93,7 @@ export class CreateProposalUseCase implements IUseCase<CreateProposalRequest, Cr
 
     // 4. Publish events
     const domainEvents = proposal.clearDomainEvents()
-    for (const event of domainEvents) {
-      EventBus.publish({
+    for (const event of domainEvents) { await EventBus.publish({
         event_name: event.event_type,
         module: 'land-acquisition',
         user_id: request.user_id,
@@ -105,7 +105,7 @@ export class CreateProposalUseCase implements IUseCase<CreateProposalRequest, Cr
     // 5. Audit logging
     AuditQueue.push({
       event_type: 'CREATE_PROPOSAL',
-      entity_name: 'land_schedule',
+      entity_name: MODULE_CODES.LAND_SCHEDULE,
       entity_id: proposal.id,
       user_id: request.user_id,
       remarks: JSON.stringify({

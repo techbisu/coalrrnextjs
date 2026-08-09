@@ -7,16 +7,28 @@ import { ProjectSchema, ProjectInput } from '@/shared/schemas/project.schema'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
-import { MasterLookup } from '@/shared/components/coalrr'
+import { 
+  AreaSelect, 
+  MineSelect, 
+  DistrictSelect, 
+  BlockSelect, 
+  MouzaSelect 
+} from '@/shared/components/coalrr/selects'
 import { useMasterLookup } from '@/shared/hooks/useMasterLookup'
 import { Loader2, ChevronRight, ChevronLeft, CheckCircle2, Layers, MapPin, AlertTriangle, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
 
 export function ProjectWizardForm({
+  mode = 'create',
+  initialValues,
+  projectId,
   onSuccess,
   onCancel,
 }: {
+  mode?: 'create' | 'edit'
+  initialValues?: Partial<ProjectInput>
+  projectId?: string
   onSuccess?: () => void
   onCancel?: () => void
 }) {
@@ -28,32 +40,59 @@ export function ProjectWizardForm({
     resolver: zodResolver(ProjectSchema) as any,
     mode: 'onTouched',
     reValidateMode: 'onChange',
+    values: initialValues ? {
+      proj_cd: initialValues.proj_cd || '',
+      ecl_proj_cd: initialValues.ecl_proj_cd || '',
+      proj_nm: initialValues.proj_nm || '',
+      area_cd: initialValues.area_cd || '',
+      mine_cd: initialValues.mine_cd || '',
+      state_lgd: initialValues.state_lgd || '',
+      proj_status: initialValues.proj_status || 'ACTIVE',
+      is_combo_project: initialValues.is_combo_project || false,
+      linked_mine_codes: initialValues.linked_mine_codes || [],
+      district_lgd: initialValues.district_lgd || '',
+      block_lgds: initialValues.block_lgds || [],
+      mouza_lgds: initialValues.mouza_lgds || [],
+      approved_tenancy_area: initialValues.approved_tenancy_area || 0,
+      approved_govt_area: initialValues.approved_govt_area || 0,
+      approved_patta_area: initialValues.approved_patta_area || 0,
+      approved_forest_area: initialValues.approved_forest_area || 0,
+      approved_excavation_area: initialValues.approved_excavation_area || 0,
+      approved_safety_zone_area: initialValues.approved_safety_zone_area || 0,
+      approved_ob_dump_area: initialValues.approved_ob_dump_area || 0,
+      approved_infra_area: initialValues.approved_infra_area || 0,
+      approved_diversion_area: initialValues.approved_diversion_area || 0,
+      approved_rehab_area: initialValues.approved_rehab_area || 0,
+      land_budget: initialValues.land_budget || 0,
+      rr_budget: initialValues.rr_budget || 0,
+      sanctioned_employment_count: initialValues.sanctioned_employment_count || 0,
+    } : undefined,
     defaultValues: {
-      proj_cd: '',
-      ecl_proj_cd: '',
-      proj_nm: '',
-      area_cd: '',
-      mine_cd: '',
-      state_lgd: '',
-      proj_status: 'ACTIVE',
-      is_combo_project: false,
-      linked_mine_codes: [],
-      district_lgd: '',
-      block_lgds: [],
-      mouza_lgds: [],
-      approved_tenancy_area: 0,
-      approved_govt_area: 0,
-      approved_patta_area: 0,
-      approved_forest_area: 0,
-      approved_excavation_area: 0,
-      approved_safety_zone_area: 0,
-      approved_ob_dump_area: 0,
-      approved_infra_area: 0,
-      approved_diversion_area: 0,
-      approved_rehab_area: 0,
-      land_budget: 0,
-      rr_budget: 0,
-      sanctioned_employment_count: 0,
+      proj_cd: initialValues?.proj_cd || '',
+      ecl_proj_cd: initialValues?.ecl_proj_cd || '',
+      proj_nm: initialValues?.proj_nm || '',
+      area_cd: initialValues?.area_cd || '',
+      mine_cd: initialValues?.mine_cd || '',
+      state_lgd: initialValues?.state_lgd || '',
+      proj_status: initialValues?.proj_status || 'ACTIVE',
+      is_combo_project: initialValues?.is_combo_project || false,
+      linked_mine_codes: initialValues?.linked_mine_codes || [],
+      district_lgd: initialValues?.district_lgd || '',
+      block_lgds: initialValues?.block_lgds || [],
+      mouza_lgds: initialValues?.mouza_lgds || [],
+      approved_tenancy_area: initialValues?.approved_tenancy_area || 0,
+      approved_govt_area: initialValues?.approved_govt_area || 0,
+      approved_patta_area: initialValues?.approved_patta_area || 0,
+      approved_forest_area: initialValues?.approved_forest_area || 0,
+      approved_excavation_area: initialValues?.approved_excavation_area || 0,
+      approved_safety_zone_area: initialValues?.approved_safety_zone_area || 0,
+      approved_ob_dump_area: initialValues?.approved_ob_dump_area || 0,
+      approved_infra_area: initialValues?.approved_infra_area || 0,
+      approved_diversion_area: initialValues?.approved_diversion_area || 0,
+      approved_rehab_area: initialValues?.approved_rehab_area || 0,
+      land_budget: initialValues?.land_budget || 0,
+      rr_budget: initialValues?.rr_budget || 0,
+      sanctioned_employment_count: initialValues?.sanctioned_employment_count || 0,
     },
   })
 
@@ -183,16 +222,19 @@ export function ProjectWizardForm({
         ecl_proj_cd: data.ecl_proj_cd && data.ecl_proj_cd.trim() !== '' ? data.ecl_proj_cd : generatedEclProjCdPreview,
       }
 
-      const res = await fetch('/api/projects', {
-        method: 'POST',
+      const url = mode === 'edit' && projectId ? `/api/projects/${projectId}` : '/api/projects'
+      const method = mode === 'edit' ? 'PATCH' : 'POST'
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error ?? 'Failed to create project baseline')
+      if (!res.ok) throw new Error(result.error ?? `Failed to ${mode} project baseline`)
 
-      toast.success('Project Baseline Created', {
-        description: `Project PR Report baseline for "${data.proj_nm}" registered successfully.`,
+      toast.success(`Project Baseline ${mode === 'edit' ? 'Updated' : 'Created'}`, {
+        description: `Project PR Report baseline for "${data.proj_nm}" ${mode === 'edit' ? 'updated' : 'registered'} successfully.`,
       })
       onSuccess?.()
     } catch (err: any) {
@@ -248,8 +290,8 @@ export function ProjectWizardForm({
               name="area_cd"
               control={control}
               render={({ field }) => (
-                <MasterLookup
-                  masterName="area_master"
+                <AreaSelect
+                  ignoreScope
                   value={field.value}
                   onChange={(val) => {
                     field.onChange(val)
@@ -270,9 +312,9 @@ export function ProjectWizardForm({
               name="mine_cd"
               control={control}
               render={({ field }) => (
-                <MasterLookup
-                  masterName="mine_master"
-                  dependencies={{ area_cd: selectedArea }}
+                <MineSelect
+                  areaCd={selectedArea}
+                  ignoreScope
                   value={field.value}
                   onChange={field.onChange}
                   placeholder="Select Mine..."
@@ -316,9 +358,8 @@ export function ProjectWizardForm({
                   name="district_lgd"
                   control={control}
                   render={({ field }) => (
-                    <MasterLookup
-                      masterName="district_master"
-                      dependencies={selectedState ? { state_lgd: selectedState } : undefined}
+                    <DistrictSelect
+                      stateLgd={selectedState}
                       value={field.value ? String(field.value) : undefined}
                       onChange={(val) => {
                         field.onChange(val)
@@ -340,9 +381,8 @@ export function ProjectWizardForm({
                   name="block_lgds"
                   control={control}
                   render={({ field }) => (
-                    <MasterLookup
-                      masterName="block_master"
-                      dependencies={selectedDistrict ? { district_lgd: selectedDistrict } : undefined}
+                    <BlockSelect
+                      districtLgd={selectedDistrict}
                       value={field.value}
                       onChange={(val) => {
                         field.onChange(val)
@@ -357,27 +397,21 @@ export function ProjectWizardForm({
                 />
               </div>
 
-              {/* Mouza Multi-Select Dropdown (Filtered by Block LGDs or District LGD) */}
+              {/* Mouza Multi-Select Dropdown (Filtered by District LGD) */}
               <div className="sm:col-span-2 space-y-1">
                 <Label className="text-xs font-medium text-foreground">Mapped Mouzas (Multi-Select Mouza Master)</Label>
                 <Controller
                   name="mouza_lgds"
                   control={control}
                   render={({ field }) => (
-                    <MasterLookup
-                      masterName="mouza_master"
-                      dependencies={
-                        selectedBlocks && selectedBlocks.length > 0 
-                          ? { block_lgd: selectedBlocks } 
-                          : selectedDistrict 
-                            ? { district_lgd: selectedDistrict } 
-                            : undefined
-                      }
+                    <MouzaSelect
+                      districtLgd={selectedDistrict}
+                      blockLgd={selectedBlocks}
                       value={field.value}
                       onChange={field.onChange}
-                      placeholder={selectedDistrict ? "Select Mouzas (Villages)..." : "Select District/Blocks first..."}
+                      placeholder={selectedBlocks && selectedBlocks.length > 0 ? "Select Mouzas (Villages)..." : "Select District/Blocks first..."}
                       isMulti
-                      disabled={!selectedDistrict}
+                      disabled={!selectedBlocks || selectedBlocks.length === 0}
                       className="w-full text-xs"
                     />
                   )}
@@ -409,9 +443,9 @@ export function ProjectWizardForm({
                   name="linked_mine_codes"
                   control={control}
                   render={({ field }) => (
-                    <MasterLookup
-                      masterName="mine_master"
-                      dependencies={{ area_cd: selectedArea }}
+                    <MineSelect
+                      areaCd={selectedArea}
+                      ignoreScope
                       value={field.value}
                       onChange={field.onChange}
                       placeholder="Select Linked Mines..."
@@ -586,7 +620,7 @@ export function ProjectWizardForm({
         ) : (
           <Button type="submit" disabled={isSubmitting || totalUseWiseArea > totalTypeWiseArea} className="bg-emerald-600 hover:bg-emerald-700 text-white">
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
-            Register Project Baseline
+            {mode === 'edit' ? 'Save Changes' : 'Register Project Baseline'}
           </Button>
         )}
       </div>

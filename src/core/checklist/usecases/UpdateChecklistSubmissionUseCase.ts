@@ -26,7 +26,9 @@ export class UpdateChecklistSubmissionUseCase implements IUseCase<UpdateChecklis
 
       // Determine if we need to sync to parent (Bidirectional Inheritance)
       const rules = await this.repo.findRulesByModule(req.moduleCode);
-      const rule = rules.find(r => r.id === req.requirementId);
+      console.log(`[UpdateChecklist] req.requirementId = ${req.requirementId}`);
+      console.log(`[UpdateChecklist] rules =`, rules.map(r => ({ chk_id: (r as any).chk_id, id: (r as any).id, chk_code: r.chk_code })));
+      const rule = rules.find(r => r.id === req.requirementId || (r as any).chk_id === req.requirementId);
       
       if (!rule) {
         return Result.fail('Checklist rule not found');

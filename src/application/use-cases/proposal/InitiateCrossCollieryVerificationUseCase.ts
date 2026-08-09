@@ -1,3 +1,4 @@
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 import { IUseCase, Result, Fail, Ok } from '@/core';
 import { IProposalRepository, ProposalState } from '@/domain/entities/proposal';
 import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di';
@@ -24,21 +25,20 @@ export class InitiateCrossCollieryVerificationUseCase implements IUseCase<Initia
         return Fail('Proposal not found');
       }
 
-      // Transition state
+      // Transition state using unified WorkflowEngine state machine
       const targetState = ProposalState.CROSS_COLLIERY_VERIFICATION;
       
-      if (!proposal.state.canTransitionTo(targetState)) {
-         return Fail(`Cannot transition proposal from ${proposal.state.value} to ${targetState.value}`);
+      const transitionRes = proposal.transitionTo(targetState, request.userId, request.remarks);
+      if (transitionRes.isFailure) {
+        return Fail(String(transitionRes.error));
       }
-
-      (proposal as any)._state = targetState;
 
       await this.proposalRepo.save(proposal);
 
       // Audit log
       AuditQueue.push({
         event_type: 'INITIATE_CROSS_COLLIERY_VERIFICATION',
-        entity_name: 'land_schedule',
+        entity_name: MODULE_CODES.LAND_SCHEDULE,
         entity_id: request.proposalId,
         user_id: request.userId,
         remarks: request.remarks || 'Initiated Cross-Colliery Verification Mode due to LIS Overlap.'

@@ -20,15 +20,10 @@ export class PrismaProjectRepository implements IProjectRepository {
     const projects = await db.project.findMany({
       take: limit,
       skip: offset,
-      // Need to find projects that have locations matching this mine_cd
       where: {
-        approvals: {
+        project_mines: {
           some: {
-            locations: {
-              some: {
-                mineCd: mine_cd
-              }
-            }
+            mine_cd: mine_cd
           }
         }
       }
@@ -36,13 +31,9 @@ export class PrismaProjectRepository implements IProjectRepository {
     
     const count = await db.project.count({
       where: {
-        approvals: {
+        project_mines: {
           some: {
-            locations: {
-              some: {
-                mineCd: mine_cd
-              }
-            }
+            mine_cd: mine_cd
           }
         }
       }
@@ -67,21 +58,6 @@ export class PrismaProjectRepository implements IProjectRepository {
     const derivedStateLgd = stateLgd ? Number(stateLgd) : (area?.state_lgd ? Number(area.state_lgd) : 19);
     const areaShortNm = (area?.short_nm && area.short_nm.trim() !== '') ? area.short_nm.trim() : areaCd;
 
-    // Count existing projects in this area_cd for area-wise serial number
-    const areaProjectsCount = await db.project.count({
-      where: {
-        approvals: {
-          some: {
-            locations: {
-              some: {
-                mineCd: mineCd
-              }
-            }
-          }
-        }
-      }
-    });
-
     const totalInArea = await db.project.count();
     const seqNum = (totalInArea + 1).toString().padStart(4, '0');
 
@@ -102,6 +78,7 @@ export class PrismaProjectRepository implements IProjectRepository {
     const data = await db.project.findUnique({
       where: { projCd: id },
       include: {
+        project_mines: true,
         approvals: {
           include: {
             locations: true
@@ -112,20 +89,13 @@ export class PrismaProjectRepository implements IProjectRepository {
 
     if (!data) return null
 
-    const uniqueMines = new Set<string>()
-    data.approvals?.forEach(aprv => {
-      aprv.locations?.forEach(loc => {
-        if (loc.mineCd) {
-          uniqueMines.add(loc.mineCd)
-        }
-      })
-    })
+    const linkedMines = data.project_mines ? data.project_mines.map(pm => pm.mine_cd) : []
 
     return Project.reconstitute({
       projCd: data.projCd,
       projNm: data.projNm,
       eclProjCd: data.eclProjCd || '',
-      mineCds: Array.from(uniqueMines),
+      mineCds: linkedMines,
       projectDesc: data.projectDesc,
       totalApprovedArea: data.totalApprovedArea?.toString() || '0',
       totalAcquiredArea: data.totalAcquiredArea?.toString() || '0',
@@ -140,7 +110,7 @@ export class PrismaProjectRepository implements IProjectRepository {
       approvedDiversionArea: data.approved_diversion_area ? Number(data.approved_diversion_area) : 0,
       approvedRehabArea: data.approved_rehab_area ? Number(data.approved_rehab_area) : 0,
       isComboProject: data.is_combo_project ?? false,
-      linkedMineCodes: data.linked_mine_codes || [],
+      linkedMineCodes: linkedMines,
       totalEmpSanctioned: data.totalEmpSanctioned || 0,
       totalEmpCompleted: data.totalEmpCompleted || 0,
       landBudget: data.landBudget?.toString() || '0',
@@ -176,6 +146,7 @@ export class PrismaProjectRepository implements IProjectRepository {
     const [data, total] = await Promise.all([
       db.project.findMany({
         where,
+        include: { project_mines: true },
         skip,
         take: pageSize,
         orderBy: options?.orderBy ?? { entryTs: 'desc' },
@@ -201,7 +172,7 @@ export class PrismaProjectRepository implements IProjectRepository {
       approvedDiversionArea: p.approved_diversion_area ? Number(p.approved_diversion_area) : 0,
       approvedRehabArea: p.approved_rehab_area ? Number(p.approved_rehab_area) : 0,
       isComboProject: p.is_combo_project ?? false,
-      linkedMineCodes: p.linked_mine_codes || [],
+      linkedMineCodes: p.project_mines ? p.project_mines.map((pm: any) => pm.mine_cd) : [],
       totalEmpSanctioned: p.totalEmpSanctioned || 0,
       totalEmpCompleted: p.totalEmpCompleted || 0,
       landBudget: p.landBudget?.toString() || '0',
@@ -227,6 +198,7 @@ export class PrismaProjectRepository implements IProjectRepository {
     const data = await db.project.findFirst({
       where: { eclProjCd: mine_cd },
       include: {
+        project_mines: true,
         approvals: {
           include: { locations: true }
         }
@@ -235,20 +207,13 @@ export class PrismaProjectRepository implements IProjectRepository {
 
     if (!data) return null
 
-    const uniqueMines = new Set<string>()
-    data.approvals?.forEach(aprv => {
-      aprv.locations?.forEach(loc => {
-        if (loc.mineCd) {
-          uniqueMines.add(loc.mineCd)
-        }
-      })
-    })
+    const linkedMines = data.project_mines ? data.project_mines.map(pm => pm.mine_cd) : []
 
     return Project.reconstitute({
       projCd: data.projCd,
       projNm: data.projNm,
       eclProjCd: data.eclProjCd || '',
-      mineCds: Array.from(uniqueMines),
+      mineCds: linkedMines,
       projectDesc: data.projectDesc,
       totalApprovedArea: data.totalApprovedArea?.toString() || '0',
       totalAcquiredArea: data.totalAcquiredArea?.toString() || '0',
@@ -263,7 +228,7 @@ export class PrismaProjectRepository implements IProjectRepository {
       approvedDiversionArea: data.approved_diversion_area ? Number(data.approved_diversion_area) : 0,
       approvedRehabArea: data.approved_rehab_area ? Number(data.approved_rehab_area) : 0,
       isComboProject: data.is_combo_project ?? false,
-      linkedMineCodes: data.linked_mine_codes || [],
+      linkedMineCodes: linkedMines,
       totalEmpSanctioned: data.totalEmpSanctioned || 0,
       totalEmpCompleted: data.totalEmpCompleted || 0,
       landBudget: data.landBudget?.toString() || '0',
@@ -299,7 +264,12 @@ export class PrismaProjectRepository implements IProjectRepository {
         approved_diversion_area: new Decimal(data.approvedDiversionArea ?? 0),
         approved_rehab_area: new Decimal(data.approvedRehabArea ?? 0),
         is_combo_project: data.isComboProject ?? false,
-        linked_mine_codes: data.linkedMineCodes || [],
+        project_mines: data.linkedMineCodes && data.linkedMineCodes.length > 0 ? {
+          create: data.linkedMineCodes.map((mCd, idx) => ({
+            mine_cd: mCd,
+            is_primary: idx === 0,
+          }))
+        } : undefined,
         totalEmpSanctioned: data.totalEmpSanctioned,
         totalEmpCompleted: data.totalEmpCompleted,
         landBudget: data.landBudget ? new Decimal(data.landBudget) : null,
@@ -334,7 +304,6 @@ export class PrismaProjectRepository implements IProjectRepository {
         approved_diversion_area: new Decimal(data.approvedDiversionArea ?? 0),
         approved_rehab_area: new Decimal(data.approvedRehabArea ?? 0),
         is_combo_project: data.isComboProject ?? false,
-        linked_mine_codes: data.linkedMineCodes || [],
         totalEmpSanctioned: data.totalEmpSanctioned,
         totalEmpCompleted: data.totalEmpCompleted,
         landBudget: data.landBudget ? new Decimal(data.landBudget) : null,
@@ -419,22 +388,15 @@ export class PrismaProjectRepository implements IProjectRepository {
       });
     }
 
-    if (mineCds && mineCds.length > 0 && aprvCd) {
-       for (const mine of mineCds) {
-          const existingLoc = await db.projAprvLocation.findFirst({ where: { aprvCd, mineCd: mine, mouzaLgd: BigInt(0) } });
-          if (!existingLoc) {
-            const locCode = require('crypto').randomBytes(5).toString('hex').toLowerCase();
-            await db.projAprvLocation.create({
-              data: {
-                aprvLocationCode: locCode,
-                aprvCd: aprvCd,
-                mineCd: mine,
-                mouzaLgd: BigInt(0),
-                approvedArea: project.totalApprovedArea ?? undefined,
-              }
-            });
-          }
-       }
+    if (mineCds && mineCds.length > 0) {
+      for (let i = 0; i < mineCds.length; i++) {
+        const mine = mineCds[i]
+        await db.project_mine.upsert({
+          where: { proj_cd_mine_cd: { proj_cd: projectId, mine_cd: mine } },
+          create: { proj_cd: projectId, mine_cd: mine, is_primary: i === 0 },
+          update: { is_primary: i === 0 }
+        })
+      }
     }
 
     if (mouzaLgds && mouzaLgds.length > 0 && aprvCd) {
@@ -522,6 +484,60 @@ export class PrismaProjectRepository implements IProjectRepository {
     return count > 0
   }
 
+  async approveFormXXII(project: Project, approval: any, locations: any[]): Promise<void> {
+    await db.$transaction(async (tx) => {
+      const aprvData = approval.toPersistence()
+      
+      // Insert approval
+      await tx.projAprv.create({
+        data: {
+          aprvCd: aprvData.aprvCd,
+          projCd: aprvData.projCd,
+          aprvArea: aprvData.aprvArea,
+          areaAcq: aprvData.areaAcq,
+          empSanc: aprvData.empSanc,
+          aprvDt: aprvData.aprvDt,
+          aprvRefNo: aprvData.aprvRefNo,
+          isActive: aprvData.isActive,
+          aprvDocId: aprvData.aprvDocId,
+          aprvType: aprvData.aprvType,
+          aprvLevel: aprvData.aprvLevel,
+          entryTs: aprvData.entryTs,
+          updtTs: aprvData.updtTs
+        }
+      })
+
+      // Insert locations
+      if (locations.length > 0) {
+        await tx.projAprvLocation.createMany({
+          data: locations.map(loc => {
+            const locData = loc.toPersistence()
+            return {
+              aprvLocationCode: locData.aprvLocationCode,
+              aprvCd: locData.aprvCd,
+              mouzaLgd: locData.mouzaLgd as bigint,
+              approvedArea: locData.approvedArea,
+              landClassBreakup: locData.landClassBreakup ?? undefined,
+              entryTs: locData.entryTs,
+              updtTs: locData.updtTs
+            }
+          })
+        })
+      }
+
+      // Update project running totals
+      const projectData = project.toPersistence()
+      await tx.project.update({
+        where: { projCd: projectData.projCd },
+        data: {
+          totalApprovedArea: projectData.totalApprovedArea,
+          totalEmpSanctioned: projectData.totalEmpSanctioned,
+          updtTs: BigInt(Math.floor(Date.now() / 1000))
+        }
+      })
+    })
+  }
+
   async lock(id: string, user_id: string): Promise<boolean> {
     const result = await db.project.updateMany({
       where: { projCd: id, status: 0 },
@@ -568,6 +584,7 @@ export class PrismaProjectRepository implements IProjectRepository {
       where,
       orderBy: { entryTs: 'desc' },
       include: {
+        project_mines: true,
         approvals: {
           include: { locations: true }
         }
@@ -622,7 +639,9 @@ export class PrismaProjectRepository implements IProjectRepository {
     const uniqueMouzas = new Set<bigint>()
     const uniqueMines = new Set<string>()
     projects.forEach(p => {
-      if (p.projCd) uniqueMines.add(p.projCd)
+      p.project_mines?.forEach((pm: any) => {
+        if (pm.mine_cd) uniqueMines.add(pm.mine_cd)
+      })
       p.approvals.forEach((a: any) => {
         if (a.locations) {
           a.locations.forEach((l: any) => {
@@ -667,7 +686,7 @@ export class PrismaProjectRepository implements IProjectRepository {
         approvedDiversionArea: p.approved_diversion_area ? Number(p.approved_diversion_area) : 0,
         approvedRehabArea: p.approved_rehab_area ? Number(p.approved_rehab_area) : 0,
         isComboProject: p.is_combo_project ?? false,
-        linkedMineCodes: p.linked_mine_codes || [],
+        linkedMineCodes: p.project_mines ? p.project_mines.map((pm: any) => pm.mine_cd) : [],
         totalEmpSanctioned: p.totalEmpSanctioned || 0,
         totalEmpCompleted: p.totalEmpCompleted || 0,
         landBudget: p.landBudget?.toString() || '0',
@@ -704,13 +723,11 @@ export class PrismaProjectRepository implements IProjectRepository {
       const latestApproval = approvals.length > 0 ? approvals[approvals.length - 1] : null
       let firstMouza: any = null
       const mouzaLgds: string[] = []
-      const mineCds: string[] = []
+      const mineCds: string[] = p.project_mines ? p.project_mines.map((pm: any) => pm.mine_cd) : []
       
       if (latestApproval && latestApproval.locations) {
         latestApproval.locations.forEach((loc: any) => {
-          if (loc.mouzaLgd?.toString() === '0' && loc.mineCd) {
-            mineCds.push(loc.mineCd)
-          } else if (loc.mouzaLgd?.toString() !== '0') {
+          if (loc.mouzaLgd?.toString() !== '0') {
             if (!firstMouza) firstMouza = loc
             mouzaLgds.push(loc.mouzaLgd?.toString() || '')
           }

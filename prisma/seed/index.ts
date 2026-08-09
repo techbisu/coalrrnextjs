@@ -1,7 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { seedSysConfig } from './sys_config.seed'
 import { seedTranslations } from './translations.seed'
-import { seedMstPlot } from './mst_plot.seed'
 import { seedUsers } from './user.seed'
 import { seedRole } from './role.seed'
 import { seedEventRegistry } from './event_registry.seed'
@@ -23,11 +22,12 @@ import { seedRnrAssetPayroll } from './rnr_asset_payroll.seed'
 import { seedEmploymentApplication } from './employment_application.seed'
 import { seedGrievance } from './grievance.seed'
 import { seedAcquMode } from './acqu_mode.seed'
-import { seedChkMasterNew } from './chk_master_new.seed'
 import { seedCaptchaConfig } from './captcha_config.seed'
 import { seedProposalChecklist } from './proposal_checklist.seed'
 import { seedWorkflowStates } from './workflow_states.seed'
+import { seedWorkflowTransitions } from './workflow_transitions.seed'
 import { seedWorkflowActionHistory } from './workflow_action_history.seed'
+import { seedDocumentTemplateSignature } from './document_template_signature.seed'
 
 const db = new PrismaClient()
 
@@ -41,17 +41,17 @@ async function main() {
     await seedTranslations(db)
     await seedCaptchaConfig(db)
     await seedAcquMode(db)
-    await seedChkMasterNew(db)
     await seedProposalChecklist(db)
     await seedWorkflowStates(db)
+    await seedWorkflowTransitions(db)
+    await seedDocumentTemplateSignature(db)
     await seedWorkflowActionHistory(db)
     
     // 2. Master Data
     await seedTenant(db)
-    await seedProject(db)
-    await seedProjAprv(db)
-    await seedProjAprvLocation(db)
-    await seedMstPlot(db)
+    // await seedProject(db)
+    // await seedProjAprv(db)
+    // await seedProjAprvLocation(db)
     
     // 3. IAM (Users & Roles)
     await seedUsers(db)

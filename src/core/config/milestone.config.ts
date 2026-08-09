@@ -12,7 +12,7 @@ export const milestoneConfig = {
 
   // Coal Bearing Areas (CBA) Act milestone definitions and their dependencies
   CBA: [
-    { id: 'SECTION_4_NOTIFICATION', label: 'Section 4 Gazette Notification', requires: [] },
+    { id: 'SECTION_4_NOTIFICATION', label: 'Section 4 Gazette Notification', requires: [], triggersTransition: 'advance_to_sec7_prep' },
     { id: 'SECTION_7_NOTIFICATION', label: 'Section 7 Gazette Notification', requires: ['SECTION_4_NOTIFICATION'] },
     { id: 'SECTION_9_NOTIFICATION', label: 'Section 9 Gazette Notification', requires: ['SECTION_7_NOTIFICATION'] },
     { id: 'SECTION_11_NOTIFICATION', label: 'Section 11 Declaration', requires: ['SECTION_9_NOTIFICATION'] },

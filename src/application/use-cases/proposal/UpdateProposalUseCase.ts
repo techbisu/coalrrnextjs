@@ -1,6 +1,7 @@
 /**
  * Update Proposal Use Case - Application service for updating proposal details.
  */
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 import { IUseCase, Result, Fail, Ok } from '@/core'
 import { IProposalRepository } from '@/domain/entities/proposal'
 import { EventBus } from '@/core/notifications/EventBus'
@@ -53,8 +54,7 @@ export class UpdateProposalUseCase implements IUseCase<UpdateProposalRequest, Up
     
     // 4. Publish events (if any state changed that requires an event)
     const domainEvents = proposal.clearDomainEvents()
-    for (const event of domainEvents) {
-      EventBus.publish({
+    for (const event of domainEvents) { await EventBus.publish({
         event_name: event.event_type,
         module: 'land-acquisition',
         user_id: request.user_id,
@@ -66,7 +66,7 @@ export class UpdateProposalUseCase implements IUseCase<UpdateProposalRequest, Up
     // 5. Audit logging
     AuditQueue.push({
       event_type: 'UPDATE_PROPOSAL',
-      entity_name: 'land_schedule',
+      entity_name: MODULE_CODES.LAND_SCHEDULE,
       entity_id: proposal.id,
       user_id: request.user_id,
       remarks: 'Proposal details updated',

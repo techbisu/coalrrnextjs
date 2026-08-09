@@ -22,7 +22,10 @@ export interface RecordActionInput {
   toState: string
   userId?: number
   userEmail?: string
+  targetRecipientLabel?: string
   comments?: string
+  recommendations?: any
+  annexureNotes?: string
   documentId?: string
 }
 
@@ -30,11 +33,12 @@ export class WorkflowActionHistoryService {
   /**
    * Records a workflow state transition event & links attachment in public.file_attachment if documentId provided.
    */
-  async recordAction(input: RecordActionInput): Promise<string> {
+  async recordAction(input: RecordActionInput, tx?: any): Promise<string> {
+    const client = tx || db
     const canonicalCode: CanonicalModuleCode = normalizeModuleCode(input.moduleCode || input.workflowCode || input.entityType)
     const entityType = input.entityType || getEntityTypeForModule(canonicalCode)
 
-    const history = await (db as any).workflow_action_history.create({
+    const history = await (client as any).workflow_action_history.create({
       data: {
         entity_type: entityType,
         entity_id: input.entityId,
@@ -43,7 +47,10 @@ export class WorkflowActionHistoryService {
         from_state: input.fromState,
         to_state: input.toState,
         user_id: input.userId || null,
+        target_recipient_label: input.targetRecipientLabel || null,
         comments: input.comments || null,
+        recommendations_json: input.recommendations ? JSON.parse(JSON.stringify(input.recommendations)) : null,
+        annexure_notes: input.annexureNotes || null,
         entry_by: input.userEmail || 'system',
         updt_by: input.userEmail || 'system'
       }

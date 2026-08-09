@@ -11,9 +11,10 @@ export class AuditService {
     conditions: any, 
     oldData: any, 
     newData: any, 
-    userId: string = 'system',
+    userId?: string,
     ipAddress?: string,
-    userAgent?: string
+    userAgent?: string,
+    timestamp?: Date
   ) {
     // Dispatch to centralized JobDispatcherService
     if (!jobDispatcher) {
@@ -30,7 +31,8 @@ export class AuditService {
         newData,
         userId,
         ipAddress,
-        userAgent
+        userAgent,
+        timestamp: timestamp || new Date()
       }
     })
   }
@@ -42,7 +44,8 @@ export class AuditService {
     activity: string,
     userId?: string,
     ipAddress?: string,
-    userAgent?: string
+    userAgent?: string,
+    timestamp?: Date
   }) {
     // Dispatch to centralized JobDispatcherService
     if (!jobDispatcher) {
@@ -53,9 +56,10 @@ export class AuditService {
       type: 'CUSTOM_ACTIVITY',
       payload: {
         activity: options.activity,
-        userId: options.userId || 'system',
+        userId: options.userId,
         ipAddress: options.ipAddress,
-        userAgent: options.userAgent
+        userAgent: options.userAgent,
+        timestamp: options.timestamp || new Date()
       }
     })
   }
@@ -66,7 +70,7 @@ export class AuditService {
   async activity(options: any) {
     await this.logCustomAction({
       activity: options.description || options.event || 'UNKNOWN',
-      userId: options.metadata?.user_id || 'system',
+      userId: options.metadata?.user_id,
     })
   }
 
@@ -76,7 +80,7 @@ export class AuditService {
   async log(module: string, eventType: string, description: string, metadata: any) {
     await this.logCustomAction({
       activity: description || eventType || 'UNKNOWN',
-      userId: metadata?.user_id || 'system',
+      userId: metadata?.user_id,
     })
   }
 }

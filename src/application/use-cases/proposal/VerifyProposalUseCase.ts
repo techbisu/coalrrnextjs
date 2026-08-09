@@ -1,3 +1,4 @@
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 import { IUseCase, Result, Fail, Ok } from '@/core';
 import { IProposalRepository, ProposalState } from '@/domain/entities/proposal';
 import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di';
@@ -71,7 +72,7 @@ export class VerifyProposalUseCase implements IUseCase<VerifyProposalRequest, Ve
       // Audit log
       AuditQueue.push({
         event_type: 'VERIFY_PROPOSAL',
-        entity_name: 'land_schedule',
+        entity_name: MODULE_CODES.LAND_SCHEDULE,
         entity_id: request.proposalId,
         user_id: request.userId,
         remarks: 'Anti-Duplication clear. Form-VII and Form-XVI auto-generated.'

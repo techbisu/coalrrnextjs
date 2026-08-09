@@ -111,16 +111,16 @@ export class BaselineLockUseCase implements IUseCase<BaselineLockRequest, void> 
             updtTs: Math.floor(Date.now() / 1000)
           }
         })
-      })
-
-      EventBus.publish({
+      }); await EventBus.publish({
         event_name: 'PROJECT_BASELINE_LOCKED',
         module: 'project-master',
         user_id: request.userId,
         entity_id: project.id,
         data: {
           aprvId: approval.id,
-          aprvRefNo: request.approvalRefNo
+          aprvRefNo: request.approvalRefNo,
+          name: project.name,
+          mine_cd: project.mineCds.join(', ')
         }
       })
 

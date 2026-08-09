@@ -2,23 +2,39 @@ import { db } from '@/lib/db'
 import { IChecklistRepository } from '@/core/checklist/interfaces/IChecklistRepository'
 import { v4 as uuidv4 } from 'uuid'
 
+import { ConfigCacheService } from '@/core/config/cache/ConfigCacheService'
+import { ACQ_LAND_SCHEDULE } from '@/core/config/module-codes.config'
+
 export class PrismaChecklistRepository implements IChecklistRepository {
   async findRulesByModule(moduleCode: string) {
-    return db.checklist_requirement_rule.findMany({
-      where: { module_code: moduleCode, is_active: true },
-      orderBy: { display_order: 'asc' }
-    })
+    return ConfigCacheService.getChecklistRules(moduleCode)
+  }
+
+  private normalizeTypes(checkableType: string): string[] {
+    if (checkableType === ACQ_LAND_SCHEDULE || checkableType.toLowerCase().includes('schedule') || checkableType.toLowerCase().includes('proposal')) {
+      return [ACQ_LAND_SCHEDULE, 'land_schedule', 'acq_proposal', 'proposal', 'PROPOSAL', 'LAND_ACQ_PROPOSAL']
+    }
+    return [checkableType]
   }
 
   async findSubmissions(checkableType: string, checkableId: string) {
+    const types = this.normalizeTypes(checkableType);
     return db.checklist_submission.findMany({
-      where: { checkable_type: checkableType, checkable_id: checkableId }
+      where: {
+        checkable_type: { in: types },
+        checkable_id: checkableId
+      }
     })
   }
 
   async findSubmission(requirementId: string, checkableType: string, checkableId: string) {
+    const types = this.normalizeTypes(checkableType);
     return db.checklist_submission.findFirst({
-      where: { requirement_id: requirementId, checkable_type: checkableType, checkable_id: checkableId }
+      where: {
+        requirement_id: requirementId,
+        checkable_type: { in: types },
+        checkable_id: checkableId
+      }
     })
   }
 

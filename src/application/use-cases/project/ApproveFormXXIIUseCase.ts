@@ -3,10 +3,8 @@ import { Result, Fail } from '@/core/result/Result'
 import { ProjectApproval } from '@/domain/entities/project/ProjectApproval'
 import { ProjectApprovalLocation } from '@/domain/entities/project/ProjectApprovalLocation'
 import { IProjectRepository } from '@/domain/entities/project/ProjectRepository.interface'
-import { db } from '@/lib/db'
-import { Area } from '@/domain/value-objects/Area'
-import { Money } from '@/domain/value-objects/Money'
 import { EventBus } from '@/core/notifications/EventBus'
+import { Audit } from '@/core/audit/services/AuditService'
 
 export interface ApproveFormXXIIRequest {
   projectId: string
@@ -55,63 +53,8 @@ export class ApproveFormXXIIUseCase implements IUseCase<ApproveFormXXIIRequest, 
       }
     }
 
-    // 2. Wrap everything in a Prisma transaction
     try {
-      await db.$transaction(async (tx) => {
-        const aprvData = approval.toPersistence()
-        
-        // Insert approval
-        await tx.projAprv.create({
-          data: {
-            aprvCd: aprvData.aprvCd,
-            projCd: aprvData.projCd,
-            aprvArea: aprvData.aprvArea,
-            areaAcq: aprvData.areaAcq,
-            empSanc: aprvData.empSanc,
-            aprvDt: aprvData.aprvDt,
-            aprvRefNo: aprvData.aprvRefNo,
-            isActive: aprvData.isActive,
-            aprvDocId: aprvData.aprvDocId,
-            aprvType: aprvData.aprvType,
-            aprvLevel: aprvData.aprvLevel,
-            entryTs: aprvData.entryTs,
-            updtTs: aprvData.updtTs
-          }
-        })
-
-        // Insert locations
-        if (locations.length > 0) {
-          await tx.projAprvLocation.createMany({
-            data: locations.map(loc => {
-              const locData = loc.toPersistence()
-              return {
-                aprvLocationCode: locData.aprvLocationCode,
-                aprvCd: locData.aprvCd,
-                mouzaLgd: locData.mouzaLgd as bigint,
-                approvedArea: locData.approvedArea,
-                landClassBreakup: locData.landClassBreakup ?? undefined,
-                entryTs: locData.entryTs,
-                updtTs: locData.updtTs
-              }
-            })
-          })
-        }
-
-        // Update project running totals
-        const newApprovedArea = project.totalApprovedArea.add(approval.aprvArea || Area.fromAcres(0))
-        const newEmpSanctioned = project.totalEmpSanctioned + (approval.empSanc || 0)
-
-        await tx.project.update({
-          where: { projCd: project.id },
-          data: {
-            totalApprovedArea: newApprovedArea.toDecimal(),
-            totalEmpSanctioned: newEmpSanctioned,
-            updtTs: BigInt(Math.floor(Date.now() / 1000))
-          }
-        })
-      })
-
-      EventBus.publish({
+      await this.projectRepository.approveFormXXII(project, approval, locations); await EventBus.publish({
         event_name: 'FORM_XXII_APPROVED',
         module: 'project-master',
         user_id: request.userId,
@@ -121,6 +64,11 @@ export class ApproveFormXXIIUseCase implements IUseCase<ApproveFormXXIIRequest, 
           aprvRefNo: request.approvalRefNo
         }
       })
+
+      Audit.logCustomAction({
+        activity: `Approved Form-XXII deviation for Project ${project.id}. Area: ${request.approvedAreaAcres}, Ref: ${request.approvalRefNo}`,
+        userId: request.userId
+      }).catch(console.error)
 
       return Result.ok(undefined)
     } catch (err: any) {

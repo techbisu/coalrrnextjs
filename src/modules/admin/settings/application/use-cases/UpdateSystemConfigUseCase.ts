@@ -37,9 +37,8 @@ export class UpdateSystemConfigUseCase implements IUseCase<{ inputs: UpdateConfi
           entity_name: 'system_config',
           user_id: request.user_id,
           remarks: JSON.stringify({ keys: changedKeys })
-        })
-
-        EventBus.publish({
+        });
+        await EventBus.publish({
           event_name: 'SETTINGS_CHANGED',
           module: 'admin',
           user_id: request.user_id,

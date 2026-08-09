@@ -20,6 +20,11 @@ NEVER instantiate a service directly (no `new AuditService()` in a UseCase/route
 ALWAYS access services via src/infrastructure/di/Container.ts (e.g. Container.authService).
 If a new service is created, it MUST be registered in Container.ts — not left unwired.
 
+## Workflow State Machine Transitions
+- ALL workflow state machine transitions MUST go directly through `WorkflowEngineServer` (`workflowEngineServer.attemptTransitionAsync()`).
+- ALL workflow audit records MUST be written via `WorkflowActionHistoryService` (`workflowActionHistoryService.recordAction()`).
+- NEVER create custom module-wrapper services for state machine logic (`ProposalWorkflowService` is deprecated and banned).
+
 ## Before creating a new service
 1. search_graph the feature/domain name — a service may already exist in core/ or modules/
 2. Decide placement: system-wide → core/, feature-specific → modules/<name>/services/,

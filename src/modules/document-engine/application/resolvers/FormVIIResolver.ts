@@ -1,5 +1,5 @@
 import { IDocumentResolver, DocumentResolverResult } from '../../domain/IDocumentResolver'
-import { db } from '@/lib/db'
+import { IDocumentQueryService } from '../queries/IDocumentQueryService'
 
 /**
  * FormVIIResolver — Reconciliation Certificate
@@ -17,49 +17,32 @@ import { db } from '@/lib/db'
  * Signing authorities are defined in document_template_signature (seeded separately).
  */
 export class FormVIIResolver implements IDocumentResolver {
+  constructor(private queryService?: IDocumentQueryService) {}
+
   async resolve(
     applicationId: string,
     context?: Record<string, any>
   ): Promise<DocumentResolverResult> {
+    if (!this.queryService) throw new Error('QueryService not injected')
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(applicationId);
 
     // ── 1. Load proposal ──────────────────────────────────────────────────
     let proposal: any = null;
     if (isUuid) {
-      proposal = await db.acq_proposal.findUnique({
-        where: { proposal_id: applicationId },
-        include: {
-          mine_master: true,
-          area_master: true,
-          plot_schedule: {
-            include: { mouza_master: true },
-            orderBy: { schedule_id: 'asc' }
-          }
-        },
-      });
+      proposal = await this.queryService.getProposal(applicationId)
     }
 
     if (!proposal) {
-      proposal = await db.acq_proposal.findFirst({
-        where: { OR: [{ proposal_no: applicationId }, { proj_cd: applicationId }] },
-        include: {
-          mine_master: true,
-          area_master: true,
-          plot_schedule: {
-            include: { mouza_master: true },
-            orderBy: { schedule_id: 'asc' }
-          }
-        },
-      });
+      proposal = await this.queryService.getProposalByProjectOrNumber(applicationId)
     }
 
     if (!proposal) {
       // Check project table
-      const proj = await db.project.findUnique({ where: { projCd: applicationId } });
+      const proj = await this.queryService.getProject(applicationId)
       if (proj) {
-        const firstMineCd = proj.linked_mine_codes?.[0]
-        const mMaster = firstMineCd ? await db.mine_master.findUnique({ where: { mine_cd: firstMineCd } }) : null
-        const aMaster = mMaster?.area_cd ? await db.area_master.findUnique({ where: { area_cd: mMaster.area_cd } }) : null
+        const firstMineCd = proj.project_mines?.[0]?.mine_cd
+        const mMaster = firstMineCd ? await this.queryService.getMineMaster(firstMineCd) : null
+        const aMaster = mMaster?.area_cd ? await this.queryService.getAreaMaster(mMaster.area_cd) : null
 
         proposal = {
           proposal_id: applicationId,
@@ -82,12 +65,12 @@ export class FormVIIResolver implements IDocumentResolver {
     let areaName = proposal.area_master?.area_en || '';
 
     if (!mineName && proposal.mine_cd) {
-      const m = await db.mine_master.findUnique({ where: { mine_cd: proposal.mine_cd } });
+      const m = await this.queryService.getMineMaster(proposal.mine_cd)
       if (m) mineName = m.mine_en || m.mine_cd;
     }
 
     if (!areaName && proposal.area_cd) {
-      const a = await db.area_master.findUnique({ where: { area_cd: proposal.area_cd } });
+      const a = await this.queryService.getAreaMaster(proposal.area_cd)
       if (a) areaName = a.area_en || a.area_cd;
     }
 
@@ -99,36 +82,14 @@ export class FormVIIResolver implements IDocumentResolver {
       if (proposal.area_cd === '4151') areaName = 'JHANJRA AREA';
     }
 
-    // ── 3. Load plots with their Mouza names (UUID-safe) ──────────────────
-    const plotWhereOr: any[] = [];
-    if (isUuid) {
-      plotWhereOr.push({ proposal_id: applicationId });
-    }
-    if (proposal.proposal_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(proposal.proposal_id)) {
-      plotWhereOr.push({ proposal_id: proposal.proposal_id });
-    }
-    plotWhereOr.push({ acq_proposal: { proj_cd: applicationId } });
-    plotWhereOr.push({ acq_proposal: { proposal_no: applicationId } });
-
-    let plots: any[] = await db.plot_schedule.findMany({
-      where: { OR: plotWhereOr },
-      include: {
-        mouza_master: true,
-      },
-      orderBy: { schedule_id: 'asc' },
-    });
+    let plots: any[] = await this.queryService.getPlots(applicationId, isUuid, true)
 
     if (plots.length === 0 && proposal.plot_schedule && proposal.plot_schedule.length > 0) {
       plots = proposal.plot_schedule;
     }
 
     if (plots.length === 0 && proposal.mine_cd) {
-      plots = await db.plot_schedule.findMany({
-        where: { acq_proposal: { mine_cd: proposal.mine_cd } },
-        include: { mouza_master: true },
-        orderBy: { schedule_id: 'asc' },
-        take: 20
-      });
+      plots = await this.queryService.getPlots(applicationId, isUuid, true, proposal.mine_cd)
     }
 
     if (plots.length === 0 && context?.plots && Array.isArray(context.plots)) {

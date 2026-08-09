@@ -50,27 +50,36 @@ await db.project.update({
 ```
 
 ### 2. Manual Business Activity Logging
-To manually log a specific business event (e.g., when a user exports a file, approves a workflow, or signs a document), use the `Audit.logCustomAction` method. 
+To manually log a specific business event (e.g., when a user exports a file, approves a workflow, or signs a document), use the `Audit.logCustomAction` method. You do not need to manually pass `ipAddress` or `userAgent` if the action happens inside an API route wrapped with `withRequestContext`—it will automatically inherit the context!
 
 ```typescript
 import { Audit } from '@/core/audit/services/AuditService';
-import { getCurrentUser } from '@/lib/auth';
-import { headers } from 'next/headers';
 
-export async function approveDocument(docId: string) {
-  const user = await getCurrentUser();
-  const h = await headers();
-  const ip = h.get('x-forwarded-for') || h.get('x-real-ip');
-  
+export async function approveDocument(docId: string, userId: string) {
   // Custom business logic...
   
-  // Log the custom business action
+  // Log the custom business action. 
+  // IP, UserAgent, and exact execution timestamp are automatically captured
+  // from the RequestContext or the execution moment.
   await Audit.logCustomAction({
     activity: `Approved Document Workflow for Document ID: ${docId}`,
-    userId: user?.id,
-    ipAddress: ip,
-    userAgent: h.get('user-agent')
+    userId: userId,
   });
+}
+```
+
+### 3. Background Job Identification
+Background jobs (which do not have a logged-in user) should wrap their logic in `runWithRequestContext` to explicitly identify themselves in the audit logs, rather than having a default "system" fallback or a missing user.
+
+```typescript
+import { runWithRequestContext } from '@/core/context/RequestContext'
+import { db } from '@/lib/db'
+
+export async function myBackgroundJob() {
+  await runWithRequestContext({ userId: 'JOB: myBackgroundJob' }, async () => {
+    // Audit logs will correctly attribute this update to "JOB: myBackgroundJob"
+    await db.project.update({ ... })
+  })
 }
 ```
 

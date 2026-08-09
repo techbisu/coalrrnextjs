@@ -1,3 +1,4 @@
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 import { IUseCase, Result, Fail, Ok } from '@/core';
 import { IProposalRepository, ProposalState } from '@/domain/entities/proposal';
 import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di';
@@ -26,21 +27,20 @@ export class ForwardToHqUseCase implements IUseCase<ForwardToHqRequest, ForwardT
         return Fail('Proposal not found');
       }
 
-      // Transition state
-      const targetState = ProposalState.HQ_VETTING;
+      // Transition state using unified WorkflowEngine state machine
+      const targetState = ProposalState.HQ_PARALLEL_VETTING;
       
-      if (!proposal.state.canTransitionTo(targetState)) {
-         return Fail(`Cannot transition proposal from ${proposal.state.value} to ${targetState.value}. Proposal must be in AreaVetting.`);
+      const transitionRes = proposal.transitionTo(targetState, request.userId, request.comments);
+      if (transitionRes.isFailure) {
+        return Fail(String(transitionRes.error));
       }
-
-      (proposal as any)._state = targetState;
 
       await this.proposalRepo.save(proposal);
 
       // Audit log & Task Distribution
       AuditQueue.push({
         event_type: 'FORWARD_TO_HQ',
-        entity_name: 'land_schedule',
+        entity_name: MODULE_CODES.LAND_SCHEDULE,
         entity_id: request.proposalId,
         user_id: request.userId,
         remarks: request.comments || 'Forwarded to HQ Level Parallel Vetting (Planning, Safety, Finance).'

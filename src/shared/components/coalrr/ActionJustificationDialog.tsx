@@ -13,7 +13,15 @@ import { Button } from '@/shared/components/ui/button'
 import { Textarea } from '@/shared/components/ui/textarea'
 import { Label } from '@/shared/components/ui/label'
 import { Badge } from '@/shared/components/ui/badge'
-import { AlertCircle, FileText, Upload, Send, ArrowLeftRight, CheckCircle2 } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select'
+import { AlertCircle, FileText, Upload, Send, ArrowLeftRight, CheckCircle2, Building2 } from 'lucide-react'
+import { MineSelect } from './selects/MineSelect'
 
 export interface ActionJustificationDialogProps {
   isOpen: boolean
@@ -21,7 +29,9 @@ export interface ActionJustificationDialogProps {
   actionName: string
   actionLabel: string
   isReturn?: boolean
-  onSubmit: (data: { comments: string; file: File | null }) => Promise<void>
+  requiresTargetRecipient?: boolean
+  recipientOptions?: Array<{ label: string; value: string }>
+  onSubmit: (data: { comments: string; targetRecipient?: string; file: File | null }) => Promise<void>
 }
 
 export function ActionJustificationDialog({
@@ -30,19 +40,34 @@ export function ActionJustificationDialog({
   actionName,
   actionLabel,
   isReturn = false,
+  requiresTargetRecipient = false,
+  recipientOptions = [],
   onSubmit,
 }: ActionJustificationDialogProps) {
   const [comments, setComments] = React.useState('')
+  const [targetRecipient, setTargetRecipient] = React.useState('')
   const [file, setFile] = React.useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [minesList, setMinesList] = React.useState<Array<{ label: string; value: string }>>([])
+
+  // Automatically detect if action requires target recipient (e.g. cross colliery / unit forwarding)
+  const isCrossCollieryAction =
+    requiresTargetRecipient ||
+    actionName.includes('cross') ||
+    actionName.includes('unit') ||
+    actionName.includes('reconcil') ||
+    actionLabel.toLowerCase().includes('unit') ||
+    actionLabel.toLowerCase().includes('cross')
 
   React.useEffect(() => {
     if (isOpen) {
       setComments('')
+      setTargetRecipient('')
       setFile(null)
       setError(null)
       setIsSubmitting(false)
+
     }
   }, [isOpen])
 
@@ -53,10 +78,19 @@ export function ActionJustificationDialog({
       return
     }
 
+    if (isCrossCollieryAction && !targetRecipient.trim()) {
+      setError('Please select the Target Recipient / Adjacent Colliery Office before submitting.')
+      return
+    }
+
     try {
       setIsSubmitting(true)
       setError(null)
-      await onSubmit({ comments, file })
+      await onSubmit({
+        comments,
+        targetRecipient: targetRecipient ? `sent to: ${targetRecipient}` : undefined,
+        file,
+      })
       onClose()
     } catch (err: any) {
       setError(err.message || 'Failed to submit action')
@@ -80,8 +114,10 @@ export function ActionJustificationDialog({
               {actionLabel}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              {isReturn
-                ? 'Provide a mandatory justification note detailing the revision reasons and optionally attach supporting documents.'
+              {isCrossCollieryAction
+                ? 'Select the target adjacent colliery / mine unit office and add optional review remarks.'
+                : isReturn
+                ? 'Provide a mandatory justification note detailing revision reasons and optionally attach supporting documents.'
                 : 'Add an optional justification note and supporting documentation for this workflow step.'}
             </DialogDescription>
           </DialogHeader>
@@ -91,6 +127,30 @@ export function ActionJustificationDialog({
               <div className="flex items-center gap-2 rounded-md bg-rose-50 p-3 text-xs text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{error}</span>
+              </div>
+            )}
+
+            {/* Target Recipient Dropdown (for Cross-Colliery & Unit Actions) */}
+            {isCrossCollieryAction && (
+              <div className="space-y-1.5 p-3 rounded-lg bg-blue-50/50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-900">
+                <Label className="text-xs font-semibold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                  <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  Target Adjacent Colliery / Mine Unit Office <span className="text-rose-500">*</span>
+                </Label>
+                <MineSelect
+                  ignoreScope
+                  value={targetRecipient}
+                  onChange={(val, option) => {
+                    const optObj = Array.isArray(option) ? option[0] : option
+                    const selectedText = optObj?.label || (typeof val === 'string' ? val : (Array.isArray(val) ? val[0] : ''))
+                    setTargetRecipient(selectedText)
+                  }}
+                  placeholder="Select Target Mine / Unit Office from DB..."
+                  className="bg-white dark:bg-slate-900 border-blue-300 text-xs"
+                />
+                <p className="text-[11px] text-blue-700 dark:text-blue-300">
+                  Proposal will be routed to the selected unit for Form-VII joint boundary verification.
+                </p>
               </div>
             )}
 
@@ -159,7 +219,7 @@ export function ActionJustificationDialog({
               size="sm"
               variant={isReturn ? 'destructive' : 'default'}
               disabled={isSubmitting}
-              className="gap-1.5"
+              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               {isSubmitting ? (
                 'Processing...'

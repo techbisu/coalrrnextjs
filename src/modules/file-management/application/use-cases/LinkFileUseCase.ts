@@ -35,6 +35,19 @@ export class LinkFileUseCase implements IUseCase<LinkFileRequest, FileRecord> {
       await this.repo.appendAttachmentModule(existingAttachment.id, existingAttachment.module || '', request.module)
     }
 
+    const { EventBus } = await import('@/core/notifications/EventBus')
+    await EventBus.publish({
+      event_name: 'FILE_ASSIGNED',
+      module: request.module || 'file-management',
+      user_id: request.ownerId,
+      entity_id: request.entityId,
+      data: {
+        fileId: request.fileId,
+        fileName: existing.file.originalName,
+        entityType: request.entityType,
+      }
+    })
+
     return Ok(existing.file)
   }
 }

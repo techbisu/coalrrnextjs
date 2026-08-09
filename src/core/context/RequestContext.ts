@@ -10,12 +10,12 @@
 import { AsyncLocalStorage } from 'async_hooks'
 
 export interface RequestContextPayload {
-  userId: string
+  userId?: string
   ipAddress?: string
   userAgent?: string
 }
 
-const SYSTEM_CONTEXT: RequestContextPayload = { userId: 'system' }
+const SYSTEM_CONTEXT: RequestContextPayload = { userId: undefined }
 
 /** Module-level singleton — safe across hot-reloads and serverless cold starts. */
 export const RequestContext = new AsyncLocalStorage<RequestContextPayload>()

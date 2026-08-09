@@ -1,6 +1,7 @@
 import { IUseCase, Result, Fail, Ok } from '@/core';
 import { IProposalRepository, PlotScheduleDTO, PlotScheduleLandTypeDTO, DuplicatePlotException } from '@/domain/entities/proposal';
 import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di';
+import { jobDispatcher } from '@/core/jobs/services/JobDispatcherService';
 
 export interface AddPlotsRequest {
   proposalId: string;
@@ -91,6 +92,12 @@ export class AddPlotsToProposalUseCase implements IUseCase<AddPlotsRequest, AddP
         entity_id: request.proposalId,
         user_id: request.userId,
         remarks: `Added ${request.plots.length} plots.`
+      });
+
+      // Sync checklist context
+      await jobDispatcher.dispatch('syncChecklistContext', {
+        moduleCode: 'LAND_ACQ_PROPOSAL',
+        entityId: request.proposalId
       });
 
       return Ok({

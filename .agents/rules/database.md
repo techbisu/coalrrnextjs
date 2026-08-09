@@ -17,6 +17,8 @@
   entry_by      String?  @db.VarChar(64)
   updt_by       String?  @db.VarChar(64)
   ```
+- **`entry_by` & `updt_by` Values (MANDATORY)**: MUST store ONLY the numeric/string authenticated User ID (e.g., `String(auth.user.id)`). NEVER store email addresses or full names in `entry_by` or `updt_by`.
+- **`entry_ts` & `updt_ts` Values (MANDATORY)**: MUST use **Epoch BigInt** (`BigInt(Math.floor(Date.now() / 1000))` or `BigInt(Date.now())`) across all database write operations and timestamp fields. Date object strings are banned for audit timestamps.
 - **Document / Attachment Mapping**: NEVER store `document_id` directly as a column on entity tables. ALWAYS use the reusable polymorphic `public.file_attachment` junction table (`file_id`, `entity_type`, `entity_id`, `module`) for linking file attachments to entities.
 
 ## Migration — one file per table (mandatory)

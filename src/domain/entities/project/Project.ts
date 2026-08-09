@@ -241,7 +241,8 @@ export class Project extends AggregateRoot<string> {
 
     project.addDomainEvent(createDomainEvent('PROJECT_CREATED', project.id.toString(), {
       name: project.projNm,
-      code: project.id.toString()
+      code: project.id.toString(),
+      mine_cd: project.mineCds.join(', ')
     }))
 
     return { isSuccess: true, isFailure: false, value: project, error: null }

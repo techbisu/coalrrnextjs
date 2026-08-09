@@ -21,6 +21,7 @@ export interface CreateActivityLogProps {
   ipAddress?: string | null
   userAgent?: string | null
   applicationLogId?: string | null
+  timestamp?: Date
 }
 
 export class ActivityLog extends Entity<string> {
@@ -36,7 +37,7 @@ export class ActivityLog extends Entity<string> {
       return Fail('Activity description is required')
     }
 
-    const now = new Date()
+    const now = props.timestamp || new Date()
     const log = new ActivityLog({
       id: randomUUID(),
       activity: props.activity.trim(),

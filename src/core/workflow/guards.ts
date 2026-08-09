@@ -152,11 +152,26 @@ export class ParallelReviewsCompletedGuard implements TransitionGuard {
       if (!status || status === "pending") {
         return { ok: false, reason: `Parallel review pending: ${role}` };
       }
-      if (status === "rejected") {
-        return { ok: false, reason: `Parallel review rejected by ${role}` };
+      if (status === "rejected" || status === "returned") {
+        return { ok: false, reason: `Parallel review rejected/returned by ${role}` };
       }
     }
     return { ok: true };
+  }
+
+  /**
+   * Short-circuit check: returns true immediately if ANY review department rejected/returned the proposal,
+   * avoiding unnecessary pending review wait times.
+   */
+  hasAnyRejection(ctx: GuardContext): { isRejected: boolean; rejectedBy?: string } {
+    const statuses = (ctx.data?.reviewStatuses ?? {}) as Record<string, string>;
+    for (const role of this.roles) {
+      const status = statuses[role];
+      if (status === "rejected" || status === "returned") {
+        return { isRejected: true, rejectedBy: role };
+      }
+    }
+    return { isRejected: false };
   }
 }
 

@@ -17,6 +17,6 @@ export const jobConfig = {
   jobQueueBatchSize: Number(process.env.JOB_QUEUE_BATCH_SIZE ?? 10),
 
   // Prod only: BullMQ repeatable safety-net polls orphaned outbox rows every N ms
-  // Primary trigger is EventBus.publish() → dispatch('pollOutbox') — this is the fallback
+  // Primary trigger is await EventBus.publish() → dispatch('pollOutbox') — this is the fallback
   outboxSafetyNetIntervalMs: Number(process.env.OUTBOX_SAFETY_NET_INTERVAL_MS ?? 60_000),
 } as const
