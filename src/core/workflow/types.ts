@@ -21,6 +21,10 @@
  * Branch: `BoardEscalation` is reachable from `AreaVetting` and
  * `DirectorConsent` when the project baseline is breached.
  */
+/**
+ * WorkflowState: Open string type representing any valid workflow state.
+ * Legacy states are preserved as string literals for autocompletion.
+ */
 export type WorkflowState =
   | "Drafting"
   | "UnitSubmitted"
@@ -39,12 +43,11 @@ export type WorkflowState =
   | "Rejected"
   | "Cancelled"
   | "Closed"
-  | "Sec7Preparation";
+  | "Sec7Preparation"
+  | (string & {});
 
 /**
- * Record types that participate in a workflow (spec §2.3 polymorphic).
- * Each may eventually have its own state set; today only `compensation_payroll`
- * has the full pipeline modelled.
+ * RecordType / EntityType: Open string type for polymorphic process records.
  */
 export type RecordType =
   | "compensation_payroll"
@@ -54,10 +57,11 @@ export type RecordType =
   | "LAND_SCHEDULE"
   | "COMPENSATION_PAYROLL"
   | "EMPLOYMENT_APP"
-  | "FORM_I_CLAIM";
+  | "FORM_I_CLAIM"
+  | (string & {});
 
 /**
- * Roles that can drive transitions (mirrors Prisma `workflow_review_task.role`).
+ * ActorRole: Open string type representing workflow roles.
  */
 export type ActorRole =
   | "unit_office"
@@ -68,7 +72,66 @@ export type ActorRole =
   | "hod_legal"
   | "gm_lre"
   | "board"
-  | "system";
+  | "system"
+  | (string & {});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Process Platform Runtime Models
+// ════════════════════════════════════════════════════════════════════════════
+
+export interface ProcessContext {
+  readonly processCode: string;
+  readonly moduleCode: string;
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly currentState: WorkflowState;
+  readonly businessContext?: Readonly<Record<string, unknown>>;
+}
+
+export interface WorkflowTask {
+  readonly id: string;
+  readonly processInstanceId: string;
+  readonly workflowCycleId?: string;
+  readonly workflowBranchId?: string;
+  readonly stateCode: string;
+  readonly taskType: 'REVIEW' | 'VERIFY' | 'SIGN' | 'APPROVE' | 'RECOMMEND' | 'ACKNOWLEDGE' | 'DATA_ENTRY' | 'DOCUMENT_ACTION' | string;
+  readonly assignedUserId?: number;
+  readonly assignedRole?: ActorRole;
+  readonly assignmentScope?: Readonly<Record<string, unknown>>;
+  readonly status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | string;
+  readonly dueAt?: Date;
+  readonly startedAt?: Date;
+  readonly completedAt?: Date;
+  readonly completedBy?: number;
+}
+
+export interface WorkflowCycle {
+  readonly id: string;
+  readonly processInstanceId: string;
+  readonly cycleNo: number;
+  readonly stateCode: string;
+  readonly cycleType: 'NORMAL' | 'RETURN' | 'RETRY' | string;
+  readonly parentCycleId?: string;
+  readonly returnReason?: string;
+  readonly status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | string;
+  readonly startedAt: Date;
+  readonly completedAt?: Date;
+}
+
+export interface WorkflowBranch {
+  readonly id: string;
+  readonly processInstanceId: string;
+  readonly workflowCycleId?: string;
+  readonly branchKey: string;
+  readonly branchType: string;
+  readonly targetEntityType?: string;
+  readonly targetEntityId?: string;
+  readonly status: 'ACTIVE' | 'COMPLETED' | 'RETURNED' | 'CANCELLED' | string;
+  readonly isRequired: boolean;
+  readonly executionMode: 'PARALLEL' | 'SEQUENTIAL' | string;
+  readonly startedAt: Date;
+  readonly completedAt?: Date;
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // Guard types

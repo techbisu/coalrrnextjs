@@ -1,10 +1,13 @@
-import { headers } from 'next/headers';
-
 let cachedLocalIp: string | null = null;
 let lastCacheTime = 0;
 
 export async function getRealIp(): Promise<string | null> {
+  if (typeof window !== 'undefined') {
+    return null; // Client side fallback
+  }
+
   try {
+    const { headers } = await import('next/headers');
     const h = await headers();
     const forwarded = h.get('x-forwarded-for');
     let ipAddress = forwarded ? forwarded.split(',')[0].trim() : (h.get('x-real-ip') || null);

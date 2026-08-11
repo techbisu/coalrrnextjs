@@ -36,7 +36,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await authorizeApi('proposal.update');
+  const auth = await authorizeApi('proposal.edit');
   if (auth.error) {
     return auth.error;
   }

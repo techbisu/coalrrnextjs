@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     const result = await useCase.execute({
       project_id: data.project_id,
-      acquisition_mode: data.acquisition_mode,
+      acq_mode_id: data.acq_mode_id,
       proposal_title: data.proposal_title,
       description: data.description,
       area_office: data.area_office,

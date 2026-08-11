@@ -12,7 +12,7 @@ describe('Proposal Entity', () => {
       const result = Proposal.create({
         projectId: 'proj_123',
         proposalTitle: 'Test Acquisition Proposal',
-        acquisitionMode: 'rfctlarr',
+        acq_mode_id: 2,
         proposedBy: 'John Doe',
         proposedByRole: 'area_office',
         collieryCode: 'TCL001',
@@ -23,7 +23,7 @@ describe('Proposal Entity', () => {
       
       expect(proposal.projectId).toBe('proj_123')
       expect(proposal.proposalTitle).toBe('Test Acquisition Proposal')
-      expect(proposal.acquisitionMode.value).toBe('rfctlarr')
+      expect(proposal.acq_mode_id).toBe(2)
       expect(proposal.state.value).toBe('Drafting')
       expect(proposal.totalArea.toNumber()).toBe(0)
       expect(proposal.plotIds).toHaveLength(0)
@@ -37,7 +37,7 @@ describe('Proposal Entity', () => {
       const result = Proposal.create({
         projectId: 'proj_123',
         proposalTitle: '',
-        acquisitionMode: 'rfctlarr',
+        acq_mode_id: 2,
         proposedBy: 'John Doe',
         proposedByRole: 'area_office',
         collieryCode: 'TCL001',
@@ -51,7 +51,7 @@ describe('Proposal Entity', () => {
       const result = Proposal.create({
         projectId: 'proj_123',
         proposalTitle: 'Test',
-        acquisitionMode: 'invalid_mode',
+        acq_mode_id: -1,
         proposedBy: 'John Doe',
         proposedByRole: 'area_office',
         collieryCode: 'TCL001',
@@ -67,7 +67,7 @@ describe('Proposal Entity', () => {
       const proposal = Proposal.create({
         projectId: 'proj_123',
         proposalTitle: 'Test',
-        acquisitionMode: 'rfctlarr',
+        acq_mode_id: 2,
         proposedBy: 'John',
         proposedByRole: 'role',
         collieryCode: 'TCL001',
@@ -86,7 +86,7 @@ describe('Proposal Entity', () => {
       const proposal = Proposal.create({
         projectId: 'proj_123',
         proposalTitle: 'Test',
-        acquisitionMode: 'rfctlarr',
+        acq_mode_id: 2,
         proposedBy: 'John',
         proposedByRole: 'role',
         collieryCode: 'TCL001',
@@ -109,7 +109,7 @@ describe('Proposal Entity', () => {
       const proposal = Proposal.create({
         projectId: 'proj_123',
         proposalTitle: 'Test',
-        acquisitionMode: 'rfctlarr',
+        acq_mode_id: 2,
         proposedBy: 'John',
         proposedByRole: 'role',
         collieryCode: 'TCL001',
@@ -131,7 +131,7 @@ describe('Proposal Entity', () => {
       const proposal = Proposal.create({
         projectId: 'proj_123',
         proposalTitle: 'Test',
-        acquisitionMode: 'rfctlarr',
+        acq_mode_id: 2,
         proposedBy: 'John',
         proposedByRole: 'role',
         collieryCode: 'TCL001',
@@ -149,7 +149,7 @@ describe('Proposal Entity', () => {
       const proposal = Proposal.create({
         projectId: 'proj_123',
         proposalTitle: 'Test',
-        acquisitionMode: 'rfctlarr',
+        acq_mode_id: 2,
         proposedBy: 'John',
         proposedByRole: 'role',
         collieryCode: 'TCL001',
@@ -166,7 +166,7 @@ describe('Proposal Entity', () => {
       const proposal = Proposal.create({
         projectId: 'proj_123',
         proposalTitle: 'Test',
-        acquisitionMode: 'rfctlarr',
+        acq_mode_id: 2,
         proposedBy: 'John',
         proposedByRole: 'role',
         collieryCode: 'TCL001',
@@ -188,7 +188,7 @@ describe('Proposal Entity', () => {
       const proposal = Proposal.create({
         projectId: 'proj_123',
         proposalTitle: 'Test',
-        acquisitionMode: 'rfctlarr',
+        acq_mode_id: 2,
         proposedBy: 'John',
         proposedByRole: 'role',
         collieryCode: 'TCL001',

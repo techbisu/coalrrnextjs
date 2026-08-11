@@ -2,6 +2,9 @@
 export { SectionCard } from './SectionCard'
 export type { SectionCardProps } from './SectionCard'
 
+export { CollapsibleSectionCard } from './CollapsibleSectionCard'
+export type { CollapsibleSectionCardProps } from './CollapsibleSectionCard'
+
 export { StatTile } from './StatTile'
 export type { StatTileProps, Accent } from './StatTile'
 
@@ -59,8 +62,11 @@ export { DocumentWorkspaceModal } from './DocumentWorkspaceModal'
 export { WorkflowTimelineFeed } from './WorkflowTimelineFeed'
 export type { WorkflowTimelineFeedProps } from './WorkflowTimelineFeed'
 
-export { ProposalActionCenterBanner } from './ProposalActionCenterBanner'
-export type { ProposalActionCenterBannerProps } from './ProposalActionCenterBanner'
+export { ProcessActionCenter } from './ProcessActionCenter'
+export type { ProcessActionCenterProps } from './ProcessActionCenter'
+
+export { UnifiedWorkflowTimeline } from './UnifiedWorkflowTimeline'
+export type { UnifiedWorkflowTimelineProps, StageStep } from './UnifiedWorkflowTimeline'
 
 export { SectionSkeleton } from './SectionSkeleton'
 

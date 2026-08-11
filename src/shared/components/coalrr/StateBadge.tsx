@@ -41,8 +41,18 @@ export interface StateBadgeProps {
   className?: string
 }
 
+function formatStateLabel(str: string): string {
+  if (!str) return 'Unknown'
+  // Handle camelCase or snake_case or CONSTANT_CASE
+  return str
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, (l) => l.toUpperCase())
+}
+
 export function StateBadge({ state, meta, size = 'sm', className }: StateBadgeProps) {
-  const m = meta ?? DEFAULT_STATE_META[state] ?? { label: state, color: 'bg-slate-100 text-slate-700 border-slate-300' }
+  const fallbackLabel = formatStateLabel(state)
+  const m = meta ?? DEFAULT_STATE_META[state] ?? { label: fallbackLabel, color: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300' }
   const Icon = ICONS[m.icon ?? ''] ?? Circle
   return (
     <Badge
@@ -55,7 +65,7 @@ export function StateBadge({ state, meta, size = 'sm', className }: StateBadgePr
       )}
     >
       <Icon className={size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
-      {m.label}
+      {m.label || fallbackLabel}
     </Badge>
   )
 }

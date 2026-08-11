@@ -29,13 +29,17 @@ function injectAuditFields(
 
   if (isCamel) {
     if (operation === 'create') {
-      if (dmmfModel?.fields.some((f) => f.name === 'entryBy'))
-        (args.data as any).entryBy = userId
+      if (dmmfModel?.fields.some((f) => f.name === 'entryBy')) {
+        if (userId) (args.data as any).entryBy = userId;
+        else if (!(args.data as any).entryBy) (args.data as any).entryBy = 'system';
+      }
       if (dmmfModel?.fields.some((f) => f.name === 'entryTs') && !(args.data as any).entryTs)
         (args.data as any).entryTs = Math.floor(Date.now() / 1000)
     }
-    if (dmmfModel?.fields.some((f) => f.name === 'updtBy'))
-      (args.data as any).updtBy = userId
+    if (dmmfModel?.fields.some((f) => f.name === 'updtBy')) {
+      if (userId) (args.data as any).updtBy = userId;
+      else if (!(args.data as any).updtBy) (args.data as any).updtBy = 'system';
+    }
     if (dmmfModel?.fields.some((f) => f.name === 'updtTs') && !(args.data as any).updtTs)
       (args.data as any).updtTs = Math.floor(Date.now() / 1000)
   } else {
@@ -45,13 +49,17 @@ function injectAuditFields(
       dmmfModel?.fields.some((f) => f.name === 'updt_ts' && f.type === 'BigInt') ?? false
 
     if (operation === 'create') {
-      if (dmmfModel?.fields.some((f) => f.name === 'entry_by'))
-        (args.data as any).entry_by = userId
+      if (dmmfModel?.fields.some((f) => f.name === 'entry_by')) {
+        if (userId) (args.data as any).entry_by = userId;
+        else if (!(args.data as any).entry_by) (args.data as any).entry_by = 'system';
+      }
       if (dmmfModel?.fields.some((f) => f.name === 'entry_ts') && !(args.data as any).entry_ts)
         (args.data as any).entry_ts = isBigIntEntry ? BigInt(Date.now()) : new Date()
     }
-    if (dmmfModel?.fields.some((f) => f.name === 'updt_by'))
-      (args.data as any).updt_by = userId
+    if (dmmfModel?.fields.some((f) => f.name === 'updt_by')) {
+      if (userId) (args.data as any).updt_by = userId;
+      else if (!(args.data as any).updt_by) (args.data as any).updt_by = 'system';
+    }
     if (dmmfModel?.fields.some((f) => f.name === 'updt_ts') && !(args.data as any).updt_ts)
       (args.data as any).updt_ts = isBigIntUpdt ? BigInt(Date.now()) : new Date()
   }

@@ -73,6 +73,12 @@ export const auditQueue = {
   }
 }
 
+import { processRegistry } from '@/core/workflow/ProcessRegistry'
+import { processInstanceService } from '@/core/workflow/services/ProcessInstanceService'
+import { workflowTaskService } from '@/core/workflow/services/WorkflowTaskService'
+import { workflowBranchService } from '@/core/workflow/services/WorkflowBranchService'
+import { workflowReactionService } from '@/core/workflow/services/WorkflowReactionService'
+
 import { jobDispatcher as coreJobDispatcher } from '@/core/jobs/services/JobDispatcherService'
 
 export const jobDispatcher = globalForCoreDI.jobDispatcher ?? coreJobDispatcher
@@ -80,7 +86,12 @@ export const Container = {
   jobDispatcher,
   checklistRegistry,
   getChecklistStatusUseCase,
-  updateChecklistSubmissionUseCase
+  updateChecklistSubmissionUseCase,
+  processRegistry,
+  processInstanceService,
+  workflowTaskService,
+  workflowBranchService,
+  workflowReactionService,
 }
 
 if (process.env.NODE_ENV !== 'production') {

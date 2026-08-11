@@ -50,7 +50,7 @@ export async function GET() {
       })
 
       // Link to Super Administrator
-      const superAdminRole = await db.role.findFirst({ where: { name: 'super_administrator' } })
+      const superAdminRole = await db.role.findFirst({ where: { name: 'Super Administrator' } })
       if (superAdminRole) {
         await db.role_has_permission.upsert({
           where: { role_id_permission_id: { role_id: superAdminRole.id, permission_id: perm.id } },

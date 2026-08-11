@@ -130,7 +130,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         current_stage_cd: newState.slice(0, 30),
         overall_status: newState.slice(0, 20),
         updt_ts: BigInt(Math.floor(Date.now() / 1000)),
-        updt_by: String(auth.user?.id || 1)
+        updt_by: String(auth.user?.id || 1),
+        ...(body.adjacent_mine_ids ? { adjacent_mine_ids: body.adjacent_mine_ids } : {})
       }
     })
 

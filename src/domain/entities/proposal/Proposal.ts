@@ -1,6 +1,7 @@
 /**
  * Proposal Aggregate Root - Core domain entity for land acquisition proposals.
  * Encapsulates all business rules and invariants for proposal/schedule management.
+ * (Triggering recompile)
  */
 import { AggregateRoot } from '@/core/base/AggregateRoot'
 import { Result, Fail } from '@/core/result/Result'
@@ -9,7 +10,6 @@ import { createDomainEvent } from '@/core/base/DomainEvent'
 import { Area } from '@/domain/value-objects/Area'
 import { ProposalId } from './ProposalId'
 import { ScheduleCode } from './ScheduleCode'
-import { AcquisitionMode } from './AcquisitionMode'
 import { ProposalState } from './ProposalState'
 import { Checklist } from './Checklist'
 
@@ -17,7 +17,7 @@ export interface ProposalProps {
   id: ProposalId
   scheduleCode: ScheduleCode
   projectId: string
-  acquisitionMode: AcquisitionMode
+  acq_mode_id: number
   state: ProposalState
   proposalTitle: string
   description: string
@@ -47,7 +47,7 @@ export interface ProposalProps {
 
 export interface CreateProposalProps {
   projectId: string
-  acquisitionMode: string
+  acq_mode_id: number
   proposalTitle: string
   description?: string
   proposedBy: string
@@ -56,6 +56,7 @@ export interface CreateProposalProps {
   collieryCode: string
   adjacentColliery?: string
   notificationDate?: Date
+  proposalNo?: string
   proposalType?: string
   rateTenancyWithEmp?: number
   rateTenancyNoEmp?: number
@@ -119,7 +120,7 @@ export class DuplicatePlotException extends DomainException {
 export class Proposal extends AggregateRoot<string> {
   private _scheduleCode: ScheduleCode
   private _projectId: string
-  private _acquisitionMode: AcquisitionMode
+  private _acq_mode_id: number
   private _state: ProposalState
   private _proposalTitle: string
   private _description: string
@@ -150,7 +151,7 @@ export class Proposal extends AggregateRoot<string> {
     super(props.id.value)
     this._scheduleCode = props.scheduleCode
     this._projectId = props.projectId
-    this._acquisitionMode = props.acquisitionMode
+    this._acq_mode_id = props.acq_mode_id
     this._state = props.state
     this._proposalTitle = props.proposalTitle
     this._description = props.description
@@ -190,9 +191,8 @@ export class Proposal extends AggregateRoot<string> {
     }
 
     // Validate acquisition mode
-    const modeResult = AcquisitionMode.tryCreate(props.acquisitionMode)
-    if (modeResult.isFailure) {
-      errors.push({ field: 'acquisitionMode', message: modeResult.error!.message })
+    if (!props.acq_mode_id || props.acq_mode_id <= 0) {
+      errors.push({ field: 'acq_mode_id', message: 'Valid acquisition mode ID is required' })
     }
 
     // Validate project ID
@@ -210,15 +210,15 @@ export class Proposal extends AggregateRoot<string> {
     }
 
     const proposalId = id ? ProposalId.fromString(id) : ProposalId.create()
-    const scheduleCode = ScheduleCode.generate()
-    const acquisitionMode = (modeResult as any).value as AcquisitionMode
+    const scheduleCode = props.proposalNo ? ScheduleCode.fromString(props.proposalNo) : ScheduleCode.generate()
+    const acq_mode_id = props.acq_mode_id
     const now = new Date()
 
     const proposal = new Proposal({
       id: proposalId,
       scheduleCode,
       projectId: props.projectId,
-      acquisitionMode,
+      acq_mode_id,
       state: ProposalState.DRAFTING,
       proposalTitle: props.proposalTitle.trim(),
       description: props.description?.trim() ?? '',
@@ -229,7 +229,7 @@ export class Proposal extends AggregateRoot<string> {
       adjacentColliery: props.adjacentColliery?.trim() ?? '',
       totalArea: Area.zero('ACRES'),
       notificationDate: props.notificationDate ?? null,
-      checklist: Checklist.createForMode(acquisitionMode),
+      checklist: Checklist.createForMode(acq_mode_id),
       plotIds: [],
       proposalType: props.proposalType ?? 'STANDARD_LAP',
       rateTenancyWithEmp: props.rateTenancyWithEmp ?? 0,
@@ -249,7 +249,7 @@ export class Proposal extends AggregateRoot<string> {
     proposal.addDomainEvent(createDomainEvent('PROPOSAL_CREATED', proposal.id, {
       scheduleCode: scheduleCode.value,
       proposalTitle: props.proposalTitle,
-      acquisitionMode: acquisitionMode.value,
+      acq_mode_id: acq_mode_id,
       proposedBy: props.proposedBy,
     }))
 
@@ -261,7 +261,7 @@ export class Proposal extends AggregateRoot<string> {
     id: string
     scheduleCode: string
     projectId: string
-    acquisitionMode: string
+    acq_mode_id: number
     state: string
     proposalTitle: string
     description: string
@@ -292,7 +292,7 @@ export class Proposal extends AggregateRoot<string> {
       id: ProposalId.fromString(data.id),
       scheduleCode: ScheduleCode.fromString(data.scheduleCode),
       projectId: data.projectId,
-      acquisitionMode: AcquisitionMode.fromString(data.acquisitionMode),
+      acq_mode_id: data.acq_mode_id,
       state: ProposalState.fromString(data.state),
       proposalTitle: data.proposalTitle,
       description: data.description,
@@ -565,8 +565,8 @@ export class Proposal extends AggregateRoot<string> {
     return this._projectId
   }
 
-  get acquisitionMode(): AcquisitionMode {
-    return this._acquisitionMode
+  get acq_mode_id(): number {
+    return this._acq_mode_id
   }
 
   get state(): ProposalState {
@@ -646,7 +646,7 @@ export class Proposal extends AggregateRoot<string> {
     id: string
     scheduleCode: string
     projectId: string
-    acquisitionMode: string
+    acq_mode_id: number
     state: string
     proposalTitle: string
     description: string
@@ -676,7 +676,7 @@ export class Proposal extends AggregateRoot<string> {
       id: this.id,
       scheduleCode: this._scheduleCode.value,
       projectId: this._projectId,
-      acquisitionMode: this._acquisitionMode.value,
+      acq_mode_id: this._acq_mode_id,
       state: this._state.value,
       proposalTitle: this._proposalTitle,
       description: this._description,

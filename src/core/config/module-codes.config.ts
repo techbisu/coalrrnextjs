@@ -25,6 +25,18 @@ export const ACQ_LAND_SCHEDULE = CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE
 
 export type CheckableEntityType = typeof CHECKABLE_ENTITY_TYPES[keyof typeof CHECKABLE_ENTITY_TYPES]
 
+export const ACQ_MODE_ID = {
+  CBA: 1,
+  RFCTLARR: 2,
+  GOVT_TRANSFER: 3,
+  LEASE_GOVT: 4,
+  FOREST_DIVERSION: 5,
+  DIRECT_PURCHASE: 6,
+  INHERITED_LAND: 7,
+  LA_ACT_1948: 8,
+  LEASE_TENANCY: 9,
+} as const;
+
 /**
  * Normalizes legacy or variant module string aliases to the canonical ModuleCode.
  * Example: 'acq_land_schedule', 'land_schedule', 'LAND_ACQ_PROPOSAL', 'acq_proposal', 'proposal' -> 'LAND_SCHEDULE'

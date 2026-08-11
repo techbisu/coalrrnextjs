@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { ProposalActionCenterBanner, EntityFileManagerTrigger } from '@/shared/components/coalrr'
+import { ProcessActionCenter, EntityFileManagerTrigger } from '@/shared/components/coalrr'
 import { ACQ_LAND_SCHEDULE } from '@/core/config/module-codes.config'
 
 export interface ProposalHeaderSectionProps {
@@ -41,13 +41,13 @@ export function ProposalHeaderSection({
         />
       </div>
 
-      <ProposalActionCenterBanner
-        proposalId={schedule.id}
-        proposalNo={schedule.schedule_code || `PROP-${schedule.id.slice(0, 8)}`}
+      <ProcessActionCenter
+        entityId={schedule.id}
+        entityCode={schedule.schedule_code || `PROP-${schedule.id.slice(0, 8)}`}
+        entityTypeLabel="Land Acquisition Schedule"
         currentStage={schedule.state}
         userRole={userRole}
         checklistSummary={checklistSummary}
-        onExecuteAction={onExecuteAction}
         onOpenDocumentWorkspace={onOpenDocumentWorkspace}
       />
     </div>

@@ -10,7 +10,7 @@ export interface ProposalOverviewSectionProps {
     id: string
     schedule_code: string
     proposal_title: string
-    acquisition_mode: string
+    acq_mode_id: number
     colliery_code?: string
     proposed_by: string
     proposed_by_role?: string
@@ -37,7 +37,7 @@ export function ProposalOverviewSection({ schedule }: ProposalOverviewSectionPro
         />
         <StatTile
           label="Acquisition Mode"
-          value={schedule.acquisition_mode.toUpperCase()}
+          value={schedule.acq_mode_id.toString()}
           accent="teal"
           icon={FileText}
         />
@@ -63,31 +63,22 @@ export function ProposalOverviewSection({ schedule }: ProposalOverviewSectionPro
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
           <div className="space-y-3">
             <div className="flex justify-between border-b pb-2">
-              <span className="text-muted-foreground font-medium">Proposal Title:</span>
-              <span className="font-semibold text-foreground">{schedule.proposal_title}</span>
+              <span className="text-muted-foreground font-medium">Rate of Tenancy Land (with Employment):</span>
+              <span className="font-mono font-semibold">₹ {formatNumber(Number(schedule.rate_tenancy_with_emp || 0), 2)} / Acre</span>
             </div>
             <div className="flex justify-between border-b pb-2">
-              <span className="text-muted-foreground font-medium">Schedule Code:</span>
-              <span className="font-mono font-bold text-foreground">{schedule.schedule_code}</span>
-            </div>
-            <div className="flex justify-between border-b pb-2">
-              <span className="text-muted-foreground font-medium">Proposed Role Scope:</span>
-              <span className="capitalize font-semibold text-foreground">{schedule.proposed_by_role || 'unit_office'}</span>
+              <span className="text-muted-foreground font-medium">Rate of Tenancy Land (no Employment):</span>
+              <span className="font-mono font-semibold">₹ {formatNumber(Number(schedule.rate_tenancy_no_emp || 0), 2)} / Acre</span>
             </div>
           </div>
-
           <div className="space-y-3">
             <div className="flex justify-between border-b pb-2">
-              <span className="text-muted-foreground font-medium">Tenancy Land (with Employment):</span>
-              <span className="font-mono font-semibold">{formatNumber(Number(schedule.rate_tenancy_with_emp || 0), 2)} Acres</span>
+              <span className="text-muted-foreground font-medium">Rate of Government Land:</span>
+              <span className="font-mono font-semibold">₹ {formatNumber(Number(schedule.rate_govt_land || 0), 2)} / Acre</span>
             </div>
             <div className="flex justify-between border-b pb-2">
-              <span className="text-muted-foreground font-medium">Tenancy Land (no Employment):</span>
-              <span className="font-mono font-semibold">{formatNumber(Number(schedule.rate_tenancy_no_emp || 0), 2)} Acres</span>
-            </div>
-            <div className="flex justify-between border-b pb-2">
-              <span className="text-muted-foreground font-medium">Government / Forest Land:</span>
-              <span className="font-mono font-semibold">{formatNumber(Number(schedule.rate_govt_land || 0) + Number(schedule.rate_forest_land || 0), 2)} Acres</span>
+              <span className="text-muted-foreground font-medium">Rate of Forest Land:</span>
+              <span className="font-mono font-semibold">₹ {formatNumber(Number(schedule.rate_forest_land || 0), 2)} / Acre</span>
             </div>
           </div>
         </div>

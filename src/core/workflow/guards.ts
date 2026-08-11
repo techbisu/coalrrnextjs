@@ -181,10 +181,30 @@ export class ParallelReviewsCompletedGuard implements TransitionGuard {
 // instances. Add new guards here — WorkflowTransitionLoader resolves by key.
 // ════════════════════════════════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════════════════════════════════
+// ChecklistContextFreshnessGuard
+// ════════════════════════════════════════════════════════════════════════════
+
+export class ChecklistContextFreshnessGuard implements TransitionGuard {
+  readonly name = "checklist_context_freshness";
+
+  check(ctx: GuardContext): GuardResult {
+    const isStale = Boolean(ctx.data?.isContextStale);
+    if (isStale) {
+      return {
+        ok: false,
+        reason: "Checklist context is stale (entity data modified). Re-evaluation required before forwarding.",
+      };
+    }
+    return { ok: true };
+  }
+}
+
 export const GUARD_REGISTRY: Record<string, TransitionGuard> = {
   WithinProjectBaseline:    new WithinProjectBaselineGuard(),
   BaselineBreached:         new BaselineBreachedGuard(),
   ChecklistFullySatisfied:  new ChecklistFullySatisfiedGuard("CL-1.1"),
+  ChecklistContextFreshness: new ChecklistContextFreshnessGuard(),
   ParallelReviewsCompleted: new ParallelReviewsCompletedGuard(["gm_planning", "gm_safety", "gm_finance", "hod_legal"]),
   PlotNotAcquired:          new PlotNotAlreadyAcquiredGuard(),
   ThresholdMet2Ac:          new ThresholdMetGuard(),

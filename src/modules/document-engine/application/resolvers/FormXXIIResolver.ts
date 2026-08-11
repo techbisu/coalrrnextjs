@@ -1,6 +1,7 @@
 import { IDocumentResolver, DocumentResolverResult } from '../../domain/IDocumentResolver'
 import { IDocumentQueryService } from '../queries/IDocumentQueryService'
 import { buildLandCategoryMap } from '@/core/compliance/utils/landCategoryMap'
+import { ACQ_MODE_ID } from '@/core/config/module-codes.config'
 
 function getFormVal(formData: any, ...keys: string[]): string {
   for (const k of keys) {
@@ -140,23 +141,7 @@ export class FormXXIIResolver implements IDocumentResolver {
     const formData = context?.form_data || {};
 
     // Acquisition mode — strictly resolved per master.acqu_mode table:
-    // 1=CBA (A&D) Act, 2=RFCTLARR Act, 3=LTS Govt Land, 4=Lease Govt Land, 5=Diversion of Forest Land, 6=Direct Purchase
-    const formAcqMode = String(getFormVal(formData, 'acquisition_mode', 'acq_mode', 'acquisitionMode', 'acquisition_type', 'acq_type', 'AcquisitionMode', 'Mode') || '').toLowerCase();
     const acqModeId = Number(proposal?.acq_mode_id || 0);
-    const modeStr = (formAcqMode || String(proposal?.acquisition_mode || proposal?.acqu_mode?.aquisition_method || '')).toLowerCase();
-
-    let acqMode = 'cba_act';
-    if (acqModeId === 6 || modeStr.includes('direct') || modeStr.includes('purchase')) {
-      acqMode = 'direct_purchase';
-    } else if (acqModeId === 2 || modeStr.includes('rfctlarr')) {
-      acqMode = 'rfctlarr';
-    } else if (acqModeId === 3 || acqModeId === 4 || modeStr.includes('govt') || modeStr.includes('transfer') || modeStr.includes('lts')) {
-      acqMode = 'govt_transfer';
-    } else if (acqModeId === 5 || modeStr.includes('forest') || modeStr.includes('diversion')) {
-      acqMode = 'forest_diversion';
-    } else if (acqModeId === 1 || modeStr.includes('cba')) {
-      acqMode = 'cba_act';
-    }
 
     const schemeTenancyVal = project?.approved_tenancy_area ?? parseFloat(formData.SchemeTenancy || '0');
     const schemeGovtVal = project?.approved_govt_area ?? parseFloat(formData.SchemeGovt || '0');
@@ -310,9 +295,9 @@ export class FormXXIIResolver implements IDocumentResolver {
         "Justification": getFormVal(formData, 'Justification', 'justification', 'purpose_justification') || proposal?.purpose_justification || '',
         
         // Acquisition mode — tenancy+patta land goes to the matched mode column
-        "ModeCba": acqMode === 'cba_act' ? (tenancyLand + pattaLand).toFixed(4) : (getFormVal(formData, 'ModeCba', 'mode_cba') || '0.0000'),
-        "ModeRfctlarr": acqMode === 'rfctlarr' ? (tenancyLand + pattaLand).toFixed(4) : (getFormVal(formData, 'ModeRfctlarr', 'mode_rfctlarr') || '0.0000'),
-        "ModeDirectPurchase": acqMode === 'direct_purchase' ? (tenancyLand + pattaLand).toFixed(4) : (getFormVal(formData, 'ModeDirectPurchase', 'mode_direct_purchase') || '0.0000'),
+        "ModeCba": acqModeId === ACQ_MODE_ID.CBA ? (tenancyLand + pattaLand).toFixed(4) : (getFormVal(formData, 'ModeCba', 'mode_cba') || '0.0000'),
+        "ModeRfctlarr": acqModeId === ACQ_MODE_ID.RFCTLARR ? (tenancyLand + pattaLand).toFixed(4) : (getFormVal(formData, 'ModeRfctlarr', 'mode_rfctlarr') || '0.0000'),
+        "ModeDirectPurchase": acqModeId === ACQ_MODE_ID.DIRECT_PURCHASE ? (tenancyLand + pattaLand).toFixed(4) : (getFormVal(formData, 'ModeDirectPurchase', 'mode_direct_purchase') || '0.0000'),
         "ModeGovtTransfer": govtLand.toFixed(4),
         "ModeForestDiversion": forestLand.toFixed(4),
         

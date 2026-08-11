@@ -22,7 +22,7 @@ export interface GetProposalDetailsResponse {
   projectEmploymentQuota: string
   project_state_lgd: string
   projectMouzas: string[]
-  acquisition_mode: string
+  acq_mode_id: number
   state: string
   proposal_title: string
   description: string
@@ -34,6 +34,10 @@ export interface GetProposalDetailsResponse {
   total_area_acres: string
   notification_date: string | null
   mode_specific_checklist: string
+  rate_tenancy_with_emp?: string
+  rate_tenancy_no_emp?: string
+  rate_govt_land?: string
+  rate_forest_land?: string
   items: Array<{
     id: string
     plot_id: string
@@ -169,18 +173,33 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
             ).filter(Boolean)
           ))
         : [],
-      acquisition_mode: data.acq_mode_id === 1 ? 'CBA Act' : data.acq_mode_id === 2 ? 'LAA 1894' : data.acq_mode_id === 3 ? 'RFCTLARR 2013' : 'Direct Purchase',
+      acq_mode_id: Number(data.acq_mode_id),
       state: data.overall_status,
       proposal_title: data.proposal_no,
       description: data.purpose_justification || '',
       proposed_by: data.entry_by || '',
       proposed_by_role: 'Initiator',
       area_office: data.area_master?.area_en || data.area_cd,
-      mine_cd: data.mine_master?.mine_en || data.mine_cd,
+      mine_cd: (() => {
+        const rawMine = data.mine_master?.mine_en || data.mine_cd;
+        const rawArea = data.area_master?.area_en || data.area_cd;
+        if (!rawMine || rawMine === 'UNK') return '';
+        if (rawMine === rawArea) return ''; // don't repeat
+        
+        // If the area is "BANKOLA AREA" and mine is "BANKOLA AO", hide the mine since it's redundant
+        const baseAreaName = rawArea.replace(/\s+AREA$/i, '');
+        if (rawMine.replace(/\s+(AO|AREA)$/i, '') === baseAreaName) return '';
+        
+        return rawMine;
+      })(),
       adjacent_colliery: adjacentCollieryName,
       total_area_acres: totalArea.toString(),
       notification_date: null, // No notification_dt column exists yet, so it's always unpublished
       mode_specific_checklist: '{"items":[]}',
+      rate_tenancy_with_emp: data.rate_tenancy_land_with_emp?.toString() || '0',
+      rate_tenancy_no_emp: data.rate_tenancy_land_no_emp?.toString() || '0',
+      rate_govt_land: data.rate_govt_land?.toString() || '0',
+      rate_forest_land: data.rate_forest_land?.toString() || '0',
       items: items,
       entry_ts: new Date(data.proposal_dt).toISOString(),
     }

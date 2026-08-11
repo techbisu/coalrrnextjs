@@ -20,6 +20,8 @@ export {
   WithinProjectBaselineGuard,
 } from "./guards";
 export { WorkflowEngine } from "./engine";
+export { ProcessRegistry, processRegistry } from "./ProcessRegistry";
+
 export type {
   ActorRole,
   AttemptTransitionResult,
@@ -31,4 +33,8 @@ export type {
   TransitionGuard,
   WorkflowState,
   WorkflowStateMeta,
+  ProcessContext,
+  WorkflowTask,
+  WorkflowCycle,
+  WorkflowBranch,
 } from "./types";

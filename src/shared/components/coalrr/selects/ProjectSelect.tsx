@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Combobox, ComboboxOption } from '@/shared/components/ui/combobox'
-import { useMasterLookup } from '@/shared/hooks/useMasterLookup'
+import { useQuery } from '@tanstack/react-query'
 
 export interface ProjectSelectProps {
   areaCd?: string
@@ -19,6 +19,13 @@ export interface ProjectSelectProps {
   excludeValues?: string[]
 }
 
+async function fetchProjects() {
+  const r = await fetch('/api/projects')
+  if (!r.ok) throw new Error('Failed to load projects')
+  const json = await r.json()
+  return json.data || json
+}
+
 export function ProjectSelect({
   areaCd,
   mineCd,
@@ -33,31 +40,33 @@ export function ProjectSelect({
   className,
   excludeValues = [],
 }: ProjectSelectProps) {
-  const dependencies = React.useMemo(() => {
-    const deps: Record<string, any> = {}
-    if (ignoreScope) deps.ignore_scope = 'true'
-    if (areaCd) deps.area_cd = areaCd
-    if (mineCd) deps.mine_cd = mineCd
-    if (lockedOnly) deps.is_locked = 'true'
-    return deps
-  }, [ignoreScope, areaCd, mineCd, lockedOnly])
 
-  const { data, isLoading, error } = useMasterLookup({
-    masterName: 'project',
-    dependencies,
+  const { data: projects, isLoading, error } = useQuery({
+    queryKey: ['projects'],
+    queryFn: fetchProjects,
   })
 
   const options = React.useMemo(() => {
-    let raw = (data?.options || []).filter(
-      (opt) => !excludeValues.includes(String(opt.value))
-    )
+    let raw = (projects || [])
+      .filter((p: any) => {
+        if (lockedOnly && !p.isLocked) return false
+        if (areaCd && p.area_cd !== areaCd) return false
+        if (mineCd && p.mine_cd !== mineCd && !(p.mine_cds || []).includes(mineCd)) return false
+        if (excludeValues.includes(String(p.id))) return false
+        return true
+      })
+      .map((p: any) => ({
+        value: String(p.id),
+        label: [p.name, p.ecl_proj_cd].filter(Boolean).join(' | '),
+        data: p
+      }))
 
     if (showAllOption && !isMulti) {
       return [{ value: 'ALL', label: 'All Mining Projects' }, ...raw]
     }
 
     return raw
-  }, [data?.options, excludeValues, showAllOption, isMulti])
+  }, [projects, excludeValues, showAllOption, isMulti, lockedOnly, areaCd, mineCd])
 
   return (
     <Combobox

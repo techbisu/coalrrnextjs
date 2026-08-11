@@ -49,8 +49,8 @@ export function AcquisitionList({ schedules }: { schedules: ScheduleListItem[] }
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {schedules.map((s) => {
-            const mode = MODE_META[s.acquisition_mode] ?? {
-              label: s.acquisition_mode, checklistCode: 'CL-1', color: 'border-slate-300 bg-slate-50 text-slate-700',
+            const mode = MODE_META[s.acq_mode_id] ?? {
+              label: s.acq_mode_id.toString(), checklistCode: 'CL-1', color: 'border-slate-300 bg-slate-50 text-slate-700',
             }
             return (
               <Link
@@ -63,11 +63,18 @@ export function AcquisitionList({ schedules }: { schedules: ScheduleListItem[] }
                   <StateBadge state={s.state} />
                 </div>
 
-                <h3 className="mt-2 line-clamp-1 text-sm font-semibold">{s.proposal_title}</h3>
+                {s.proposal_title && s.proposal_title !== s.schedule_code && (
+                  <h3 className="mt-2 line-clamp-1 text-sm font-semibold">{s.proposal_title}</h3>
+                )}
                 {s.description && (
                   <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{s.description}</p>
                 )}
-                <p className="mt-1.5 text-xs font-medium text-slate-600">{s.projectName}</p>
+                <div className="mt-1.5">
+                  <p className="text-xs font-medium text-slate-600">{s.projectName}</p>
+                  {s.ecl_proj_cd && (
+                    <p className="mt-0.5 text-[11px] text-muted-foreground font-mono">{s.ecl_proj_cd}</p>
+                  )}
+                </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
                   <Badge variant="outline" className={`font-mono text-[10px] ${mode.color}`}>

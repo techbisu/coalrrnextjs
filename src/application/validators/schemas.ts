@@ -64,7 +64,7 @@ export const ApproveFormXXIISchema = z.object({
 
 export const CreateProposalSchema = z.object({
   project_id: z.string().min(1, 'Project ID is required'),
-  acquisition_mode: z.enum(['cba_act', 'direct_purchase', 'rfctlarr', 'patta']),
+  acq_mode_id: z.coerce.number().positive(),
   proposal_title: z.string().min(1, 'Proposal title is required').max(500),
   description: z.string().optional(),
   area_office: z.string().optional(),

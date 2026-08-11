@@ -245,5 +245,19 @@ export const MASTER_REGISTRY: Record<string, MasterDataConfig> = {
       { key: 'id', label: 'ID', type: 'number', required: true },
       { key: 'present_land_use', label: 'Land Use', type: 'string', required: true }
     ]
+  },
+  'project': {
+    title: 'Project Master',
+    description: 'Manage projects',
+    modelName: 'project',
+    primaryKey: 'projCd',
+    columns: [
+      { key: 'projCd', label: 'Project Code', type: 'string', required: true },
+      { key: 'projNm', label: 'Project Name', type: 'string', required: true },
+      { key: 'eclProjCd', label: 'ECL Project Code', type: 'string' },
+      { key: 'isActive', label: 'Is Active', type: 'boolean' }
+    ],
+    labelFormat: (r) => [r.projNm, r.eclProjCd, r.projCd].filter(Boolean).join(' | '),
+    searchKeys: ['projNm', 'eclProjCd', 'projCd'],
   }
 }

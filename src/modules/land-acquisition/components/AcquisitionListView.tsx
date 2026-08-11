@@ -55,8 +55,8 @@ export function AcquisitionListView({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {schedules.map((s) => {
-            const mode = MODE_META[s.acquisition_mode] ?? {
-              label: s.acquisition_mode, checklistCode: 'CL-1', color: 'border-slate-300 bg-slate-50 text-slate-700',
+            const mode = MODE_META[s.acq_mode_id] ?? {
+              label: s.acq_mode_id.toString(), checklistCode: 'CL-1', color: 'border-slate-300 bg-slate-50 text-slate-700',
             }
             return (
               <button

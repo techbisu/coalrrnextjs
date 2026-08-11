@@ -1,14 +1,14 @@
-export type AcquisitionMode = 'cba_act' | 'direct_purchase' | 'rfctlarr' | 'patta'
+import { ACQ_MODE_ID } from '@/core/config/module-codes.config'
 
-export const MODE_META: Record<AcquisitionMode, { label: string; checklistCode: string; color: string }> = {
-  cba_act:         { label: 'CBA (A&D) Act, 1957',      checklistCode: 'CL-1.1', color: 'border-rose-300 bg-rose-50 text-rose-700' },
-  direct_purchase: { label: 'Direct Purchase / Tenancy',    checklistCode: 'CL-1.2', color: 'border-amber-300 bg-amber-50 text-amber-700' },
-  rfctlarr:        { label: 'RFCTLARR Act, 2013', checklistCode: 'CL-1.3', color: 'border-violet-300 bg-violet-50 text-violet-700' },
-  patta:           { label: 'Draft Project Expansion',     checklistCode: 'CL-1.4', color: 'border-teal-300 bg-teal-50 text-teal-700' },
+export const MODE_META: Record<number, { label: string; checklistCode: string; color: string }> = {
+  [ACQ_MODE_ID.CBA]:             { label: 'CBA (A&D) Act, 1957',      checklistCode: 'CL-1.1', color: 'border-rose-300 bg-rose-50 text-rose-700' },
+  [ACQ_MODE_ID.DIRECT_PURCHASE]: { label: 'Direct Purchase / Tenancy',    checklistCode: 'CL-1.2', color: 'border-amber-300 bg-amber-50 text-amber-700' },
+  [ACQ_MODE_ID.RFCTLARR]:        { label: 'RFCTLARR Act, 2013', checklistCode: 'CL-1.3', color: 'border-violet-300 bg-violet-50 text-violet-700' },
+  [ACQ_MODE_ID.LEASE_TENANCY]:   { label: 'Draft Project Expansion',     checklistCode: 'CL-1.4', color: 'border-teal-300 bg-teal-50 text-teal-700' },
 }
 
-export const MODES: AcquisitionMode[] = ['direct_purchase', 'cba_act', 'rfctlarr', 'patta']
-export const STANDARD_ACQ_MODES: AcquisitionMode[] = ['direct_purchase', 'cba_act', 'rfctlarr']
+export const MODES: number[] = [ACQ_MODE_ID.DIRECT_PURCHASE, ACQ_MODE_ID.CBA, ACQ_MODE_ID.RFCTLARR, ACQ_MODE_ID.LEASE_TENANCY]
+export const STANDARD_ACQ_MODES: number[] = [ACQ_MODE_ID.DIRECT_PURCHASE, ACQ_MODE_ID.CBA, ACQ_MODE_ID.RFCTLARR]
 
 export const ANNEXURE_META: Record<'A' | 'B' | 'C', { label: string; color: string; desc: string }> = {
   A: { label: 'A', color: 'border-emerald-300 bg-emerald-50 text-emerald-700',     desc: 'Fully Clear (can acquire fully)' },
@@ -29,7 +29,8 @@ export interface ScheduleListItem {
   schedule_code: string
   project_id: string
   projectName: string
-  acquisition_mode: AcquisitionMode
+  ecl_proj_cd: string | null
+  acq_mode_id: number
   state: string
   proposal_title: string
   description: string
@@ -85,7 +86,7 @@ export interface ScheduleDetail {
   projectBudgetCeiling: string
   projectLandLimit: string
   projectEmploymentQuota: string
-  acquisition_mode: AcquisitionMode
+  acq_mode_id: number
   state: string
   proposal_title: string
   description: string

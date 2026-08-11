@@ -117,7 +117,7 @@ export class WorkflowActionHistoryService {
       },
       include: {
         file_record: {
-          select: { id: true, original_name: true, status: true }
+          select: { id: true, original_name: true }
         }
       }
     })

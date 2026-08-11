@@ -572,10 +572,14 @@ export class PrismaProjectRepository implements IProjectRepository {
           where: { area_cd: { in: options.scope.areaIds } },
           select: { mine_cd: true }
         });
-        where.projCd = { in: areaMines.map((m: any) => m.mine_cd) };
+        where.project_mines = {
+          some: { mine_cd: { in: areaMines.map((m: any) => m.mine_cd) } }
+        };
       } else if (options.scope.level === 'UNIT') {
         const mineCds = Object.values(options.scope.unitsByArea).flat() as string[];
-        where.projCd = { in: mineCds };
+        where.project_mines = {
+          some: { mine_cd: { in: mineCds } }
+        };
       }
     }
 

@@ -11,7 +11,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   return withRequestContext(request, async () => {
-    const auth = await authorizeApi('proposal.update');
+    const auth = await authorizeApi('proposal.addplot');
     if (auth.error) return auth.error;
     const userId = auth.user?.id || auth.user?.email || auth.user?.name || 'system';
 

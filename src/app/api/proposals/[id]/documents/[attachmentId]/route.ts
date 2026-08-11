@@ -6,7 +6,7 @@ import { proposalDocumentPackageService } from '@/infrastructure/di/Container'
 type Ctx = { params: Promise<{ id: string, attachmentId: string }> }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const auth = await authorizeApi('proposal.update') // Require update permission to delete documents
+  const auth = await authorizeApi('proposal.edit') // Require update permission to delete documents
   if (auth.error) return auth.error
 
   const { id, attachmentId } = await params

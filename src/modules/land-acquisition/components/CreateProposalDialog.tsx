@@ -16,7 +16,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/aler
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/shared/components/ui/dialog'
-import { AcquisitionMode, MODE_META, STANDARD_ACQ_MODES } from '../types'
+import { MODE_META, STANDARD_ACQ_MODES } from '../types'
+import { ACQ_MODE_ID } from '@/core/config/module-codes.config'
 import { useRouter } from 'next/navigation'
 import { ProjectSelect } from '@/shared/components/coalrr/selects'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
@@ -62,7 +63,7 @@ export function CreateProposalDialog({
 
   const [form, setForm] = React.useState({
     project_id: '',
-    acquisition_mode: 'direct_purchase' as AcquisitionMode | '',
+    acq_mode_id: ACQ_MODE_ID.DIRECT_PURCHASE as number | '',
     proposal_type: 'STANDARD_LAP' as 'STANDARD_LAP' | 'DRAFT_PR_CHECKLIST_1_4',
     proposal_no: '',
     description: '',
@@ -84,6 +85,42 @@ export function CreateProposalDialog({
     }
   }, [form.project_id, lockedProjects, form.mine_cd])
 
+  React.useEffect(() => {
+    async function fetchGeneratedRefNo() {
+      if (!form.project_id) return
+      
+      const isDraft = form.proposal_type === 'DRAFT_PR_CHECKLIST_1_4'
+      const acqMode = form.acq_mode_id
+
+      if (!isDraft && !acqMode) return
+
+      try {
+        const res = await fetch('/api/proposals/generate-ref', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: form.project_id,
+            acq_mode_id: acqMode,
+            is_draft: isDraft
+          })
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.refNo) {
+            setForm(f => ({ ...f, proposal_no: data.refNo }))
+          }
+        }
+      } catch (err) {
+        console.error('Failed to generate proposal ref no', err)
+      }
+    }
+    
+    // Only auto-generate if it hasn't been manually typed yet or if it's following the auto-generated pattern
+    if (!form.proposal_no || form.proposal_no.includes('ACQ/') || form.proposal_no.includes('DRAFT/')) {
+      fetchGeneratedRefNo()
+    }
+  }, [form.project_id, form.acq_mode_id, form.proposal_type])
+
   const create = useMutation({
     mutationFn: async () => {
       const selectedProject = lockedProjects.find(p => p.id === form.project_id)
@@ -98,8 +135,8 @@ export function CreateProposalDialog({
           area_cd: selectedProject?.area_cd || proposalConfig.fallbackAreaCode,
           proj_cd: form.project_id,
           acq_mode_id: form.proposal_type === 'DRAFT_PR_CHECKLIST_1_4' 
-            ? 6 
-            : (proposalConfig.acquisitionModeIdMap[form.acquisition_mode as keyof typeof proposalConfig.acquisitionModeIdMap] || 6),
+            ? ACQ_MODE_ID.DIRECT_PURCHASE 
+            : Number(form.acq_mode_id),
           proposal_type: form.proposal_type,
           purpose_justification: form.description,
           rate_tenancy_land_with_emp: Number(form.rate_tenancy_land_with_emp),
@@ -123,7 +160,7 @@ export function CreateProposalDialog({
       })
       setStep(1)
       setForm({
-        project_id: '', acquisition_mode: 'direct_purchase', proposal_type: 'STANDARD_LAP', proposal_no: '', description: '',
+        project_id: '', acq_mode_id: ACQ_MODE_ID.DIRECT_PURCHASE, proposal_type: 'STANDARD_LAP', proposal_no: '', description: '',
         mine_cd: '', notification_date: '',
         rate_tenancy_land_with_emp: 0, rate_tenancy_land_no_emp: 0, rate_govt_land: 0, rate_forest_land: 0,
         employment_proposed_count: 0, employment_system: 'PACKAGE_DEAL',
@@ -136,7 +173,7 @@ export function CreateProposalDialog({
 
   const canAdvanceStep1 = form.proposal_type === 'DRAFT_PR_CHECKLIST_1_4' 
     ? Boolean(form.project_id && form.proposal_no.trim())
-    : Boolean(form.project_id && form.acquisition_mode && form.proposal_no.trim())
+    : Boolean(form.project_id && form.acq_mode_id && form.proposal_no.trim())
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -213,7 +250,7 @@ export function CreateProposalDialog({
                   lockedOnly
                   value={form.project_id}
                   onChange={(val) => setForm({ ...form, project_id: typeof val === 'string' ? val : (Array.isArray(val) ? val[0] : '') })}
-                  placeholder="Select Target Mining Project from DB..."
+                  placeholder="Select the Approved Project "
                 />
                 )}
               </div>
@@ -225,12 +262,12 @@ export function CreateProposalDialog({
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     {STANDARD_ACQ_MODES.map((m) => {
                       const meta = MODE_META[m]
-                      const selected = form.acquisition_mode === m
+                      const selected = form.acq_mode_id === m
                       return (
                         <button
                           key={m}
                           type="button"
-                          onClick={() => setForm({ ...form, acquisition_mode: m })}
+                          onClick={() => setForm({ ...form, acq_mode_id: m })}
                           className={`flex flex-col items-start rounded-md border px-3 py-2 text-left transition ${
                             selected ? meta.color + ' ring-2 ring-offset-1 ring-amber-400' : 'border-border bg-card hover:border-amber-300'
                           }`}

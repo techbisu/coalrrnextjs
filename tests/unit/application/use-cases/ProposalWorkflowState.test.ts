@@ -63,7 +63,7 @@ describe('Proposal Module Workflow State & Canonical Constants Suite', () => {
       const propResult = Proposal.create({
         projectId: 'proj_cba_01',
         proposalTitle: 'CBA Expansion Project Phase I',
-        acquisitionMode: 'cba_act',
+        acq_mode_id: 1,
         proposedBy: 'Officer A',
         proposedByRole: 'unit_office',
         collieryCode: 'MINE_001',
@@ -71,7 +71,7 @@ describe('Proposal Module Workflow State & Canonical Constants Suite', () => {
 
       expect(propResult.isSuccess).toBe(true)
       const proposal = propResult.value!
-      expect(proposal.acquisitionMode.value).toBe('cba_act')
+      expect(proposal.acq_mode_id).toBe(1)
       expect(proposal.checklist.checklistCode).toBe('CL-1.1')
       expect(proposal.state.value).toBe('Drafting')
     })
@@ -80,7 +80,7 @@ describe('Proposal Module Workflow State & Canonical Constants Suite', () => {
       const propResult = Proposal.create({
         projectId: 'proj_rfctlarr_01',
         proposalTitle: 'RFCTLARR Land Procurement',
-        acquisitionMode: 'rfctlarr',
+        acq_mode_id: 2,
         proposedBy: 'Officer B',
         proposedByRole: 'area_office',
         collieryCode: 'MINE_002',
@@ -88,7 +88,7 @@ describe('Proposal Module Workflow State & Canonical Constants Suite', () => {
 
       expect(propResult.isSuccess).toBe(true)
       const proposal = propResult.value!
-      expect(proposal.acquisitionMode.value).toBe('rfctlarr')
+      expect(proposal.acq_mode_id).toBe(2)
       expect(proposal.checklist.checklistCode).toBe('CL-1.3')
       expect(proposal.state.value).toBe('Drafting')
     })
@@ -97,7 +97,7 @@ describe('Proposal Module Workflow State & Canonical Constants Suite', () => {
       const propResult = Proposal.create({
         projectId: 'proj_dp_01',
         proposalTitle: 'Direct Purchase Tenancy Block',
-        acquisitionMode: 'direct_purchase',
+        acq_mode_id: 6,
         proposedBy: 'Officer C',
         proposedByRole: 'unit_office',
         collieryCode: 'MINE_003',
@@ -105,7 +105,7 @@ describe('Proposal Module Workflow State & Canonical Constants Suite', () => {
 
       expect(propResult.isSuccess).toBe(true)
       const proposal = propResult.value!
-      expect(proposal.acquisitionMode.value).toBe('direct_purchase')
+      expect(proposal.acq_mode_id).toBe(6)
       expect(proposal.checklist.checklistCode).toBe('CL-1.2')
       expect(proposal.state.value).toBe('Drafting')
     })
@@ -128,7 +128,7 @@ describe('Proposal Module Workflow State & Canonical Constants Suite', () => {
       const proposal = Proposal.create({
         projectId: 'proj_001',
         proposalTitle: 'Sample Proposal',
-        acquisitionMode: 'direct_purchase',
+        acq_mode_id: 6,
         proposedBy: 'Officer',
         proposedByRole: 'unit_office',
         collieryCode: 'M001',
@@ -162,7 +162,7 @@ describe('Proposal Module Workflow State & Canonical Constants Suite', () => {
       const proposal = Proposal.create({
         projectId: 'proj_001',
         proposalTitle: 'Sample Proposal',
-        acquisitionMode: 'direct_purchase',
+        acq_mode_id: 6,
         proposedBy: 'Officer',
         proposedByRole: 'unit_office',
         collieryCode: 'M001',

@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
 import { AddPlotDialog } from './AddPlotDialog'
 import { Pencil } from 'lucide-react'
+import { Can } from '@/authorization/components/Can'
 
 export const PLOT_TYPES = [
   { value: '1', label: '1 - LR' },
@@ -45,9 +46,11 @@ export function PlotScheduleManager({
 
   return (
     <>
-      <Button onClick={() => setOpen(true)} className="gap-2" size="sm">
-        <Plus className="w-4 h-4" /> Add Plot
-      </Button>
+      <Can permission="proposal.addplot">
+        <Button onClick={() => setOpen(true)} className="gap-2" size="sm">
+          <Plus className="w-4 h-4" /> Add Plot
+        </Button>
+      </Can>
 
       <AddPlotDialog 
         open={open} 

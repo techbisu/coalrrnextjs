@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 export const CreateProposalSchema = z.object({
   project_id: z.string().min(1, 'Project is required'),
-  acquisition_mode: z.string().min(1, 'Acquisition mode is required'),
+  acq_mode_id: z.number().positive('Acquisition mode ID must be positive'),
   proposal_title: z.string().min(1, 'Proposal title is required'),
   description: z.string().optional(),
   area_office: z.string().optional(),

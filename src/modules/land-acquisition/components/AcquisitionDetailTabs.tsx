@@ -1,3 +1,4 @@
+// Force reload 1
 'use client'
 
 import * as React from 'react'
@@ -5,11 +6,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Can } from '@/authorization/components/Can'
 import {
-  SectionCard, DataTable, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline, ActionJustificationDialog, PartialAreaInputDialog, WorkflowTimelineFeed, ProposalActionCenterBanner,
+  SectionCard, DataTable, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline, ActionJustificationDialog, PartialAreaInputDialog, ProcessActionCenter, UnifiedWorkflowTimeline,
 } from '@/shared/components/coalrr'
 import { ProposalOverviewSection } from './sections/ProposalOverviewSection'
+import { ProposalMetaBreakdownCard } from './sections/ProposalMetaBreakdownCard'
 import type {
-  Column, AvailableTransition, TimelineNode, ChecklistItem, ChecklistItemStatus,
+  Column, AvailableTransition, TimelineNode, ChecklistItem, ChecklistItemStatus, StageStep,
 } from '@/shared/components/coalrr'
 import { formatNumber, timeAgo,  } from '@/lib/utils/formatters'
 import { useUiState } from '@/providers/UiStateProvider'
@@ -49,7 +51,7 @@ import { COMPENSATION_PAYROLL_STATES, COMPENSATION_PAYROLL_ORDERED_STATES } from
 import { getChecklistStatus, updateChecklistSubmission } from '@/app/actions/checklist.actions'
 
 import {
-  AcquisitionMode, MODE_META, MODES, ANNEXURE_META, LAND_TYPE_COLOR,
+  MODE_META, MODES, ANNEXURE_META, LAND_TYPE_COLOR,
   ScheduleListItem, ScheduleItem, ModeChecklistPayload, ScheduleDetail
 } from '../types'
 
@@ -64,56 +66,69 @@ const fetchPlots = async (filter?: any): Promise<any[]> => {
 export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }) {
   const qc = useQueryClient()
   const router = useRouter()
-  const onChanged = () => {
+
+  const handleProcessUpdated = () => {
     qc.invalidateQueries({ queryKey: ['schedules'] })
     qc.invalidateQueries({ queryKey: ['schedule', schedule.id] })
-    router.refresh() // Soft refresh to retain client state (popups) while fetching latest RSC data
+    qc.invalidateQueries({ queryKey: ['workflow', 'history', 'LAND_SCHEDULE', schedule.id] })
+    qc.invalidateQueries({ queryKey: ['proposals', schedule.id, 'milestones'] })
+    qc.invalidateQueries({ queryKey: ['schedules', schedule.id, 'checklist-status'] })
+    router.refresh()
   }
+
+  const stages: StageStep[] = [
+    { code: 'Drafting', label: 'Drafting', status: schedule.state === 'Drafting' ? 'current' : 'done' },
+    { code: 'UnitSubmitted', label: 'Unit Office', status: schedule.state === 'UnitSubmitted' ? 'current' : (schedule.state === 'Drafting' ? 'pending' : 'done') },
+    { code: 'AreaVetting', label: 'Area Office', status: schedule.state === 'AreaVetting' ? 'current' : (['Drafting', 'UnitSubmitted'].includes(schedule.state) ? 'pending' : 'done') },
+    { code: 'HqParallelVetting', label: 'HQ Parallel', status: schedule.state === 'HqParallelVetting' ? 'current' : (['Drafting', 'UnitSubmitted', 'AreaVetting'].includes(schedule.state) ? 'pending' : 'done') },
+    { code: 'GmLreReview', label: 'GM (LRE)', status: schedule.state === 'GmLreReview' ? 'current' : (['Published'].includes(schedule.state) ? 'done' : 'pending') },
+    { code: 'Published', label: 'Published', status: schedule.state === 'Published' ? 'done' : 'pending' },
+  ]
 
   return (
     <div className="space-y-6">
-      <PendingActionBanner schedule={schedule} />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Panel - Overview & Plots (8 cols) */}
+        {/* Left Column (8 cols): Unified Timeline Feed & Main Workspace Tabs */}
         <div className="lg:col-span-8 space-y-6">
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="w-fit flex-wrap">
-            <TabsTrigger value="overview"><ListChecks className="mr-2 h-3.5 w-3.5" /> Overview</TabsTrigger>
-            <TabsTrigger value="checklist"><FileText className="mr-2 h-3.5 w-3.5" /> Compliance Checklist</TabsTrigger>
-            <TabsTrigger value="plots"><Layers className="mr-2 h-3.5 w-3.5" /> Plots &amp; Annexures</TabsTrigger>
-            <TabsTrigger value="milestones"><Calendar className="mr-2 h-3.5 w-3.5" /> Statutory Milestones</TabsTrigger>
-          </TabsList>
+          <UnifiedWorkflowTimeline
+            moduleCode="LAND_SCHEDULE"
+            entityId={schedule.id}
+            stages={stages}
+          />
 
-          <TabsContent value="overview" className="mt-4 space-y-6">
-            <ProposalOverviewSection schedule={schedule} />
-          </TabsContent>
+          <Tabs defaultValue="checklist" className="w-full">
+            <TabsList className="w-fit flex-wrap">
+              <TabsTrigger value="checklist"><FileText className="mr-2 h-3.5 w-3.5" /> Compliance Checklist</TabsTrigger>
+              <TabsTrigger value="plots"><Layers className="mr-2 h-3.5 w-3.5" /> Plots &amp; Annexures</TabsTrigger>
+              <TabsTrigger value="milestones"><Calendar className="mr-2 h-3.5 w-3.5" /> Statutory Milestones</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="checklist" className="mt-4 space-y-6">
-            <ChecklistTab schedule={schedule} onChanged={onChanged} />
-          </TabsContent>
+            <TabsContent value="checklist" className="mt-4 space-y-6">
+              <ChecklistTab schedule={schedule} onChanged={handleProcessUpdated} />
+            </TabsContent>
 
-          <TabsContent value="plots" className="mt-4">
-            <PlotsTab schedule={schedule} onChanged={onChanged} />
-          </TabsContent>
+            <TabsContent value="plots" className="mt-4">
+              <PlotsTab schedule={schedule} onChanged={handleProcessUpdated} />
+            </TabsContent>
 
-          <TabsContent value="milestones" className="mt-4">
-            <MilestonesTab schedule={schedule} />
-          </TabsContent>
-        </Tabs>
-      </div>
+            <TabsContent value="milestones" className="mt-4">
+              <MilestonesTab schedule={schedule} />
+            </TabsContent>
+          </Tabs>
+        </div>
 
-      {/* Right Panel - Timeline, Verification & Limits (4 cols) */}
-      <div className="lg:col-span-4 space-y-6">
-        <VerificationTab schedule={schedule} onChanged={onChanged} />
-        <TimelineTab schedule={schedule} />
-        <LimitsTab schedule={schedule} />
-      </div>
+        {/* Right Sidebar Column (4 cols): Action Command Center, Proposal Metadata & Breakdown, Baseline Limits */}
+        <div className="lg:col-span-4 space-y-6">
+          <PendingActionBanner schedule={schedule} onActionTriggered={handleProcessUpdated} />
+          <ProposalMetaBreakdownCard schedule={schedule} />
+          <LimitsTab schedule={schedule} />
+        </div>
       </div>
     </div>
   )
 }
 
-function PendingActionBanner({ schedule }: { schedule: ScheduleDetail }) {
+function PendingActionBanner({ schedule, onActionTriggered }: { schedule: ScheduleDetail; onActionTriggered?: () => void }) {
   const { user } = useAuth()
   const { data: clStatus } = useQuery<{ isComplete: boolean; completedCount?: number; totalCount?: number }>({
     queryKey: ['schedules', schedule.id, 'checklist-status'],
@@ -125,9 +140,10 @@ function PendingActionBanner({ schedule }: { schedule: ScheduleDetail }) {
   })
 
   return (
-    <ProposalActionCenterBanner
-      proposalId={schedule.id}
-      proposalNo={schedule.schedule_code || `PROP-${schedule.id.slice(0, 8)}`}
+    <ProcessActionCenter
+      entityId={schedule.id}
+      entityCode={schedule.schedule_code || `PROP-${schedule.id.slice(0, 8)}`}
+      entityTypeLabel="Land Acquisition Schedule"
       currentStage={getNormalizedState(schedule.state)}
       userRole={user?.roles?.[0] || 'unit_office'}
       checklistSummary={clStatus ? {
@@ -135,6 +151,9 @@ function PendingActionBanner({ schedule }: { schedule: ScheduleDetail }) {
         completed: (clStatus as any).completedCount || ((clStatus as any).isComplete ? 12 : 8),
         isComplete: Boolean(clStatus.isComplete),
       } : undefined}
+      onAction={() => {
+        if (onActionTriggered) onActionTriggered()
+      }}
     />
   )
 }
@@ -240,44 +259,54 @@ function PlotsTab({
   }, [schedule.items])
 
   const baseColumns: Column<ScheduleItem>[] = [
-    { key: 'plot_number', header: 'Plot', sortable: true, render: (r) => (
-      <div className="flex flex-col gap-0.5 py-0.5">
-        <span className="font-mono text-xs font-semibold text-foreground">{r.plot_number}</span>
-        {r.opt_plot_number && (
-          <span className="font-mono text-[11px] text-muted-foreground">Prev: {r.opt_plot_number}</span>
-        )}
-        <span className="text-[11px] text-muted-foreground font-medium">
-          {r.mouza}{r.jl_no ? ` (JL No: ${r.jl_no})` : ''}
+    { key: 'plot_number', header: 'Plot & Mouza Specs', sortable: true, render: (r) => {
+      const cleanPlot = (r.plot_number || '').replace(/^(LR\s+LR\s*)/i, 'LR ')
+      return (
+      <div className="flex flex-col gap-0.5 py-1 min-w-[140px]">
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-xs font-bold text-foreground">{cleanPlot}</span>
+          {r.opt_plot_number && (
+            <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
+              Prev: {r.opt_plot_number}
+            </Badge>
+          )}
+        </div>
+        <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate font-medium">
+          <MapPin className="h-3 w-3 text-amber-600 shrink-0" />
+          <span>{r.mouza}{r.jl_no ? ` (JL: ${r.jl_no})` : ''}</span>
+        </p>
+      </div>
+      )
+    } },
+    { key: 'total_area', header: 'Acreage (ROR / Acq)', align: 'right', sortable: true, render: (r) => (
+      <div className="flex flex-col items-end gap-1 py-1 font-mono text-xs">
+        <span className="font-bold text-foreground">{formatNumber(r.total_ror_area || Number(r.area_acres || 0), 4)} Ac</span>
+        <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+          Acq: {formatNumber(r.to_be_acquired_area || Number(r.area_acres || 0), 4)} Ac
         </span>
       </div>
     ) },
-    { key: 'total_area', header: 'Total Area (ac)', align: 'right', sortable: true, render: (r) => (
-      <div className="flex flex-col items-end gap-0.5 py-0.5 font-mono text-xs">
-        <span className="font-semibold text-foreground">{formatNumber(r.total_ror_area || Number(r.area_acres || 0), 4)} ac</span>
-        <span className="text-[11px] text-muted-foreground">Acq: {formatNumber(r.to_be_acquired_area || Number(r.area_acres || 0), 4)} ac</span>
-      </div>
-    ) },
-    { key: 'land_type', header: 'Land Type', render: (r) => {
+    { key: 'land_type', header: 'Land Category & Purpose', render: (r) => {
       if (r.land_types_breakdown && r.land_types_breakdown.length > 0) {
         return (
-          <div className="flex flex-col gap-1.5 py-1 min-w-[200px]">
+          <div className="flex flex-col gap-2 py-1 min-w-[200px]">
             {r.land_types_breakdown.map((bt, idx) => (
-              <div key={idx} className="flex flex-col gap-0.5 bg-muted/40 p-1.5 rounded border border-border/50">
-                <div className="flex items-center justify-between gap-2 text-xs font-semibold">
-                  <span className="text-foreground font-mono">{bt.primary_name}</span>
-                  <span className="font-mono text-[11px] text-muted-foreground">{formatNumber(bt.primary_area, 4)} ac</span>
+              <div key={idx} className="flex flex-col gap-0.5">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="font-semibold text-foreground">{bt.primary_name}</span>
+                  <span className="font-mono text-[11px] font-bold text-foreground">{formatNumber(bt.primary_area, 4)} Ac</span>
                 </div>
                 {bt.use_purpose && (
-                  <span className="text-[10px] uppercase tracking-wide font-medium text-muted-foreground/90">
-                    Purpose: {bt.use_purpose}
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/90">
+                    PURPOSE: {bt.use_purpose}
                   </span>
                 )}
                 {bt.sub_types && bt.sub_types.length > 0 && (
-                  <div className="mt-0.5 flex flex-col gap-0.5 pl-1.5 border-l-2 border-primary/30">
+                  <div className="mt-0.5 space-y-0.5 pl-2">
                     {bt.sub_types.map((st, sIdx) => (
-                      <div key={sIdx} className="flex items-center justify-between text-[11px]">
-                        <span className="text-muted-foreground font-mono">{st.sub_name}</span>
-                        <span className="font-mono font-medium text-foreground">{formatNumber(st.area_to_acquire, 4)} ac</span>
+                      <div key={sIdx} className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>{st.sub_name}</span>
+                        <span className="font-mono font-semibold text-foreground">{formatNumber(st.area_to_acquire, 4)} Ac</span>
                       </div>
                     ))}
                   </div>
@@ -288,12 +317,12 @@ function PlotsTab({
         )
       }
       return (
-        <Badge variant="outline" className="text-xs font-normal font-mono bg-muted/30">
+        <span className="text-xs font-semibold text-foreground">
           {r.land_type}
-        </Badge>
+        </span>
       )
     } },
-    { key: 'annexure_tag', header: 'Annexure', align: 'center', render: (r) => {
+    { key: 'annexure_tag', header: 'Annexure Clearance', align: 'center', render: (r) => {
       const meta = ANNEXURE_META[r.annexure_tag]
       const currentStatus = r.annexure_tag === 'B' ? 'PURCHASED' : r.annexure_tag === 'C' ? 'PARTIALLY_PURCHASED' : 'PROPOSED';
       
@@ -312,72 +341,71 @@ function PlotsTab({
                 updateStatus.mutate({ plot_no: r.plot_id || r.plot_number, status: newStatus })
               }
             }}
-            className={`h-7 font-mono text-xs font-bold rounded border px-2 py-0.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary ${meta.color}`}
-            title={`Annexure ${meta.label} · ${meta.desc}`}
+            className="h-8 text-xs font-semibold rounded-md border border-input bg-background px-2 py-1 cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
           >
-            <option value="PROPOSED" className="bg-background text-foreground font-mono font-normal">Annexure A (Clear)</option>
-            <option value="PURCHASED" className="bg-background text-foreground font-mono font-normal">Annexure B (Purchased)</option>
-            <option value="PARTIALLY_PURCHASED" className="bg-background text-foreground font-mono font-normal">Annexure C (Partial)</option>
+            <option value="PROPOSED">ANX A</option>
+            <option value="PURCHASED">ANX B</option>
+            <option value="PARTIALLY_PURCHASED">ANX C</option>
           </select>
         )
       }
 
       return (
-        <Badge 
-          variant="outline" 
-          className={`font-mono text-xs font-bold px-2.5 py-0.5 cursor-help ${meta.color}`}
-          title={`Annexure ${meta.label} · ${meta.desc}`}
-        >
-          {meta.label}
-        </Badge>
+        <span className="text-xs font-mono font-semibold text-foreground">
+          ANX {r.annexure_tag}
+        </span>
       )
     } },
-  ]
-  
-  const actionsColumn: Column<ScheduleItem> = { key: '_actions', header: '', align: 'right', render: (r) => (
-      canEdit ? (
-        <div className="flex justify-end gap-2">
+    ...(canEdit ? [{
+      key: 'actions' as keyof ScheduleItem,
+      header: 'Actions',
+      align: 'right' as const,
+      render: (r: ScheduleItem) => (
+        <div className="flex items-center justify-end gap-1">
           <Button
-            size="icon"
             variant="ghost"
-            className="h-7 w-7 text-muted-foreground hover:text-blue-600"
-            onClick={() => setEditPlotId(r.plot_id)}
+            size="sm"
+            onClick={() => setEditPlotId(r.plot_id || r.id)}
+            className="h-8 w-8 p-0 text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/40"
+            title="Edit Plot Parameters"
           >
             <Pencil className="h-3.5 w-3.5" />
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
-                size="icon"
                 variant="ghost"
-                className="h-7 w-7 text-muted-foreground hover:text-rose-600"
-                disabled={deleteItem.isPending}
+                size="sm"
+                className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                title="Remove Plot"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogTitle>Remove Plot {r.plot_number}?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will permanently delete the plot from this proposal.
+                  This action removes plot {r.plot_number} from proposal schedule {schedule.schedule_code}.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => deleteItem.mutate(r.plot_id)} className="bg-rose-600 hover:bg-rose-700">
-                  Delete
+                <AlertDialogAction
+                  onClick={() => deleteItem.mutate(r.plot_id || r.id)}
+                  className="bg-rose-600 hover:bg-rose-700 text-white"
+                >
+                  Confirm Delete
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
         </div>
-      ) : (
-        <Lock className="h-3 w-3 text-muted-foreground/40" />
       )
-    ) }
+    }] : [])
+  ]
 
-  const columns = [...baseColumns, actionsColumn]
+  const columns = baseColumns
 
   return (
     <div className="space-y-4">
@@ -401,15 +429,16 @@ function PlotsTab({
 
 
 
-      <SectionCard
-        title="Schedule Items (Plots)"
-        icon={Layers}
-        description={
-          isDrafting
-            ? `${schedule.items.length} plot(s) · total ${formatNumber(schedule.total_area_acres, 4)} acres`
-            : `Schedule locked in ${schedule.state} — plots cannot be added or removed`
-        }
-        action={
+      <div className="space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-border/40">
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2"><Layers className="h-4 w-4 text-sky-600 dark:text-sky-400" /> Schedule Items (Plots)</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              {isDrafting
+                ? `${schedule.items.length} plot(s) · total ${formatNumber(schedule.total_area_acres, 4)} acres`
+                : `Schedule locked in ${schedule.state} — plots cannot be added or removed`}
+            </p>
+          </div>
           <PlotScheduleManager 
             proposalId={schedule.id} 
             isDrafting={isDrafting} 
@@ -419,8 +448,8 @@ function PlotsTab({
             setEditPlotId={setEditPlotId}
             onChanged={onChanged} 
           />
-        }
-      >
+        </div>
+
         <DataTable
           columns={columns}
           data={schedule.items.filter(it => it.annexure_tag === activeTab)}
@@ -449,7 +478,7 @@ function PlotsTab({
             </div>
           }
         />
-      </SectionCard>
+      </div>
 
       <PartialAreaInputDialog
         isOpen={!!partialPlot}
@@ -644,7 +673,7 @@ function ChecklistTab({
         checkableId={schedule.id}
         userId={user?.id || 'system'}
         title="Compliance Checklist"
-        description={`Mode-specific compliance items for ${MODE_META[schedule.acquisition_mode]?.label ?? schedule.acquisition_mode}. Completeness status is automatically validated by the Workflow Engine.`}
+        description={`Mode-specific compliance items for ${MODE_META[schedule.acq_mode_id]?.label ?? schedule.acq_mode_id}. Completeness status is automatically validated by the Workflow Engine.`}
       />
     </div>
   )
@@ -719,8 +748,8 @@ function VerificationTab({
       if (!isSuperAdmin && t.role !== detectedRole) return false
 
       // 2. Show/Hide condition filters:
-      // Hide submit_to_area if CL-1 checklist is incomplete
-      if (t.name === 'submit_to_area' && clStatus && !clStatus.isComplete) {
+      // Hide submit_to_area and submit_to_unit if CL-1 checklist is incomplete
+      if (['submit_to_area', 'submit_to_unit'].includes(t.name) && clStatus && !clStatus.isComplete) {
         return false
       }
 
@@ -747,7 +776,17 @@ function VerificationTab({
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
 
   const verify = useMutation({
-    mutationFn: async ({ transitionName, comments, file }: { transitionName: string; comments?: string; file?: File | null }) => {
+    mutationFn: async ({ transitionName, comments, file, targetRecipientId }: { transitionName: string; comments?: string; file?: File | null; targetRecipientId?: string | null }) => {
+      const payload: any = { 
+        action: transitionName, 
+        transitionName: transitionName,
+        role: actorRole,
+        comments: comments || `Transitioned via UI`
+      }
+      if (targetRecipientId) {
+        payload.adjacent_mine_ids = [targetRecipientId]
+      }
+      
       let uploadedDocId: string | null = null
       if (file) {
         try {
@@ -816,13 +855,14 @@ function VerificationTab({
         actionName={selectedTransition?.name || ''}
         actionLabel={selectedTransition?.label || ''}
         isReturn={selectedTransition?.name.includes('return') || selectedTransition?.name.includes('reject')}
-        onSubmit={async ({ comments, targetRecipient, file }) => {
+        onSubmit={async ({ comments, targetRecipient, targetRecipientId, file }) => {
           if (selectedTransition) {
             const finalRemarks = targetRecipient ? `${targetRecipient}. ${comments}`.trim() : comments
             await verify.mutateAsync({
               transitionName: selectedTransition.name,
               comments: finalRemarks,
               file,
+              targetRecipientId,
             })
           }
         }}
@@ -892,11 +932,11 @@ function TimelineTab({ schedule }: { schedule: ScheduleDetail }) {
     return true
   })
 
-  const nodes: TimelineNode[] = statesToDisplay.map((state) => {
+  const stages: StageStep[] = statesToDisplay.map((state) => {
     const meta = COMPENSATION_PAYROLL_STATES[state]
     const currentState = normalizedState as keyof typeof COMPENSATION_PAYROLL_STATES
-    const isBranch = state === 'BoardEscalation' || state === 'LimitBreached'
-    let status: TimelineNode['status'] = 'pending'
+
+    let status: StageStep['status'] = 'pending'
 
     if (currentState === 'BoardEscalation' || currentState === 'LimitBreached') {
       if (state === 'BoardEscalation' || state === 'LimitBreached') status = 'current'
@@ -908,31 +948,22 @@ function TimelineTab({ schedule }: { schedule: ScheduleDetail }) {
       else if (state === currentState) status = 'current'
     }
 
-    const adjacentTarget = schedule.adjacent_colliery ? schedule.adjacent_colliery : (schedule.mine_cd ? `Mine ${schedule.mine_cd}` : 'Adjacent Colliery Office')
-    const collieryInfo = `Assigned Adjacent Colliery: ${adjacentTarget}`
-
     return {
-      state,
+      code: state,
       label: meta.label,
       status,
-      note: status === 'current' 
-        ? (state === 'UnitSubmitted' ? `${collieryInfo} — ${meta.description}` : meta.description)
-        : (state === 'UnitSubmitted' ? collieryInfo : undefined),
-      isBranch,
+      order: meta.order,
     }
   })
 
   return (
     <div className="space-y-6">
-      <SectionCard
-        title="Workflow Stage Stepper"
-        icon={History}
-        description="Finite state machine stage stepper — spec §2.3.1."
-      >
-        <StatusTimeline nodes={nodes} maxheight={320} />
-      </SectionCard>
-
-      <WorkflowTimelineFeed moduleCode="LAND_SCHEDULE" entityId={schedule.id} maxHeight={480} />
+      <UnifiedWorkflowTimeline
+        moduleCode="LAND_SCHEDULE"
+        entityId={schedule.id}
+        stages={stages}
+        maxHeight={550}
+      />
     </div>
   )
 }
@@ -946,7 +977,7 @@ function MilestonesTab({ schedule }: { schedule: ScheduleDetail }) {
   const { data: milestones, isLoading } = useQuery<Milestone[]>({
     queryKey: ['proposals', schedule.id, 'milestones'],
     queryFn: async () => {
-      const r = await fetch(`/api/proposals/${schedule.id}/milestones`)
+      const r = await fetch(`/api/milestones/proposal/${schedule.id}`)
       if (!r.ok) throw new Error('Failed to load milestones')
       return r.json()
     }
@@ -954,14 +985,14 @@ function MilestonesTab({ schedule }: { schedule: ScheduleDetail }) {
 
   const addMilestone = useMutation({
     mutationFn: async (newMilestone: { milestone_type: string; authority: string; reference_no?: string; outcome?: string; remarks?: string; document_id?: string | null }) => {
-      const r = await fetch(`/api/proposals/${schedule.id}/milestones`, {
+      const r = await fetch(`/api/milestones/proposal/${schedule.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newMilestone),
       })
       if (!r.ok) {
         const errData = await r.json().catch(() => ({}));
-        throw new Error(errData.error || errData.message || 'Failed to record milestone');
+        throw new Error(errData.message || errData.error || 'Failed to record milestone');
       }
       return r.json()
     },
@@ -974,7 +1005,7 @@ function MilestonesTab({ schedule }: { schedule: ScheduleDetail }) {
 
   const deleteMilestone = useMutation({
     mutationFn: async (milestoneId: string) => {
-      const r = await fetch(`/api/proposals/${schedule.id}/milestones/${milestoneId}`, {
+      const r = await fetch(`/api/milestones/proposal/${schedule.id}/${milestoneId}`, {
         method: 'DELETE',
       })
       if (!r.ok) {
@@ -992,7 +1023,7 @@ function MilestonesTab({ schedule }: { schedule: ScheduleDetail }) {
 
   const editMilestone = useMutation({
     mutationFn: async ({ id, data }: { id: string, data: { milestone_type: string; authority: string; reference_no?: string; outcome?: string; remarks?: string; document_id?: string | null } }) => {
-      const r = await fetch(`/api/proposals/${schedule.id}/milestones/${id}`, {
+      const r = await fetch(`/api/milestones/proposal/${schedule.id}/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -1010,8 +1041,7 @@ function MilestonesTab({ schedule }: { schedule: ScheduleDetail }) {
     onError: (e: Error) => toast.error('Failed to update milestone', { description: e.message })
   })
 
-  const modeStr = String(schedule.acquisition_mode || '').toLowerCase()
-  const isDirectPurchase = modeStr.includes('direct') || modeStr === 'dp'
+  const isDirectPurchase = schedule.acq_mode_id === 6 // ACQ_MODE_ID.DIRECT_PURCHASE
 
   return (
     <div className="space-y-4">

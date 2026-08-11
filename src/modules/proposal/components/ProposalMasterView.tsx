@@ -9,7 +9,7 @@ import { Checkbox } from '@/shared/components/ui/checkbox'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
-import { MODES, MODE_META, AcquisitionMode } from '@/modules/land-acquisition/types'
+import { MODES, MODE_META } from '@/modules/land-acquisition/types'
 import { Plus, Loader2, ClipboardList } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert'
 
@@ -30,7 +30,6 @@ export function ProposalMasterView() {
     area_cd: '',
     proj_cd: '',
     acq_mode_id: 1, // Defaulting to first mode mapping, can be handled dynamically
-    acquisition_mode: '' as AcquisitionMode | '',
     purpose_justification: '',
     is_within_pr_limit: true,
     requires_board_approval: false,
@@ -140,16 +139,13 @@ export function ProposalMasterView() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {MODES.map((m) => {
                 const meta = MODE_META[m]
-                const selected = proposal.acquisition_mode === m
+                const selected = proposal.acq_mode_id === m
                 return (
                   <button
                     key={m}
                     type="button"
                     onClick={() => {
-                       let acq_mode_id = 1;
-                       if (m.toLowerCase() === 'cba_act') acq_mode_id = 1;
-                       if (m.toLowerCase() === 'rfctlarr') acq_mode_id = 5;
-                       setProposal({ ...proposal, acquisition_mode: m, acq_mode_id })
+                       setProposal({ ...proposal, acq_mode_id: m })
                     }}
                     className={`flex flex-col items-start rounded-md border px-3 py-2 text-left transition ${
                       selected ? meta.color + ' ring-2 ring-offset-1 ring-amber-300' : 'border-border bg-card hover:border-amber-300'
@@ -300,7 +296,7 @@ export function ProposalMasterView() {
           className="bg-emerald-600 hover:bg-emerald-700" 
           size="lg" 
           onClick={handleSubmit} 
-          disabled={loading || !proposal.acquisition_mode || !proposal.proj_cd}
+          disabled={loading || !proposal.acq_mode_id || !proposal.proj_cd}
         >
           {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
           {loading ? 'Processing via Math Engine...' : 'Initiate Proposal & Verify Plots'}

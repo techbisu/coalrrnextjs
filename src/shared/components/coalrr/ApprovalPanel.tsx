@@ -33,9 +33,16 @@ export interface ApprovalPanelProps {
   reviewTasks?: ReviewTaskView[]
   availableTransitions: AvailableTransition[]
   actorRole?: string
+  isParallelBranch?: boolean
+  roleLabels?: Record<string, string>
   onActorRoleChange?: (role: string) => void
   onAction?: (transitionName: string) => void
   className?: string
+}
+
+function formatRoleLabel(roleName?: string): string {
+  if (!roleName) return 'Officer'
+  return ROLE_LABELS[roleName] ?? roleName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -61,12 +68,14 @@ export function ApprovalPanel({
   reviewTasks = [],
   availableTransitions,
   actorRole,
+  isParallelBranch,
+  roleLabels = ROLE_LABELS,
   onActorRoleChange,
   onAction,
   className,
 }: ApprovalPanelProps) {
   const meta = stateMeta ?? DEFAULT_STATE_META[currentState]
-  const isParallel = currentState === 'HqParallelVetting'
+  const isParallel = isParallelBranch ?? (reviewTasks.length > 1 || currentState.toLowerCase().includes('parallel'))
   const approvedCount = reviewTasks.filter((t) => t.status === 'approved').length
   const allApproved = reviewTasks.length > 0 && approvedCount === reviewTasks.length
 

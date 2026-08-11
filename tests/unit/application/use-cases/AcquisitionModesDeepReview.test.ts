@@ -51,13 +51,13 @@ describe('Deep Review & Functional Test Matrix: All 3 Acquisition Modes', () => 
       const proposal = Proposal.create({
         projectId: 'proj_cba_001',
         proposalTitle: 'CBA Phase I Acquisition',
-        acquisitionMode: 'cba_act',
+        acq_mode_id: 1,
         proposedBy: 'Unit Land Officer',
         proposedByRole: 'unit_office',
         collieryCode: 'MINE_CBA_10',
       }).value!
 
-      expect(proposal.acquisitionMode.value).toBe('cba_act')
+      expect(proposal.acq_mode_id).toBe(1)
       expect(proposal.checklist.checklistCode).toBe('CL-1.1')
       expect(proposal.state.value).toBe('Drafting')
     })
@@ -106,13 +106,13 @@ describe('Deep Review & Functional Test Matrix: All 3 Acquisition Modes', () => 
       const proposal = Proposal.create({
         projectId: 'proj_rfctlarr_002',
         proposalTitle: 'RFCTLARR Land Procurement',
-        acquisitionMode: 'rfctlarr',
+        acq_mode_id: 2,
         proposedBy: 'Area Officer',
         proposedByRole: 'area_office',
         collieryCode: 'MINE_RF_20',
       }).value!
 
-      expect(proposal.acquisitionMode.value).toBe('rfctlarr')
+      expect(proposal.acq_mode_id).toBe(2)
       expect(proposal.checklist.checklistCode).toBe('CL-1.3')
       expect(proposal.state.value).toBe('Drafting')
     })
@@ -137,7 +137,7 @@ describe('Deep Review & Functional Test Matrix: All 3 Acquisition Modes', () => 
       const proposal = Proposal.create({
         projectId: 'proj_rfctlarr_002',
         proposalTitle: 'RFCTLARR Land Procurement',
-        acquisitionMode: 'rfctlarr',
+        acq_mode_id: 2,
         proposedBy: 'Area Officer',
         proposedByRole: 'area_office',
         collieryCode: 'MINE_RF_20',
@@ -179,13 +179,13 @@ describe('Deep Review & Functional Test Matrix: All 3 Acquisition Modes', () => 
       const proposal = Proposal.create({
         projectId: 'proj_dp_006',
         proposalTitle: 'Direct Purchase Private Land Block',
-        acquisitionMode: 'direct_purchase',
+        acq_mode_id: 6,
         proposedBy: 'Colliery Surveyor',
         proposedByRole: 'unit_office',
         collieryCode: 'MINE_DP_60',
       }).value!
 
-      expect(proposal.acquisitionMode.value).toBe('direct_purchase')
+      expect(proposal.acq_mode_id).toBe(6)
       expect(proposal.checklist.checklistCode).toBe('CL-1.2')
       expect(proposal.state.value).toBe('Drafting')
     })

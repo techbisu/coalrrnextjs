@@ -38,6 +38,9 @@ export const acqProposalRepository = new PrismaAcqProposalRepository()
 const projectRepository = new PrismaProjectRepository()
 const projectLimitService = new ProjectLimitService()
 
+import { processRegistry } from '@/core/workflow/ProcessRegistry'
+import { GUARD_REGISTRY } from '@/core/workflow/guards'
+
 // Checklist dependencies for SubmitProposalUseCase gate
 const proposalChecklistRegistry = new ChecklistContextRegistry()
 proposalChecklistRegistry.register('LAND_ACQ_PROPOSAL', new ProposalChecklistResolver(acqProposalRepository))
@@ -45,6 +48,16 @@ const checklistRepo = new PrismaChecklistRepository()
 const documentInstanceRepository = new PrismaDocumentInstanceRepository()
 const documentAdapter = new GeneratedDocumentChecklistAdapter(documentInstanceRepository, checklistRepo)
 const proposalChecklistStatusUseCase = new GetChecklistStatusUseCase(checklistRepo, proposalChecklistRegistry, documentAdapter)
+
+// Register LAND_ACQ_PROPOSAL in Generic Process Platform Registry
+processRegistry.register({
+  moduleCode: 'LAND_SCHEDULE',
+  processCode: 'LAND_ACQ_PROPOSAL',
+  name: 'Land Acquisition Proposal Process',
+  checklistResolver: new ProposalChecklistResolver(acqProposalRepository),
+  guards: GUARD_REGISTRY,
+  defaultWorkflowCode: 'COMPENSATION_PAYROLL',
+})
 
 export const getProposalsUseCase =
   globalForProposalDI.getProposalsUseCase ??

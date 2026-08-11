@@ -172,8 +172,12 @@ model owner_type_master {
 }
 
 model present_land_use {
-  id               BigInt @id
-  present_land_use String @db.VarChar(50)
+  id               BigInt    @id
+  present_land_use String    @db.VarChar(50)
+  entry_by         String?   @default("system") @db.VarChar(64)
+  entry_ts         DateTime? @default(now()) @db.Timestamptz(6)
+  updt_by          String?   @db.VarChar(64)
+  updt_ts          DateTime? @default(now()) @db.Timestamptz(6)
 
   @@schema("master")
 }
@@ -346,6 +350,8 @@ model project_mine {
   is_primary Boolean?    @default(false)
   entry_by   String?     @db.VarChar(20)
   entry_ts   BigInt?     @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_by    String?     @db.VarChar(64)
+  updt_ts    DateTime?   @default(now()) @db.Timestamptz(6)
   mine       mine_master @relation(fields: [mine_cd], references: [mine_cd], onDelete: Cascade, map: "fk_project_mine_mine")
   project    Project     @relation(fields: [proj_cd], references: [projCd], onDelete: Cascade, map: "fk_project_mine_proj")
 
@@ -599,6 +605,8 @@ model document_template_signature {
   display_order     Int               @default(0)
   entry_ts          DateTime          @default(now())
   updt_ts           DateTime          @default(now())
+  entry_by          String?           @default("system") @db.VarChar(64)
+  updt_by           String?           @db.VarChar(64)
   document_template document_template @relation(fields: [template_code], references: [template_code], onDelete: Cascade)
 
   @@schema("public")
@@ -1057,6 +1065,10 @@ model user {
   id                      Int                       @id @default(autoincrement())
   otp_enabled             Boolean                   @default(true)
   tenant_id               String?                   @db.VarChar(50)
+  entryby                 String?                   @default("system") @db.VarChar(64)
+  entryts                 DateTime?                 @default(now()) @db.Timestamptz(6)
+  updtby                  String?                   @db.VarChar(64)
+  updtts                  DateTime?                 @default(now()) @db.Timestamptz(6)
   authResetTokens         auth_reset_token[]
   auth_session            auth_session[]
   otp_sessions            otp_session[]
@@ -1097,6 +1109,8 @@ model sys_config {
   is_secret   Boolean  @default(false)
   entry_ts    DateTime @default(now())
   updt_ts     DateTime @updatedAt
+  entry_by    String?  @default("system") @db.VarChar(64)
+  updt_by     String?  @db.VarChar(64)
 
   @@schema("public")
 }
@@ -1187,12 +1201,15 @@ model application_log {
 }
 
 model auth_reset_token {
-  token_hash String   @id
+  token_hash String    @id
   user_id    Int
   expires_at DateTime
-  is_used    Boolean  @default(false)
-  entry_ts   DateTime @default(now())
-  user       user     @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_reset_token_user")
+  is_used    Boolean   @default(false)
+  entry_ts   DateTime  @default(now())
+  entry_by   String?   @default("system") @db.VarChar(64)
+  updt_by    String?   @db.VarChar(64)
+  updt_ts    DateTime? @default(now()) @db.Timestamptz(6)
+  user       user      @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_reset_token_user")
 
   @@schema("public")
 }
@@ -1245,11 +1262,14 @@ model checklist_submission {
 }
 
 model checklist_entity_context {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  checkable_type String   @db.VarChar(50)
-  checkable_id   String   @db.VarChar(50)
-  context_data   Json     @default("{}")
-  updt_ts        DateTime @default(now()) @updatedAt
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  checkable_type String    @db.VarChar(50)
+  checkable_id   String    @db.VarChar(50)
+  context_data   Json      @default("{}")
+  updt_ts        DateTime  @default(now()) @updatedAt
+  entry_by       String?   @default("system") @db.VarChar(64)
+  entry_ts       DateTime? @default(now()) @db.Timestamptz(6)
+  updt_by        String?   @db.VarChar(64)
 
   @@unique([checkable_type, checkable_id])
   @@schema("public")
@@ -1358,6 +1378,10 @@ model plot_schedule_land_type {
   rem_area              Decimal?         @db.Decimal(12, 4)
   sub_landt_id          BigInt?
   use_purpose           String?          @db.VarChar(50)
+  entry_by              String?          @default("system") @db.VarChar(64)
+  entry_ts              DateTime?        @default(now()) @db.Timestamptz(6)
+  updt_by               String?          @db.VarChar(64)
+  updt_ts               DateTime?        @default(now()) @db.Timestamptz(6)
   plot_schedule         plot_schedule    @relation(fields: [schedule_id], references: [schedule_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_slt_schedule")
   landtype_master       landtype_master  @relation("fk_slt_landtype", fields: [landt_id], references: [landt_id], onDelete: NoAction, onUpdate: NoAction)
   sub_landtype          landtype_master? @relation("fk_slt_sub_landtype", fields: [sub_landt_id], references: [landt_id], onDelete: NoAction, onUpdate: NoAction)
@@ -1378,6 +1402,10 @@ model outbox_events {
   created_at   DateTime  @default(now()) @db.Timestamptz(6)
   processed_at DateTime? @db.Timestamptz(6)
   error_msg    String?
+  entry_by     String?   @default("system") @db.VarChar(64)
+  entry_ts     DateTime? @default(now()) @db.Timestamptz(6)
+  updt_by      String?   @db.VarChar(64)
+  updt_ts      DateTime? @default(now()) @db.Timestamptz(6)
 
   @@schema("public")
 }
@@ -1415,6 +1443,7 @@ model deadline_tracker {
   entry_by      String    @db.VarChar(64)
   entry_ts      DateTime  @default(now()) @db.Timestamptz(6)
   updt_ts       DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  updt_by       String?   @db.VarChar(64)
 
   @@index([entity_type, entity_id], map: "idx_deadline_entity")
   @@schema("public")
@@ -1435,6 +1464,7 @@ model manual_milestone {
   entry_by       String    @db.VarChar(64)
   entry_ts       DateTime  @default(now()) @db.Timestamptz(6)
   updt_ts        DateTime  @default(now()) @db.Timestamptz(6)
+  updt_by        String?   @db.VarChar(64)
 
   @@index([entity_type, entity_id], map: "idx_manual_milestone_entity")
   @@index([milestone_type, outcome], map: "idx_manual_milestone_type")
@@ -1443,13 +1473,16 @@ model manual_milestone {
 }
 
 model proposal_snapshot {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  proposal_id   String   @db.VarChar(64)
-  version       Int      @default(1)
-  snapshot_type String   @db.VarChar(64)
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  proposal_id   String    @db.VarChar(64)
+  version       Int       @default(1)
+  snapshot_type String    @db.VarChar(64)
   data          Json
-  generated_by  String   @db.VarChar(64)
-  entry_ts      DateTime @default(now()) @db.Timestamptz(6)
+  generated_by  String    @db.VarChar(64)
+  entry_ts      DateTime  @default(now()) @db.Timestamptz(6)
+  entry_by      String?   @default("system") @db.VarChar(64)
+  updt_by       String?   @db.VarChar(64)
+  updt_ts       DateTime? @default(now()) @db.Timestamptz(6)
 
   @@unique([proposal_id, version])
   @@index([proposal_id], map: "idx_proposal_snapshot_proposal")
@@ -1572,6 +1605,207 @@ model plot_schedule_history {
   @@index([proposal_id], map: "idx_plot_schedule_hist_proposal")
   @@index([sys_timestamp], map: "idx_plot_schedule_hist_time")
   @@schema("acquisition")
+}
+
+model milestone_definition {
+  id                                                                                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  module_code                                                                           String                 @db.VarChar(60)
+  milestone_code                                                                        String                 @db.VarChar(80)
+  name                                                                                  String                 @db.VarChar(120)
+  description                                                                           String?
+  entity_type                                                                           String                 @db.VarChar(64)
+  metadata_schema                                                                       Json?
+  is_active                                                                             Boolean                @default(true)
+  entry_ts                                                                              DateTime               @default(now()) @db.Timestamptz(6)
+  entryby                                                                               String?                @default("system") @db.VarChar(64)
+  entryts                                                                               DateTime?              @default(now()) @db.Timestamptz(6)
+  updtby                                                                                String?                @db.VarChar(64)
+  updtts                                                                                DateTime?              @default(now()) @db.Timestamptz(6)
+  milestone_dependency_milestone_dependency_milestone_idTomilestone_definition          milestone_dependency[] @relation("milestone_dependency_milestone_idTomilestone_definition")
+  milestone_dependency_milestone_dependency_required_milestone_idTomilestone_definition milestone_dependency[] @relation("milestone_dependency_required_milestone_idTomilestone_definition")
+
+  @@unique([module_code, milestone_code])
+  @@schema("public")
+}
+
+model milestone_dependency {
+  id                                                                                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  milestone_id                                                                          String               @db.Uuid
+  required_milestone_id                                                                 String               @db.Uuid
+  condition_type                                                                        String               @default("REQUIRED") @db.VarChar(30)
+  is_required                                                                           Boolean              @default(true)
+  entryby                                                                               String?              @default("system") @db.VarChar(64)
+  entryts                                                                               DateTime?            @default(now()) @db.Timestamptz(6)
+  updtby                                                                                String?              @db.VarChar(64)
+  updtts                                                                                DateTime?            @default(now()) @db.Timestamptz(6)
+  milestone_definition_milestone_dependency_milestone_idTomilestone_definition          milestone_definition @relation("milestone_dependency_milestone_idTomilestone_definition", fields: [milestone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  milestone_definition_milestone_dependency_required_milestone_idTomilestone_definition milestone_definition @relation("milestone_dependency_required_milestone_idTomilestone_definition", fields: [required_milestone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([milestone_id, required_milestone_id])
+  @@schema("public")
+}
+
+model process_definition {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  process_code     String             @unique @db.VarChar(80)
+  module_code      String             @db.VarChar(60)
+  name             String             @db.VarChar(120)
+  version          Int                @default(1)
+  status           String             @default("ACTIVE") @db.VarChar(20)
+  is_active        Boolean            @default(true)
+  config_json      Json?
+  entry_by         String             @default("system") @db.VarChar(64)
+  entry_ts         DateTime           @default(now()) @db.Timestamptz(6)
+  updt_ts          DateTime           @default(now()) @db.Timestamptz(6)
+  updt_by          String?            @db.VarChar(64)
+  process_instance process_instance[]
+
+  @@schema("public")
+}
+
+model process_instance {
+  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  process_definition_id String             @db.Uuid
+  entity_type           String             @db.VarChar(64)
+  entity_id             String             @db.VarChar(64)
+  current_state         String             @db.VarChar(60)
+  status                String             @default("ACTIVE") @db.VarChar(20)
+  business_context      Json               @default("{}")
+  started_at            DateTime           @default(now()) @db.Timestamptz(6)
+  completed_at          DateTime?          @db.Timestamptz(6)
+  created_by            String             @db.VarChar(64)
+  entry_ts              DateTime           @default(now()) @db.Timestamptz(6)
+  updt_ts               DateTime           @default(now()) @db.Timestamptz(6)
+  entry_by              String?            @default("system") @db.VarChar(64)
+  updt_by               String?            @db.VarChar(64)
+  process_definition    process_definition @relation(fields: [process_definition_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  timeline_event        timeline_event[]
+  workflow_branch       workflow_branch[]
+  workflow_cycle        workflow_cycle[]
+  workflow_task         workflow_task[]
+
+  @@unique([entity_type, entity_id])
+  @@index([entity_type, entity_id], map: "idx_pi_entity")
+  @@schema("public")
+}
+
+model timeline_event {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  process_instance_id String           @db.Uuid
+  event_type          String           @db.VarChar(60)
+  event_category      String           @db.VarChar(40)
+  actor_user_id       Int?
+  actor_role          String?          @db.VarChar(60)
+  from_state          String?          @db.VarChar(60)
+  to_state            String?          @db.VarChar(60)
+  task_id             String?          @db.Uuid
+  branch_id           String?          @db.Uuid
+  cycle_id            String?          @db.Uuid
+  document_id         String?          @db.VarChar(64)
+  milestone_id        String?          @db.Uuid
+  target_user_id      Int?
+  target_scope        Json?
+  message             String?
+  metadata_json       Json?
+  created_at          DateTime         @default(now()) @db.Timestamptz(6)
+  entry_by            String?          @default("system") @db.VarChar(64)
+  entry_ts            DateTime?        @default(now()) @db.Timestamptz(6)
+  updt_by             String?          @db.VarChar(64)
+  updt_ts             DateTime?        @default(now()) @db.Timestamptz(6)
+  process_instance    process_instance @relation(fields: [process_instance_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([process_instance_id, created_at(sort: Desc)], map: "idx_te_process")
+  @@schema("public")
+}
+
+model workflow_branch {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  process_instance_id String           @db.Uuid
+  workflow_cycle_id   String?          @db.Uuid
+  branch_key          String           @db.VarChar(80)
+  branch_type         String           @db.VarChar(40)
+  target_entity_type  String?          @db.VarChar(64)
+  target_entity_id    String?          @db.VarChar(64)
+  status              String           @default("ACTIVE") @db.VarChar(20)
+  is_required         Boolean          @default(true)
+  execution_mode      String           @default("PARALLEL") @db.VarChar(20)
+  started_at          DateTime         @default(now()) @db.Timestamptz(6)
+  completed_at        DateTime?        @db.Timestamptz(6)
+  entry_by            String?          @default("system") @db.VarChar(64)
+  entry_ts            DateTime?        @default(now()) @db.Timestamptz(6)
+  updt_by             String?          @db.VarChar(64)
+  updt_ts             DateTime?        @default(now()) @db.Timestamptz(6)
+  process_instance    process_instance @relation(fields: [process_instance_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workflow_cycle      workflow_cycle?  @relation(fields: [workflow_cycle_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([process_instance_id, status], map: "idx_wb_instance")
+  @@schema("public")
+}
+
+model workflow_cycle {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  process_instance_id String            @db.Uuid
+  cycle_no            Int               @default(1)
+  state_code          String            @db.VarChar(60)
+  cycle_type          String            @default("NORMAL") @db.VarChar(30)
+  parent_cycle_id     String?           @db.Uuid
+  return_reason       String?
+  status              String            @default("ACTIVE") @db.VarChar(20)
+  started_at          DateTime          @default(now()) @db.Timestamptz(6)
+  completed_at        DateTime?         @db.Timestamptz(6)
+  entry_by            String?           @default("system") @db.VarChar(64)
+  entry_ts            DateTime?         @default(now()) @db.Timestamptz(6)
+  updt_by             String?           @db.VarChar(64)
+  updt_ts             DateTime?         @default(now()) @db.Timestamptz(6)
+  workflow_branch     workflow_branch[]
+  process_instance    process_instance  @relation(fields: [process_instance_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+model workflow_reaction {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  module_code    String    @db.VarChar(60)
+  process_code   String    @db.VarChar(80)
+  trigger_event  String    @db.VarChar(80)
+  condition_json Json      @default("{}")
+  rule_type      String    @default("TRIGGER") @db.VarChar(20)
+  action_code    String    @db.VarChar(80)
+  workflow_state String?   @db.VarChar(60)
+  priority       Int       @default(0)
+  is_active      Boolean   @default(true)
+  entry_ts       DateTime  @default(now()) @db.Timestamptz(6)
+  entry_by       String?   @default("system") @db.VarChar(64)
+  updt_by        String?   @db.VarChar(64)
+  updt_ts        DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([trigger_event, is_active], map: "idx_wr_event")
+  @@schema("public")
+}
+
+model workflow_task {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  process_instance_id String           @db.Uuid
+  workflow_cycle_id   String?          @db.Uuid
+  workflow_branch_id  String?          @db.Uuid
+  state_code          String           @db.VarChar(60)
+  task_type           String           @default("REVIEW") @db.VarChar(40)
+  assigned_user_id    Int?
+  assigned_role       String?          @db.VarChar(60)
+  assignment_scope    Json?
+  status              String           @default("PENDING") @db.VarChar(20)
+  due_at              DateTime?        @db.Timestamptz(6)
+  started_at          DateTime?        @db.Timestamptz(6)
+  completed_at        DateTime?        @db.Timestamptz(6)
+  completed_by        Int?
+  entry_ts            DateTime         @default(now()) @db.Timestamptz(6)
+  updt_ts             DateTime         @default(now()) @db.Timestamptz(6)
+  entry_by            String?          @default("system") @db.VarChar(64)
+  updt_by             String?          @db.VarChar(64)
+  process_instance    process_instance @relation(fields: [process_instance_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([process_instance_id, status], map: "idx_wt_instance")
+  @@schema("public")
 }
 
 enum ScopeLevel {

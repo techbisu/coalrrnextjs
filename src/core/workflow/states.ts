@@ -35,6 +35,7 @@ const T_DRAFTING__UNIT: Transition = {
   from: "Drafting",
   to: "UnitSubmitted",
   role: "unit_office",
+  guard: clFullySatisfiedGuard,
 };
 
 const T_UNIT__RETURN: Transition = {

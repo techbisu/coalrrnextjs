@@ -12,7 +12,7 @@ export class ProposalContextResolver implements IChecklistContextResolver {
 
     // Return the context variables that show_if rules will evaluate against
     return {
-      acq_mode: proposal.acquisitionMode.value,
+      acq_mode_id: proposal.acq_mode_id,
       has_debottar_land: proposal.hasDebottarLand,
       has_tribal_land: proposal.hasTribalLand,
       is_disputed_land: proposal.hasDisputedLand,

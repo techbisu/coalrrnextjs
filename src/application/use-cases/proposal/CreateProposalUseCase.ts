@@ -11,7 +11,7 @@ import { ValidationException, NotFoundException } from '@/core/errors'
 
 export interface CreateProposalRequest {
   project_id: string
-  acquisition_mode: string
+  acq_mode_id: number
   proposal_title: string
   description?: string
   area_office?: string
@@ -61,7 +61,7 @@ export class CreateProposalUseCase implements IUseCase<CreateProposalRequest, Cr
     // 2. Validate and create domain entity
     const proposalResult = Proposal.create({
       projectId: request.project_id,
-      acquisitionMode: request.acquisition_mode,
+      acq_mode_id: request.acq_mode_id,
       proposalTitle: request.proposal_title,
       description: request.description,
       proposedBy: request.user_name,
@@ -70,6 +70,7 @@ export class CreateProposalUseCase implements IUseCase<CreateProposalRequest, Cr
       collieryCode: request.colliery_code || project.mineCds[0] || project.id || 'UNK',
       adjacentColliery: request.adjacent_colliery,
       notificationDate: request.notification_date,
+      proposalNo: request.proposal_no,
       proposalType: request.proposal_type,
       rateTenancyWithEmp: request.rate_tenancy_land_with_emp,
       rateTenancyNoEmp: request.rate_tenancy_land_no_emp,

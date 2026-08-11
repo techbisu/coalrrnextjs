@@ -28,16 +28,10 @@ export async function POST(request: NextRequest) {
     const user_name = auth.user?.name || auth.user?.email || 'system';
     const user_role = auth.user?.roles?.[0] || 'user';
 
-    // Map acquisition mode ID to string per master.acqu_mode
-    let acq_mode = 'cba_act';
-    if (Number(pData.acq_mode_id) === 2 || Number(pData.acq_mode_id) === 5) acq_mode = 'rfctlarr';
-    if (Number(pData.acq_mode_id) === 3 || Number(pData.acq_mode_id) === 6) acq_mode = 'direct_purchase';
-    if (pData.acquisition_mode) acq_mode = pData.acquisition_mode;
-
     // 3. Execute UseCase
     const result = await createProposalUseCase.execute({
       project_id: pData.proj_cd,
-      acquisition_mode: acq_mode,
+      acq_mode_id: Number(pData.acq_mode_id),
       proposal_title: pData.purpose_justification || pData.proposal_no || 'Acquisition Proposal',
       description: pData.purpose_justification || '',
       area_office: pData.area_cd,

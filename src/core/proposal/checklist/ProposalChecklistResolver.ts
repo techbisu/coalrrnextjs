@@ -2,7 +2,7 @@ import { IChecklistContextResolver } from '@/core/checklist/interfaces/IChecklis
 import { IProposalRepository } from '@/domain/entities/proposal';
 import { db } from '@/lib/db';
 
-import { ACQ_LAND_SCHEDULE } from '@/core/config/module-codes.config';
+import { ACQ_LAND_SCHEDULE, ACQ_MODE_ID } from '@/core/config/module-codes.config';
 
 export class ProposalChecklistResolver implements IChecklistContextResolver {
   constructor(
@@ -36,8 +36,7 @@ export class ProposalChecklistResolver implements IChecklistContextResolver {
     // We provide these as fallbacks in case the context sync hasn't run yet,
     // and also to ensure the core immutable properties are always present.
     const baseContext = {
-      acqModeId: Number(proposal.acq_mode_id),
-      is_rfctlarr: Number(proposal.acq_mode_id) === 2,
+      acq_mode_id: Number(proposal.acq_mode_id),
       is_board_approval_req: proposal.requires_board_approval,
       stage: proposal.current_stage_cd,
       
@@ -45,7 +44,7 @@ export class ProposalChecklistResolver implements IChecklistContextResolver {
       has_tribal_land: proposal.has_tribal_land ?? false,
       has_debottar_land: proposal.has_debottar_land ?? false,
       has_disputed_land: (proposal as any).is_disputed_land ?? false,
-      has_formal_negotiation: proposal.has_formal_negotiation ?? (Number(proposal.acq_mode_id) === 6),
+      has_formal_negotiation: proposal.has_formal_negotiation ?? (Number(proposal.acq_mode_id) === ACQ_MODE_ID.DIRECT_PURCHASE),
     };
 
     // 3. Merge them together. 

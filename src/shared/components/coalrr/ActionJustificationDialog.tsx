@@ -31,7 +31,7 @@ export interface ActionJustificationDialogProps {
   isReturn?: boolean
   requiresTargetRecipient?: boolean
   recipientOptions?: Array<{ label: string; value: string }>
-  onSubmit: (data: { comments: string; targetRecipient?: string; file: File | null }) => Promise<void>
+  onSubmit: (data: { comments: string; targetRecipient?: string; targetRecipientId?: string | null; file?: File | null }) => Promise<void>
 }
 
 export function ActionJustificationDialog({
@@ -46,6 +46,7 @@ export function ActionJustificationDialog({
 }: ActionJustificationDialogProps) {
   const [comments, setComments] = React.useState('')
   const [targetRecipient, setTargetRecipient] = React.useState('')
+  const [targetRecipientId, setTargetRecipientId] = React.useState<string | null>(null)
   const [file, setFile] = React.useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -64,6 +65,7 @@ export function ActionJustificationDialog({
     if (isOpen) {
       setComments('')
       setTargetRecipient('')
+      setTargetRecipientId(null)
       setFile(null)
       setError(null)
       setIsSubmitting(false)
@@ -88,7 +90,8 @@ export function ActionJustificationDialog({
       setError(null)
       await onSubmit({
         comments,
-        targetRecipient: targetRecipient ? `sent to: ${targetRecipient}` : undefined,
+        targetRecipient,
+        targetRecipientId,
         file,
       })
       onClose()
@@ -139,11 +142,12 @@ export function ActionJustificationDialog({
                 </Label>
                 <MineSelect
                   ignoreScope
-                  value={targetRecipient}
+                  value={targetRecipientId || undefined}
                   onChange={(val, option) => {
                     const optObj = Array.isArray(option) ? option[0] : option
                     const selectedText = optObj?.label || (typeof val === 'string' ? val : (Array.isArray(val) ? val[0] : ''))
                     setTargetRecipient(selectedText)
+                    setTargetRecipientId(typeof val === 'string' ? val : (Array.isArray(val) ? val[0] : null))
                   }}
                   placeholder="Select Target Mine / Unit Office from DB..."
                   className="bg-white dark:bg-slate-900 border-blue-300 text-xs"

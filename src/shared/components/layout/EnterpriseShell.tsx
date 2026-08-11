@@ -97,7 +97,7 @@ export function EnterpriseShell({ children }: { children?: React.ReactNode }) {
   const visibleNav = NAV_ITEMS.filter((item) => {
     if (!item.portals.includes(user.tenant_id ?? 'public')) return false;
     // @ts-ignore
-    if (item.permission && !user.roles.includes('super_administrator') && !user.permissions?.includes(item.permission)) return false;
+    if (item.permission && !user.roles.includes('Super Administrator') && !user.permissions?.includes(item.permission)) return false;
     return true;
   })
   const currentNav = NAV_ITEMS.find((n) => getActiveState(n.key))

@@ -2,9 +2,11 @@
 
 ## 1. Executive Summary & Capabilities
 
-The **Next-Generation Workflow Engine** is a polymorphic, database-driven finite state machine (FSM) orchestrator that manages state transitions, compliance guard checks, parallel vetting tasks, and audit action histories across all COALRR modules (`LAND_SCHEDULE`, `COMPENSATION_PAYROLL`, `EMPLOYMENT_APP`, `FORM_I_CLAIM`).
+The **Next-Generation Workflow Engine & Generic Process Platform** is a module-independent, database-driven finite state machine (FSM) orchestrator that manages state transitions, compliance guard checks, parallel vetting tasks, event reactions, non-destructive document versioning, and unified audit action histories across all COALRR modules (`LAND_SCHEDULE`, `COMPENSATION_PAYROLL`, `EMPLOYMENT_APP`, `FORM_I_CLAIM`, and future modules).
 
-It decouples state machine rules from hardcoded code files by storing dynamic state catalogues (`public.workflow_states`) and transition graphs (`public.workflow_transitions`) in PostgreSQL, cached in-memory with a 60-second TTL.
+It decouples state machine rules from hardcoded code files by storing dynamic state catalogues (`public.workflow_states`), transition graphs (`public.workflow_transitions`), process definitions (`public.process_definition`), process instances (`public.process_instance`), workflow tasks (`public.workflow_task`), workflow branches (`public.workflow_branch`), workflow reactions (`public.workflow_reaction`), milestone definitions (`public.milestone_definition`), and unified timeline projections (`public.timeline_event`) in PostgreSQL.
+
+> For the comprehensive Process Platform architecture, see [process-platform.md](file:///d:/coalrrnextjs/docs/process-platform.md).
 
 ---
 

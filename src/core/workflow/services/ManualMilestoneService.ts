@@ -1,6 +1,6 @@
 import { Result, Ok, Fail } from '@/core'
 import { db } from '@/lib/db'
-import { auditQueue, Container } from '@/infrastructure/di/modules/core.di'
+import { Audit } from '@/core/audit/services/AuditService'
 import { milestoneConfig } from '@/core/config/milestone.config'
 
 export interface RecordMilestoneDTO {
@@ -60,13 +60,22 @@ export class ManualMilestoneService {
         await this.createProposalSnapshot(data.entity_id, data.user_id)
       }
 
-      await auditQueue.push({
-        action: 'MILESTONE_RECORDED',
-        entity_name: 'MANUAL_MILESTONE',
-        entity_id: milestone.id,
-        user_id: data.user_id,
-        remarks: JSON.stringify({ milestone: data.milestone_type, entity: data.entity_id, outcome: data.outcome })
-      })
+      Audit.logCustomAction({
+        activity: `[MILESTONE_RECORDED] on MANUAL_MILESTONE (${milestone.id}) | Remarks: ${JSON.stringify({ milestone: data.milestone_type, entity: data.entity_id, outcome: data.outcome })}`,
+        userId: data.user_id || 'system'
+      }).catch(console.error);
+
+      // Dispatch event to WorkflowReactionService (decoupled reaction trigger)
+      const { workflowReactionService } = await import('./WorkflowReactionService')
+      workflowReactionService.handleEvent('milestone_recorded', {
+        entityType: data.entity_type,
+        entityId: data.entity_id,
+        data: {
+          milestone_code: data.milestone_type,
+          outcome: data.outcome,
+          user_id: data.user_id,
+        },
+      }).catch(err => console.error('WorkflowReaction error:', err))
 
       return Ok(milestone)
     } catch (e: any) {
@@ -109,3 +118,5 @@ export class ManualMilestoneService {
     })
   }
 }
+
+export const manualMilestoneService = new ManualMilestoneService()

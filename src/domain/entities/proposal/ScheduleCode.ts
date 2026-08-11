@@ -7,7 +7,7 @@ import { Result, Fail } from '@/core/result/Result'
 import { ValidationException } from '@/core/errors'
 
 export class ScheduleCode extends ValueObject<string> {
-  private static readonly CODE_PATTERN = /^SCH-\d{4}-\d{3}$/
+  private static readonly CODE_PATTERN = /^(SCH-\d{4}-\d{3}|ECL\/.*\/(ACQ|DRAFT)\/\d{4})$/
 
   private constructor(value: string) {
     super(value)
@@ -47,6 +47,11 @@ export class ScheduleCode extends ValueObject<string> {
 
   getSequence(): number {
     const match = this._value.match(/SCH-\d{4}-(\d{3})/)
-    return match ? parseInt(match[1], 10) : 0
+    if (match) return parseInt(match[1], 10)
+    
+    const eclMatch = this._value.match(/ECL\/.*\/(ACQ|DRAFT)\/(\d{4})/)
+    if (eclMatch) return parseInt(eclMatch[2], 10)
+
+    return 0
   }
 }

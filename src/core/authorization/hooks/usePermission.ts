@@ -7,19 +7,19 @@ export function usePermission() {
   
   const hasPermission = (permission: string) => {
     if (!user) return false
-    if (user.roles?.includes('super_administrator')) return true
+    if (user.roles?.includes('Super Administrator')) return true
     return user.permissions.includes(permission)
   }
 
   const hasAnyPermission = (permissions: string[]) => {
     if (!user) return false
-    if (user.roles?.includes('super_administrator')) return true
+    if (user.roles?.includes('Super Administrator')) return true
     return permissions.some(p => user.permissions.includes(p))
   }
 
   const hasAllPermissions = (permissions: string[]) => {
     if (!user) return false
-    if (user.roles?.includes('super_administrator')) return true
+    if (user.roles?.includes('Super Administrator')) return true
     return permissions.every(p => user.permissions.includes(p))
   }
 

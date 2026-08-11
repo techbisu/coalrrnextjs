@@ -2,7 +2,6 @@
  * Checklist Value Object - Mode-specific checklist for proposals.
  */
 import { ValueObject } from '@/core/base/ValueObject'
-import { AcquisitionMode } from './AcquisitionMode'
 
 export interface ChecklistItem {
   key: string
@@ -21,38 +20,38 @@ export class Checklist extends ValueObject<ChecklistProps> {
     super(props)
   }
 
-  static createForMode(mode: AcquisitionMode): Checklist {
+  static createForMode(acq_mode_id: number): Checklist {
     const baseItems: ChecklistItem[] = [
       { key: 'plot_schedule', label: 'Plot schedule with boundaries', required: true, status: 'pending' },
       { key: 'title_verification', label: 'Title chain verified', required: true, status: 'pending' },
     ]
 
-    const modeSpecificItems: Record<string, ChecklistItem[]> = {
-      cba_act: [
+    const modeSpecificItems: Record<number, ChecklistItem[]> = {
+      1: [ // CBA
         { key: 'cba_consent', label: 'CBA consent resolution', required: true, status: 'pending' },
         { key: 'cba_section', label: '§7/§9 CBA Act notification', required: true, status: 'pending' },
       ],
-      direct_purchase: [
+      6: [ // Direct Purchase
         { key: 'consent_letter', label: 'Written consent from landowner', required: true, status: 'pending' },
         { key: 'valuation_sheet', label: 'Valuation per PWD rate chart', required: true, status: 'pending' },
         { key: 'mutation_status', label: 'Mutation status verified', required: true, status: 'pending' },
       ],
-      rfctlarr: [
+      2: [ // RFCTLARR
         { key: 'notification_4_1', label: '§4(1) Preliminary notification', required: true, status: 'pending' },
         { key: 'notification_4_2', label: '§4(2) SIA & public hearing', required: true, status: 'pending' },
         { key: 'public_hearing', label: 'Public hearing conducted', required: true, status: 'pending' },
         { key: 'award_draft', label: 'Draft award statement', required: true, status: 'pending' },
       ],
-      patta: [
+      9: [ // Patta (Lease Tenancy)
         { key: 'patta_record', label: 'Patta record extracted', required: true, status: 'pending' },
         { key: 'tribal_clearance', label: 'Tribal/SC clearance (if applicable)', required: false, status: 'pending' },
       ],
     }
 
-    const items = [...baseItems, ...(modeSpecificItems[mode.value] ?? [])]
+    const items = [...baseItems, ...(modeSpecificItems[acq_mode_id] ?? [])]
 
     return new Checklist({
-      checklistCode: mode.getChecklistCode(),
+      checklistCode: `CL-MODE-${acq_mode_id}`,
       items,
     })
   }

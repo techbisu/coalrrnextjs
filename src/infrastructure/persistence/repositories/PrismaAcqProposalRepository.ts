@@ -1,6 +1,6 @@
 import { IProposalRepository, ProposalDTO, PlotScheduleDTO, PlotScheduleLandTypeDTO } from '@/domain/entities/proposal';
 import { db } from '@/lib/db';
-import { Proposal, ProposalId, ScheduleCode, AcquisitionMode, ProposalState, Checklist } from '@/domain/entities/proposal';
+import { Proposal, ProposalId, ScheduleCode, ProposalState, Checklist } from '@/domain/entities/proposal';
 import { Area } from '@/domain/value-objects/Area';
 import { UserScopeService } from '@/core/authorization/services/UserScopeService';
 
@@ -20,9 +20,6 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
 
     if (!prop) return null;
 
-    let modeVal = 'cba_act';
-    if (Number(prop.acq_mode_id) === 2 || Number(prop.acq_mode_id) === 5) modeVal = 'rfctlarr';
-    if (Number(prop.acq_mode_id) === 3 || Number(prop.acq_mode_id) === 6) modeVal = 'direct_purchase';
 
     const plots = prop.plot_schedule.map(p => p.plot_no);
 
@@ -30,7 +27,7 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
       id: prop.proposal_id.toString(),
       scheduleCode: prop.proposal_no,
       projectId: prop.proj_cd,
-      acquisitionMode: modeVal,
+      acq_mode_id: Number(prop.acq_mode_id),
       state: prop.current_stage_cd,
       proposalTitle: prop.purpose_justification,
       description: prop.purpose_justification,
@@ -63,9 +60,7 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
     const client = tx || db;
     const data = proposal.toPersistence();
 
-    let acqModeId = BigInt(1); // cba_act
-    if (data.acquisitionMode === 'rfctlarr') acqModeId = BigInt(2);
-    if (data.acquisitionMode === 'direct_purchase') acqModeId = BigInt(6);
+    let acqModeId = BigInt(data.acq_mode_id);
 
     // Ensure mine_cd and area_cd satisfy foreign key constraints
     let validMineCd = data.collieryCode;

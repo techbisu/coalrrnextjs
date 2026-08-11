@@ -7,6 +7,7 @@ import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
 import { CheckCircle2, FileText, Loader2 } from 'lucide-react'
 import { useAppTranslation } from '@/localization/hooks/useAppTranslation'
+import Link from 'next/link'
 
 async function fetchProposals(): Promise<any[]> {
   const r = await fetch('/api/proposals', {
@@ -60,9 +61,9 @@ export function ProjectProposalsList({ projectId }: { projectId: string }) {
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <Button variant="ghost" size="sm" asChild className="h-8 text-muted-foreground hover:text-foreground">
-                  <a href={`/proposals?schedule_id=${a.id}`}>
+                  <Link href={`/proposals?schedule_id=${a.id}`}>
                     {t('common.view_proposal', 'View Proposal →')}
-                  </a>
+                  </Link>
                 </Button>
               </div>
             </li>

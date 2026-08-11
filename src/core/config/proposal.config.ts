@@ -12,6 +12,19 @@ export const proposalConfig = {
     lease_tenancy: 9,
   } as const,
 
+  acquisitionModeShortCode: {
+    cba_act: 'CBA',
+    rfctlarr: 'RFCTLARR',
+    lts_govt: 'LTS',
+    lease_govt: 'LGOVT',
+    forest_diversion: 'FD',
+    direct_purchase: 'DP',
+    inherited_land: 'INH',
+    la_act: 'LA',
+    lease_tenancy: 'LT',
+    patta: 'PATTA',
+  } as Record<string, string>,
+
   primaryCreationModes: [
     { key: 'DIRECT_PURCHASE', acqModeId: 6, label: 'Direct Purchase', sopActivity: '1.2' },
     { key: 'RFCTLARR', acqModeId: 2, label: 'RFCTLARR Act 2013', sopActivity: '1.3' },

@@ -79,7 +79,7 @@ export async function PUT(
     const proposalId = paramsData.id;
     const plotId = paramsData.plot_no;
 
-    const auth = await authorizeApi('proposal.update');
+    const auth = await authorizeApi('proposal.addplot');
     if (auth.error) return auth.error;
 
   try {
@@ -173,7 +173,7 @@ export async function DELETE(
     const paramsData = await params;
     const proposalId = paramsData.id;
     
-    const auth = await authorizeApi('proposal.update');
+    const auth = await authorizeApi('proposal.addplot');
     if (auth.error) return auth.error;
 
   try {

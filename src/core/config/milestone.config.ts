@@ -20,7 +20,31 @@ export const milestoneConfig = {
     { id: 'OTHER_MILESTONE', label: 'Other Statutory Milestone', requires: [] },
   ],
 
-  // Role permissions: roles that are explicitly allowed to add/delete milestones
-  // If user has any of these roles or the generic 'proposal.milestone.add' permission, they can manage milestones.
   allowedRoles: ['admin', 'super_admin', 'area_gm', 'unit_office', 'legal_officer']
 } as const;
+
+export function getSeedMilestoneDefinitions() {
+  const definitions: Array<{ moduleCode: string; milestoneCode: string; name: string; entityType: string; requires: string[] }> = [];
+
+  for (const m of milestoneConfig.DP) {
+    definitions.push({
+      moduleCode: 'LAND_SCHEDULE',
+      milestoneCode: m.id,
+      name: m.label,
+      entityType: 'acq_land_schedule',
+      requires: [...m.requires],
+    });
+  }
+
+  for (const m of milestoneConfig.CBA) {
+    definitions.push({
+      moduleCode: 'LAND_SCHEDULE',
+      milestoneCode: m.id,
+      name: m.label,
+      entityType: 'acq_land_schedule',
+      requires: [...m.requires],
+    });
+  }
+
+  return definitions;
+}

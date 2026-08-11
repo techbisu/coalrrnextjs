@@ -32,7 +32,7 @@ export class WorkflowEngineServer extends WorkflowEngine {
     if (all.length === 0 && workflowCode !== 'COMPENSATION_PAYROLL') {
       all = await loadWorkflowTransitions('COMPENSATION_PAYROLL')
     }
-    return all.filter((t) => t.from === ctx.currentState && (!ctx.actorRole || (ctx.actorRole as string) === 'all' || t.role === ctx.actorRole || true))
+    return all.filter((t) => t.from === ctx.currentState && (!ctx.actorRole || (ctx.actorRole as string) === 'all' || t.role === ctx.actorRole))
   }
 
   /**

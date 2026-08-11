@@ -10,7 +10,7 @@ const MODULE_CODE = MODULE_CODES.LAND_SCHEDULE
 const CHECKABLE_TYPE = ACQ_LAND_SCHEDULE
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const auth = await authorizeApi('proposal.update')
+  const auth = await authorizeApi('proposal.edit')
   if (auth.error) return auth.error
 
   const { id, requirementId } = await params
