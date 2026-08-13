@@ -1,6 +1,7 @@
 import { IUseCase } from '@/core/interfaces/UseCase.interface'
 import { Result, Ok, Fail } from '@/core/result/Result'
 import { IPayrollsRepository } from '@/modules/payrolls/interfaces/IPayrollsRepository'
+import { CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
 
 export class GetPayrollByIdUseCase implements IUseCase<string, any> {
   constructor(private repo: IPayrollsRepository) {}
@@ -10,7 +11,7 @@ export class GetPayrollByIdUseCase implements IUseCase<string, any> {
       const p = await this.repo.findPayrollByIdWithDetails(id)
       if (!p) return Fail('Payroll not found')
 
-      const reviewTasks = await this.repo.findReviewTasksForType('compensation_payroll', id)
+      const reviewTasks = await this.repo.findReviewTasksForType(CHECKABLE_ENTITY_TYPES.COMPENSATION_PAYROLL, id)
 
       const result = {
         id: p.id,

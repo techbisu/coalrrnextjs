@@ -1,15 +1,15 @@
-import { mine_master } from '@prisma/client';
+import { mine } from '@prisma/client';
 import { db } from '@/lib/db';
 
 export interface IMineRepository {
-  getAdjacentMines(mineCd: string): Promise<mine_master[]>;
+  getAdjacentMines(mineCd: string): Promise<mine[]>;
   updateAdjacency(mineCd: string, adjacentMineIds: string[]): Promise<void>;
-  getAllMines(): Promise<mine_master[]>;
+  getAllMines(): Promise<mine[]>;
 }
 
 export class PrismaMineRepository implements IMineRepository {
-  async getAdjacentMines(mineCd: string): Promise<mine_master[]> {
-    const mine = await db.mine_master.findUnique({
+  async getAdjacentMines(mineCd: string): Promise<mine[]> {
+    const mine = await db.mine.findUnique({
       where: { mine_cd: mineCd }
     });
     
@@ -17,7 +17,7 @@ export class PrismaMineRepository implements IMineRepository {
       return [];
     }
 
-    return db.mine_master.findMany({
+    return db.mine.findMany({
       where: {
         mine_cd: { in: mine.adjacent_mine_ids }
       }
@@ -25,14 +25,14 @@ export class PrismaMineRepository implements IMineRepository {
   }
 
   async updateAdjacency(mineCd: string, adjacentMineIds: string[]): Promise<void> {
-    await db.mine_master.update({
+    await db.mine.update({
       where: { mine_cd: mineCd },
       data: { adjacent_mine_ids: adjacentMineIds }
     });
   }
 
-  async getAllMines(): Promise<mine_master[]> {
-    return db.mine_master.findMany({
+  async getAllMines(): Promise<mine[]> {
+    return db.mine.findMany({
       orderBy: { mine_en: 'asc' }
     });
   }

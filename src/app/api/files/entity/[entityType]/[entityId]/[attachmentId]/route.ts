@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { db } from '@/lib/db'
+import { CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
 
 type Ctx = { params: Promise<{ entityType: string; entityId: string; attachmentId: string }> }
 
@@ -12,7 +13,8 @@ function resolveUnlinkPermission(entityType: string): string {
   if (entityType.includes('project')) {
     return 'project.file.workspace.unlink'
   }
-  if (entityType.includes('acq') || entityType.includes('land_schedule') || entityType.includes('land-schedule')) {
+  const LAND_SCHEDULE_ALIASES = [CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE, 'land-schedule']
+  if (entityType.includes('acq') || LAND_SCHEDULE_ALIASES.some(alias => entityType.includes(alias))) {
     return 'acquisition.file.workspace.unlink'
   }
   if (entityType.includes('proposal')) {

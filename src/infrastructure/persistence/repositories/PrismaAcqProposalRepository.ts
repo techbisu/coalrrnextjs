@@ -64,16 +64,16 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
 
     // Ensure mine_cd and area_cd satisfy foreign key constraints
     let validMineCd = data.collieryCode;
-    const existingMine = await client.mine_master.findUnique({ where: { mine_cd: validMineCd } });
+    const existingMine = await client.mine.findUnique({ where: { mine_cd: validMineCd } });
     if (!existingMine) {
-      const fallbackMine = await client.mine_master.findFirst();
+      const fallbackMine = await client.mine.findFirst();
       if (fallbackMine) validMineCd = fallbackMine.mine_cd;
     }
 
     let validAreaCd = data.areaOffice;
-    const existingArea = await client.area_master.findUnique({ where: { area_cd: validAreaCd } });
+    const existingArea = await client.area.findUnique({ where: { area_cd: validAreaCd } });
     if (!existingArea) {
-      const fallbackArea = await client.area_master.findFirst();
+      const fallbackArea = await client.area.findFirst();
       if (fallbackArea) validAreaCd = fallbackArea.area_cd;
     }
 
@@ -209,16 +209,16 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
     landTypes: PlotScheduleLandTypeDTO[];
   }): Promise<string> {
     let validMineCd = data.proposal.mine_cd;
-    const existingMine = await db.mine_master.findUnique({ where: { mine_cd: validMineCd } });
+    const existingMine = await db.mine.findUnique({ where: { mine_cd: validMineCd } });
     if (!existingMine) {
-      const fallbackMine = await db.mine_master.findFirst();
+      const fallbackMine = await db.mine.findFirst();
       if (fallbackMine) validMineCd = fallbackMine.mine_cd;
     }
 
     let validAreaCd = data.proposal.area_cd;
-    const existingArea = await db.area_master.findUnique({ where: { area_cd: validAreaCd } });
+    const existingArea = await db.area.findUnique({ where: { area_cd: validAreaCd } });
     if (!existingArea) {
-      const fallbackArea = await db.area_master.findFirst();
+      const fallbackArea = await db.area.findFirst();
       if (fallbackArea) validAreaCd = fallbackArea.area_cd;
     }
 
@@ -345,7 +345,7 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
       if (areaIds.length > 0) {
         orConditions.push({ area_cd: { in: areaIds } });
         orConditions.push({ pr_scheme_ref_no: { in: areaIds } });
-        const areas = await db.area_master.findMany({ where: { area_cd: { in: areaIds } } });
+        const areas = await db.area.findMany({ where: { area_cd: { in: areaIds } } });
         for (const a of areas) {
           orConditions.push({ pr_scheme_ref_no: { contains: a.area_en, mode: 'insensitive' } });
         }
@@ -380,7 +380,7 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
           include: {
             plot_schedule_land_type: {
               include: {
-                landtype_master: true
+                landtype: true
               }
             }
           }
@@ -394,8 +394,8 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
     const prop = await db.acq_proposal.findUnique({
       where: { proposal_id: proposalId },
       include: {
-        area_master: true,
-        mine_master: true,
+        area: true,
+        mine: true,
         project: {
           include: {
             approvals: {
@@ -407,10 +407,10 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
         },
         plot_schedule: {
           include: {
-            mouza_master: true,
+            mouza: true,
             plot_schedule_land_type: {
               include: {
-                landtype_master: true,
+                landtype: true,
                 sub_landtype: true
               }
             }
@@ -457,7 +457,7 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
   async getLandTypeDetails(landtIds: (string | number)[]): Promise<any[]> {
     if (!landtIds || landtIds.length === 0) return [];
     
-    const landTypes = await db.landtype_master.findMany({
+    const landTypes = await db.landtype.findMany({
       where: {
         landt_id: { in: landtIds.map(id => BigInt(id)) }
       }

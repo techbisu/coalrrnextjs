@@ -10,6 +10,7 @@ export const MODULE_CODES = {
   COMPENSATION_PAYROLL: 'COMPENSATION_PAYROLL',
   EMPLOYMENT_APP: 'EMPLOYMENT_APP',
   FORM_I_CLAIM: 'FORM_I_CLAIM',
+  PROJECT: 'PROJECT',
 } as const
 
 export type CanonicalModuleCode = keyof typeof MODULE_CODES
@@ -19,6 +20,7 @@ export const CHECKABLE_ENTITY_TYPES = {
   COMPENSATION_PAYROLL: 'compensation_payroll',
   EMPLOYMENT_APPLICATION: 'employment_application',
   FORM_I_CLAIM: 'form_i_claim',
+  PROJECT: 'project',
 } as const
 
 export const ACQ_LAND_SCHEDULE = CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE
@@ -72,6 +74,11 @@ export function normalizeModuleCode(rawCode?: string | null): CanonicalModuleCod
   // Form-I Claim aliases
   if (upper === 'FORM_I_CLAIM' || upper === 'FORM_I') {
     return 'FORM_I_CLAIM'
+  }
+
+  // Project aliases
+  if (upper === 'PROJECT' || upper === 'PROJECT_MODULE') {
+    return 'PROJECT'
   }
 
   return 'LAND_SCHEDULE' // Default safe fallback

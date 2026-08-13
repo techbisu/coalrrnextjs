@@ -37,17 +37,26 @@ export async function POST(req: NextRequest) {
 
     await db.document_instance.update({
       where: { id: instanceId },
-      data: { signature_data_json: updatedSigs }
+      data: {
+        signature_data_json: updatedSigs,
+        status: 'QUEUED',
+      }
     })
 
-    // Regenerate document with new signature injected
-    const genResult = await generateDocumentUseCase.execute({ instanceId })
-
-    if (genResult.isFailure) {
-      return serverError(genResult.error as string)
+    // Queue background generation job via JobDispatcherService
+    try {
+      const { jobDispatcher } = await import('@/infrastructure/di/Container')
+      await jobDispatcher.dispatch('generateDocument', { instanceId })
+    } catch (dispatchErr: any) {
+      console.error(`[POST /api/document-engine/sign] Dispatch failed for ${instanceId}:`, dispatchErr)
+      await db.document_instance.updateMany({
+        where: { id: instanceId, status: 'QUEUED' },
+        data: { status: 'DRAFT' },
+      })
+      throw dispatchErr
     }
 
-    return ok({ success: true, fileId: genResult.value.fileId, signatures: updatedSigs })
+    return ok({ success: true, status: 'QUEUED', signatures: updatedSigs })
   } catch (error: any) {
     console.error('Error signing document:', error)
     return serverError('Failed to apply signature to document', error.message)

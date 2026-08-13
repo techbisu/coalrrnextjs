@@ -5,6 +5,7 @@ import { ok, badRequest, notFound, serverError, readJson } from '../../../_lib'
 import {
   WorkflowEngine, COMPENSATION_PAYROLL_STATES, getReviewRolesForState,
 } from '@/lib/engines'
+import { MODULE_CODES, CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
 import type { NextRequest } from 'next/server'
 import { randomUUID } from 'crypto'
 
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const body = await readJson<{ transition?: string; actorRole?: string; comment?: string }>(req)
     if (!body?.transition) return badRequest('transition required')
 
-    if (recordType !== 'compensation_payroll') {
+    if (recordType !== CHECKABLE_ENTITY_TYPES.COMPENSATION_PAYROLL) {
       return badRequest(`Workflow for ${recordType} not yet implemented (demo covers compensation_payroll only)`)
     }
 
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const reviewTasks = await (db as any).workflow_review_task.findMany({
       where: {
         OR: [
-          { entity_type: 'compensation_payroll', entity_id: recordId },
+          { entity_type: CHECKABLE_ENTITY_TYPES.COMPENSATION_PAYROLL, entity_id: recordId },
           { entity_type: recordType, entity_id: recordId }
         ]
       },

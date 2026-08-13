@@ -52,7 +52,7 @@ For dependent dropdowns (e.g., District → Block → Mouza):
 Pass the `dependsOn` prop to `MasterLookup`.
 ```tsx
 <MasterLookup
-  masterName="block_master"
+  masterName="block"
   dependencies={{ district_lgd: selectedDistrict }}
 />
 ```

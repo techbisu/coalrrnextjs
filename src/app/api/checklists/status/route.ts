@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+
+export const dynamic = 'force-dynamic'
 import { Container } from '@/infrastructure/di/Container'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { z } from 'zod'

@@ -7,10 +7,10 @@ export class PrismaDocumentQueryService implements IDocumentQueryService {
       where: { proposal_id: proposalId },
       include: includeRelations ? {
         acqu_mode: true,
-        mine_master: true,
-        area_master: true,
+        mine: true,
+        area: true,
         plot_schedule: {
-          include: { mouza_master: true },
+          include: { mouza: true },
           orderBy: { schedule_id: 'asc' }
         }
       } : undefined
@@ -21,10 +21,10 @@ export class PrismaDocumentQueryService implements IDocumentQueryService {
     return await db.acq_proposal.findFirst({
       where: { OR: [{ proposal_no: applicationId }, { proj_cd: applicationId }] },
       include: includeRelations ? {
-        mine_master: true,
-        area_master: true,
+        mine: true,
+        area: true,
         plot_schedule: {
-          include: { mouza_master: true },
+          include: { mouza: true },
           orderBy: { schedule_id: 'asc' }
         }
       } : undefined
@@ -39,11 +39,11 @@ export class PrismaDocumentQueryService implements IDocumentQueryService {
   }
 
   async getMineMaster(mineCd: string): Promise<any> {
-    return await db.mine_master.findUnique({ where: { mine_cd: mineCd } })
+    return await db.mine.findUnique({ where: { mine_cd: mineCd } })
   }
 
   async getAreaMaster(areaCd: string): Promise<any> {
-    return await db.area_master.findUnique({ where: { area_cd: areaCd } })
+    return await db.area.findUnique({ where: { area_cd: areaCd } })
   }
 
   async getPlots(id: string, isUuid: boolean, includeRelations = true, mineCd?: string): Promise<any[]> {
@@ -60,10 +60,10 @@ export class PrismaDocumentQueryService implements IDocumentQueryService {
     return await db.plot_schedule.findMany({
       where: { OR: plotWhereOr },
       include: includeRelations ? {
-        mouza_master: true,
+        mouza: true,
         plot_schedule_land_type: {
           include: {
-            landtype_master: true,
+            landtype: true,
             sub_landtype: true
           }
         }

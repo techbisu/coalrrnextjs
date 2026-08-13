@@ -1,4 +1,5 @@
 import { PrismaNomineePoolRepository } from '@/infrastructure/persistence/repositories/PrismaNomineePoolRepository'
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 import { GetNomineePoolsUseCase } from '@/application/use-cases/employment/GetNomineePoolsUseCase'
 import { GetNomineePoolDetailUseCase } from '@/application/use-cases/employment/GetNomineePoolDetailUseCase'
 
@@ -45,7 +46,7 @@ NotificationConfig.initialize(notificationStorage)
 const checklistRegistry = globalForCoreDI.checklistRegistry ?? new ChecklistContextRegistry()
 
 checklistRegistry.register('PROJECT_MASTER', new ProjectChecklistResolver(new PrismaProjectRepository()))
-checklistRegistry.register('LAND_ACQ_PROPOSAL', new ProposalChecklistResolver(new PrismaAcqProposalRepository()))
+checklistRegistry.register(MODULE_CODES.LAND_SCHEDULE, new ProposalChecklistResolver(new PrismaAcqProposalRepository()))
 
 const checklistRepository = new PrismaChecklistRepository()
 const documentAdapter = new GeneratedDocumentChecklistAdapter(documentInstanceRepository, checklistRepository)

@@ -197,7 +197,7 @@ function SubTypeList({ nestIndex, control, form }: SubTypeListProps) {
                 <FormItem className="space-y-0">
                   <FormControl>
                     <MasterSelect 
-                      master="landtype_master"
+                      master="landtype"
                       dependsOn={{ 
                         p_id: form.watch(`land_types.${nestIndex}.landt_id`),
                         activeOnly: 'true' 
@@ -664,7 +664,7 @@ export function AddPlotDialog({
                       <FormLabel className="text-[11px] uppercase font-semibold text-muted-foreground">Mouza LGD *</FormLabel>
                       <FormControl>
                         <MasterAutocomplete 
-                          master="mouza_master"
+                          master="mouza"
                           dependsOn={{ mouza_lgd: projectMouzas.length > 0 ? projectMouzas.join(',') : '-1' }}
                           value={field.value}
                           onChange={((val: any, optionData: any) => {
@@ -939,7 +939,7 @@ export function AddPlotDialog({
                               <FormLabel className="text-[10px] uppercase font-semibold text-muted-foreground">Primary Type *</FormLabel>
                               <FormControl>
                                 <MasterSelect 
-                                  master="landtype_master"
+                                  master="landtype"
                                   dependsOn={{ p_id: 'null' }}
                                   value={field.value}
                                   onChange={(val) => {

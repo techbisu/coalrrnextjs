@@ -65,23 +65,17 @@ export class GenerateDocumentUseCase implements IUseCase<GenerateDocumentDTO, an
         resolver_tables_json: resolvedData.tables as any
       })
 
-      // 4. Generate the document buffer using the Core Engine
+      // 4. Capture existing file reference for safe post-upload cleanup
+      const oldFileId = instance.generated_docx_path
+
+      // 5. Generate the document buffer using the Core Engine
       const mergedPayload = {
         ...(resolvedData.fields as any),
         ...(resolvedData.tables as any),
       }
       const buf = DocxGeneratorEngine.generate(template.storage_path, mergedPayload)
-      
-      // 5. If a previously generated file exists for this instance, replace/delete it first to maintain a single file instance
-      if (instance.generated_docx_path) {
-        try {
-          await deleteFileUseCase.execute({ fileId: instance.generated_docx_path })
-        } catch (delErr: any) {
-          console.warn('Failed to delete previous generated docx file:', delErr.message)
-        }
-      }
 
-      // 6. Save new generated file via uploadFileUseCase
+      // 6. Save new generated file via uploadFileUseCase FIRST
       const originalName = `${template.template_code}_${instance.application_id}.docx`
       
       const uploadResult = await uploadFileUseCase.execute({
@@ -102,10 +96,20 @@ export class GenerateDocumentUseCase implements IUseCase<GenerateDocumentDTO, an
       
       const savedFileId = uploadResult.value?.id
       
+      // 7. Update document_instance with new authoritative file ID
       await this.instanceRepository.update(instance.id, {
           generated_docx_path: savedFileId
       })
       
+      // 8. Safely cleanup old file ONLY AFTER new file is successfully stored & updated in DB
+      if (oldFileId && oldFileId !== savedFileId) {
+        try {
+          await deleteFileUseCase.execute({ fileId: oldFileId })
+        } catch (delErr: any) {
+          console.warn('[GenerateDocumentUseCase] Cleanup warning: Failed to delete previous docx file:', delErr.message)
+        }
+      }
+
       return Ok({ fileId: savedFileId })
     } catch (error: any) {
       console.error('Document Generation Failed:', error)

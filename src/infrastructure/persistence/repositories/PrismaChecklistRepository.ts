@@ -3,7 +3,7 @@ import { IChecklistRepository } from '@/core/checklist/interfaces/IChecklistRepo
 import { v4 as uuidv4 } from 'uuid'
 
 import { ConfigCacheService } from '@/core/config/cache/ConfigCacheService'
-import { ACQ_LAND_SCHEDULE } from '@/core/config/module-codes.config'
+import { CHECKABLE_ENTITY_TYPES, ACQ_LAND_SCHEDULE } from '@/core/config/module-codes.config'
 
 export class PrismaChecklistRepository implements IChecklistRepository {
   async findRulesByModule(moduleCode: string) {
@@ -12,7 +12,7 @@ export class PrismaChecklistRepository implements IChecklistRepository {
 
   private normalizeTypes(checkableType: string): string[] {
     if (checkableType === ACQ_LAND_SCHEDULE || checkableType.toLowerCase().includes('schedule') || checkableType.toLowerCase().includes('proposal')) {
-      return [ACQ_LAND_SCHEDULE, 'land_schedule', 'acq_proposal', 'proposal', 'PROPOSAL', 'LAND_ACQ_PROPOSAL']
+      return [CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE]
     }
     return [checkableType]
   }

@@ -6,8 +6,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Can } from '@/authorization/components/Can'
 import {
-  SectionCard, DataTable, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline, ActionJustificationDialog, PartialAreaInputDialog, ProcessActionCenter, UnifiedWorkflowTimeline,
+  SectionCard, DataTable, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline, ActionJustificationDialog, PartialAreaInputDialog, ProcessActionCenter, UnifiedWorkflowTimeline, WorkflowTimelineFeed, WorkflowActionBar, WorkflowActionDialog
 } from '@/shared/components/coalrr'
+import { useWorkflowSnapshot } from '@/shared/hooks/useWorkflowSnapshot'
+import { MODULE_CODES, CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
+import type { WorkflowTransitionOption } from '@/core/workflow/types/snapshot.types'
+
 import { ProposalOverviewSection } from './sections/ProposalOverviewSection'
 import { ProposalMetaBreakdownCard } from './sections/ProposalMetaBreakdownCard'
 import type {
@@ -70,7 +74,7 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
   const handleProcessUpdated = () => {
     qc.invalidateQueries({ queryKey: ['schedules'] })
     qc.invalidateQueries({ queryKey: ['schedule', schedule.id] })
-    qc.invalidateQueries({ queryKey: ['workflow', 'history', 'LAND_SCHEDULE', schedule.id] })
+    qc.invalidateQueries({ queryKey: ['workflow', 'history', MODULE_CODES.LAND_SCHEDULE, schedule.id] })
     qc.invalidateQueries({ queryKey: ['proposals', schedule.id, 'milestones'] })
     qc.invalidateQueries({ queryKey: ['schedules', schedule.id, 'checklist-status'] })
     router.refresh()
@@ -91,7 +95,7 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
         {/* Left Column (8 cols): Unified Timeline Feed & Main Workspace Tabs */}
         <div className="lg:col-span-8 space-y-6">
           <UnifiedWorkflowTimeline
-            moduleCode="LAND_SCHEDULE"
+            moduleCode={MODULE_CODES.LAND_SCHEDULE}
             entityId={schedule.id}
             stages={stages}
           />
@@ -129,7 +133,26 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
 }
 
 function PendingActionBanner({ schedule, onActionTriggered }: { schedule: ScheduleDetail; onActionTriggered?: () => void }) {
+  const qc = useQueryClient()
   const { user } = useAuth()
+  
+  const mapUserRole = (rawRole?: string) => {
+    if (!rawRole) return 'unit_office'
+    const lower = rawRole.toLowerCase()
+    if (lower.includes('unit')) return 'unit_office'
+    if (lower.includes('area')) return 'area_office'
+    if (lower.includes('lre') || lower.includes('planning')) return 'gm_planning'
+    if (lower.includes('finance')) return 'gm_finance'
+    if (lower.includes('director')) return 'director'
+    if (lower.includes('cmd')) return 'cmd'
+    return 'unit_office'
+  }
+  
+  const detectedRole = mapUserRole(user?.roles?.[0])
+  const normalizedState = getNormalizedState(schedule.state)
+  const stateKey = normalizedState as keyof typeof COMPENSATION_PAYROLL_STATES
+  const stateMeta = COMPENSATION_PAYROLL_STATES[stateKey]
+
   const { data: clStatus } = useQuery<{ isComplete: boolean; completedCount?: number; totalCount?: number }>({
     queryKey: ['schedules', schedule.id, 'checklist-status'],
     queryFn: async () => {
@@ -138,23 +161,106 @@ function PendingActionBanner({ schedule, onActionTriggered }: { schedule: Schedu
       return r.json()
     }
   })
+  
+  const { data: limitsData } = useQuery<{ isWithinLimit: boolean }>({
+    queryKey: ['schedules', schedule.id, 'limits'],
+    queryFn: async () => {
+      const r = await fetch(`/api/proposals/${schedule.id}/limits`)
+      if (!r.ok) return null
+      const json = await r.json()
+      return json.details
+    }
+  })
+
+  const isBreached = limitsData ? (limitsData.isWithinLimit === false) : false
+  const isSuperAdmin = user?.roles?.some((r: string) => r.toLowerCase().includes('admin'))
+
+  const transitions: AvailableTransition[] = (stateMeta?.allowedTransitions ?? [])
+    .filter((t) => {
+      if (!isSuperAdmin && t.role !== detectedRole) return false
+      if (['submit_to_area', 'submit_to_unit'].includes(t.name) && clStatus && !clStatus.isComplete) return false
+      if (t.name === 'submit_to_hq_parallel' && isBreached) return false
+      if (t.name === 'escalate_to_board' && !isBreached) return false
+      return true
+    })
+    .map((t) => ({
+      name: t.name,
+      label: t.label,
+      role: t.role,
+      guardFailed: null,
+    }))
+
+  const [selectedTransition, setSelectedTransition] = React.useState<{ name: string; label: string } | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+
+  const verify = useMutation({
+    mutationFn: async ({ transitionName, comments, file, targetRecipientId }: any) => {
+      const payload: any = { 
+        action: transitionName, 
+        transitionName,
+        role: detectedRole,
+        comments: comments || `Transitioned via UI`
+      }
+      if (targetRecipientId) payload.adjacent_mine_ids = [targetRecipientId]
+      
+      let uploadedDocId: string | null = null
+      if (file) {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('module', MODULE_CODES.LAND_SCHEDULE)
+        formData.append('document_type', 'TRANSITION_ATTACHMENT')
+        try {
+          const uploadRes = await fetch('/api/documents/upload', { method: 'POST', body: formData })
+          if (uploadRes.ok) {
+            const uploadJson = await uploadRes.json()
+            uploadedDocId = uploadJson.document_id || uploadJson.id || null
+          }
+        } catch (err) {
+          console.warn('Document upload error:', err)
+        }
+      }
+
+      const r = await fetch(`/api/schedules/${schedule.id}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, document_id: uploadedDocId }),
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error ?? 'Transition failed')
+      if (data.ok === false) throw new Error(data.reason ?? 'Transition blocked')
+      return data
+    },
+    onSuccess: (data) => {
+      toast.success(`Transitioned to ${data.newStatusLabel ?? 'next state'}`)
+      qc.invalidateQueries({ queryKey: ['schedules'] })
+      if (onActionTriggered) onActionTriggered()
+      setIsDialogOpen(false)
+    },
+    onError: (e: Error) => toast.error('Transition blocked', { description: e.message }),
+  })
 
   return (
-    <ProcessActionCenter
-      entityId={schedule.id}
-      entityCode={schedule.schedule_code || `PROP-${schedule.id.slice(0, 8)}`}
-      entityTypeLabel="Land Acquisition Schedule"
-      currentStage={getNormalizedState(schedule.state)}
-      userRole={user?.roles?.[0] || 'unit_office'}
-      checklistSummary={clStatus ? {
-        total: (clStatus as any).totalCount || 12,
-        completed: (clStatus as any).completedCount || ((clStatus as any).isComplete ? 12 : 8),
-        isComplete: Boolean(clStatus.isComplete),
-      } : undefined}
-      onAction={() => {
-        if (onActionTriggered) onActionTriggered()
-      }}
-    />
+    <>
+      <ActionJustificationDialog
+
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        actionName={selectedTransition?.name || ''}
+        actionLabel={selectedTransition?.label || ''}
+        isReturn={selectedTransition?.name.includes('return') || selectedTransition?.name.includes('reject')}
+        onSubmit={async ({ comments, targetRecipient, targetRecipientId, file }) => {
+          if (selectedTransition) {
+            const finalRemarks = targetRecipient ? `${targetRecipient}. ${comments}`.trim() : comments
+            await verify.mutateAsync({
+              transitionName: selectedTransition.name,
+              comments: finalRemarks,
+              file,
+              targetRecipientId,
+            })
+          }
+        }}
+      />
+    </>
   )
 }
 
@@ -668,12 +774,13 @@ function ChecklistTab({
   return (
     <div className="space-y-4">
       <GenericChecklistWorkspace
-        moduleCode="LAND_ACQ_PROPOSAL"
-        checkableType="acq_proposal"
+        moduleCode={MODULE_CODES.LAND_SCHEDULE}
+        checkableType={CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE}
         checkableId={schedule.id}
         userId={user?.id || 'system'}
         title="Compliance Checklist"
         description={`Mode-specific compliance items for ${MODE_META[schedule.acq_mode_id]?.label ?? schedule.acq_mode_id}. Completeness status is automatically validated by the Workflow Engine.`}
+        onChanged={onChanged}
       />
     </div>
   )
@@ -833,40 +940,54 @@ function VerificationTab({
     onError: (e: Error) => toast.error('Transition blocked', { description: e.message }),
   })
 
+  const { data: snapshot } = useWorkflowSnapshot(
+    MODULE_CODES.LAND_SCHEDULE,
+    CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
+    schedule.id,
+    actorRole
+  )
+
+  const [selectedWorkflowTransition, setSelectedWorkflowTransition] = React.useState<WorkflowTransitionOption | null>(null)
+
   return (
     <div className="space-y-4">
-      <ApprovalPanel
-        currentState={normalizedState}
-        availableTransitions={transitions}
-        actorRole={actorRole}
-        onActorRoleChange={setActorRole}
-        onAction={(name) => {
-          const tr = transitions.find((t) => t.name === name)
-          if (tr) {
-            setSelectedTransition(tr)
+      {snapshot?.availableTransitions && (
+        <WorkflowActionBar
+          availableTransitions={snapshot.availableTransitions}
+          onSelectTransition={(t) => {
+            setSelectedWorkflowTransition(t)
+            setIsDialogOpen(true)
+          }}
+          isSubmitting={verify.isPending}
+        />
+      )}
+
+      <WorkflowTimelineFeed
+        moduleCode={MODULE_CODES.LAND_SCHEDULE}
+        entityType={CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE}
+        entityId={schedule.id}
+        userRole={actorRole}
+        onExecuteAction={() => {
+          if (snapshot?.availableTransitions && snapshot.availableTransitions.length > 0) {
+            setSelectedWorkflowTransition(snapshot.availableTransitions[0])
             setIsDialogOpen(true)
           }
         }}
       />
 
-      <ActionJustificationDialog
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        actionName={selectedTransition?.name || ''}
-        actionLabel={selectedTransition?.label || ''}
-        isReturn={selectedTransition?.name.includes('return') || selectedTransition?.name.includes('reject')}
-        onSubmit={async ({ comments, targetRecipient, targetRecipientId, file }) => {
-          if (selectedTransition) {
-            const finalRemarks = targetRecipient ? `${targetRecipient}. ${comments}`.trim() : comments
-            await verify.mutateAsync({
-              transitionName: selectedTransition.name,
-              comments: finalRemarks,
-              file,
-              targetRecipientId,
-            })
-          }
+      <WorkflowActionDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        transition={selectedWorkflowTransition}
+        onSubmitTransition={async ({ transition, comments, attachmentFile }) => {
+          await verify.mutateAsync({
+            transitionName: transition.name,
+            comments,
+            file: attachmentFile,
+          })
         }}
       />
+
 
 
 
@@ -959,7 +1080,7 @@ function TimelineTab({ schedule }: { schedule: ScheduleDetail }) {
   return (
     <div className="space-y-6">
       <UnifiedWorkflowTimeline
-        moduleCode="LAND_SCHEDULE"
+        moduleCode={MODULE_CODES.LAND_SCHEDULE}
         entityId={schedule.id}
         stages={stages}
         maxHeight={550}
@@ -971,6 +1092,7 @@ function TimelineTab({ schedule }: { schedule: ScheduleDetail }) {
 import { ManualMilestonePanel, Milestone } from '@/shared/components/coalrr/ManualMilestonePanel'
 import { LimitCheckPanel } from '@/shared/components/coalrr/LimitCheckPanel'
 import { milestoneConfig } from '@/core/config/milestone.config'
+
 
 function MilestonesTab({ schedule }: { schedule: ScheduleDetail }) {
   const qc = useQueryClient()

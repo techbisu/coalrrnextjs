@@ -1,6 +1,7 @@
 // Proposal & Land Acquisition DI Module
 // Registers all proposal-related use cases into the global container singleton.
 import { PrismaAcqProposalRepository } from '@/infrastructure/persistence/repositories/PrismaAcqProposalRepository'
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
 import { ProjectLimitService } from '@/core/compliance/services/ProjectLimitService'
 
@@ -43,20 +44,59 @@ import { GUARD_REGISTRY } from '@/core/workflow/guards'
 
 // Checklist dependencies for SubmitProposalUseCase gate
 const proposalChecklistRegistry = new ChecklistContextRegistry()
-proposalChecklistRegistry.register('LAND_ACQ_PROPOSAL', new ProposalChecklistResolver(acqProposalRepository))
+proposalChecklistRegistry.register(MODULE_CODES.LAND_SCHEDULE, new ProposalChecklistResolver(acqProposalRepository))
 const checklistRepo = new PrismaChecklistRepository()
 const documentInstanceRepository = new PrismaDocumentInstanceRepository()
 const documentAdapter = new GeneratedDocumentChecklistAdapter(documentInstanceRepository, checklistRepo)
 const proposalChecklistStatusUseCase = new GetChecklistStatusUseCase(checklistRepo, proposalChecklistRegistry, documentAdapter)
 
+import { workflowTargetResolverRegistry } from '@/core/workflow/resolvers/WorkflowTargetResolverRegistry'
+import { CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
+import { db } from '@/lib/db'
+
+// Register Module Target Resolvers in Core Registry
+workflowTargetResolverRegistry.registerResolver({
+  canResolve: (moduleCode, entityType) =>
+    entityType === CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE || moduleCode === MODULE_CODES.LAND_SCHEDULE,
+  resolveEntityStatus: async (_moduleCode, _entityType, entityId) => {
+    const schedule = await db.acq_proposal.findUnique({
+      where: { proposal_id: entityId },
+      select: { current_stage_cd: true, overall_status: true, proposal_no: true },
+    })
+    if (!schedule) return null
+    return {
+      currentStateCode: schedule.current_stage_cd || schedule.overall_status || 'Drafting',
+      workflowCode: MODULE_CODES.LAND_SCHEDULE,
+      title: schedule.proposal_no || `Proposal:${entityId}`,
+    }
+  },
+})
+
+workflowTargetResolverRegistry.registerResolver({
+  canResolve: (moduleCode, entityType) =>
+    entityType === CHECKABLE_ENTITY_TYPES.COMPENSATION_PAYROLL || moduleCode === MODULE_CODES.COMPENSATION_PAYROLL,
+  resolveEntityStatus: async (_moduleCode, _entityType, entityId) => {
+    const payroll = await (db as any).compensation_payroll?.findUnique({
+      where: { payroll_id: entityId },
+      select: { status: true, payroll_no: true },
+    })
+    if (!payroll) return null
+    return {
+      currentStateCode: payroll.status || 'Drafting',
+      workflowCode: MODULE_CODES.COMPENSATION_PAYROLL,
+      title: payroll.payroll_no || `Payroll:${entityId}`,
+    }
+  },
+})
+
 // Register LAND_ACQ_PROPOSAL in Generic Process Platform Registry
 processRegistry.register({
-  moduleCode: 'LAND_SCHEDULE',
-  processCode: 'LAND_ACQ_PROPOSAL',
+  moduleCode: MODULE_CODES.LAND_SCHEDULE,
+  processCode: MODULE_CODES.LAND_SCHEDULE,
   name: 'Land Acquisition Proposal Process',
   checklistResolver: new ProposalChecklistResolver(acqProposalRepository),
   guards: GUARD_REGISTRY,
-  defaultWorkflowCode: 'COMPENSATION_PAYROLL',
+  defaultWorkflowCode: MODULE_CODES.COMPENSATION_PAYROLL,
 })
 
 export const getProposalsUseCase =

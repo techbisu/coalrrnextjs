@@ -9,6 +9,7 @@ import { dispatchNotification } from '../handlers/dispatchNotification.job'
 import { pollOutboxHandler } from '../handlers/pollOutbox.job'
 import { createReviewTasksHandler } from '../handlers/createReviewTasks.job'
 import { syncChecklistContextHandler } from '../handlers/syncChecklistContext.job'
+import { generateDocumentJob } from '../handlers/generateDocument.job'
 
 // Job Registry — add new handlers here, never use magic strings at call sites
 const jobHandlers: Record<string, (payload: any) => Promise<void>> = {
@@ -19,6 +20,7 @@ const jobHandlers: Record<string, (payload: any) => Promise<void>> = {
   pollOutbox:              pollOutboxHandler,
   createReviewTasks:       createReviewTasksHandler,
   syncChecklistContext:    syncChecklistContextHandler,
+  generateDocument:        generateDocumentJob,
 }
 
 import type { Queue } from 'bullmq'

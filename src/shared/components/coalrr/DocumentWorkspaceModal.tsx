@@ -99,6 +99,26 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
     }
   }, [isOpen, templateCode, businessId]);
 
+  const pollWorkspace = (instId: string) => {
+    fetch('/api/document-engine/workspace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateCode, applicationId: businessId, extraData })
+    })
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && res.instance) {
+          if (res.instance.generated_docx_path) {
+            setFileId(res.instance.generated_docx_path);
+          }
+          if (res.instance.signature_data) {
+            setAppliedSignatures(res.instance.signature_data);
+          }
+        }
+      })
+      .catch(console.error);
+  };
+
   const handleGenerate = async (idToUse = instanceId) => {
     if (!idToUse) return;
     setIsGenerating(true);
@@ -109,15 +129,22 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
         body: JSON.stringify({ instanceId: idToUse })
       });
       const data = await res.json();
-      if (data.success && data.fileId) {
-        setFileId(data.fileId);
+      if (data.success) {
+        if (data.fileId) {
+          setFileId(data.fileId);
+          toast.success("Document generated successfully");
+        } else {
+          toast.info("Document generation queued in background...");
+          setTimeout(() => pollWorkspace(idToUse), 1000);
+        }
       } else {
-        alert("Failed to generate document: " + data.error);
+        toast.error("Failed to generate document: " + (data.error || 'Unknown error'));
       }
     } catch (err: any) {
-      alert("Failed to generate document: " + err.message);
+      toast.error("Failed to generate document: " + err.message);
+    } finally {
+      setIsGenerating(false);
     }
-    setIsGenerating(false);
   };
 
   const handleSignDocument = async (roleToSign: string) => {
@@ -131,16 +158,20 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
         body: JSON.stringify({ instanceId, role: roleToSign, signatureText: signText })
       });
       const data = await res.json();
-      if (data.success && data.fileId) {
+      if (data.success) {
         toast.success(`Document signed as ${roleToSign.replace(/_/g, ' ')}`);
-        setFileId(data.fileId);
         setAppliedSignatures(data.signatures || []);
         setSignatureInput('');
+        if (data.fileId) {
+          setFileId(data.fileId);
+        } else {
+          setTimeout(() => pollWorkspace(instanceId), 1000);
+        }
       } else {
         toast.error(data.error || 'Failed to sign document');
       }
     } catch (err: any) {
-      toast.error('Signing error: ' + err.message);
+      toast.error('Failed to sign document: ' + err.message);
     } finally {
       setIsSigning(false);
     }

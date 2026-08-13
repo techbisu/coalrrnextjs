@@ -78,6 +78,32 @@ export class ConfigCacheService {
   }
 
   /**
+   * Retrieve cached workflow states by workflow code.
+   * Returns ordered state metadata (label, color, icon, step_order, is_terminal).
+   */
+  static async getWorkflowStates(workflowCode: string) {
+    const cacheKey = `config:workflow_states:${workflowCode}`
+    return this.fetchWithCache(cacheKey, async () => {
+      let rows = await (db as any).workflow_states.findMany({
+        where: { workflow_code: workflowCode, is_active: true },
+        orderBy: { step_order: 'asc' },
+      })
+
+      // Fallback: if mode-specific code returns no rows, try base code
+      if (rows.length === 0 && workflowCode.includes('_')) {
+        const baseCode = workflowCode.substring(0, workflowCode.indexOf('_'))
+        rows = await (db as any).workflow_states.findMany({
+          where: { workflow_code: baseCode, is_active: true },
+          orderBy: { step_order: 'asc' },
+        })
+      }
+
+      return rows
+    })
+  }
+
+
+  /**
    * Generic Multi-Tiered Fetch (L1 Memory -> L2 Redis -> DB Fallback)
    */
   private static async fetchWithCache<T>(key: string, dbFallback: () => Promise<T>): Promise<T> {

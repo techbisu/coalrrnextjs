@@ -21,8 +21,8 @@ model acqu_mode {
   @@schema("master")
 }
 
-model area_master {
-  area_cd         String           @id @db.VarChar(30)
+model area {
+  area_cd         String           @id(map: "area_master_pkey") @db.VarChar(30)
   area_en         String           @db.VarChar(255)
   area_loc_vern   String?          @db.VarChar(255)
   is_active       Boolean?         @default(true)
@@ -40,8 +40,8 @@ model area_master {
   @@schema("master")
 }
 
-model block_master {
-  block_lgd      BigInt   @id
+model block {
+  block_lgd      BigInt   @id(map: "block_master_pkey")
   block_en       String   @db.VarChar(255)
   block_loc_vern String?  @db.VarChar(255)
   district_lgd   BigInt
@@ -56,8 +56,8 @@ model block_master {
   @@schema("master")
 }
 
-model cast_master {
-  cast_id   BigInt  @id
+model caste {
+  cast_id   BigInt  @id(map: "cast_master_pkey")
   cast_type String  @db.VarChar(255)
   entry_by  String? @db.VarChar(10)
   updt_by   String? @db.VarChar(10)
@@ -68,8 +68,8 @@ model cast_master {
   @@schema("master")
 }
 
-model district_master {
-  district_lgd      BigInt   @id
+model district {
+  district_lgd      BigInt   @id(map: "district_master_pkey")
   district_en       String   @db.VarChar(255)
   district_loc_vern String?  @db.VarChar(255)
   state_lgd         BigInt
@@ -83,8 +83,8 @@ model district_master {
   @@schema("master")
 }
 
-model landclass_master {
-  landc_id     BigInt   @id
+model landclass {
+  landc_id     BigInt   @id(map: "landclass_master_pkey")
   landt_id     BigInt?
   land_class   String   @db.VarChar(255)
   entry_by     String?  @db.VarChar(10)
@@ -99,8 +99,8 @@ model landclass_master {
   @@schema("master")
 }
 
-model landtype_master {
-  landt_id                           BigInt                    @id
+model landtype {
+  landt_id                           BigInt                    @id(map: "landtype_master_pkey")
   land_type                          String                    @db.VarChar(255)
   entry_by                           String?                   @db.VarChar(10)
   updt_by                            String?                   @db.VarChar(10)
@@ -115,8 +115,8 @@ model landtype_master {
   @@schema("master")
 }
 
-model mine_master {
-  mine_cd           String           @id @db.VarChar(30)
+model mine {
+  mine_cd           String           @id(map: "mine_master_pkey") @db.VarChar(30)
   mine_en           String           @db.VarChar(255)
   mine_loc_vern     String?          @db.VarChar(255)
   area_cd           String?          @db.VarChar(30)
@@ -138,8 +138,8 @@ model mine_master {
   @@schema("master")
 }
 
-model mouza_master {
-  mouza_lgd      BigInt          @id
+model mouza {
+  mouza_lgd      BigInt          @id(map: "mouza_master_pkey")
   mouza_en       String          @db.VarChar(255)
   mouza_loc_vern String?         @db.VarChar(255)
   block_lgd      BigInt
@@ -159,8 +159,8 @@ model mouza_master {
   @@schema("master")
 }
 
-model owner_type_master {
-  owner_type_id BigInt  @id
+model owner_type {
+  owner_type_id BigInt  @id(map: "owner_type_master_pkey")
   owner_type    String  @db.VarChar(255)
   entry_by      String? @db.VarChar(10)
   updt_by       String? @db.VarChar(10)
@@ -182,8 +182,8 @@ model present_land_use {
   @@schema("master")
 }
 
-model ps_master {
-  ps_lgd       BigInt   @id
+model ps {
+  ps_lgd       BigInt   @id(map: "ps_master_pkey")
   ps_en        String   @db.VarChar(255)
   ps_loc_vern  String?  @db.VarChar(255)
   district_lgd BigInt
@@ -198,8 +198,8 @@ model ps_master {
   @@schema("master")
 }
 
-model state_master {
-  state_lgd      BigInt   @id
+model state {
+  state_lgd      BigInt   @id(map: "state_master_pkey")
   state_en       String   @db.VarChar(255)
   state_loc_vern String?  @db.VarChar(255)
   short_code     String?  @db.VarChar(20)
@@ -213,7 +213,7 @@ model state_master {
   @@schema("master")
 }
 
-model vill_master {
+model village {
   village_lgd   BigInt   @id(map: "village_master_pkey")
   village_name  String   @db.VarChar(255)
   vill_loc_vern String   @db.VarChar(255)
@@ -345,15 +345,15 @@ model ProjAprvLocation {
 }
 
 model project_mine {
-  proj_cd    String      @db.VarChar(30)
-  mine_cd    String      @db.VarChar(30)
-  is_primary Boolean?    @default(false)
-  entry_by   String?     @db.VarChar(20)
-  entry_ts   BigInt?     @default(dbgenerated("date_part('epoch'::text, now())"))
-  updt_by    String?     @db.VarChar(64)
-  updt_ts    DateTime?   @default(now()) @db.Timestamptz(6)
-  mine       mine_master @relation(fields: [mine_cd], references: [mine_cd], onDelete: Cascade, map: "fk_project_mine_mine")
-  project    Project     @relation(fields: [proj_cd], references: [projCd], onDelete: Cascade, map: "fk_project_mine_proj")
+  proj_cd    String    @db.VarChar(30)
+  mine_cd    String    @db.VarChar(30)
+  is_primary Boolean?  @default(false)
+  entry_by   String?   @db.VarChar(20)
+  entry_ts   BigInt?   @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_by    String?   @db.VarChar(64)
+  updt_ts    DateTime? @default(now()) @db.Timestamptz(6)
+  mine       mine      @relation(fields: [mine_cd], references: [mine_cd], onDelete: Cascade, map: "fk_project_mine_mine")
+  project    Project   @relation(fields: [proj_cd], references: [projCd], onDelete: Cascade, map: "fk_project_mine_proj")
 
   @@id([proj_cd, mine_cd], map: "pk_project_mine")
   @@map("project_mine")
@@ -1116,19 +1116,23 @@ model sys_config {
 }
 
 model user_org_scope {
-  id                String       @id @default(cuid())
+  id                String     @id @default(cuid())
   scope_level       ScopeLevel
   area_cd           String?
   mine_cd           String?
-  effective_from    DateTime     @default(now())
+  effective_from    DateTime   @default(now())
   effective_to      DateTime?
   transfer_order_no String?
   created_by        String?
-  created_at        DateTime     @default(now())
+  created_at        DateTime   @default(now())
   user_id           Int
-  area              area_master? @relation(fields: [area_cd], references: [area_cd])
-  mine              mine_master? @relation(fields: [mine_cd], references: [mine_cd])
-  user              user         @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  entry_ts          BigInt?    @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts           BigInt?    @default(dbgenerated("date_part('epoch'::text, now())"))
+  entry_by          String?    @db.VarChar(64)
+  updt_by           String?    @db.VarChar(64)
+  area              area?      @relation(fields: [area_cd], references: [area_cd])
+  mine              mine?      @relation(fields: [mine_cd], references: [mine_cd])
+  user              user       @relation(fields: [user_id], references: [id], onUpdate: NoAction)
 
   @@index([area_cd])
   @@index([mine_cd])
@@ -1234,6 +1238,7 @@ model checklist_requirement_rule {
   entry_by               String?                @db.VarChar(50)
   updt_by                String?                @db.VarChar(50)
   chk_id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  app_modules            app_modules            @relation(fields: [module_code], references: [module_code], onUpdate: NoAction, map: "fk_chklist_module")
   checklist_submission   checklist_submission[]
 
   @@index([module_code, is_active], map: "idx_checklist_rule_module")
@@ -1314,8 +1319,8 @@ model acq_proposal {
   has_tribal_land            Boolean?        @default(false)
   has_formal_negotiation     Boolean?        @default(false)
   is_disputed_land           Boolean?        @default(false)
-  area_master                area_master     @relation(fields: [area_cd], references: [area_cd], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_area")
-  mine_master                mine_master     @relation(fields: [mine_cd], references: [mine_cd], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_mine")
+  area                       area            @relation(fields: [area_cd], references: [area_cd], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_area")
+  mine                       mine            @relation(fields: [mine_cd], references: [mine_cd], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_mine")
   acqu_mode                  acqu_mode       @relation(fields: [acq_mode_id], references: [acq_mode_id], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_mode")
   project                    Project         @relation(fields: [proj_cd], references: [projCd], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_proj")
   plot_schedule              plot_schedule[]
@@ -1356,7 +1361,7 @@ model plot_schedule {
   to_be_acquired_area_rm  Decimal?                  @db.Decimal(12, 4)
   total_poss_area_rm      Decimal?                  @db.Decimal(12, 4)
   total_ror_area          Decimal                   @default(0) @db.Decimal(12, 4)
-  mouza_master            mouza_master              @relation(fields: [mouza_lgd], references: [mouza_lgd], onDelete: NoAction, onUpdate: NoAction, map: "fk_schedule_mouza")
+  mouza                   mouza                     @relation(fields: [mouza_lgd], references: [mouza_lgd], onDelete: NoAction, onUpdate: NoAction, map: "fk_schedule_mouza")
   acq_proposal            acq_proposal              @relation(fields: [proposal_id], references: [proposal_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_schedule_proposal")
   plot_schedule_land_type plot_schedule_land_type[]
 
@@ -1366,25 +1371,25 @@ model plot_schedule {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model plot_schedule_land_type {
-  schedule_land_type_id BigInt           @id(map: "plot_schedule_land_type_pk") @default(autoincrement())
+  schedule_land_type_id BigInt        @id(map: "plot_schedule_land_type_pk") @default(autoincrement())
   schedule_id           BigInt
   landt_id              BigInt
-  area                  Decimal          @db.Decimal(12, 4)
-  area_to_acquire       Decimal          @db.Decimal(12, 4)
-  area_acquired         Decimal?         @default(0) @db.Decimal(12, 4)
-  revenue_plan_colour   String?          @db.VarChar(20)
-  land_type_slug        Decimal?         @db.Decimal(12, 4)
-  as_per_ror            Decimal?         @db.Decimal(12, 4)
-  rem_area              Decimal?         @db.Decimal(12, 4)
+  area                  Decimal       @db.Decimal(12, 4)
+  area_to_acquire       Decimal       @db.Decimal(12, 4)
+  area_acquired         Decimal?      @default(0) @db.Decimal(12, 4)
+  revenue_plan_colour   String?       @db.VarChar(20)
+  land_type_slug        Decimal?      @db.Decimal(12, 4)
+  as_per_ror            Decimal?      @db.Decimal(12, 4)
+  rem_area              Decimal?      @db.Decimal(12, 4)
   sub_landt_id          BigInt?
-  use_purpose           String?          @db.VarChar(50)
-  entry_by              String?          @default("system") @db.VarChar(64)
-  entry_ts              DateTime?        @default(now()) @db.Timestamptz(6)
-  updt_by               String?          @db.VarChar(64)
-  updt_ts               DateTime?        @default(now()) @db.Timestamptz(6)
-  plot_schedule         plot_schedule    @relation(fields: [schedule_id], references: [schedule_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_slt_schedule")
-  landtype_master       landtype_master  @relation("fk_slt_landtype", fields: [landt_id], references: [landt_id], onDelete: NoAction, onUpdate: NoAction)
-  sub_landtype          landtype_master? @relation("fk_slt_sub_landtype", fields: [sub_landt_id], references: [landt_id], onDelete: NoAction, onUpdate: NoAction)
+  use_purpose           String?       @db.VarChar(50)
+  entry_by              String?       @default("system") @db.VarChar(64)
+  entry_ts              DateTime?     @default(now()) @db.Timestamptz(6)
+  updt_by               String?       @db.VarChar(64)
+  updt_ts               DateTime?     @default(now()) @db.Timestamptz(6)
+  plot_schedule         plot_schedule @relation(fields: [schedule_id], references: [schedule_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_slt_schedule")
+  landtype              landtype      @relation("fk_slt_landtype", fields: [landt_id], references: [landt_id], onDelete: NoAction, onUpdate: NoAction)
+  sub_landtype          landtype?     @relation("fk_slt_sub_landtype", fields: [sub_landt_id], references: [landt_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([schedule_id, landt_id, sub_landt_id], map: "plot_schedule_land_type_uq")
   @@schema("acquisition")
@@ -1534,8 +1539,8 @@ model workflow_action_history {
   @@schema("public")
 }
 
-model chk_master_new {
-  chk_id           Int      @id
+model checklist {
+  chk_id           Int      @id(map: "chk_master_new_pkey")
   chk_description  String?
   chk_type         String?  @db.VarChar(15)
   chk_sub_type     String?  @db.VarChar(15)
@@ -1621,6 +1626,10 @@ model milestone_definition {
   entryts                                                                               DateTime?              @default(now()) @db.Timestamptz(6)
   updtby                                                                                String?                @db.VarChar(64)
   updtts                                                                                DateTime?              @default(now()) @db.Timestamptz(6)
+  updt_ts                                                                               BigInt?                @default(dbgenerated("date_part('epoch'::text, now())"))
+  entry_by                                                                              String?                @db.VarChar(64)
+  updt_by                                                                               String?                @db.VarChar(64)
+  app_modules                                                                           app_modules            @relation(fields: [module_code], references: [module_code], onUpdate: NoAction, map: "fk_milestone_module")
   milestone_dependency_milestone_dependency_milestone_idTomilestone_definition          milestone_dependency[] @relation("milestone_dependency_milestone_idTomilestone_definition")
   milestone_dependency_milestone_dependency_required_milestone_idTomilestone_definition milestone_dependency[] @relation("milestone_dependency_required_milestone_idTomilestone_definition")
 
@@ -1638,6 +1647,10 @@ model milestone_dependency {
   entryts                                                                               DateTime?            @default(now()) @db.Timestamptz(6)
   updtby                                                                                String?              @db.VarChar(64)
   updtts                                                                                DateTime?            @default(now()) @db.Timestamptz(6)
+  entry_ts                                                                              BigInt?              @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts                                                                               BigInt?              @default(dbgenerated("date_part('epoch'::text, now())"))
+  entry_by                                                                              String?              @db.VarChar(64)
+  updt_by                                                                               String?              @db.VarChar(64)
   milestone_definition_milestone_dependency_milestone_idTomilestone_definition          milestone_definition @relation("milestone_dependency_milestone_idTomilestone_definition", fields: [milestone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   milestone_definition_milestone_dependency_required_milestone_idTomilestone_definition milestone_definition @relation("milestone_dependency_required_milestone_idTomilestone_definition", fields: [required_milestone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -1658,6 +1671,7 @@ model process_definition {
   entry_ts         DateTime           @default(now()) @db.Timestamptz(6)
   updt_ts          DateTime           @default(now()) @db.Timestamptz(6)
   updt_by          String?            @db.VarChar(64)
+  app_modules      app_modules        @relation(fields: [module_code], references: [module_code], onUpdate: NoAction, map: "fk_process_module")
   process_instance process_instance[]
 
   @@schema("public")
@@ -1764,20 +1778,21 @@ model workflow_cycle {
 }
 
 model workflow_reaction {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  module_code    String    @db.VarChar(60)
-  process_code   String    @db.VarChar(80)
-  trigger_event  String    @db.VarChar(80)
-  condition_json Json      @default("{}")
-  rule_type      String    @default("TRIGGER") @db.VarChar(20)
-  action_code    String    @db.VarChar(80)
-  workflow_state String?   @db.VarChar(60)
-  priority       Int       @default(0)
-  is_active      Boolean   @default(true)
-  entry_ts       DateTime  @default(now()) @db.Timestamptz(6)
-  entry_by       String?   @default("system") @db.VarChar(64)
-  updt_by        String?   @db.VarChar(64)
-  updt_ts        DateTime? @default(now()) @db.Timestamptz(6)
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  module_code    String      @db.VarChar(60)
+  process_code   String      @db.VarChar(80)
+  trigger_event  String      @db.VarChar(80)
+  condition_json Json        @default("{}")
+  rule_type      String      @default("TRIGGER") @db.VarChar(20)
+  action_code    String      @db.VarChar(80)
+  workflow_state String?     @db.VarChar(60)
+  priority       Int         @default(0)
+  is_active      Boolean     @default(true)
+  entry_ts       DateTime    @default(now()) @db.Timestamptz(6)
+  entry_by       String?     @default("system") @db.VarChar(64)
+  updt_by        String?     @db.VarChar(64)
+  updt_ts        DateTime?   @default(now()) @db.Timestamptz(6)
+  app_modules    app_modules @relation(fields: [module_code], references: [module_code], onUpdate: NoAction, map: "fk_workflow_reaction_module")
 
   @@index([trigger_event, is_active], map: "idx_wr_event")
   @@schema("public")
@@ -1806,6 +1821,23 @@ model workflow_task {
 
   @@index([process_instance_id, status], map: "idx_wt_instance")
   @@schema("public")
+}
+
+model app_modules {
+  module_code                String                       @id @db.VarChar(60)
+  name                       String                       @db.VarChar(120)
+  description                String?
+  is_active                  Boolean?                     @default(true)
+  entry_ts                   DateTime?                    @default(now()) @db.Timestamptz(6)
+  updt_ts                    DateTime?                    @default(now()) @db.Timestamptz(6)
+  entry_by                   String?                      @db.VarChar(64)
+  updt_by                    String?                      @db.VarChar(64)
+  checklist_requirement_rule checklist_requirement_rule[]
+  milestone_definition       milestone_definition[]
+  process_definition         process_definition[]
+  workflow_reaction          workflow_reaction[]
+
+  @@schema("master")
 }
 
 enum ScopeLevel {

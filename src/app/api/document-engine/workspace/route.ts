@@ -53,12 +53,12 @@ export async function POST(req: NextRequest) {
 
     // Fetch master dropdown lists for Adjacent Colliery & Area
     const [mines, areas] = await Promise.all([
-      db.mine_master.findMany({
+      db.mine.findMany({
         where: { is_active: true },
         select: { mine_cd: true, mine_en: true },
         orderBy: { mine_en: 'asc' }
       }),
-      db.area_master.findMany({
+      db.area.findMany({
         where: { is_active: true },
         select: { area_cd: true, area_en: true },
         orderBy: { area_en: 'asc' }

@@ -10,9 +10,9 @@ import { formatNumber } from '@/lib/utils/formatters'
 
 export function ProjectPropertiesCard({ project }: { project: any }) {
   // Fetch master data for name resolution
-  const { data: areaData } = useMasterLookup({ masterName: 'area_master', dependencies: { values: project?.area_cd ? [project.area_cd] : [] } })
-  const { data: mineData } = useMasterLookup({ masterName: 'mine_master', dependencies: { values: project?.mine_cds || [] } })
-  const { data: mouzaData } = useMasterLookup({ masterName: 'mouza_master', dependencies: { values: project?.mouza_lgds || [] } })
+  const { data: areaData } = useMasterLookup({ masterName: 'area', dependencies: { values: project?.area_cd ? [project.area_cd] : [] } })
+  const { data: mineData } = useMasterLookup({ masterName: 'mine', dependencies: { values: project?.mine_cds || [] } })
+  const { data: mouzaData } = useMasterLookup({ masterName: 'mouza', dependencies: { values: project?.mouza_lgds || [] } })
 
   // Resolve Area Name
   const areaName = React.useMemo(() => {

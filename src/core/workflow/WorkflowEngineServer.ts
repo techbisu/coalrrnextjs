@@ -10,7 +10,7 @@
 import 'server-only'
 import { WorkflowEngine } from './engine'
 import { loadWorkflowTransitions, invalidateWorkflowCache } from './WorkflowTransitionLoader'
-import { normalizeModuleCode, resolveWorkflowCode } from '@/core/config/module-codes.config'
+import { normalizeModuleCode, resolveWorkflowCode, MODULE_CODES } from '@/core/config/module-codes.config'
 import type {
   AttemptTransitionResult,
   GuardContext,
@@ -29,8 +29,8 @@ export class WorkflowEngineServer extends WorkflowEngine {
   ): Promise<ReadonlyArray<Transition>> {
     const workflowCode = ctx.workflowCode || resolveWorkflowCode(ctx.recordType, ctx.acqModeId)
     let all = await loadWorkflowTransitions(workflowCode)
-    if (all.length === 0 && workflowCode !== 'COMPENSATION_PAYROLL') {
-      all = await loadWorkflowTransitions('COMPENSATION_PAYROLL')
+    if (all.length === 0 && workflowCode !== MODULE_CODES.COMPENSATION_PAYROLL) {
+      all = await loadWorkflowTransitions(MODULE_CODES.COMPENSATION_PAYROLL)
     }
     return all.filter((t) => t.from === ctx.currentState && (!ctx.actorRole || (ctx.actorRole as string) === 'all' || t.role === ctx.actorRole))
   }
@@ -55,6 +55,26 @@ export class WorkflowEngineServer extends WorkflowEngine {
       }
     }
 
+    // 1. Evaluate Global Required Recommendations Guard
+    const { RequiredRecommendationsFulfilledGuard } = await import('./guards')
+    const reqRecGuard = new RequiredRecommendationsFulfilledGuard()
+    const reqRecResult = reqRecGuard.check({
+      ...ctx,
+      data: {
+        ...ctx.data,
+        targetTransitionName: transitionName,
+        targetTransitionId: `${transition.from}->${transition.to}:${transition.name}`,
+      },
+    })
+    if (!reqRecResult.ok) {
+      return {
+        ok: false,
+        failedGuard: reqRecGuard.name,
+        reason: reqRecResult.reason ?? 'Required recommendation pending',
+      }
+    }
+
+    // 2. Evaluate DB Transition Guard if defined
     if (transition.guard) {
       const result = transition.guard.check(ctx)
       if (!result.ok) {

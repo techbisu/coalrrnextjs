@@ -2,6 +2,7 @@ import { IUseCase, Result, Fail, Ok } from '@/core';
 import { IProposalRepository } from '@/domain/entities/proposal';
 import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di';
 import { jobDispatcher } from '@/core/jobs/services/JobDispatcherService';
+import { MODULE_CODES } from '@/core/config/module-codes.config';
 
 export interface DeletePlotRequest {
   proposalId: string;
@@ -32,7 +33,7 @@ export class DeletePlotUseCase implements IUseCase<DeletePlotRequest, DeletePlot
 
       // Sync checklist context
       await jobDispatcher.dispatch('syncChecklistContext', {
-        moduleCode: 'LAND_ACQ_PROPOSAL',
+        moduleCode: MODULE_CODES.LAND_SCHEDULE,
         entityId: request.proposalId
       });
 

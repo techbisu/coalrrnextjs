@@ -50,7 +50,7 @@ export function MouzaSelect({
   }, [ignoreCascade, stateLgd, districtLgd, blockLgd, projCd, value])
 
   const { data, isLoading, error } = useMasterLookup({
-    masterName: 'mouza_master',
+    masterName: 'mouza',
     dependencies,
   })
 

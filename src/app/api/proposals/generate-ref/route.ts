@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     // Get area_cd from the mine
     let areaCd = 'UNK'
     if (project.project_mines && project.project_mines.length > 0) {
-      const mine = await db.mine_master.findUnique({
+      const mine = await db.mine.findUnique({
         where: { mine_cd: project.project_mines[0].mine_cd }
       })
       if (mine && mine.area_cd) {

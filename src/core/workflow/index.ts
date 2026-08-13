@@ -38,3 +38,16 @@ export type {
   WorkflowCycle,
   WorkflowBranch,
 } from "./types";
+
+export type {
+  WorkflowSnapshot,
+  WorkflowContextReference,
+  WorkflowPendingAction,
+  WorkflowPendingActionType,
+  WorkflowAssignmentNode,
+  WorkflowActionItem,
+  WorkflowActionItemAttachment,
+  WorkflowTransitionOption,
+  CurrentUserCapabilities,
+} from "./types/snapshot.types";
+

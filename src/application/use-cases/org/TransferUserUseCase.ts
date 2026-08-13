@@ -43,7 +43,11 @@ export class TransferUserUseCase implements IUseCase<TransferUserDTO, user_org_s
         effective_from: dto.effectiveFrom,
         effective_to: null,
         transfer_order_no: dto.transferOrderNo,
-        created_by: dto.assignerId
+        created_by: dto.assignerId,
+        entry_by: dto.assignerId,
+        updt_by: dto.assignerId,
+        entry_ts: null,
+        updt_ts: null
       });
 
       return Result.ok(newScope);

@@ -37,7 +37,7 @@ export function LandTypeSelect({
   }, [category, parentLandtId])
 
   const { data, isLoading, error } = useMasterLookup({
-    masterName: 'landtype_master',
+    masterName: 'landtype',
     dependencies,
   })
 

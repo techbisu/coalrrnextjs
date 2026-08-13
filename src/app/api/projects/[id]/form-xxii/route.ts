@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { ok, serverError } from '@/app/api/_lib'
 import { db } from '@/lib/db'
+import { CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 
     // Get all file attachments linked to these proposals (board-approved docs)
     const attachments = await db.file_attachment.findMany({
-      where: { entity_type: 'land_schedule', entity_id: { in: proposalIds } },
+      where: { entity_type: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE, entity_id: { in: proposalIds } },
       include: {
         file_record: {
           include: { file_version: { orderBy: { version_number: 'desc' }, take: 1 } }

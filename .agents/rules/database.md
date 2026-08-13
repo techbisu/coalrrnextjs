@@ -12,8 +12,8 @@
 - **Foreign Key Mapping**: MUST add explicit Foreign Key mappings (`@relation(...)` with constraints like `onDelete: SetNull`/`Cascade` and explicit relation maps).
 - **Mandatory Audit Fields**: EVERY table MUST include the 4 standard audit fields:
   ```prisma
-  entry_ts      DateTime @default(now()) @db.Timestamptz(6)
-  updt_ts       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  entry_ts      BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
+  updt_ts       BigInt?  @default(dbgenerated("date_part('epoch'::text, now())"))
   entry_by      String?  @db.VarChar(64)
   updt_by       String?  @db.VarChar(64)
   ```

@@ -1,12 +1,12 @@
 import { IUseCase } from '@/core/interfaces/UseCase.interface';
 import { Result } from '@/core/result/Result';
 import { IMineRepository } from '@/infrastructure/persistence/repositories/PrismaMineRepository';
-import { mine_master } from '@prisma/client';
+import { mine } from '@prisma/client';
 
-export class GetAdjacentMinesUseCase implements IUseCase<string, mine_master[]> {
+export class GetAdjacentMinesUseCase implements IUseCase<string, mine[]> {
   constructor(private mineRepository: IMineRepository) {}
 
-  async execute(mineCd: string): Promise<Result<mine_master[]>> {
+  async execute(mineCd: string): Promise<Result<mine[]>> {
     try {
       const adjacent = await this.mineRepository.getAdjacentMines(mineCd);
       return Result.ok(adjacent);

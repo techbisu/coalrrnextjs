@@ -34,9 +34,10 @@ export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWork
           form_data: { ...(existingDraft.form_data as any), ...extraData }
         })
 
-        // Auto-generate docx so preview is immediately ready
-        const { generateDocumentUseCase } = await import('@/infrastructure/di/Container')
-        await generateDocumentUseCase.execute({ instanceId: existingDraft.id })
+        // Dispatch background docx generation via JobDispatcherService
+        const { jobDispatcher } = await import('@/infrastructure/di/Container')
+        await this.instanceRepository.update(existingDraft.id, { status: 'QUEUED' })
+        await jobDispatcher.dispatch('generateDocument', { instanceId: existingDraft.id })
         
         const refreshedDraft = await this.instanceRepository.findById(existingDraft.id)
         return Ok(refreshedDraft || existingDraft)

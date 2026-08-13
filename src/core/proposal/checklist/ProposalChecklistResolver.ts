@@ -2,7 +2,7 @@ import { IChecklistContextResolver } from '@/core/checklist/interfaces/IChecklis
 import { IProposalRepository } from '@/domain/entities/proposal';
 import { db } from '@/lib/db';
 
-import { ACQ_LAND_SCHEDULE, ACQ_MODE_ID } from '@/core/config/module-codes.config';
+import { CHECKABLE_ENTITY_TYPES, ACQ_MODE_ID } from '@/core/config/module-codes.config';
 
 export class ProposalChecklistResolver implements IChecklistContextResolver {
   constructor(
@@ -18,7 +18,7 @@ export class ProposalChecklistResolver implements IChecklistContextResolver {
     // 1. Fetch pre-computed dynamic flags from the new checklist_entity_context table
     const entityContext = await db.checklist_entity_context.findFirst({
       where: {
-        checkable_type: { in: [ACQ_LAND_SCHEDULE, 'LAND_ACQ_PROPOSAL', 'acq_land_schedule'] },
+        checkable_type: { in: [CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE] },
         checkable_id: entityId
       }
     });

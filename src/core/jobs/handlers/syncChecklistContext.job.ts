@@ -56,7 +56,7 @@ export const syncChecklistContextHandler = async (payload: SyncChecklistContextP
     }
   }
 
-  const masterTypes = await db.landtype_master.findMany({
+  const masterTypes = await db.landtype.findMany({
     where: {
       landt_id: { in: Array.from(landTypeIds).map(id => BigInt(id)) }
     }

@@ -51,7 +51,7 @@ export class PrismaProjectRepository implements IProjectRepository {
   }
   
   async generateProjectCodes(areaCd: string, mineCd: string, stateLgd?: number | string): Promise<{ proj_cd: string; ecl_proj_cd: string; state_lgd: number }> {
-    const area = await db.area_master.findUnique({
+    const area = await db.area.findUnique({
       where: { area_cd: areaCd }
     });
 
@@ -568,7 +568,7 @@ export class PrismaProjectRepository implements IProjectRepository {
     const where: any = {}
     if (options?.scope) {
       if (options.scope.level === 'AREA') {
-        const areaMines = await db.mine_master.findMany({
+        const areaMines = await db.mine.findMany({
           where: { area_cd: { in: options.scope.areaIds } },
           select: { mine_cd: true }
         });
@@ -601,7 +601,7 @@ export class PrismaProjectRepository implements IProjectRepository {
         acq_proposal: {
           select: { proj_cd: true }
         },
-        mouza_master: true
+        mouza: true
       }
     })
     
@@ -655,17 +655,17 @@ export class PrismaProjectRepository implements IProjectRepository {
       })
     })
 
-    const mouzas = await db.mouza_master.findMany({
+    const mouzas = await db.mouza.findMany({
       where: { mouza_lgd: { in: Array.from(uniqueMouzas) } }
     })
     const mouzaMap = new Map(mouzas.map(m => [m.mouza_lgd.toString(), m]))
 
-    const mines = await db.mine_master.findMany({
+    const mines = await db.mine.findMany({
       where: { mine_cd: { in: Array.from(uniqueMines) } }
     })
     const mineMap = new Map(mines.map(m => [m.mine_cd, m]))
 
-    const areas = await db.area_master.findMany()
+    const areas = await db.area.findMany()
     const areaMap = new Map(areas.map(a => [a.area_cd, a]))
 
     return projects.map((p: any) => {
@@ -795,7 +795,7 @@ export class PrismaProjectRepository implements IProjectRepository {
           id: pl.schedule_id?.toString() || crypto.randomUUID(),
           plot_number: pl.plot_no,
           area_acres: pl.to_be_acquired_area?.toString() || '0',
-          mouza: pl.mouza_master?.mouza_name || '',
+          mouza: pl.mouza?.mouza_name || '',
           land_type: pl.plot_ty || '',
           exhausted_area_for_jobs: '0',
           remaining_job_quota: 0

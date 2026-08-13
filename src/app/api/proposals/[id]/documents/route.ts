@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { ok, badRequest, serverError, notFound } from '@/app/api/_lib'
 import { proposalDocumentPackageService } from '@/infrastructure/di/Container'
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       mimeType: file.type || 'application/octet-stream',
       sizeBytes: file.size,
       userId: auth.user.id,
-      module: 'LAND_ACQ_PROPOSAL'
+      module: MODULE_CODES.LAND_SCHEDULE
     })
 
     if (result.isFailure) {

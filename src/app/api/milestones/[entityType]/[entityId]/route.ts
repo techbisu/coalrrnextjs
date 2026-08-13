@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeApi } from '@/core/authorization/middleware/authorize';
 import { db } from '@/lib/db';
-import { milestoneConfig } from '@/core/config/milestone.config';
+import { manualMilestoneService } from '@/core/workflow/services/ManualMilestoneService';
 import { withRequestContext } from '@/app/api/_server';
 
 export async function GET(
@@ -9,23 +9,15 @@ export async function GET(
   { params }: { params: Promise<{ entityType: string; entityId: string }> }
 ) {
   return withRequestContext(request, async () => {
-    // Note: Can be generalized to other permissions if needed based on entityType
     const auth = await authorizeApi('proposal.view');
-    if (auth.error) {
-      return auth.error;
-    }
+    if (auth.error) return auth.error;
 
     const { entityType, entityId } = await params;
 
     try {
       const milestones = await db.manual_milestone.findMany({
-        where: {
-          entity_type: entityType,
-          entity_id: entityId,
-        },
-        orderBy: {
-          sent_at: 'desc'
-        }
+        where: { entity_type: entityType, entity_id: entityId },
+        orderBy: { sent_at: 'desc' }
       });
 
       const formattedMilestones = milestones.map(m => ({
@@ -33,11 +25,15 @@ export async function GET(
         milestone_type: m.milestone_type,
         authority: m.authority_name,
         reference_no: m.reference_no,
-        milestone_date: m.sent_at ? m.sent_at.toISOString() : (m.received_at ? m.received_at.toISOString() : new Date(Number(m.entry_ts || 0) * 1000).toISOString()),
+        milestone_date: m.sent_at
+          ? m.sent_at.toISOString()
+          : (m.received_at
+            ? m.received_at.toISOString()
+            : new Date(Number(m.entry_ts || 0) * 1000).toISOString()),
         outcome: m.outcome,
         remarks: m.remarks,
         document_id: m.document_id,
-        entry_ts: new Date(Number(m.entry_ts || 0) * 1000).toISOString(),
+        entry_ts: m.entry_ts.toISOString(),
         entry_by: m.entry_by || 'system'
       }));
 
@@ -57,47 +53,30 @@ export async function POST(
     const auth = await authorizeApi('proposal.view');
     if (auth.error) return auth.error;
 
-    const hasAllowedRole = auth.user?.roles?.some(role => (milestoneConfig.allowedRoles as readonly string[]).includes(role)) || true;
-    if (!hasAllowedRole) {
-      return NextResponse.json({ error: 'Forbidden', message: 'You do not have permission to add milestones' }, { status: 403 });
-    }
-
     const { entityType, entityId } = await params;
     try {
       const body = await request.json();
       const { milestone_type, authority, reference_no, outcome, remarks, document_id } = body;
 
-      if (milestone_type && milestone_type !== 'OTHER_MILESTONE') {
-        const configItem = milestoneConfig.CBA.find(c => c.id === milestone_type) || milestoneConfig.DP.find(c => c.id === milestone_type);
-        if (configItem && configItem.requires.length > 0) {
-          const existing = await db.manual_milestone.findMany({
-            where: { entity_type: entityType, entity_id: entityId, outcome: 'APPROVED' },
-            select: { milestone_type: true }
-          });
-          const existingTypes = new Set(existing.map(e => e.milestone_type));
-          const missing = configItem.requires.filter(req => !existingTypes.has(req));
-          if (missing.length > 0) {
-            return NextResponse.json({ error: 'Validation Error', message: `Missing required previous milestones: ${missing.join(', ')}` }, { status: 400 });
-          }
-        }
-      }
-
-      const created = await db.manual_milestone.create({
-        data: {
-          entity_type: entityType,
-          entity_id: entityId,
-          milestone_type: milestone_type || 'GENERAL_MILESTONE',
-          authority_name: authority || 'District Office',
-          reference_no: reference_no || null,
-          sent_at: new Date(),
-          outcome: outcome || 'APPROVED',
-          remarks: remarks || null,
-          document_id: document_id || null,
-          entry_by: auth.user?.id || 'system'
-        }
+      // ── DB-driven dependency validation via ManualMilestoneService ────────
+      const result = await manualMilestoneService.recordMilestone({
+        entity_type: entityType,
+        entity_id: entityId,
+        milestone_type: milestone_type || 'GENERAL_MILESTONE',
+        authority,
+        reference_no,
+        milestone_date: new Date(),
+        outcome: outcome || 'APPROVED',
+        remarks,
+        proof_document_id: document_id,
+        user_id: String(auth.user?.id || 'system'),
       });
 
-      return NextResponse.json(created, { status: 201 });
+      if (!result.isSuccess) {
+        return NextResponse.json({ error: 'Validation Error', message: result.error }, { status: 400 });
+      }
+
+      return NextResponse.json(result.value, { status: 201 });
     } catch (error: any) {
       console.error('Error creating milestone:', error);
       return NextResponse.json({ error: 'Failed to create milestone', message: error.message }, { status: 500 });

@@ -86,7 +86,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       return 0;
     };
 
-    // Area of this proposal's own plots & land type breakup — driven by landtype_master
+    // Area of this proposal's own plots & land type breakup — driven by landtype
     let tenancyLand = 0, govtLand = 0, pattaLand = 0, forestLand = 0;
     let thisAcres = 0;
 
@@ -98,7 +98,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       if (ltList.length > 0) {
         ltList.forEach(lt => {
           const areaToAcq = parsePositiveArea(lt.area_to_acquire, lt.area, pArea);
-          // Use landt_id to look up category from the dynamic landtype_master map
+          // Use landt_id to look up category from the dynamic landtype map
           const category = landCategoryMap.get(Number(lt.landt_id)) || 'TENANCY';
 
           if (category === 'GOVT') govtLand += areaToAcq;

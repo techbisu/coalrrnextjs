@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   try {
     const { id } = await ctx.params
     const mandatoryRules = await db.checklist_requirement_rule.findMany({
-      where: { module_code: { in: [MODULE_CODES.LAND_SCHEDULE, 'LAND_ACQ_PROPOSAL', 'LAND_SCHEDULE'] }, is_mandatory: true, is_active: true }
+      where: { module_code: { in: [MODULE_CODES.LAND_SCHEDULE] }, is_mandatory: true, is_active: true }
     })
 
     const submissions = await db.checklist_submission.findMany({

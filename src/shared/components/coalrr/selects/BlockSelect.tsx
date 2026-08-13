@@ -41,7 +41,7 @@ export function BlockSelect({
   }, [ignoreCascade, districtLgd, value])
 
   const { data, isLoading, error } = useMasterLookup({
-    masterName: 'block_master',
+    masterName: 'block',
     dependencies,
   })
 

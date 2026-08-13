@@ -86,7 +86,7 @@ export async function PUT(
     const body = await request.json();
     const validatedData = PlotScheduleSchema.parse(body);
 
-    const mouzaData = await db.mouza_master.findUnique({ 
+    const mouzaData = await db.mouza.findUnique({ 
       where: { mouza_lgd: BigInt(validatedData.mouza_lgd) },
       select: {
         jl_no: true,

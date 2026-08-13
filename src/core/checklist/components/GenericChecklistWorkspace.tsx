@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { SectionCard } from '@/shared/components/coalrr'
 import { useQuery } from '@tanstack/react-query'
 import { updateChecklistSubmission } from '@/app/actions/checklist.actions'
@@ -9,8 +9,10 @@ import { DocumentWorkspaceModal } from '@/shared/components/coalrr/DocumentWorks
 import { ChecklistHeaderProgress } from './ChecklistHeaderProgress'
 import { GeneratedFormsSection } from './sections/GeneratedFormsSection'
 import { OperationalChecklistSection } from './sections/OperationalChecklistSection'
+import { StageTabs } from './StageTabs'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
 import { ACQ_LAND_SCHEDULE, MODULE_CODES } from '@/core/config/module-codes.config'
+import type { ChecklistStageDTO } from '../usecases/GetChecklistStatusUseCase'
 
 interface GenericChecklistWorkspaceProps {
   moduleCode?: string;
@@ -21,6 +23,7 @@ interface GenericChecklistWorkspaceProps {
   description?: string;
   readonly?: boolean;
   action?: (isComplete: boolean) => React.ReactNode;
+  onChanged?: () => void;
 }
 
 export function GenericChecklistWorkspace({
@@ -31,11 +34,12 @@ export function GenericChecklistWorkspace({
   title = "Project Files & Statutory Clearances",
   description = "Dynamic rules engine managing operational compliance and legal document generation",
   readonly = false,
-  action
+  action,
+  onChanged
 }: GenericChecklistWorkspaceProps) {
   const [docWorkspaceOpen, setDocWorkspaceOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'generated' | 'operational'>('generated')
+  const [selectedStageCode, setSelectedStageCode] = useState<string | null>(null)
 
   const openDocWorkspace = (templateCode: string) => {
     setSelectedTemplate(templateCode)
@@ -56,6 +60,13 @@ export function GenericChecklistWorkspace({
     enabled: !!checkableId
   })
 
+  // Sync selected stage on data load
+  useEffect(() => {
+    if (data?.currentStage?.code && !selectedStageCode) {
+      setSelectedStageCode(data.currentStage.code);
+    }
+  }, [data, selectedStageCode]);
+
   const handleSubmitRequirement = async (requirementId: string, documentId?: string, userInput?: any) => {
     try {
       await updateChecklistSubmission({
@@ -67,6 +78,7 @@ export function GenericChecklistWorkspace({
         userInput
       });
       await refetch();
+      if (onChanged) onChanged();
     } catch (err) {
       console.error('Error submitting checklist requirement:', err);
     }
@@ -101,33 +113,44 @@ export function GenericChecklistWorkspace({
     </SectionCard>
   )
 
-  const items = data.items;
+  const allItems = data.items;
+  const stages: ChecklistStageDTO[] = data.stages || [];
+  const currentStageCode = data.currentStage?.code || selectedStageCode;
+
+  // Resolve currently active stage selection
+  const activeStageObj = stages.find(s => s.code === (selectedStageCode || currentStageCode));
+  const isSelectedStageReadOnly = readonly || (activeStageObj ? activeStageObj.isReadOnly : false);
+
+  // If stage filtering is active, filter items for the selected stage
+  const displayedItems = activeStageObj && activeStageObj.items
+    ? activeStageObj.items
+    : allItems;
 
   // Separate Generated Documents (Docx Engine) from Operational Items
-  const generatedForms = items.filter((item: any) =>
+  const generatedForms = displayedItems.filter((item: any) =>
     item.inputSchema?.type === 'generated_document' ||
     item.type === 'generated_document' ||
     item.inputSchema?.template_code ||
     item.inputSchema?.templateCode
   );
 
-  const operationalItems = items.filter((item: any) =>
+  const operationalItems = displayedItems.filter((item: any) =>
     item.inputSchema?.type !== 'generated_document' &&
     item.type !== 'generated_document' &&
     !item.inputSchema?.template_code &&
     !item.inputSchema?.templateCode
   );
 
-  // Status Metrics
-  const totalItems = items.length;
-  const satisfiedItemsCount = items.filter((item: any) =>
+  // Overall Status Metrics (across all visible items)
+  const totalItems = allItems.length;
+  const satisfiedItemsCount = allItems.filter((item: any) =>
     item.submission?.status === 'SUBMITTED' ||
     item.submission?.status === 'AUTO_SATISFIED' ||
     item.submission?.status === 'APPROVED' ||
     item.generatedDocInfo?.status === 'COMPLETED'
   ).length;
 
-  const mandatoryItems = items.filter((item: any) => item.isMandatory);
+  const mandatoryItems = allItems.filter((item: any) => item.isMandatory);
   const satisfiedMandatoryCount = mandatoryItems.filter((item: any) =>
     item.submission?.status === 'SUBMITTED' ||
     item.submission?.status === 'AUTO_SATISFIED' ||
@@ -149,6 +172,15 @@ export function GenericChecklistWorkspace({
           generatedFormsCount={generatedForms.length}
           operationalItemsCount={operationalItems.length}
         />
+
+        {/* Generic Stage Selection Tabs (Visible stages only: Historical Completed + Current) */}
+        {stages.length > 1 && (
+          <StageTabs
+            stages={stages}
+            selectedStageCode={selectedStageCode || currentStageCode}
+            onSelectStage={(code) => setSelectedStageCode(code)}
+          />
+        )}
 
         {/* Dual Section Tabs */}
         <Tabs defaultValue={generatedForms.length > 0 ? "generated" : "operational"} className="space-y-6">
@@ -175,7 +207,7 @@ export function GenericChecklistWorkspace({
               <GeneratedFormsSection
                 items={generatedForms}
                 onOpenWorkspace={openDocWorkspace}
-                readonly={readonly}
+                readonly={isSelectedStageReadOnly}
               />
             </TabsContent>
           )}
@@ -188,7 +220,7 @@ export function GenericChecklistWorkspace({
               checkableId={checkableId}
               moduleCode={moduleCode}
               onSubmit={handleSubmitRequirement}
-              readonly={readonly}
+              readonly={isSelectedStageReadOnly}
             />
           </TabsContent>
         </Tabs>

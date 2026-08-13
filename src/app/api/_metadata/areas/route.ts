@@ -7,7 +7,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   
   try {
-    const areas = await db.area_master.findMany({
+    const areas = await db.area.findMany({
       where: { is_active: true },
       select: { area_cd: true, area_en: true },
       orderBy: { area_en: 'asc' }

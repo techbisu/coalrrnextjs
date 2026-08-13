@@ -1,6 +1,7 @@
 import { IUseCase } from '@/core/interfaces/UseCase.interface'
 import { Result, Ok, Fail } from '@/core/result/Result'
 import { IPayrollsRepository } from '@/modules/payrolls/interfaces/IPayrollsRepository'
+import { CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
 
 export class GetPayrollsUseCase implements IUseCase<void, any> {
   constructor(private repo: IPayrollsRepository) {}
@@ -8,7 +9,7 @@ export class GetPayrollsUseCase implements IUseCase<void, any> {
   async execute(): Promise<Result<any>> {
     try {
       const payrolls = await this.repo.findAllPayrollsWithDetails()
-      const allReviewTasks = await this.repo.findReviewTasksForType('compensation_payroll')
+      const allReviewTasks = await this.repo.findReviewTasksForType(CHECKABLE_ENTITY_TYPES.COMPENSATION_PAYROLL)
       
       const tasksByPayroll = new Map<string, typeof allReviewTasks>()
       for (const t of allReviewTasks) {

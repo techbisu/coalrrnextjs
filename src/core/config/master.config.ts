@@ -56,10 +56,10 @@ export function toClientConfig(config: MasterDataConfig): MasterDataClientConfig
 }
 
 export const MASTER_REGISTRY: Record<string, MasterDataConfig> = {
-  'state_master': {
+  'state': {
     title: 'State Master',
     description: 'Manage states across India',
-    modelName: 'state_master',
+    modelName: 'state',
     primaryKey: 'state_lgd',
     columns: [
       { key: 'state_lgd', label: 'State LGD Code', type: 'number', required: true },
@@ -71,13 +71,13 @@ export const MASTER_REGISTRY: Record<string, MasterDataConfig> = {
     labelFormat: (r) => [r.state_en, r.state_loc_vern, r.state_lgd ? String(r.state_lgd) : null].filter(Boolean).join(' | '),
     searchKeys: ['state_en', 'state_loc_vern', 'short_code'],
   },
-  'district_master': {
+  'district': {
     title: 'District Master',
     description: 'Manage districts',
-    modelName: 'district_master',
+    modelName: 'district',
     primaryKey: 'district_lgd',
     columns: [
-      { key: 'state_lgd',   label: 'State',         type: 'number', required: true, lookupFrom: 'state_master' },
+      { key: 'state_lgd',   label: 'State',         type: 'number', required: true, lookupFrom: 'state' },
       { key: 'district_lgd', label: 'District LGD', type: 'number', required: true },
       { key: 'district_en', label: 'District Name', type: 'string', required: true },
       { key: 'is_active',   label: 'Is Active',     type: 'boolean' },
@@ -85,14 +85,14 @@ export const MASTER_REGISTRY: Record<string, MasterDataConfig> = {
     labelFormat: (r) => [r.district_en, r.district_loc_vern, r.district_lgd ? String(r.district_lgd) : null].filter(Boolean).join(' | '),
     searchKeys: ['district_en', 'district_loc_vern'],
   },
-  'block_master': {
+  'block': {
     title: 'Block Master',
     description: 'Manage blocks',
-    modelName: 'block_master',
+    modelName: 'block',
     primaryKey: 'block_lgd',
     columns: [
-      { key: 'state_lgd',    label: 'State',       type: 'number', required: true, lookupFrom: 'state_master' },
-      { key: 'district_lgd', label: 'District',    type: 'number', required: true, lookupFrom: 'district_master', dependsOnField: 'state_lgd' },
+      { key: 'state_lgd',    label: 'State',       type: 'number', required: true, lookupFrom: 'state' },
+      { key: 'district_lgd', label: 'District',    type: 'number', required: true, lookupFrom: 'district', dependsOnField: 'state_lgd' },
       { key: 'block_lgd',    label: 'Block LGD',   type: 'number', required: true },
       { key: 'block_en',     label: 'Block Name',  type: 'string', required: true },
       { key: 'is_active',    label: 'Is Active',   type: 'boolean' },
@@ -100,14 +100,14 @@ export const MASTER_REGISTRY: Record<string, MasterDataConfig> = {
     labelFormat: (r) => [r.block_en, r.block_loc_vern, r.block_lgd ? String(r.block_lgd) : null].filter(Boolean).join(' | '),
     searchKeys: ['block_en', 'block_loc_vern'],
   },
-  'ps_master': {
+  'ps': {
     title: 'Police Station Master',
     description: 'Manage police stations',
-    modelName: 'ps_master',
+    modelName: 'ps',
     primaryKey: 'ps_lgd',
     columns: [
-      { key: 'state_lgd',    label: 'State',     type: 'number', required: true, lookupFrom: 'state_master' },
-      { key: 'district_lgd', label: 'District',  type: 'number', required: true, lookupFrom: 'district_master', dependsOnField: 'state_lgd' },
+      { key: 'state_lgd',    label: 'State',     type: 'number', required: true, lookupFrom: 'state' },
+      { key: 'district_lgd', label: 'District',  type: 'number', required: true, lookupFrom: 'district', dependsOnField: 'state_lgd' },
       { key: 'ps_lgd',       label: 'PS LGD',    type: 'number', required: true },
       { key: 'ps_en',        label: 'PS Name',   type: 'string', required: true },
       { key: 'is_active',    label: 'Is Active', type: 'boolean' },
@@ -115,15 +115,15 @@ export const MASTER_REGISTRY: Record<string, MasterDataConfig> = {
     labelFormat: (r) => [r.ps_en, r.ps_loc_vern, r.ps_lgd ? String(r.ps_lgd) : null].filter(Boolean).join(' | '),
     searchKeys: ['ps_en', 'ps_loc_vern'],
   },
-  'mouza_master': {
+  'mouza': {
     title: 'Mouza Master',
     description: 'Manage mouzas',
-    modelName: 'mouza_master',
+    modelName: 'mouza',
     primaryKey: 'mouza_lgd',
     columns: [
-      { key: 'state_lgd',    label: 'State',      type: 'number', required: true, lookupFrom: 'state_master' },
-      { key: 'district_lgd', label: 'District',   type: 'number', required: true, lookupFrom: 'district_master', dependsOnField: 'state_lgd' },
-      { key: 'block_lgd',    label: 'Block',      type: 'number', required: true, lookupFrom: 'block_master',    dependsOnField: 'district_lgd' },
+      { key: 'state_lgd',    label: 'State',      type: 'number', required: true, lookupFrom: 'state' },
+      { key: 'district_lgd', label: 'District',   type: 'number', required: true, lookupFrom: 'district', dependsOnField: 'state_lgd' },
+      { key: 'block_lgd',    label: 'Block',      type: 'number', required: true, lookupFrom: 'block',    dependsOnField: 'district_lgd' },
       { key: 'mouza_lgd',    label: 'Mouza LGD',  type: 'number', required: true },
       { key: 'mouza_en',     label: 'Mouza Name', type: 'string', required: true },
       { key: 'jl_no',        label: 'JL Number',  type: 'string' },
@@ -132,15 +132,15 @@ export const MASTER_REGISTRY: Record<string, MasterDataConfig> = {
     labelFormat: (r) => [r.mouza_en, r.mouza_loc_vern, r.halka_no, r.jl_no].filter(Boolean).join(' | '),
     searchKeys: ['mouza_en', 'mouza_loc_vern', 'jl_no', 'halka_no'],
   },
-  'vill_master': {
+  'village': {
     title: 'Village Master',
     description: 'Manage villages',
-    modelName: 'vill_master',
+    modelName: 'village',
     primaryKey: 'village_lgd',
     columns: [
-      { key: 'state_lgd',    label: 'State',        type: 'number', required: true, lookupFrom: 'state_master' },
-      { key: 'district_lgd', label: 'District',     type: 'number', required: true, lookupFrom: 'district_master', dependsOnField: 'state_lgd' },
-      { key: 'block_lgd',    label: 'Block',        type: 'number', required: true, lookupFrom: 'block_master',    dependsOnField: 'district_lgd' },
+      { key: 'state_lgd',    label: 'State',        type: 'number', required: true, lookupFrom: 'state' },
+      { key: 'district_lgd', label: 'District',     type: 'number', required: true, lookupFrom: 'district', dependsOnField: 'state_lgd' },
+      { key: 'block_lgd',    label: 'Block',        type: 'number', required: true, lookupFrom: 'block',    dependsOnField: 'district_lgd' },
       { key: 'village_lgd',  label: 'Village LGD',  type: 'number', required: true },
       { key: 'village_name', label: 'Village Name', type: 'string', required: true },
       { key: 'is_active',    label: 'Is Active',    type: 'boolean' },
@@ -148,65 +148,65 @@ export const MASTER_REGISTRY: Record<string, MasterDataConfig> = {
     labelFormat: (r) => [r.village_name, r.village_loc_vern, r.village_lgd ? String(r.village_lgd) : null].filter(Boolean).join(' | '),
     searchKeys: ['village_name', 'village_loc_vern'],
   },
-  'area_master': {
+  'area': {
     title: 'Area Master',
     description: 'Manage ECL Areas',
-    modelName: 'area_master',
+    modelName: 'area',
     primaryKey: 'area_cd',
     columns: [
-      { key: 'state_lgd', label: 'State', type: 'number', required: true, lookupFrom: 'state_master' },
+      { key: 'state_lgd', label: 'State', type: 'number', required: true, lookupFrom: 'state' },
       { key: 'area_cd', label: 'Area Code', type: 'string', required: true },
       { key: 'area_en', label: 'Area Name', type: 'string', required: true },
       { key: 'short_nm', label: 'Short Name', type: 'string' }
     ]
   },
-  'cast_master': {
+  'caste': {
     title: 'Caste Master',
     description: 'Manage castes/categories',
-    modelName: 'cast_master',
+    modelName: 'caste',
     primaryKey: 'cast_id',
     columns: [
       { key: 'cast_id', label: 'Caste ID', type: 'number', required: true },
       { key: 'cast_type', label: 'Caste Type', type: 'string', required: true }
     ]
   },
-  'owner_type_master': {
+  'owner_type': {
     title: 'Owner Type Master',
     description: 'Manage owner types',
-    modelName: 'owner_type_master',
+    modelName: 'owner_type',
     primaryKey: 'owner_type_id',
     columns: [
       { key: 'owner_type_id', label: 'Type ID', type: 'number', required: true },
       { key: 'owner_type', label: 'Owner Type', type: 'string', required: true }
     ]
   },
-  'mine_master': {
+  'mine': {
     title: 'Mine Master',
     description: 'Manage mines',
-    modelName: 'mine_master',
+    modelName: 'mine',
     primaryKey: 'mine_cd',
     columns: [
-      { key: 'state_lgd', label: 'State', type: 'number', required: true, lookupFrom: 'state_master' },
-      { key: 'area_cd', label: 'Area', type: 'string', required: true, lookupFrom: 'area_master', dependsOnField: 'state_lgd'},
+      { key: 'state_lgd', label: 'State', type: 'number', required: true, lookupFrom: 'state' },
+      { key: 'area_cd', label: 'Area', type: 'string', required: true, lookupFrom: 'area', dependsOnField: 'state_lgd'},
       { key: 'mine_cd', label: 'Mine Code', type: 'string', required: true },
       { key: 'mine_en', label: 'Mine Name', type: 'string', required: true },
       { key: 'is_active', label: 'Is Active', type: 'boolean' }
     ]
   },
-  'landclass_master': {
+  'landclass': {
     title: 'Land Class Master',
     description: 'Manage land classes',
-    modelName: 'landclass_master',
+    modelName: 'landclass',
     primaryKey: 'landc_id',
     columns: [
       { key: 'landc_id', label: 'Land Class ID', type: 'number', required: true },
       { key: 'land_class', label: 'Land Class', type: 'string', required: true }
     ]
   },
-  'landtype_master': {
+  'landtype': {
     title: 'Land Type Master',
     description: 'Manage land types',
-    modelName: 'landtype_master',
+    modelName: 'landtype',
     primaryKey: 'landt_id',
     columns: [
       { key: 'landt_id', label: 'Land Type ID', type: 'number', required: true },
@@ -225,10 +225,10 @@ export const MASTER_REGISTRY: Record<string, MasterDataConfig> = {
       { key: 'aquisition_method', label: 'Acquisition Method', type: 'string', required: true }
     ]
   },
-  'chk_master_new': {
+  'checklist': {
     title: 'Checklist Master',
     description: 'Manage dynamic checklists',
-    modelName: 'chk_master_new',
+    modelName: 'checklist',
     primaryKey: 'chk_id',
     columns: [
       { key: 'chk_id', label: 'Checklist ID', type: 'number', required: true },

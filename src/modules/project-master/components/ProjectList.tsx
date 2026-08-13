@@ -94,7 +94,7 @@ export function ProjectList({ projects, onSelectProject, selectedProjectId }: Pr
   const [projectToDelete, setProjectToDelete] = React.useState<{ id: string, name: string } | null>(null)
   const [deleteConfirmName, setDeleteConfirmName] = React.useState('')
 
-  const { data: areaMasterData } = useMasterLookup({ masterName: 'area_master' })
+  const { data: areaMasterData } = useMasterLookup({ masterName: 'area' })
   const areaMap = React.useMemo(() => {
     const map = new Map<string, string>()
     if (areaMasterData?.options) {
@@ -103,7 +103,7 @@ export function ProjectList({ projects, onSelectProject, selectedProjectId }: Pr
     return map
   }, [areaMasterData])
 
-  const { data: mineMasterData } = useMasterLookup({ masterName: 'mine_master' })
+  const { data: mineMasterData } = useMasterLookup({ masterName: 'mine' })
   const mineMap = React.useMemo(() => {
     const map = new Map<string, string>()
     if (mineMasterData?.options) {

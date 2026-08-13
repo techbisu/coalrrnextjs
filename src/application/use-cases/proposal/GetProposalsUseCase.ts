@@ -40,7 +40,7 @@ export class GetProposalsUseCase implements IUseCase<GetProposalsRequest, any[]>
             tag = 'C'
           } else {
             const landTypes = plot.plot_schedule_land_type || []
-            const landType = landTypes[0]?.landtype_master?.land_type || ''
+            const landType = landTypes[0]?.landtype?.land_type || ''
             if (landType.toLowerCase().includes('govt')) {
               tag = 'A'
             } else {

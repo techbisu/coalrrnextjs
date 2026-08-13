@@ -41,7 +41,7 @@ export function LandClassSelect({
   }, [ignoreCascade, landtId, districtLgd])
 
   const { data, isLoading, error } = useMasterLookup({
-    masterName: 'landclass_master',
+    masterName: 'landclass',
     dependencies,
   })
 

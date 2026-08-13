@@ -1,255 +1,394 @@
-'use client'
+'use client';
 
-import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
+import * as React from 'react';
 import {
-  User, Clock, FileText, CheckCircle2, AlertCircle, ArrowRight,
-  Download, Paperclip, MessageSquare, ChevronRight, ShieldCheck, GitBranch, Layers
-} from 'lucide-react'
-import { Badge } from '@/shared/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card'
-import { Skeleton } from '@/shared/components/ui/skeleton'
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Paperclip,
+  Download,
+  MessageSquare,
+  FileSignature,
+  Award,
+  ChevronRight,
+  ShieldCheck,
+  User,
+  ArrowRight,
+  Sparkles,
+  Lightbulb,
+  AlertTriangle,
+} from 'lucide-react';
+import { Badge } from '@/shared/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Skeleton } from '@/shared/components/ui/skeleton';
+import { useWorkflowSnapshot } from '@/shared/hooks/useWorkflowSnapshot';
+import type { WorkflowPendingAction, WorkflowAssignmentNode } from '@/core/workflow/types/snapshot.types';
 
 export interface WorkflowTimelineFeedProps {
-  moduleCode: string;       // e.g. 'LAND_SCHEDULE', 'COMPENSATION_PAYROLL', 'EMPLOYMENT_APP'
-  entityId: string;         // e.g. proposalId, claimId
+  moduleCode: string; // e.g. MODULE_CODES.LAND_SCHEDULE ('LAND_SCHEDULE')
+  entityType: string; // e.g. CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE ('acq_land_schedule')
+  entityId: string;
+  userRole?: string;
   maxHeight?: number | string;
   className?: string;
-  showParallelTasks?: boolean;
-}
-
-export interface WorkflowHistoryItem {
-  wah_id: string
-  action: string
-  from_state: string
-  to_state: string
-  user_id?: number
-  user_name_label?: string
-  user_role_label?: string
-  target_recipient_label?: string
-  comments?: string
-  recommendations_json?: any
-  annexure_notes?: string
-  entry_ts: string
-  user?: {
-    id: number
-    name: string
-    designation?: string
-    mobile?: string
-  }
-  attachment?: {
-    id: string
-    original_name: string
-    status: string
-  } | null
-}
-
-export interface ParallelReviewTask {
-  review_task_id: string
-  role: string
-  status: string
-  entry_ts: string
-}
-
-function formatDateLabel(dateStr: string): string {
-  try {
-    const d = new Date(dateStr)
-    const dateFormatted = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    const timeFormatted = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()
-    return `${dateFormatted}, ${timeFormatted}`
-  } catch {
-    return dateStr
-  }
-}
-
-function getRoleLabel(roleName?: string): string {
-  if (!roleName) return 'Officer'
-  const map: Record<string, string> = {
-    unit_office: 'Unit Officer',
-    adjacent_colliery: 'Adjacent Colliery Officer',
-    area_office: 'Area Officer',
-    gm_planning: 'GM Planning',
-    gm_safety: 'GM Safety',
-    gm_finance: 'GM Finance',
-    hod_legal: 'HOD Legal',
-    gm_lre: 'GM (LRE)',
-    board: 'Board Member',
-  }
-  return map[roleName] ?? roleName
+  onExecuteAction?: (action: WorkflowPendingAction) => void;
+  onRecordMilestone?: () => void;
+  onSignDocument?: (action: WorkflowPendingAction) => void;
 }
 
 export function WorkflowTimelineFeed({
   moduleCode,
+  entityType,
   entityId,
-  maxHeight = 520,
+  userRole,
+  maxHeight = 650,
   className = '',
-  showParallelTasks = true,
+  onExecuteAction,
+  onRecordMilestone,
+  onSignDocument,
 }: WorkflowTimelineFeedProps) {
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['workflow', 'history', moduleCode, entityId],
-    queryFn: async () => {
-      const res = await fetch(`/api/workflow/${moduleCode}/${entityId}/history`)
-      if (!res.ok) throw new Error('Failed to load workflow history')
-      const json = await res.json()
-      return json as {
-        history: WorkflowHistoryItem[]
-        parallelTasks: ParallelReviewTask[]
-      }
-    },
-    enabled: Boolean(moduleCode && entityId),
-  })
+  const { data: snapshot, isLoading, isError, refetch } = useWorkflowSnapshot(
+    moduleCode,
+    entityType,
+    entityId,
+    userRole
+  );
 
   if (isLoading) {
     return (
-      <div className="space-y-4 p-4">
+      <Card className="p-4 space-y-4">
         <Skeleton className="h-6 w-1/3" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-      </div>
-    )
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </Card>
+    );
   }
 
-  if (isError || !data) {
+  if (isError || !snapshot) {
     return (
-      <div className="p-4 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm">
-        Failed to load workflow timeline feed.
+      <div className="p-4 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm flex items-center justify-between">
+        <span>Failed to load workflow timeline snapshot.</span>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          Retry
+        </Button>
       </div>
-    )
+    );
   }
 
-  const { history = [], parallelTasks = [] } = data
+  const { currentState, currentAssignment, assignments } = snapshot;
 
   return (
     <Card className={`border shadow-sm bg-white overflow-hidden ${className}`}>
       <CardHeader className="pb-3 bg-slate-50/50 border-b border-slate-100 flex flex-row items-center justify-between">
-        <CardTitle className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-emerald-600" />
-          Workflow Audit Timeline Feed
-        </CardTitle>
-        <Badge variant="outline" className="text-xs font-mono bg-slate-100 text-slate-700">
-          {moduleCode}
-        </Badge>
+          <CardTitle className="text-sm font-semibold text-slate-800">
+            Workflow Timeline & Action Feed
+          </CardTitle>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className="text-xs font-semibold px-2.5 py-0.5"
+            style={{ backgroundColor: snapshot.currentState.color ? '#ecfdf5' : '#f1f5f9' }}
+          >
+            {currentState.label}
+          </Badge>
+          <Badge variant="secondary" className="text-xs font-mono">
+            {moduleCode}
+          </Badge>
+        </div>
       </CardHeader>
 
       <CardContent className="p-4 space-y-6 overflow-y-auto" style={{ maxHeight }}>
-        {/* Parallel Tasks Overview (if active) */}
-        {showParallelTasks && parallelTasks.length > 0 && (
-          <div className="p-3 rounded-md bg-purple-50/80 border border-purple-200 text-xs space-y-2">
-            <div className="flex items-center gap-2 font-medium text-purple-900">
-              <GitBranch className="w-3.5 h-3.5 text-purple-600" />
-              HQ Parallel Department Clearance Status:
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {parallelTasks.map((task) => (
-                <span
-                  key={task.review_task_id}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium ${
-                    task.status === 'approved'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                      : task.status === 'rejected'
-                      ? 'bg-red-100 text-red-800 border-red-300'
-                      : 'bg-amber-50 text-amber-800 border-amber-300'
-                  }`}
-                >
-                  <span className="font-semibold">{getRoleLabel(task.role)}:</span>
-                  <span className="capitalize">{task.status === 'approved' ? 'Recommended' : task.status === 'pending' ? 'Awaiting' : task.status}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Timeline Feed Stream */}
-        {history.length === 0 ? (
+        {assignments.length === 0 ? (
           <div className="text-center py-8 text-slate-400 text-sm italic">
-            No history recorded yet for this record.
+            No assignments recorded yet.
           </div>
         ) : (
-          <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-            {history.map((item) => {
-              const actorName = item.user?.name || item.user_name_label || 'Authorized User'
-              const actorDesignation = item.user?.designation || item.user_role_label || 'Officer'
-              const formattedTime = formatDateLabel(item.entry_ts)
+          <div className="relative pl-6 space-y-8 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+            {assignments.map((assignment) => {
+              const isCurrent = assignment.status === 'CURRENT';
+              const isCompleted = assignment.status === 'COMPLETED';
+              const isWaiting = assignment.status === 'WAITING';
 
               return (
-                <div key={item.wah_id} className="relative group">
-                  {/* Icon Node Badge */}
-                  <div className="absolute -left-[23px] top-0.5 w-4 h-4 rounded-full border-2 border-white bg-emerald-600 shadow-sm flex items-center justify-center ring-2 ring-emerald-100" />
+                <div key={assignment.id} className="relative group space-y-3">
+                  {/* Node Badge */}
+                  <div
+                    className={`absolute -left-[23px] top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm flex items-center justify-center ring-2 ${
+                      isCurrent
+                        ? 'bg-amber-500 ring-amber-100'
+                        : isCompleted
+                        ? 'bg-emerald-600 ring-emerald-100'
+                        : 'bg-slate-300 ring-slate-100'
+                    }`}
+                  />
 
-                  <div className="space-y-1.5 text-xs">
-                    {/* Header Row: Date - Actor */}
-                    <div className="flex items-center gap-1.5 font-medium text-slate-700">
-                      <span className="text-slate-500 font-normal">{formattedTime}</span>
-                      <span>—</span>
-                      <span className="font-semibold text-slate-900">{actorName}</span>
-                      <span className="text-slate-500">({actorDesignation})</span>
-                    </div>
-
-                    {/* Action & Target Recipient */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-medium text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        {item.action.replace(/_/g, ' ')}
+                  {/* Assignment Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-slate-900">
+                        {isCompleted && '✓ '}
+                        {isCurrent && '● '}
+                        {isWaiting && '○ '}
+                        Assignment: {assignment.stageName}
                       </span>
-                      {item.target_recipient_label && (
-                        <span className="text-slate-600 flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                          <ArrowRight className="w-3 h-3 text-slate-400" />
-                          {item.target_recipient_label}
-                        </span>
+                      {isCurrent && (
+                        <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] uppercase tracking-wider font-semibold">
+                          CURRENT ASSIGNMENT
+                        </Badge>
+                      )}
+                      {isWaiting && (
+                        <Badge variant="outline" className="text-[10px] text-slate-400">
+                          WAITING
+                        </Badge>
                       )}
                     </div>
-
-                    {/* Annexure Notes (if present) */}
-                    {item.annexure_notes && (
-                      <div className="p-2 rounded bg-amber-50/90 border border-amber-200 text-amber-900 font-mono text-[11px] leading-relaxed">
-                        <span className="font-semibold text-amber-950">Annexure:</span> {item.annexure_notes}
-                      </div>
-                    )}
-
-                    {/* Justification Text Area */}
-                    {item.comments && (
-                      <div className="p-2.5 rounded bg-slate-50 border border-slate-200 text-slate-700 leading-relaxed italic flex items-start gap-2">
-                        <MessageSquare className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                        <div>
-                          <span className="font-semibold not-italic text-slate-900 mr-1">Justification:</span>
-                          &ldquo;{item.comments}&rdquo;
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Recommendations Checklist Choices */}
-                    {item.recommendations_json && Array.isArray(item.recommendations_json) && item.recommendations_json.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {item.recommendations_json.map((rec: any, idx: number) => (
-                          <Badge key={idx} variant="secondary" className="bg-sky-50 text-sky-800 border-sky-200 text-[10px] font-normal">
-                            <CheckCircle2 className="w-3 h-3 mr-1 text-sky-600 inline" />
-                            {typeof rec === 'string' ? rec : rec.label || JSON.stringify(rec)}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Attached Supporting Documents */}
-                    {item.attachment && (
-                      <div className="pt-1">
-                        <a
-                          href={`/api/documents/${item.attachment.id}/download`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors font-medium text-[11px]"
-                        >
-                          <Paperclip className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Docs: [{item.attachment.original_name}]</span>
-                          <Download className="w-3 h-3 ml-1 text-emerald-600" />
-                        </a>
-                      </div>
-                    )}
                   </div>
+
+                  <div className="text-xs text-slate-600 flex items-center gap-1.5 font-medium">
+                    <User className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Assigned to:</span>
+                    <span className="font-semibold text-slate-800">
+                      {assignment.assignedUser
+                        ? `${assignment.assignedUser.name} (${assignment.assignedRole})`
+                        : assignment.assignedRole}
+                    </span>
+                  </div>
+
+                  {/* 1. COMPLETED ACTIONS HISTORY */}
+                  {assignment.actions.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      {assignment.actions.map((act) => (
+                        <div
+                          key={act.id}
+                          className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-100 space-y-1.5 text-xs"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-emerald-950 flex items-center gap-1.5">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              {act.label}
+                            </span>
+                            {act.completedAt && (
+                              <span className="text-[11px] text-slate-400">
+                                {new Date(act.completedAt).toLocaleString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            )}
+                          </div>
+
+                          {act.completedBy && (
+                            <div className="text-[11px] text-slate-500">
+                              Completed by: <span className="font-medium text-slate-700">{act.completedBy}</span>
+                            </div>
+                          )}
+
+                          {act.justification && (
+                            <div className="p-2 rounded bg-white/80 border border-slate-200 text-slate-700 italic flex items-start gap-1.5">
+                              <MessageSquare className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                              <div>
+                                <span className="font-semibold not-italic text-slate-900 mr-1">
+                                  Justification:
+                                </span>
+                                &ldquo;{act.justification}&rdquo;
+                              </div>
+                            </div>
+                          )}
+
+                          {act.attachments && act.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              {act.attachments.map((att) => (
+                                <a
+                                  key={att.id}
+                                  href={`/api/documents/${att.id}/download`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 text-[11px] font-medium transition-colors"
+                                >
+                                  <Paperclip className="w-3 h-3 text-emerald-600" />
+                                  <span>{att.fileName}</span>
+                                  <Download className="w-3 h-3 ml-0.5 text-emerald-600" />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 2. CURRENT ASSIGNMENT PENDING ACTIONS */}
+                  {isCurrent && assignment.pendingActions && assignment.pendingActions.length > 0 && (
+                    <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/80 space-y-3">
+                      <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5 uppercase tracking-wide">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                        Pending Actions for Current Assignment
+                      </div>
+
+                      <div className="space-y-2">
+                        {assignment.pendingActions.map((pending) => {
+                          const canAct = pending.isAuthorizedForCurrentUser && pending.status === 'PENDING';
+
+                          return (
+                            <div
+                              key={pending.id}
+                              className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
+                                canAct
+                                  ? 'bg-white border-amber-300 shadow-sm'
+                                  : 'bg-slate-50/80 border-slate-200 opacity-90'
+                              }`}
+                            >
+                              <div className="space-y-0.5 text-xs">
+                                <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                                  {pending.label}
+                                </div>
+                                {pending.description && (
+                                  <p className="text-[11px] text-slate-500 pl-3.5">
+                                    {pending.description}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Actionable Button (Rendered ONLY if current user is authorized and backend permits) */}
+                              <div>
+                                {canAct ? (
+                                  pending.type === 'DOCUMENT_SIGNATURE' ? (
+                                    <Button
+                                      size="sm"
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs h-8 px-3 shadow-xs gap-1.5"
+                                      onClick={() => onSignDocument && onSignDocument(pending)}
+                                    >
+                                      <FileSignature className="w-3.5 h-3.5" />
+                                      Sign Document
+                                    </Button>
+                                  ) : pending.type === 'MILESTONE' ? (
+                                    <Button
+                                      size="sm"
+                                      className="bg-purple-600 hover:bg-purple-700 text-white font-medium text-xs h-8 px-3 shadow-xs gap-1.5"
+                                      onClick={() => onRecordMilestone && onRecordMilestone()}
+                                    >
+                                      <Award className="w-3.5 h-3.5" />
+                                      Record Milestone
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      className="bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs h-8 px-3 shadow-xs gap-1.5"
+                                      onClick={() => onExecuteAction && onExecuteAction(pending)}
+                                    >
+                                      <ChevronRight className="w-3.5 h-3.5" />
+                                      Execute Action
+                                    </Button>
+                                  )
+                                ) : (
+                                  <Badge variant="outline" className="text-[11px] text-slate-400 font-normal">
+                                    {pending.status === 'BLOCKED' ? 'Prerequisite Blocked' : 'View Only'}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. CURRENT ASSIGNMENT RECOMMENDATIONS */}
+                  {isCurrent && (assignment as any).recommendations && (assignment as any).recommendations.length > 0 && (
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                      <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                        <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+                        Recommendations &amp; Action Items
+                      </div>
+
+                      <div className="space-y-2">
+                        {((assignment as any).recommendations as any[]).map((rec) => {
+                          const isRequired = rec.mode === 'REQUIRED';
+                          const isFulfilled = rec.status === 'FULFILLED';
+
+                          return (
+                            <div
+                              key={rec.id}
+                              className={`p-3 rounded-lg border flex items-center justify-between gap-3 text-xs ${
+                                isFulfilled
+                                  ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                                  : isRequired
+                                  ? 'bg-amber-50/80 border-amber-300 text-amber-950'
+                                  : 'bg-blue-50/60 border-blue-200 text-blue-950'
+                              }`}
+                            >
+                              <div className="space-y-0.5">
+                                <div className="font-semibold flex items-center gap-1.5">
+                                  {isFulfilled ? (
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  ) : isRequired ? (
+                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                  ) : (
+                                    <Lightbulb className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                  )}
+                                  <span>{rec.label}</span>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] uppercase font-bold px-1.5 py-0.2 ${
+                                      isRequired
+                                        ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                        : 'bg-blue-100 text-blue-800 border-blue-300'
+                                    }`}
+                                  >
+                                    {rec.mode}
+                                  </Badge>
+                                </div>
+
+                                {rec.reason && (
+                                  <p className="text-[11px] text-slate-600 italic pl-5">
+                                    &ldquo;{rec.reason}&rdquo;
+                                  </p>
+                                )}
+
+                                {rec.createdBy && (
+                                  <p className="text-[10px] text-slate-400 pl-5">
+                                    By: {rec.createdBy}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div>
+                                {isFulfilled ? (
+                                  <Badge className="bg-emerald-600 text-white text-[10px] uppercase font-bold">
+                                    ✓ FULFILLED
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="text-[10px] uppercase font-bold">
+                                    PENDING
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. WAITING ASSIGNMENT PLACEHOLDER */}
+                  {isWaiting && (
+                    <div className="text-xs text-slate-400 italic pl-1">
+                      Waiting for previous assignment completion.
+                    </div>
+                  )}
                 </div>
-              )
+              );
             })}
           </div>
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

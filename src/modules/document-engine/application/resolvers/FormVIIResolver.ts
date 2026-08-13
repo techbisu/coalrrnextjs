@@ -10,9 +10,9 @@ import { IDocumentQueryService } from '../queries/IDocumentQueryService'
  * Data sources:
  *  - acq_proposal       → proposal header (acquiring colliery, area, purpose)
  *  - plot_schedule      → individual plot rows (Annexure A/B/C tagging, areas)
- *  - mouza_master       → Mouza name for each plot
- *  - mine_master        → Acquiring colliery name
- *  - area_master        → Acquiring Area name
+ *  - mouza       → Mouza name for each plot
+ *  - mine        → Acquiring colliery name
+ *  - area        → Acquiring Area name
  *
  * Signing authorities are defined in document_template_signature (seeded separately).
  */
@@ -52,17 +52,17 @@ export class FormVIIResolver implements IDocumentResolver {
           area_cd: mMaster?.area_cd || 'N/A',
           proj_cd: proj.projCd,
           purpose_justification: proj.projNm || 'Acquisition Proposal',
-          mine_master: mMaster || { mine_en: proj.projNm },
-          area_master: aMaster || null,
+          mine: mMaster || { mine_en: proj.projNm },
+          area: aMaster || null,
         };
       } else {
         throw new Error(`Proposal or Project with ID ${applicationId} not found — cannot resolve Form-VII`);
       }
     }
 
-    // ── 2. Load mine_master and area_master details if missing ─────────────
-    let mineName = proposal.mine_master?.mine_en || '';
-    let areaName = proposal.area_master?.area_en || '';
+    // ── 2. Load mine and area details if missing ─────────────
+    let mineName = proposal.mine?.mine_en || '';
+    let areaName = proposal.area?.area_en || '';
 
     if (!mineName && proposal.mine_cd) {
       const m = await this.queryService.getMineMaster(proposal.mine_cd)
@@ -97,7 +97,7 @@ export class FormVIIResolver implements IDocumentResolver {
     }
 
     const getMouzaName = (p: any) =>
-      p?.mouza_master?.mouza_en || p?.mouza_master?.mouza_loc_vern || (p?.mouza_master as any)?.mouza_nm || p?.mouza_name || '';
+      p?.mouza?.mouza_en || p?.mouza?.mouza_loc_vern || (p?.mouza as any)?.mouza_nm || p?.mouza_name || '';
 
     const formatPlotNumber = (raw?: string | null): string => {
       if (!raw) return '';
@@ -184,8 +184,8 @@ export class FormVIIResolver implements IDocumentResolver {
     const displayAdjArea = adjAreaName || '[Adjacent Area Name]';
     const displayPlotNos = plotNosA || allPlotNos || formData.PlotNumbers || formData.PlotNo || '';
     const displayMouza = primaryMouza || formData.MouzaName || formData.PrimaryMouzaName || '';
-    const displayAcqColliery = mineName || proposal.mine_master?.mine_en || proposal.mine_master?.mine_nm || proposal.mine_cd || '';
-    const displayAcqArea = areaName || proposal.area_master?.area_en || proposal.area_master?.area_nm || proposal.area_cd || '';
+    const displayAcqColliery = mineName || proposal.mine?.mine_en || proposal.mine?.mine_nm || proposal.mine_cd || '';
+    const displayAcqArea = areaName || proposal.area?.area_en || proposal.area?.area_nm || proposal.area_cd || '';
     const displayPurpose = proposal.purpose_justification || 'Land Acquisition Proposal';
 
     // ── 4. Build reconciliation table (one row per plot) ──────────────────

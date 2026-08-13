@@ -67,7 +67,7 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
 
     let adjacentCollieryName = data.pr_scheme_ref_no || ''
     if (adjacentCollieryName) {
-      const areaMatch = await db.area_master.findFirst({
+      const areaMatch = await db.area.findFirst({
         where: { OR: [{ area_cd: adjacentCollieryName }, { area_en: adjacentCollieryName }] }
       })
       if (areaMatch) {
@@ -78,7 +78,7 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
     let totalArea = 0;
     const items = (data.plot_schedule || []).map((it: any) => {
       const landTypes = it.plot_schedule_land_type || [];
-      const primaryLt = landTypes[0]?.landtype_master?.land_type || 'Tenancy';
+      const primaryLt = landTypes[0]?.landtype?.land_type || 'Tenancy';
       const subLt = landTypes[0]?.sub_landtype?.land_type;
       const purpose = landTypes[0]?.use_purpose;
       
@@ -120,7 +120,7 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
 
       const breakdownMap = new Map<string, any>();
       landTypes.forEach((lt: any) => {
-        const primaryName = lt.landtype_master?.land_type || 'Tenancy';
+        const primaryName = lt.landtype?.land_type || 'Tenancy';
         const key = `${lt.landt_id}_${lt.area}_${lt.use_purpose || ''}`;
         
         if (!breakdownMap.has(key)) {
@@ -145,8 +145,8 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
         plot_id: it.schedule_id.toString(),
         plot_number: formattedPlot,
         opt_plot_number: formattedOptPlot,
-        mouza: it.mouza_master?.mouza_en || 'Unknown',
-        jl_no: it.jl_no || it.mouza_master?.jl_no || undefined,
+        mouza: it.mouza?.mouza_en || 'Unknown',
+        jl_no: it.jl_no || it.mouza?.jl_no || undefined,
         total_ror_area: Number(it.total_ror_area || 0),
         to_be_acquired_area: Number(it.to_be_acquired_area || 0),
         land_type: landType,
@@ -165,7 +165,7 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
       projectBudgetCeiling: (data.project?.total_budget_ceiling || 0).toString(),
       projectLandLimit: (data.project?.total_land_limit_acres || 0).toString(),
       projectEmploymentQuota: (data.project?.total_employment_quota || 0).toString(),
-      project_state_lgd: (data.project as any)?.state_lgd?.toString() || data.area_master?.state_lgd?.toString() || '',
+      project_state_lgd: (data.project as any)?.state_lgd?.toString() || data.area?.state_lgd?.toString() || '',
       projectMouzas: data.project?.approvals
         ? Array.from(new Set(
             data.project.approvals.flatMap((a: any) => 
@@ -179,10 +179,10 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
       description: data.purpose_justification || '',
       proposed_by: data.entry_by || '',
       proposed_by_role: 'Initiator',
-      area_office: data.area_master?.area_en || data.area_cd,
+      area_office: data.area?.area_en || data.area_cd,
       mine_cd: (() => {
-        const rawMine = data.mine_master?.mine_en || data.mine_cd;
-        const rawArea = data.area_master?.area_en || data.area_cd;
+        const rawMine = data.mine?.mine_en || data.mine_cd;
+        const rawArea = data.area?.area_en || data.area_cd;
         if (!rawMine || rawMine === 'UNK') return '';
         if (rawMine === rawArea) return ''; // don't repeat
         

@@ -200,6 +200,47 @@ export class ChecklistContextFreshnessGuard implements TransitionGuard {
   }
 }
 
+export class RequiredRecommendationsFulfilledGuard implements TransitionGuard {
+  readonly name = "required_recommendations_fulfilled";
+
+  check(ctx: GuardContext): GuardResult {
+    const recommendations = (ctx.data?.pendingRecommendations ?? []) as Array<{
+      mode: 'RECOMMENDED' | 'REQUIRED';
+      status: 'PENDING' | 'FULFILLED';
+      targetCode: string;
+      requiredBeforeTransitionId?: string;
+      reason?: string;
+    }>;
+
+    const currentTransitionName = (ctx.data?.targetTransitionName ?? '') as string;
+    const currentTransitionId = (ctx.data?.targetTransitionId ?? '') as string;
+
+    const pendingRequired = recommendations.filter((r) => {
+      if (r.mode !== 'REQUIRED' || r.status !== 'PENDING') return false;
+
+      // Scoping check: If requiredBeforeTransitionId is defined, match against current transition
+      if (r.requiredBeforeTransitionId) {
+        return (
+          r.requiredBeforeTransitionId === currentTransitionId ||
+          r.requiredBeforeTransitionId === currentTransitionName
+        );
+      }
+
+      // Default: applies to all transitions if not scoped to a specific transition ID
+      return true;
+    });
+
+    if (pendingRequired.length > 0) {
+      return {
+        ok: false,
+        reason: `Transition blocked: Required recommendation(s) pending: ${pendingRequired.map((r) => r.targetCode).join(', ')}`,
+      };
+    }
+
+    return { ok: true };
+  }
+}
+
 export const GUARD_REGISTRY: Record<string, TransitionGuard> = {
   WithinProjectBaseline:    new WithinProjectBaselineGuard(),
   BaselineBreached:         new BaselineBreachedGuard(),
@@ -208,6 +249,7 @@ export const GUARD_REGISTRY: Record<string, TransitionGuard> = {
   ParallelReviewsCompleted: new ParallelReviewsCompletedGuard(["gm_planning", "gm_safety", "gm_finance", "hod_legal"]),
   PlotNotAcquired:          new PlotNotAlreadyAcquiredGuard(),
   ThresholdMet2Ac:          new ThresholdMetGuard(),
+  RequiredRecommendationsFulfilled: new RequiredRecommendationsFulfilledGuard(),
 }
 
 // ════════════════════════════════════════════════════════════════════════════

@@ -44,7 +44,7 @@ export function MineSelect({
   }, [ignoreScope, ignoreCascade, areaCd, value])
 
   const { data, isLoading, error } = useMasterLookup({
-    masterName: 'mine_master',
+    masterName: 'mine',
     dependencies,
   })
 

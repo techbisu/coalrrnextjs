@@ -5,9 +5,9 @@ export async function seedMstProject(db: PrismaClient) {
   console.log('Seeding demo projects...')
 
   // 1. Ensure required master data exists
-  let state = await db.state_master.findFirst()
+  let state = await db.state.findFirst()
   if (!state) {
-    state = await db.state_master.create({
+    state = await db.state.create({
       data: {
         state_lgd: BigInt(20),
         state_en: 'Jharkhand',
@@ -17,9 +17,9 @@ export async function seedMstProject(db: PrismaClient) {
     })
   }
 
-  let area = await db.area_master.findFirst()
+  let area = await db.area.findFirst()
   if (!area) {
-    area = await db.area_master.create({
+    area = await db.area.create({
       data: {
         area_cd: 'AREA-01',
         area_en: 'BCCL Area 1',
@@ -29,9 +29,9 @@ export async function seedMstProject(db: PrismaClient) {
     })
   }
 
-  let mine = await db.mine_master.findFirst()
+  let mine = await db.mine.findFirst()
   if (!mine) {
-    mine = await db.mine_master.create({
+    mine = await db.mine.create({
       data: {
         mine_cd: 'MINE-01',
         mine_en: 'Demo Mine',

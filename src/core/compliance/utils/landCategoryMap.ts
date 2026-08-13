@@ -3,13 +3,13 @@ import { db } from '@/lib/db'
 export type LandCategory = 'TENANCY' | 'GOVT' | 'FOREST' | 'PATTA' | 'UNKNOWN'
 
 /**
- * Builds a map of landt_id → LandCategory by loading all landtype_master rows
+ * Builds a map of landt_id → LandCategory by loading all landtype rows
  * and walking up the p_id hierarchy to resolve the root category name.
  *
- * No hardcoded IDs or name strings — fully driven by master.landtype_master data.
+ * No hardcoded IDs or name strings — fully driven by master.landtype data.
  */
 export async function buildLandCategoryMap(): Promise<Map<number, LandCategory>> {
-  const allTypes = await db.landtype_master.findMany({
+  const allTypes = await db.landtype.findMany({
     where: { is_active: true },
     select: { landt_id: true, land_type: true, p_id: true }
   })

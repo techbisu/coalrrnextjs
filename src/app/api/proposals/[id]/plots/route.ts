@@ -31,7 +31,7 @@ export async function POST(
     const proposalId = paramsData.id;
     const mouzaLgd = Number(validatedData.plots[0].mouza_lgd);
 
-    const mouzaData = await db.mouza_master.findUnique({
+    const mouzaData = await db.mouza.findUnique({
       where: { mouza_lgd: BigInt(mouzaLgd) },
       select: {
         jl_no: true,
@@ -43,13 +43,13 @@ export async function POST(
 
     let stateLgd = mouzaData?.state_lgd?.toString();
 
-    // Fallback to proposal's area_master state_lgd if mouza is missing it
+    // Fallback to proposal's area state_lgd if mouza is missing it
     if (!stateLgd) {
       const proposal = await db.acq_proposal.findUnique({
         where: { proposal_id: proposalId },
-        include: { area_master: { select: { state_lgd: true } } }
+        include: { area: { select: { state_lgd: true } } }
       });
-      stateLgd = proposal?.area_master?.state_lgd?.toString();
+      stateLgd = proposal?.area?.state_lgd?.toString();
     }
     
     // If still missing, check if UI passed it

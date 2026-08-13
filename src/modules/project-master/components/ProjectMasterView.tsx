@@ -146,7 +146,7 @@ export function ProjectMasterView({ initialMineCd }: { initialMineCd?: string })
   const [editFormKey, setEditFormKey] = React.useState(0)
   const [createFormKey, setCreateFormKey] = React.useState(0)
 
-  const { data: mouzaData } = useMasterLookup({ masterName: 'mouza_master' })
+  const { data: mouzaData } = useMasterLookup({ masterName: 'mouza' })
   const mouzaMap = React.useMemo(() => {
     const map = new Map<string, string>()
     if (mouzaData?.options) {

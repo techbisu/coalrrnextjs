@@ -41,7 +41,7 @@ export function DistrictSelect({
   }, [ignoreCascade, stateLgd, value])
 
   const { data, isLoading, error } = useMasterLookup({
-    masterName: 'district_master',
+    masterName: 'district',
     dependencies,
   })
 

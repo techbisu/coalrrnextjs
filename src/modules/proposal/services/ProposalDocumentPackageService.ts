@@ -1,6 +1,7 @@
 import { Result, Ok, Fail } from '@/core'
 import { db } from '@/lib/db'
 import { uploadFileUseCase, linkFileUseCase, deleteFileUseCase } from '@/infrastructure/di/Container'
+import { MODULE_CODES } from '@/core/config/module-codes.config'
 
 export interface UploadDocumentDTO {
   proposalId: string;
@@ -46,7 +47,7 @@ export class ProposalDocumentPackageService {
         fileId: fileId as string,
         entityType: 'PROPOSAL',
         entityId: data.proposalId,
-        module: data.module || 'LAND_ACQ_PROPOSAL',
+        module: data.module || MODULE_CODES.LAND_SCHEDULE,
         ownerId: data.userId,
       })
 

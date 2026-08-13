@@ -11,14 +11,14 @@ import { masterQueryKey } from '../hooks/useMasterQuery'
  * so they are fetched lazily when the dropdown mounts with known dependencies.
  */
 const ROOT_MASTERS = [
-  'state_master',
-  'cast_master',
-  'owner_type_master',
-  'landclass_master',
-  'landtype_master',
+  'state',
+  'caste',
+  'owner_type',
+  'landclass',
+  'landtype',
   'acqu_mode',
-  'area_master',
-  'mine_master',
+  'area',
+  'mine',
 ] as const
 
 /**

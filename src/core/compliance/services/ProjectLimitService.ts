@@ -87,7 +87,7 @@ export class ProjectLimitService {
         if (ltList.length > 0) {
           ltList.forEach(lt => {
             const areaToAcq = parsePositiveArea(lt.area_to_acquire, lt.area, pArea);
-            // Use landt_id to look up category from the dynamic landtype_master map
+            // Use landt_id to look up category from the dynamic landtype map
             const category = landCategoryMap.get(Number(lt.landt_id)) || 'TENANCY';
 
             if (category === 'GOVT') govtLand += areaToAcq;

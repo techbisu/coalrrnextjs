@@ -108,7 +108,7 @@ export class FormXXIIResolver implements IDocumentResolver {
       (plot.plot_schedule_land_type || []).forEach(lt => {
         const areaToAcq = parseFloat(lt.area_to_acquire?.toString() || lt.area?.toString() || '0');
         const purpose = ((lt as any).use_purpose || '').toUpperCase();
-        const ltName = ((lt as any).landtype_master?.land_type || '').toUpperCase();
+        const ltName = ((lt as any).landtype?.land_type || '').toUpperCase();
         const lId = Number(lt.landt_id);
 
         if (purpose === 'EXCAVATION' || purpose === 'EXCAVATING') propExcavating += areaToAcq;
@@ -119,7 +119,7 @@ export class FormXXIIResolver implements IDocumentResolver {
         else if (purpose === 'REHABILITATION') propRehabilitation += areaToAcq;
         else propOther += areaToAcq;
 
-        // Use dynamic landtype_master map — no hardcoded IDs
+        // Use dynamic landtype map — no hardcoded IDs
         const category = landCategoryMap.get(Number(lt.landt_id)) || 'TENANCY';
         if (category === 'GOVT') govtLand += areaToAcq;
         else if (category === 'FOREST') forestLand += areaToAcq;

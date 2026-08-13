@@ -26,7 +26,7 @@ export function StateSelect({
   excludeValues = [],
 }: StateSelectProps) {
   const { data, isLoading, error } = useMasterLookup({
-    masterName: 'state_master',
+    masterName: 'state',
   })
 
   const options = React.useMemo(() => {

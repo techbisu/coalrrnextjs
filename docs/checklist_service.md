@@ -8,11 +8,11 @@ The Checklist Service Module is a shared, enterprise-grade generic service desig
 
 The service operates on four core principles:
 
-1. **Context Resolution (`ChecklistContextRegistry`)**:
-   The service uses a registry pattern to decouple checklist rules from domain models. When evaluating rules for a given entity (e.g., a `proposal` or a `project`), the service fetches the entity's current state via a registered **Context Resolver** (`IChecklistContextResolver`).
+1. **Context Resolution (`ChecklistContextRegistry` & `GenericEntityContextResolver`)**:
+   The service uses a registry pattern. By default, it uses the `GenericEntityContextResolver` which dynamically queries the DB based on the `process_definition.config_json.context_fields` definition. This allows any module's checklist to evaluate dynamic rules without writing any TypeScript code.
 
 2. **Dynamic Rule Evaluation (`show_if`)**:
-   Checklist items are configured in the `checklist_requirement_rule` table to conditionally appear based on the state of the entity. For example, a "Forest Clearance" checklist item only appears if `context.HAS_FOREST_LAND === true`.
+   Checklist items are configured in the `master.checklist_requirement_rule` table to conditionally appear based on the state of the entity. For example, a "Forest Clearance" checklist item only appears if `context.has_wildlife_sanctuary === true`.
 
 3. **Enterprise Integrations**:
    - **FileManager Integration**: Physical file uploads are handled via the central `file-management` module (`DocumentUploadField` + `DocumentUploader`), persisting records to `file_record`, scanning viruses, linking via `/api/files/link`, and generating download links.
@@ -24,87 +24,45 @@ The service operates on four core principles:
 
 ---
 
-## Proposal Module & Workflow Engine Gating (`LAND_ACQ_PROPOSAL`)
+## The Generic Context Resolver (DB-Driven)
 
-The Checklist Service interacts directly with the **Workflow Engine** to gate state transitions and enforce compliance checks across proposal modules.
+With the migration to a fully DB-driven architecture, the legacy pattern of writing a custom `IChecklistContextResolver` class for every module is deprecated. 
 
-+-----------------------------------------------------------------------------------+
-|  1. Plot Schedule Mutations (Add/Update/Delete)                                   |
-|     Triggers `syncChecklistContext` background job via `JobDispatcherService`       |
-|     Job scans plots, calculates flags, saves to `checklist_entity_context` (O(1)) |
-+-----------------------------------------------------------------------------------+
-                                        │
-                                        ▼
-+-----------------------------------------------------------------------------------+
-|  2. Proposal Context Resolution (`ProposalChecklistResolver.ts`)                  |
-|     Reads pre-computed JSON from `checklist_entity_context` & merges base props   |
-+-----------------------------------------------------------------------------------+
-                                        │
-                                        ▼
-+-----------------------------------------------------------------------------------+
-|  3. Dynamic Rule Evaluation (`GetChecklistStatusUseCase.ts`)                      |
-|     Evaluates `show_if` rules against the O(1) context map                        |
-+-----------------------------------------------------------------------------------+
-                                        │
-                                        ▼
-+-----------------------------------------------------------------------------------+
-|  3. Proposal Submission & Workflow Guard Gating                                  |
-|     - SubmitProposalUseCase: Blocks submission if isComplete === false             |
-|     - ProjectLimitService: Intercepts limit breaches -> Form-XXII Escalation      |
-|     - ChecklistFullySatisfiedGuard: Enforces 100% completion in Workflow Engine   |
-+-----------------------------------------------------------------------------------+
+Instead, the `GenericEntityContextResolver` dynamically fetches context fields by reading the `process_definition` table:
+
+```json
+// Example process_definition.config_json
+{
+  "context_table": "acq_proposal",
+  "context_id_field": "proposal_id",
+  "context_fields": ["land_area_ha", "acq_mode_id", "current_stage_cd"]
+}
 ```
 
-### 1. Entity Context Synchronization (`syncChecklistContext.job.ts`)
-To prevent heavy database scans during page loads, context calculation is decoupled into a background job. Whenever a user adds, updates, or deletes a plot schedule, the `JobDispatcherService` triggers `syncChecklistContext.job.ts` which computes flags and saves them to the universal `checklist_entity_context` table as a JSON payload.
+The Checklist engine takes these fields and evaluates the `show_if` JSON conditions in the `checklist_requirement_rule` table. Custom TS resolvers can still be registered in `ChecklistContextRegistry` if complex computed properties are strictly necessary, but they are no longer required for standard CRUD.
 
-- **`has_tribal_land`**: Scans schedule plots against `landtype_master` for Tribal/CNT/SPT land.
-- **`has_debottar_land`**: Scans schedule plots for Debottar/Deity land types.
-- **`has_displacement`**: Scans plots for Habitation/Residential/Bastu land.
-- **`has_forest_land`**: Scans plots for Forest land.
-- **`has_tenancy_land`**: Scans plots for Raiyati/Tenancy land.
-- **`has_govt_land`**: Scans plots for GM/Govt land.
-- **`has_patta_land`**: Scans plots for Patta land.
-- **`has_statutory_clearances`**: Checks `project.statutoryClearances` in DB.
-- **`has_employment_involvement`**: Checks project employment quota or estimated employment costs.
+---
 
-### 2. Proposal Context Resolution (`ProposalChecklistResolver.ts`)
-When evaluating a land proposal, `ProposalChecklistResolver` performs an O(1) lookup on `checklist_entity_context` and merges it with base domain properties (which do not change via plot updates):
+## Workflow Engine Gating
 
-- **`acqModeId`**: Proposal's acquisition mode ID.
-- **`is_rfctlarr`**: True if acquisition mode is RFCTLARR 2013 (Mode 5).
-- **`has_formal_negotiation`**: True if acquisition mode is Direct Purchase (Mode 6) or manually toggled.
-- **`is_board_approval_req`**: True if proposal requires board approval/deviation.
-- **`stage`**: Proposal's current stage code (`DRAFT`, `SUBMITTED`, `AREA_VETTING`, etc.).
+The Checklist Service interacts directly with the **Workflow Engine** to gate state transitions and enforce compliance checks across modules.
 
-### 2. Submission Gating (`SubmitProposalUseCase.ts`)
-When a user submits a proposal:
-1. **Limit Check (`ProjectLimitService`)**: Evaluates proposal cost and acreage against project limits. If breached, flags `isLimitBreached = true`.
-2. **Checklist Completeness Check**: Calls `checklistStatusUseCase.execute({ moduleCode: MODULE_CODES.LAND_SCHEDULE, checkableType: ACQ_LAND_SCHEDULE, checkableId: proposalId })`.
-   - **Fails & Blocks Submission** if `isComplete === false` with message `"All mandatory checklist items must be completed before submitting the proposal."`
-3. **State Transition**:
-   - Standard path: Proposal transitions to `UNIT_SUBMITTED` / `AREA_VETTING`.
-   - Breached limit path: Proposal routes for `BOARD_ESCALATION` / Form-XXII approval.
+1. **Submission Gating**:
+   When evaluating a workflow transition, the `ChecklistFullySatisfiedGuard` automatically checks the `checklist_submission` table.
+   - **Fails & Blocks Transition** if any `is_mandatory = true` rule for the entity's module is not satisfied.
 
-### 3. Canonical Entity Constants (`module-codes.config.ts`)
+2. **Dynamic Rule Evaluation (`GetChecklistStatusUseCase.ts`)**:
+   Evaluates `show_if` rules against the context map on every render to ensure only relevant statutory requirements are presented to the user.
+
+---
+
+## Canonical Entity Constants (`module-codes.config.ts`)
+
 - All API routes, use cases, components, and repositories MUST use exported constants:
   ```ts
-  import { MODULE_CODES, CHECKABLE_ENTITY_TYPES, ACQ_LAND_SCHEDULE } from '@/core/config/module-codes.config'
+  import { MODULE_CODES, CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
   ```
 - Raw string aliases like `'land_schedule'`, `'acq_proposal'`, `'proposal'` are **STRICTLY FORBIDDEN** per **`AGENTS.md`**.
-
-### 4. Unit Testing Suite (`ChecklistFlow.test.ts`)
-- Verified via Vitest suite in [`tests/unit/core/checklist/ChecklistFlow.test.ts`](file:///d:/coalrrnextjs/tests/unit/core/checklist/ChecklistFlow.test.ts):
-  - Dynamic `show_if` rule filtering (`acq_mode_id = 6` Direct Purchase vs `acq_mode_id = 1` CBA Act).
-  - Mandatory completeness calculation (`isComplete: true/false`).
-  - Auto-inheritance from parent entities (`inherit_from` resolving to `AUTO_SATISFIED`).
-
-### 3. Workflow Engine Transition Guards (`src/core/workflow/guards.ts`)
-The Workflow Engine enforces checklist and baseline guards:
-- **`ChecklistFullySatisfiedGuard`**: Validates mandatory checklist completeness before firing workflow state transitions.
-- **`WithinProjectBaselineGuard` / `BaselineBreachedGuard`**: Validates budget ceilings.
-- **`PlotNotAlreadyAcquiredGuard`**: Prevents double-acquisition of plots.
-- **`ParallelReviewsCompletedGuard`**: Ensures parallel HQ reviews (GM Planning, GM Safety, GM Finance, HOD Legal) complete before advancing to `DirectorConsent`.
 
 ---
 
@@ -151,57 +109,18 @@ Every rule type is rendered by a dedicated micro-component with built-in Zod val
 
 ## Usage Examples
 
-### 1. Registering a Context Resolver
-Register your domain context resolver in `src/infrastructure/di/modules/core.di.ts`:
-
-```typescript
-import { ChecklistContextRegistry, IChecklistContextResolver } from '@/core/checklist';
-
-class LandProposalContextResolver implements IChecklistContextResolver {
-  async resolve(checkableId: string): Promise<Record<string, any>> {
-    const proposal = await db.acq_proposal.findUnique({ where: { proposal_id: checkableId } });
-    
-    // Fetch pre-computed flags from context table
-    const entityContext = await db.checklist_entity_context.findUnique({
-      where: {
-        checkable_type_checkable_id: {
-          checkable_type: 'LAND_ACQ_PROPOSAL',
-          checkable_id: checkableId
-        }
-      }
-    });
-
-    let contextData = {};
-    if (entityContext && entityContext.context_data) {
-      contextData = typeof entityContext.context_data === 'string' 
-        ? JSON.parse(entityContext.context_data) 
-        : entityContext.context_data;
-    }
-
-    // Merge base properties with dynamic context
-    return {
-      acq_mode: proposal?.acq_mode_id,
-      STAGE: proposal?.current_stage_cd,
-      ...contextData
-    };
-  }
-}
-
-// In DI setup:
-checklistRegistry.register('LAND_ACQ_PROPOSAL', new LandProposalContextResolver());
-```
-
-### 2. Embedding the Workspace UI Component
+### 1. Embedding the Workspace UI Component
 In any Next.js Page or Server Component:
 
 ```tsx
 import { GenericChecklistWorkspace } from '@/core/checklist/components/GenericChecklistWorkspace';
+import { MODULE_CODES, CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config';
 
 export default function ProposalDetailsPage({ params }: { params: { id: string } }) {
   return (
     <GenericChecklistWorkspace
-      moduleCode="LAND_ACQ_PROPOSAL"
-      checkableType="acq_proposal"
+      moduleCode={MODULE_CODES.LAND_SCHEDULE}
+      checkableType={CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE}
       checkableId={params.id}
       title="Proposal Files & Statutory Clearances"
       description="Dynamic compliance requirements & Docx legal forms"
@@ -210,35 +129,26 @@ export default function ProposalDetailsPage({ params }: { params: { id: string }
 }
 ```
 
-### 3. Server Actions & Validation
+### 2. Server Actions & Validation
 Server actions in `src/app/actions/checklist.actions.ts` enforce session authentication and Zod schema validation:
 
 ```typescript
 import { getChecklistStatus, updateChecklistSubmission } from '@/app/actions/checklist.actions';
-import { ACQ_LAND_SCHEDULE, MODULE_CODES } from '@/core/config/module-codes.config';
+import { CHECKABLE_ENTITY_TYPES, MODULE_CODES } from '@/core/config/module-codes.config';
 
 // Fetch checklist status
-const status = await getChecklistStatus(MODULE_CODES.LAND_SCHEDULE, ACQ_LAND_SCHEDULE, proposalId);
+const status = await getChecklistStatus(MODULE_CODES.LAND_SCHEDULE, CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE, proposalId);
 
 // Submit item completion
 await updateChecklistSubmission({
   moduleCode: MODULE_CODES.LAND_SCHEDULE,
   requirementId: ruleId,
-  checkableType: ACQ_LAND_SCHEDULE,
+  checkableType: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
   checkableId: proposalId,
   documentId: uploadedFileId,
   userInput: { text: "Completed" }
 });
 ```
-
----
-
-## Developer Guidelines
-
-1. **Never bypass the Use Cases:** Always interact with checklist data via `GetChecklistStatusUseCase` or `UpdateChecklistSubmissionUseCase` (or via Server Actions) to ensure dynamic rule resolution and auto-inheritance are preserved.
-2. **Reuse Enterprise Components:** Always use `DocumentUploadField` for file uploads (which connects to `file-management`) and `GeneratedDocumentField` for dynamic forms (which connects to `document-engine`).
-3. **Zod Validation Single Source of Truth:** All server action inputs validate against `ChecklistQuerySchema` and `UpdateSubmissionSchema` in `src/core/validation/schemas/checklist.schema.ts`. Rule metadata & `show_if` schemas validate against `ChecklistRequirementRuleSchema` in `src/shared/schemas/checklist-rule.schema.ts`.
-4. **Mandatory Constant Naming (`ACQ_LAND_SCHEDULE`):** All module codes and checkable entity types MUST use exported constants from `src/core/config/module-codes.config.ts` (`MODULE_CODES.LAND_SCHEDULE`, `ACQ_LAND_SCHEDULE`). Inline raw magic strings (`'land_schedule'`, `'acq_proposal'`, `'proposal'`) are strictly prohibited.
 
 ---
 
@@ -252,7 +162,3 @@ To eliminate high DB read latency on low-churn configuration tables (`checklist_
 
 ### Data Flow
 `Checklist Workspace UI` $\rightarrow$ `GetChecklistStatusUseCase` $\rightarrow$ `PrismaChecklistRepository` $\rightarrow$ `ConfigCacheService` (L1 RAM / L2 Redis) $\rightarrow$ `PostgreSQL DB`
-
-### Database Indexing Safeguard
-- Unique constraint `uq_checklist_submission_entity_rule` on `(requirement_id, checkable_type, checkable_id)` guarantees atomic upserts without race conditions.
-

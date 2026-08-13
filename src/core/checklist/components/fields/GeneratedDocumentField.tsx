@@ -14,7 +14,7 @@ interface GeneratedDocumentFieldProps {
   generatedDocInfo?: {
     instanceId?: string;
     templateCode: string;
-    status: 'PENDING' | 'DRAFT' | 'INCOMPLETE' | 'COMPLETED';
+    status: 'PENDING' | 'DRAFT' | 'INCOMPLETE' | 'COMPLETED' | 'QUEUED' | 'GENERATING' | 'FAILED' | string;
     generatedDocId?: string;
   };
   submission?: {
@@ -41,6 +41,8 @@ export function GeneratedDocumentField({
   const templateCode = generatedDocInfo?.templateCode || inputSchema?.template_code || inputSchema?.templateCode || 'FORM_XXII';
   const docStatus = generatedDocInfo?.status || 'PENDING';
   
+  const isGenerating = docStatus === 'QUEUED' || docStatus === 'GENERATING';
+  const isFailed = docStatus === 'FAILED';
   const isSatisfied = docStatus === 'COMPLETED' || submission?.status === 'SUBMITTED' || submission?.status === 'AUTO_SATISFIED' || submission?.status === 'APPROVED';
   const isDraft = docStatus === 'DRAFT' || docStatus === 'INCOMPLETE';
 
@@ -48,8 +50,10 @@ export function GeneratedDocumentField({
     <div className={`p-4 rounded-xl border transition-all duration-200 ${
       isSatisfied
         ? 'bg-purple-50/40 border-purple-200/80 dark:bg-purple-950/10 dark:border-purple-900/40'
-        : isDraft
+        : isGenerating || isDraft
         ? 'bg-amber-50/40 border-amber-200/80 dark:bg-amber-950/10 dark:border-amber-900/40'
+        : isFailed
+        ? 'bg-red-50/40 border-red-200/80 dark:bg-red-950/10 dark:border-red-900/40'
         : 'bg-card border-border shadow-sm hover:border-purple-300/50'
     }`}>
       <div className="flex items-start justify-between gap-3 mb-2">
@@ -76,6 +80,14 @@ export function GeneratedDocumentField({
           {isSatisfied ? (
             <Badge className="bg-emerald-500 text-white gap-1 shrink-0 text-xs">
               <CheckCircle2 className="w-3.5 h-3.5" /> Generated & Finalized
+            </Badge>
+          ) : isGenerating ? (
+            <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 gap-1 text-xs animate-pulse">
+              <Clock className="w-3.5 h-3.5 animate-spin text-amber-600" /> Generating Document...
+            </Badge>
+          ) : isFailed ? (
+            <Badge variant="destructive" className="gap-1 text-xs">
+              Generation Failed
             </Badge>
           ) : isDraft ? (
             <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 gap-1 text-xs">
@@ -125,9 +137,9 @@ export function GeneratedDocumentField({
             >
               <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
               {isSatisfied
-                ? 'Regenerate Document'
+                ? 'Regenerate / Sign'
                 : isDraft
-                ? 'Continue Draft'
+                ? 'Continue Draft & Sign'
                 : 'Open Docx Workspace'}
             </Button>
           )}
@@ -136,3 +148,4 @@ export function GeneratedDocumentField({
     </div>
   )
 }
+

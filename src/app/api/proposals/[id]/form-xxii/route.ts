@@ -3,6 +3,7 @@ import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { ok, badRequest, notFound, serverError } from '@/app/api/_lib'
 import { startDocumentWorkspaceUseCase } from '@/infrastructure/di/Container'
 import { db } from '@/lib/db'
+import { CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 
     // Load the signed document attachment linked to this proposal
     const attachment = await db.file_attachment.findFirst({
-      where: { entity_type: 'land_schedule', entity_id: id },
+      where: { entity_type: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE, entity_id: id },
       include: {
         file_record: {
           include: { file_version: { orderBy: { version_number: 'desc' }, take: 1 } }

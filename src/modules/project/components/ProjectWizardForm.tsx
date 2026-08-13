@@ -132,7 +132,7 @@ export function ProjectWizardForm({
   }, [totalTypeWiseArea, setValue])
 
   // Lookup area master options to extract state_lgd and short_nm
-  const { data: areaLookupData } = useMasterLookup({ masterName: 'area_master' })
+  const { data: areaLookupData } = useMasterLookup({ masterName: 'area' })
 
   // Auto-detect state_lgd when Area changes
   React.useEffect(() => {

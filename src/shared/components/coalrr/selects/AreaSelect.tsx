@@ -37,7 +37,7 @@ export function AreaSelect({
   }, [ignoreScope, value])
 
   const { data, isLoading, error } = useMasterLookup({
-    masterName: 'area_master',
+    masterName: 'area',
     dependencies,
   })
 

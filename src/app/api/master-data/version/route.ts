@@ -16,14 +16,14 @@ export async function GET() {
     // Get max updt_ts from key master tables that change most often.
     // All updt_ts are BigInt epoch seconds — max gives us the latest change time.
     const results = await Promise.allSettled([
-      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.state_master`,
-      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.district_master`,
-      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.block_master`,
-      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.mouza_master`,
-      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.vill_master`,
-      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.ps_master`,
-      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.mine_master`,
-      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.area_master`,
+      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.state`,
+      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.district`,
+      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.block`,
+      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.mouza`,
+      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.village`,
+      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.ps`,
+      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.mine`,
+      db.$queryRaw<[{ max: bigint | null }]>`SELECT MAX(updt_ts) as max FROM master.area`,
     ])
 
     const maxTs = results

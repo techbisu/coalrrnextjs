@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -8,6 +8,7 @@ import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
 import { routes } from '@/lib/url/UrlService'
 import { timeAgo } from '@/lib/utils/formatters'
+import { CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
 import { useAuth } from '@/authorization/providers/AuthProvider'
 import { useUiState } from '@/providers/UiStateProvider'
 import {
@@ -78,7 +79,7 @@ export function WorkflowInboxView() {
                     </div>
                     <span className="text-[11px] text-muted-foreground">{timeAgo(r.entry_ts)}</span>
                   </div>
-                  {r.reviewable_type === 'compensation_payroll' && (
+                  {r.reviewable_type === CHECKABLE_ENTITY_TYPES.COMPENSATION_PAYROLL && (
                     <Button
                       variant="link"
                       size="sm"

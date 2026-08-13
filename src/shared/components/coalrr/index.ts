@@ -62,6 +62,13 @@ export { DocumentWorkspaceModal } from './DocumentWorkspaceModal'
 export { WorkflowTimelineFeed } from './WorkflowTimelineFeed'
 export type { WorkflowTimelineFeedProps } from './WorkflowTimelineFeed'
 
+export { WorkflowActionBar } from './workflow/WorkflowActionBar'
+export type { WorkflowActionBarProps } from './workflow/WorkflowActionBar'
+
+export { WorkflowActionDialog } from './workflow/WorkflowActionDialog'
+export type { WorkflowActionDialogProps } from './workflow/WorkflowActionDialog'
+
+
 export { ProcessActionCenter } from './ProcessActionCenter'
 export type { ProcessActionCenterProps } from './ProcessActionCenter'
 
