@@ -102,8 +102,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const guardCtx = {
       recordId: id,
       recordType: MODULE_CODES.LAND_SCHEDULE,
+      entityType: 'acq_land_schedule',
       currentState: normalizedState as any,
       actorRole: actorRole as any,
+      userId: auth.user?.id,
       checklistStatus: isChecklistComplete ? ('COMPLETED' as const) : ('INCOMPLETE' as const),
       isBaselineBreached,
       data: {

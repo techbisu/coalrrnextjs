@@ -147,10 +147,12 @@ export interface WorkflowBranch {
 export interface GuardContext {
   readonly recordId: string;
   readonly recordType: RecordType;
+  readonly entityType?: string;
   readonly actorRole: ActorRole;
   readonly currentState: WorkflowState;
   readonly acqModeId?: string | number;
   readonly workflowCode?: string;
+  readonly userId?: string;
   readonly data?: Readonly<Record<string, unknown>>;
 }
 

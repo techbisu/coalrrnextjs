@@ -10,7 +10,8 @@
 import 'server-only'
 import { WorkflowEngine } from './engine'
 import { loadWorkflowTransitions, invalidateWorkflowCache } from './WorkflowTransitionLoader'
-import { normalizeModuleCode, resolveWorkflowCode, MODULE_CODES } from '@/core/config/module-codes.config'
+import { normalizeModuleCode, resolveWorkflowCode, MODULE_CODES, CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
+import { workflowGuardEvaluator } from './services/WorkflowGuardEvaluator'
 import type {
   AttemptTransitionResult,
   GuardContext,
@@ -22,7 +23,8 @@ export class WorkflowEngineServer extends WorkflowEngine {
   /**
    * DB-backed version of getAvailableTransitions.
    * Loads from `workflow_transitions` table (cached, 60s TTL).
-   * Use in API routes / Use Cases for the authoritative transition graph.
+   * Evaluates all transition guards & stage prerequisites (Plots, Checklist, Documents).
+   * Use in API routes / Use Cases / Snapshot for the authoritative available transition graph.
    */
   async getAvailableTransitionsAsync(
     ctx: GuardContext
@@ -32,12 +34,31 @@ export class WorkflowEngineServer extends WorkflowEngine {
     if (all.length === 0 && workflowCode !== MODULE_CODES.COMPENSATION_PAYROLL) {
       all = await loadWorkflowTransitions(MODULE_CODES.COMPENSATION_PAYROLL)
     }
-    return all.filter((t) => t.from === ctx.currentState && (!ctx.actorRole || (ctx.actorRole as string) === 'all' || t.role === ctx.actorRole))
+
+    const candidateTransitions = all.filter((t) => t.from === ctx.currentState)
+    const satisfiedTransitions: Transition[] = []
+
+    for (const t of candidateTransitions) {
+      const evalResult = await workflowGuardEvaluator.evaluateTransition({
+        moduleCode: ctx.recordType,
+        entityType: ctx.entityType || CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
+        entityId: ctx.recordId,
+        currentState: ctx.currentState,
+        userContext: { userId: ctx.userId, role: ctx.actorRole },
+        transition: { ...t, workflowCode },
+      })
+
+      if (evalResult.ok) {
+        satisfiedTransitions.push(t)
+      }
+    }
+
+    return satisfiedTransitions
   }
 
   /**
    * DB-backed version of attemptTransition.
-   * Loads the transition graph from DB (cached), applies guard.
+   * Loads the transition graph from DB (cached), applies full guard evaluation.
    * Use in API route / UseCase handlers for authoritative enforcement.
    * Never throws — returns { ok: false, reason } on failure.
    */
@@ -45,17 +66,42 @@ export class WorkflowEngineServer extends WorkflowEngine {
     ctx: GuardContext,
     transitionName: string
   ): Promise<AttemptTransitionResult> {
-    const available = await this.getAvailableTransitionsAsync(ctx)
-    const transition = available.find((t) => t.name === transitionName)
+    const workflowCode = ctx.workflowCode || resolveWorkflowCode(ctx.recordType, ctx.acqModeId)
+    let all = await loadWorkflowTransitions(workflowCode)
+    if (all.length === 0 && workflowCode !== MODULE_CODES.COMPENSATION_PAYROLL) {
+      all = await loadWorkflowTransitions(MODULE_CODES.COMPENSATION_PAYROLL)
+    }
+
+    const transition = all.find(
+      (t) => t.from === ctx.currentState && t.name === transitionName
+    )
 
     if (!transition) {
       return {
         ok: false,
-        reason: `No authorised transition "${transitionName}" from state "${ctx.currentState}" for role "${ctx.actorRole}"`,
+        reason: `No transition "${transitionName}" defined from state "${ctx.currentState}"`,
       }
     }
 
-    // 1. Evaluate Global Required Recommendations Guard
+    // 1. Evaluate Full Prerequisites & Guard Rules
+    const evalResult = await workflowGuardEvaluator.evaluateTransition({
+      moduleCode: ctx.recordType,
+      entityType: ctx.entityType || CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
+      entityId: ctx.recordId,
+      currentState: ctx.currentState,
+      userContext: { userId: ctx.userId, role: ctx.actorRole },
+      transition: { ...transition, workflowCode },
+    })
+
+    if (!evalResult.ok) {
+      return {
+        ok: false,
+        failedGuard: 'transition_prerequisites',
+        reason: evalResult.reason ?? `Transition "${transitionName}" blocked by guard`,
+      }
+    }
+
+    // 2. Evaluate Global Required Recommendations Guard
     const { RequiredRecommendationsFulfilledGuard } = await import('./guards')
     const reqRecGuard = new RequiredRecommendationsFulfilledGuard()
     const reqRecResult = reqRecGuard.check({
@@ -71,18 +117,6 @@ export class WorkflowEngineServer extends WorkflowEngine {
         ok: false,
         failedGuard: reqRecGuard.name,
         reason: reqRecResult.reason ?? 'Required recommendation pending',
-      }
-    }
-
-    // 2. Evaluate DB Transition Guard if defined
-    if (transition.guard) {
-      const result = transition.guard.check(ctx)
-      if (!result.ok) {
-        return {
-          ok: false,
-          failedGuard: transition.guard.name,
-          reason: result.reason ?? 'Guard rejected transition',
-        }
       }
     }
 

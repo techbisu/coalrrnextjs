@@ -37,10 +37,12 @@ export class WorkflowSnapshotQueryService {
     // 2. Fetch available state machine transitions for user context
     const guardContext: GuardContext = {
       recordType: moduleCode,
+      entityType,
       recordId: entityId,
       actorRole: userContext.role,
       currentState: currentStateCode,
       workflowCode: entityWorkflowCode,
+      userId: userContext.userId,
     };
 
     const allowedTransitions = await workflowEngineServer.getAvailableTransitionsAsync(guardContext);
