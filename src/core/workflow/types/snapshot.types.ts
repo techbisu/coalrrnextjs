@@ -15,6 +15,9 @@ export type WorkflowPendingActionType =
   | 'WORKFLOW_REVIEW' 
   | 'DOCUMENT_SIGNATURE' 
   | 'CHECKLIST_ITEM' 
+  | 'CHECKLIST'
+  | 'GENERATED_DOCUMENT'
+  | 'ACTION'
   | 'MILESTONE';
 
 export interface WorkflowPendingAction {

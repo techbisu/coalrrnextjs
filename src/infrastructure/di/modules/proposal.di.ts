@@ -1,7 +1,7 @@
 // Proposal & Land Acquisition DI Module
 // Registers all proposal-related use cases into the global container singleton.
 import { PrismaAcqProposalRepository } from '@/infrastructure/persistence/repositories/PrismaAcqProposalRepository'
-import { MODULE_CODES } from '@/core/config/module-codes.config'
+import { MODULE_CODES, resolveWorkflowCode } from '@/core/config/module-codes.config'
 import { PrismaProjectRepository } from '@/infrastructure/persistence/repositories/PrismaProjectRepository'
 import { ProjectLimitService } from '@/core/compliance/services/ProjectLimitService'
 
@@ -61,12 +61,12 @@ workflowTargetResolverRegistry.registerResolver({
   resolveEntityStatus: async (_moduleCode, _entityType, entityId) => {
     const schedule = await db.acq_proposal.findUnique({
       where: { proposal_id: entityId },
-      select: { current_stage_cd: true, overall_status: true, proposal_no: true },
+      select: { current_stage_cd: true, overall_status: true, proposal_no: true, acq_mode_id: true },
     })
     if (!schedule) return null
     return {
       currentStateCode: schedule.current_stage_cd || schedule.overall_status || 'Drafting',
-      workflowCode: MODULE_CODES.LAND_SCHEDULE,
+      workflowCode: resolveWorkflowCode(MODULE_CODES.LAND_SCHEDULE, schedule.acq_mode_id ? Number(schedule.acq_mode_id) : undefined),
       title: schedule.proposal_no || `Proposal:${entityId}`,
     }
   },

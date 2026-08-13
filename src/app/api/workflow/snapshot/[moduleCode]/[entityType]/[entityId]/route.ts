@@ -21,7 +21,6 @@ export async function GET(
       {
         userId,
         role: userRole,
-        name: userName,
       }
     );
 

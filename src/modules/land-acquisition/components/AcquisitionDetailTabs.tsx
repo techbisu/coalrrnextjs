@@ -51,7 +51,6 @@ import {
   History, FileText, Layers, CheckCircle2, Circle, Clock, AlertCircle, Lock, ChevronRight,
   Trash2, ListChecks, Pencil, UploadCloud
 } from 'lucide-react'
-import { COMPENSATION_PAYROLL_STATES, COMPENSATION_PAYROLL_ORDERED_STATES } from '@/core/workflow'
 import { getChecklistStatus, updateChecklistSubmission } from '@/app/actions/checklist.actions'
 
 import {
@@ -70,6 +69,29 @@ const fetchPlots = async (filter?: any): Promise<any[]> => {
 export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }) {
   const qc = useQueryClient()
   const router = useRouter()
+  const { user } = useAuth()
+  const [activeTab, setActiveTab] = React.useState<'checklist' | 'plots' | 'milestones'>('checklist')
+
+  const mapUserRole = (rawRole?: string) => {
+    if (!rawRole) return 'unit_office'
+    const lower = rawRole.toLowerCase()
+    if (lower.includes('unit')) return 'unit_office'
+    if (lower.includes('area')) return 'area_office'
+    if (lower.includes('lre') || lower.includes('planning')) return 'gm_planning'
+    if (lower.includes('finance')) return 'gm_finance'
+    if (lower.includes('director')) return 'director'
+    if (lower.includes('cmd')) return 'cmd'
+    return 'unit_office'
+  }
+
+  const actorRole = mapUserRole(user?.roles?.[0])
+
+  const { data: snapshot } = useWorkflowSnapshot(
+    MODULE_CODES.LAND_SCHEDULE,
+    CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
+    schedule.id,
+    actorRole
+  )
 
   const handleProcessUpdated = () => {
     qc.invalidateQueries({ queryKey: ['schedules'] })
@@ -77,17 +99,25 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
     qc.invalidateQueries({ queryKey: ['workflow', 'history', MODULE_CODES.LAND_SCHEDULE, schedule.id] })
     qc.invalidateQueries({ queryKey: ['proposals', schedule.id, 'milestones'] })
     qc.invalidateQueries({ queryKey: ['schedules', schedule.id, 'checklist-status'] })
+    qc.invalidateQueries({ queryKey: ['workflow-snapshot', MODULE_CODES.LAND_SCHEDULE, CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE, schedule.id] })
     router.refresh()
   }
 
-  const stages: StageStep[] = [
-    { code: 'Drafting', label: 'Drafting', status: schedule.state === 'Drafting' ? 'current' : 'done' },
-    { code: 'UnitSubmitted', label: 'Unit Office', status: schedule.state === 'UnitSubmitted' ? 'current' : (schedule.state === 'Drafting' ? 'pending' : 'done') },
-    { code: 'AreaVetting', label: 'Area Office', status: schedule.state === 'AreaVetting' ? 'current' : (['Drafting', 'UnitSubmitted'].includes(schedule.state) ? 'pending' : 'done') },
-    { code: 'HqParallelVetting', label: 'HQ Parallel', status: schedule.state === 'HqParallelVetting' ? 'current' : (['Drafting', 'UnitSubmitted', 'AreaVetting'].includes(schedule.state) ? 'pending' : 'done') },
-    { code: 'GmLreReview', label: 'GM (LRE)', status: schedule.state === 'GmLreReview' ? 'current' : (['Published'].includes(schedule.state) ? 'done' : 'pending') },
-    { code: 'Published', label: 'Published', status: schedule.state === 'Published' ? 'done' : 'pending' },
-  ]
+  // Dynamic stage progress steps from workflow snapshot
+  const stages: StageStep[] = snapshot?.assignments && snapshot.assignments.length > 0
+    ? snapshot.assignments.map(a => ({
+        code: a.id.replace('assignment-', ''),
+        label: a.stageName,
+        status: a.status === 'CURRENT' ? 'current' : a.status === 'COMPLETED' ? 'done' : 'pending'
+      }))
+    : [
+        { code: 'Drafting', label: 'Drafting', status: schedule.state === 'Drafting' ? 'current' : 'done' },
+        { code: 'UnitSubmitted', label: 'Unit Office', status: schedule.state === 'UnitSubmitted' ? 'current' : (schedule.state === 'Drafting' ? 'pending' : 'done') },
+        { code: 'AreaVetting', label: 'Area Office', status: schedule.state === 'AreaVetting' ? 'current' : (['Drafting', 'UnitSubmitted'].includes(schedule.state) ? 'pending' : 'done') },
+        { code: 'HqParallelVetting', label: 'HQ Parallel', status: schedule.state === 'HqParallelVetting' ? 'current' : (['Drafting', 'UnitSubmitted', 'AreaVetting'].includes(schedule.state) ? 'pending' : 'done') },
+        { code: 'GmLreReview', label: 'GM (LRE)', status: schedule.state === 'GmLreReview' ? 'current' : (['Published'].includes(schedule.state) ? 'done' : 'pending') },
+        { code: 'Published', label: 'Published', status: schedule.state === 'Published' ? 'done' : 'pending' },
+      ];
 
   return (
     <div className="space-y-6">
@@ -100,7 +130,7 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
             stages={stages}
           />
 
-          <Tabs defaultValue="checklist" className="w-full">
+          <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="w-full">
             <TabsList className="w-fit flex-wrap">
               <TabsTrigger value="checklist"><FileText className="mr-2 h-3.5 w-3.5" /> Compliance Checklist</TabsTrigger>
               <TabsTrigger value="plots"><Layers className="mr-2 h-3.5 w-3.5" /> Plots &amp; Annexures</TabsTrigger>
@@ -123,7 +153,13 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
 
         {/* Right Sidebar Column (4 cols): Action Command Center, Proposal Metadata & Breakdown, Baseline Limits */}
         <div className="lg:col-span-4 space-y-6">
-          <PendingActionBanner schedule={schedule} onActionTriggered={handleProcessUpdated} />
+          <PendingActionBanner
+            schedule={schedule}
+            actorRole={actorRole}
+            snapshot={snapshot}
+            onSelectTab={(tab) => setActiveTab(tab)}
+            onActionTriggered={handleProcessUpdated}
+          />
           <ProposalMetaBreakdownCard schedule={schedule} />
           <LimitsTab schedule={schedule} />
         </div>
@@ -132,65 +168,24 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
   )
 }
 
-function PendingActionBanner({ schedule, onActionTriggered }: { schedule: ScheduleDetail; onActionTriggered?: () => void }) {
+function PendingActionBanner({
+  schedule,
+  actorRole,
+  snapshot,
+  onSelectTab,
+  onActionTriggered
+}: {
+  schedule: ScheduleDetail;
+  actorRole: string;
+  snapshot?: any;
+  onSelectTab: (tab: 'checklist' | 'plots' | 'milestones') => void;
+  onActionTriggered?: () => void;
+}) {
   const qc = useQueryClient()
-  const { user } = useAuth()
-  
-  const mapUserRole = (rawRole?: string) => {
-    if (!rawRole) return 'unit_office'
-    const lower = rawRole.toLowerCase()
-    if (lower.includes('unit')) return 'unit_office'
-    if (lower.includes('area')) return 'area_office'
-    if (lower.includes('lre') || lower.includes('planning')) return 'gm_planning'
-    if (lower.includes('finance')) return 'gm_finance'
-    if (lower.includes('director')) return 'director'
-    if (lower.includes('cmd')) return 'cmd'
-    return 'unit_office'
-  }
-  
-  const detectedRole = mapUserRole(user?.roles?.[0])
-  const normalizedState = getNormalizedState(schedule.state)
-  const stateKey = normalizedState as keyof typeof COMPENSATION_PAYROLL_STATES
-  const stateMeta = COMPENSATION_PAYROLL_STATES[stateKey]
+  const pendingActions = snapshot?.currentAssignment?.pendingActions || []
+  const availableTransitions = snapshot?.availableTransitions || []
 
-  const { data: clStatus } = useQuery<{ isComplete: boolean; completedCount?: number; totalCount?: number }>({
-    queryKey: ['schedules', schedule.id, 'checklist-status'],
-    queryFn: async () => {
-      const r = await fetch(`/api/schedules/${schedule.id}/checklist`)
-      if (!r.ok) return { isComplete: false, completedCount: 0, totalCount: 0 }
-      return r.json()
-    }
-  })
-  
-  const { data: limitsData } = useQuery<{ isWithinLimit: boolean }>({
-    queryKey: ['schedules', schedule.id, 'limits'],
-    queryFn: async () => {
-      const r = await fetch(`/api/proposals/${schedule.id}/limits`)
-      if (!r.ok) return null
-      const json = await r.json()
-      return json.details
-    }
-  })
-
-  const isBreached = limitsData ? (limitsData.isWithinLimit === false) : false
-  const isSuperAdmin = user?.roles?.some((r: string) => r.toLowerCase().includes('admin'))
-
-  const transitions: AvailableTransition[] = (stateMeta?.allowedTransitions ?? [])
-    .filter((t) => {
-      if (!isSuperAdmin && t.role !== detectedRole) return false
-      if (['submit_to_area', 'submit_to_unit'].includes(t.name) && clStatus && !clStatus.isComplete) return false
-      if (t.name === 'submit_to_hq_parallel' && isBreached) return false
-      if (t.name === 'escalate_to_board' && !isBreached) return false
-      return true
-    })
-    .map((t) => ({
-      name: t.name,
-      label: t.label,
-      role: t.role,
-      guardFailed: null,
-    }))
-
-  const [selectedTransition, setSelectedTransition] = React.useState<{ name: string; label: string } | null>(null)
+  const [selectedTransition, setSelectedTransition] = React.useState<WorkflowTransitionOption | null>(null)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
 
   const verify = useMutation({
@@ -198,7 +193,7 @@ function PendingActionBanner({ schedule, onActionTriggered }: { schedule: Schedu
       const payload: any = { 
         action: transitionName, 
         transitionName,
-        role: detectedRole,
+        role: actorRole,
         comments: comments || `Transitioned via UI`
       }
       if (targetRecipientId) payload.adjacent_mine_ids = [targetRecipientId]
@@ -233,6 +228,7 @@ function PendingActionBanner({ schedule, onActionTriggered }: { schedule: Schedu
     onSuccess: (data) => {
       toast.success(`Transitioned to ${data.newStatusLabel ?? 'next state'}`)
       qc.invalidateQueries({ queryKey: ['schedules'] })
+      qc.invalidateQueries({ queryKey: ['workflow-snapshot', MODULE_CODES.LAND_SCHEDULE, CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE, schedule.id] })
       if (onActionTriggered) onActionTriggered()
       setIsDialogOpen(false)
     },
@@ -240,13 +236,81 @@ function PendingActionBanner({ schedule, onActionTriggered }: { schedule: Schedu
   })
 
   return (
-    <>
-      <ActionJustificationDialog
+    <SectionCard title="My Pending Actions" icon={ShieldCheck} description="Required tasks for your role in the active stage">
+      <div className="space-y-4">
+        {/* Dynamic Pending Action Stack */}
+        {pendingActions.length === 0 ? (
+          <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            <span>All stage prerequisites complete! You may proceed with available state transitions.</span>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {pendingActions.map((action: any) => {
+              const isPlot = action.code === 'ADD_PLOT_SCHEDULE';
+              const isChecklist = action.code === 'INITIAL_CHECKLIST';
+              const targetTab = action.metadata?.targetTab || (isPlot ? 'plots' : 'checklist');
 
+              return (
+                <div
+                  key={action.id}
+                  className="flex items-start justify-between p-3 rounded-lg border border-border/80 bg-card hover:bg-muted/40 transition-colors gap-3"
+                >
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-xs text-foreground truncate">{action.label}</span>
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-amber-50 text-amber-800 border-amber-300">
+                        {action.type || 'PENDING'}
+                      </Badge>
+                    </div>
+                    {action.description && (
+                      <p className="text-[11px] text-muted-foreground line-clamp-1">{action.description}</p>
+                    )}
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs px-2.5 shrink-0 bg-primary/5 hover:bg-primary/10 text-primary border-primary/20"
+                    onClick={() => onSelectTab(targetTab)}
+                  >
+                    {isPlot ? 'Add Plots' : isChecklist ? 'View Rules' : 'Open Workspace'}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Transition Actions */}
+        {availableTransitions.length > 0 && (
+          <div className="pt-3 border-t border-border space-y-2">
+            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Available Transitions</div>
+            <div className="flex flex-wrap gap-2">
+              {availableTransitions.map((t: WorkflowTransitionOption) => (
+                <Button
+                  key={t.transitionId || t.name}
+                  size="sm"
+                  className="text-xs font-semibold"
+                  disabled={verify.isPending}
+                  onClick={() => {
+                    setSelectedTransition(t)
+                    setIsDialogOpen(true)
+                  }}
+                >
+                  {t.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <ActionJustificationDialog
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         actionName={selectedTransition?.name || ''}
-        actionLabel={selectedTransition?.label || ''}
+        actionLabel={selectedTransition?.name || ''}
         isReturn={selectedTransition?.name.includes('return') || selectedTransition?.name.includes('reject')}
         onSubmit={async ({ comments, targetRecipient, targetRecipientId, file }) => {
           if (selectedTransition) {
@@ -260,7 +324,7 @@ function PendingActionBanner({ schedule, onActionTriggered }: { schedule: Schedu
           }
         }}
       />
-    </>
+    </SectionCard>
   )
 }
 
@@ -803,215 +867,7 @@ function VerificationTab({
   const qc = useQueryClient()
   const { user } = useAuth()
 
-  const mapUserRole = (rawRole?: string) => {
-    if (!rawRole) return 'unit_office'
-    const lower = rawRole.toLowerCase()
-    if (lower.includes('unit')) return 'unit_office'
-    if (lower.includes('area')) return 'area_office'
-    if (lower.includes('lre') || lower.includes('planning')) return 'gm_planning'
-    if (lower.includes('finance')) return 'gm_finance'
-    if (lower.includes('director')) return 'director'
-    if (lower.includes('cmd')) return 'cmd'
-    return 'unit_office'
-  }
 
-  const detectedRole = mapUserRole(user?.roles?.[0])
-  const [actorRole, setActorRole] = React.useState(detectedRole)
-
-  React.useEffect(() => {
-    if (user?.roles?.[0]) {
-      setActorRole(mapUserRole(user.roles[0]))
-    }
-  }, [user?.roles])
-
-  const normalizedState = getNormalizedState(schedule.state)
-  const stateKey = normalizedState as keyof typeof COMPENSATION_PAYROLL_STATES
-  const stateMeta = COMPENSATION_PAYROLL_STATES[stateKey]
-  const { data: clStatus } = useQuery<{ isComplete: boolean; missingItems: string[] }>({
-    queryKey: ['schedules', schedule.id, 'checklist-status'],
-    queryFn: async () => {
-      const r = await fetch(`/api/schedules/${schedule.id}/checklist`)
-      if (!r.ok) return { isComplete: false, missingItems: [] }
-      return r.json()
-    }
-  })
-
-  const { data: limitsData } = useQuery<{ isWithinLimit: boolean }>({
-    queryKey: ['proposals', schedule.id, 'limits'],
-    queryFn: async () => {
-      const r = await fetch(`/api/proposals/${schedule.id}/limits`)
-      if (!r.ok) return null
-      const json = await r.json()
-      return json.details
-    }
-  })
-
-  const isBreached = limitsData ? (limitsData.isWithinLimit === false) : false
-  const isSuperAdmin = user?.roles?.some((r: string) => r.toLowerCase().includes('admin'))
-
-  const transitions: AvailableTransition[] = (stateMeta?.allowedTransitions ?? [])
-    .filter((t) => {
-      // 1. Role filter: user must match transition role or be admin
-      if (!isSuperAdmin && t.role !== detectedRole) return false
-
-      // 2. Show/Hide condition filters:
-      // Hide submit_to_area and submit_to_unit if CL-1 checklist is incomplete
-      if (['submit_to_area', 'submit_to_unit'].includes(t.name) && clStatus && !clStatus.isComplete) {
-        return false
-      }
-
-      // Hide submit_to_hq_parallel if project baseline is breached
-      if (t.name === 'submit_to_hq_parallel' && isBreached) {
-        return false
-      }
-
-      // Hide escalate_to_board if project baseline is intact (no breach)
-      if (t.name === 'escalate_to_board' && !isBreached) {
-        return false
-      }
-
-      return true
-    })
-    .map((t) => ({
-      name: t.name,
-      label: t.label,
-      role: t.role,
-      guardFailed: null,
-    }))
-
-  const [selectedTransition, setSelectedTransition] = React.useState<{ name: string; label: string } | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
-
-  const verify = useMutation({
-    mutationFn: async ({ transitionName, comments, file, targetRecipientId }: { transitionName: string; comments?: string; file?: File | null; targetRecipientId?: string | null }) => {
-      const payload: any = { 
-        action: transitionName, 
-        transitionName: transitionName,
-        role: actorRole,
-        comments: comments || `Transitioned via UI`
-      }
-      if (targetRecipientId) {
-        payload.adjacent_mine_ids = [targetRecipientId]
-      }
-      
-      let uploadedDocId: string | null = null
-      if (file) {
-        try {
-          const formData = new FormData()
-          formData.append('file', file)
-          formData.append('proposal_id', schedule.id)
-          formData.append('document_type', 'JUSTIFICATION_NOTE')
-          const uploadRes = await fetch('/api/documents/upload', {
-            method: 'POST',
-            body: formData,
-          })
-          if (uploadRes.ok) {
-            const uploadJson = await uploadRes.json()
-            uploadedDocId = uploadJson.document_id || uploadJson.id || null
-          }
-        } catch (err) {
-          console.warn('Document upload error:', err)
-        }
-      }
-
-      const r = await fetch(`/api/schedules/${schedule.id}/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: transitionName,
-          transitionName: transitionName,
-          role: actorRole,
-          comments: comments || `Transitioned via UI`,
-          document_id: uploadedDocId
-        }),
-      })
-      const data = await r.json()
-      if (!r.ok) throw new Error(data.error ?? 'Transition failed')
-      if (data.ok === false) throw new Error(data.reason ?? 'Transition blocked')
-      return data as { newStatusLabel?: string; spawnedTasks?: Array<{ role: string }> }
-    },
-    onSuccess: (data) => {
-      toast.success(`Transitioned to ${data.newStatusLabel ?? 'next state'}`, {
-        description: data.spawnedTasks?.length ? `Spawned ${data.spawnedTasks.length} review task(s)` : undefined,
-      })
-      onChanged()
-      qc.invalidateQueries({ queryKey: ['schedules'] })
-    },
-    onError: (e: Error) => toast.error('Transition blocked', { description: e.message }),
-  })
-
-  const { data: snapshot } = useWorkflowSnapshot(
-    MODULE_CODES.LAND_SCHEDULE,
-    CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
-    schedule.id,
-    actorRole
-  )
-
-  const [selectedWorkflowTransition, setSelectedWorkflowTransition] = React.useState<WorkflowTransitionOption | null>(null)
-
-  return (
-    <div className="space-y-4">
-      {snapshot?.availableTransitions && (
-        <WorkflowActionBar
-          availableTransitions={snapshot.availableTransitions}
-          onSelectTransition={(t) => {
-            setSelectedWorkflowTransition(t)
-            setIsDialogOpen(true)
-          }}
-          isSubmitting={verify.isPending}
-        />
-      )}
-
-      <WorkflowTimelineFeed
-        moduleCode={MODULE_CODES.LAND_SCHEDULE}
-        entityType={CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE}
-        entityId={schedule.id}
-        userRole={actorRole}
-        onExecuteAction={() => {
-          if (snapshot?.availableTransitions && snapshot.availableTransitions.length > 0) {
-            setSelectedWorkflowTransition(snapshot.availableTransitions[0])
-            setIsDialogOpen(true)
-          }
-        }}
-      />
-
-      <WorkflowActionDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        transition={selectedWorkflowTransition}
-        onSubmitTransition={async ({ transition, comments, attachmentFile }) => {
-          await verify.mutateAsync({
-            transitionName: transition.name,
-            comments,
-            file: attachmentFile,
-          })
-        }}
-      />
-
-
-
-
-      {normalizedState === 'Drafting' && (
-        <Alert>
-          <FileText className="h-4 w-4" />
-          <AlertTitle>Drafting — Land Schedule Created</AlertTitle>
-          <AlertDescription>
-            Compose the plot schedule and complete the compliance checklist, then submit for Adjacent Colliery &amp; Unit Office verification.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {normalizedState === 'Published' && (
-        <Alert>
-          <CheckCircle2 className="h-4 w-4" />
-          <AlertTitle>Published — terminal state</AlertTitle>
-          <AlertDescription>
-            Award published to the immutable Form-D ledger. Transparency window started.
-          </AlertDescription>
-        </Alert>
-      )}
-    </div>
-  )
 }
 
 function LimitsTab({ schedule }: { schedule: ScheduleDetail }) {
@@ -1030,52 +886,20 @@ function LimitsTab({ schedule }: { schedule: ScheduleDetail }) {
 
 // ─── Tab 4: Timeline ─────────────────────────────────────────────────────
 function TimelineTab({ schedule }: { schedule: ScheduleDetail }) {
-  const normalizedState = getNormalizedState(schedule.state)
+  const { data: snapshot } = useWorkflowSnapshot(
+    MODULE_CODES.LAND_SCHEDULE,
+    CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
+    schedule.id,
+    'unit_office'
+  )
 
-  const { data: limitsData } = useQuery<{ isWithinLimit: boolean }>({
-    queryKey: ['proposals', schedule.id, 'limits'],
-    queryFn: async () => {
-      const r = await fetch(`/api/proposals/${schedule.id}/limits`)
-      if (!r.ok) return null
-      const json = await r.json()
-      return json.details
-    }
-  })
-
-  const isBreached = limitsData ? (limitsData.isWithinLimit === false) : false
-  const isBoardBranchState = normalizedState === 'BoardEscalation' || normalizedState === 'BoardApproved' || normalizedState === 'LimitBreached'
-
-  // Only display Board Escalation / Board Approved nodes if a baseline breach occurs or proposal is in Board state
-  const statesToDisplay = COMPENSATION_PAYROLL_ORDERED_STATES.filter((state) => {
-    if (state === 'BoardEscalation' || state === 'BoardApproved' || state === 'LimitBreached') {
-      return isBreached || isBoardBranchState
-    }
-    return true
-  })
-
-  const stages: StageStep[] = statesToDisplay.map((state) => {
-    const meta = COMPENSATION_PAYROLL_STATES[state]
-    const currentState = normalizedState as keyof typeof COMPENSATION_PAYROLL_STATES
-
-    let status: StageStep['status'] = 'pending'
-
-    if (currentState === 'BoardEscalation' || currentState === 'LimitBreached') {
-      if (state === 'BoardEscalation' || state === 'LimitBreached') status = 'current'
-      else if (meta.order < COMPENSATION_PAYROLL_STATES.GmLreReview.order) status = 'done'
-      else if (state === 'GmLreReview') status = 'done'
-      else status = 'pending'
-    } else {
-      if (meta.order < COMPENSATION_PAYROLL_STATES[currentState].order) status = 'done'
-      else if (state === currentState) status = 'current'
-    }
-
-    return {
-      code: state,
-      label: meta.label,
-      status,
-      order: meta.order,
-    }
-  })
+  const stages: StageStep[] = snapshot?.assignments && snapshot.assignments.length > 0
+    ? snapshot.assignments.map(a => ({
+        code: a.id.replace('assignment-', ''),
+        label: a.stageName,
+        status: a.status === 'CURRENT' ? 'current' : a.status === 'COMPLETED' ? 'done' : 'pending'
+      }))
+    : [{ code: schedule.state, label: schedule.state, status: 'current' }]
 
   return (
     <div className="space-y-6">

@@ -4,6 +4,7 @@ import { workflowEngineServer } from '../WorkflowEngineServer';
 import { workflowActionHistoryService } from './WorkflowActionHistoryService';
 import { manualMilestoneService } from './ManualMilestoneService';
 import { workflowTargetResolverRegistry } from '../resolvers/WorkflowTargetResolverRegistry';
+import { Container } from '@/infrastructure/di/Container';
 import type {
   WorkflowSnapshot,
   WorkflowAssignmentNode,
@@ -11,7 +12,7 @@ import type {
   WorkflowTransitionOption,
   WorkflowActionItem,
 } from '../types/snapshot.types';
-import type { GuardContext } from '../types';
+import type { GuardContext, Transition } from '../types';
 
 export class WorkflowSnapshotQueryService {
   /**
@@ -21,32 +22,33 @@ export class WorkflowSnapshotQueryService {
     moduleCode: string,
     entityType: string,
     entityId: string,
-    userContext: {
-      userId?: string | number;
-      role: string;
-      name?: string;
-    }
+    userContext: { userId?: string; role: string }
   ): Promise<WorkflowSnapshot> {
-    // 1. Resolve entity state via generic registry (Decoupled from LAP)
-    const entityStatus = await workflowTargetResolverRegistry.resolveStatus(moduleCode, entityType, entityId);
-    const currentStateCode = entityStatus.currentStateCode;
-    const entityWorkflowCode = entityStatus.workflowCode || moduleCode;
+    // 1. Resolve entity status & target
+    const targetStatus = await workflowTargetResolverRegistry.resolveStatus(
+      moduleCode,
+      entityType,
+      entityId
+    );
 
-    // 2. Fetch available transitions using GuardContext
-    const guardCtx: GuardContext = {
+    const currentStateCode = targetStatus?.currentStateCode || 'Drafting';
+    const entityWorkflowCode = targetStatus?.workflowCode || moduleCode;
+
+    // 2. Fetch available state machine transitions for user context
+    const guardContext: GuardContext = {
+      recordType: moduleCode,
       recordId: entityId,
-      recordType: entityType as any,
-      actorRole: userContext.role as any,
-      currentState: currentStateCode as any,
+      actorRole: userContext.role,
+      currentState: currentStateCode,
       workflowCode: entityWorkflowCode,
     };
 
-    const availableTransitionsRaw = await workflowEngineServer.getAvailableTransitionsAsync(guardCtx);
+    const allowedTransitions = await workflowEngineServer.getAvailableTransitionsAsync(guardContext);
 
-    const availableTransitions: WorkflowTransitionOption[] = availableTransitionsRaw.map((t) => ({
-      transitionId: `${t.from}->${t.to}:${t.name}`,
+    const availableTransitions: WorkflowTransitionOption[] = allowedTransitions.map((t: Transition) => ({
+      transitionId: `tr-${t.from}-${t.to}-${t.name}`,
       name: t.name,
-      label: t.label,
+      label: t.label || t.name || `Move to ${t.to}`,
       fromState: t.from,
       toState: t.to,
       requiredRole: t.role,
@@ -98,7 +100,6 @@ export class WorkflowSnapshotQueryService {
         })
       : [];
 
-    // Map rules in memory by template_code
     const sigRulesMap = new Map<string, typeof allSigRules>();
     for (const rule of allSigRules) {
       if (!sigRulesMap.has(rule.template_code)) {
@@ -107,8 +108,88 @@ export class WorkflowSnapshotQueryService {
       sigRulesMap.get(rule.template_code)!.push(rule);
     }
 
-    // 5. Evaluate Document Pending Actions
+    // 5. Synthesize Pending Actions Stack (Plots, Checklist, Generated Documents, Signatures)
     const pendingActions: WorkflowPendingAction[] = [];
+
+    // A. Plot Schedule Completeness (0 plots = PENDING action)
+    if (entityType === 'acq_land_schedule' || moduleCode === 'LAND_SCHEDULE') {
+      const plotCount = await db.plot_schedule.count({
+        where: { proposal_id: entityId }
+      });
+
+      if (plotCount === 0) {
+        pendingActions.push({
+          id: `action-add-plot-${entityId}`,
+          type: 'ACTION',
+          code: 'ADD_PLOT_SCHEDULE',
+          label: 'Add Plot Schedule',
+          description: 'At least 1 plot schedule entry is required for proposal submission',
+          status: 'PENDING',
+          isAuthorizedForCurrentUser: true,
+          metadata: { targetTab: 'plots' }
+        });
+      }
+    }
+
+    // B. Compliance Checklist Completeness
+    if (Container.getChecklistStatusUseCase) {
+      const checklistRes = await Container.getChecklistStatusUseCase.execute({
+        moduleCode,
+        checkableType: entityType,
+        checkableId: entityId
+      });
+
+      if (checklistRes.isSuccess && checklistRes.value) {
+        const items = checklistRes.value.items || [];
+        const mandatoryItems = items.filter((i: any) => i.isMandatory);
+        const satisfiedMandatory = mandatoryItems.filter((i: any) =>
+          i.submission?.status === 'SUBMITTED' ||
+          i.submission?.status === 'APPROVED' ||
+          i.submission?.status === 'AUTO_SATISFIED' ||
+          i.generatedDocInfo?.status === 'COMPLETED'
+        );
+
+        if (!checklistRes.value.isComplete && mandatoryItems.length > 0) {
+          pendingActions.push({
+            id: `action-checklist-${entityId}`,
+            type: 'CHECKLIST',
+            code: 'INITIAL_CHECKLIST',
+            label: 'Complete Compliance Checklist',
+            description: `${satisfiedMandatory.length}/${mandatoryItems.length} mandatory checklist items completed`,
+            status: 'PENDING',
+            isAuthorizedForCurrentUser: true,
+            metadata: { targetTab: 'checklist' }
+          });
+        }
+
+        // C. Un-generated Document Actions (e.g. Form-VII)
+        const ungeneratedDocRules = items.filter((i: any) =>
+          i.inputSchema?.type === 'generated_document' ||
+          i.type === 'generated_document' ||
+          i.inputSchema?.template_code ||
+          i.inputSchema?.templateCode
+        );
+
+        for (const docRule of ungeneratedDocRules) {
+          const tmplCode = docRule.inputSchema?.template_code || docRule.inputSchema?.templateCode || docRule.chkCode;
+          const exists = docInstances.some(d => d.template_code === tmplCode);
+          if (!exists) {
+            pendingActions.push({
+              id: `action-gen-doc-${tmplCode}-${entityId}`,
+              type: 'GENERATED_DOCUMENT',
+              code: `GENERATE_${tmplCode}`,
+              label: `Generate & Sign ${docRule.title || tmplCode}`,
+              description: docRule.description || `Required document ${tmplCode} must be generated`,
+              status: 'PENDING',
+              isAuthorizedForCurrentUser: true,
+              metadata: { templateCode: tmplCode, targetTab: 'checklist' }
+            });
+          }
+        }
+      }
+    }
+
+    // D. Document Signatures for existing document instances
     for (const docInst of docInstances) {
       if (docInst.template_code) {
         const sigRules = sigRulesMap.get(docInst.template_code) || [];
@@ -217,9 +298,6 @@ export class WorkflowSnapshotQueryService {
         justification: log.comments || undefined,
       }));
 
-      // Recommendations Projection:
-      // Current assignment -> active recommendations
-      // Past assignment -> historical recommendations created during those transitions
       const nodeRecommendations = isCurrent
         ? allResolvedRecommendations
         : isPast

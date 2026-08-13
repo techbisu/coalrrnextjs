@@ -21,6 +21,106 @@ export interface ChecklistStageDTO {
   items: any[];
 }
 
+/**
+ * Helper: Resolve field aliases across camelCase and snake_case representations
+ */
+function getContextFieldValue(context: Record<string, any>, field: string): any {
+  if (context[field] !== undefined) return context[field];
+  
+  if (field === 'acq_mode' || field === 'acq_mode_id' || field === 'acqModeId') {
+    return context.acq_mode ?? context.acq_mode_id ?? context.acqModeId;
+  }
+  if (field === 'current_stage_cd' || field === 'stage_code' || field === 'stage' || field === 'workflowState') {
+    return context.current_stage_cd ?? context.stage ?? context.stage_code ?? context.currentStateCode;
+  }
+  if (field === 'has_forest_land' || field === 'hasForestLand') {
+    return context.has_forest_land ?? context.hasForestLand ?? false;
+  }
+  if (field === 'has_tenancy_land' || field === 'hasTenancyLand') {
+    return context.has_tenancy_land ?? context.hasTenancyLand ?? false;
+  }
+  if (field === 'has_government_or_patta_land' || field === 'hasGovernmentOrPattaLand') {
+    return context.has_government_or_patta_land ?? context.hasGovernmentOrPattaLand ?? false;
+  }
+  if (field === 'reconciliation_required' || field === 'reconciliationRequired') {
+    return context.reconciliation_required ?? context.reconciliationRequired ?? context.has_adjacent_mines ?? true;
+  }
+
+  return undefined;
+}
+
+/**
+ * Helper: Recursive AST Evaluator for show_if rules
+ */
+function evaluateConditionNode(node: any, context: Record<string, any>): boolean {
+  if (!node || typeof node !== 'object') return true;
+
+  // 1. Handle logical 'and' array
+  if (Array.isArray(node.and)) {
+    return node.and.every((child: any) => evaluateConditionNode(child, context));
+  }
+
+  // 2. Handle logical 'or' array
+  if (Array.isArray(node.or)) {
+    return node.or.some((child: any) => evaluateConditionNode(child, context));
+  }
+
+  // 3. Leaf condition with explicit 'field' property
+  const fieldName = node.field;
+  const op = node.op || 'eq';
+  const expectedValue = node.value;
+
+  if (fieldName) {
+    let actualValue = getContextFieldValue(context, fieldName);
+    if (typeof actualValue === 'bigint') actualValue = Number(actualValue);
+
+    switch (op) {
+      case 'eq':
+        return actualValue == expectedValue || String(actualValue) === String(expectedValue);
+      case 'neq':
+        return actualValue != expectedValue && String(actualValue) !== String(expectedValue);
+      case 'in':
+        return Array.isArray(expectedValue) && expectedValue.some(v => v == actualValue || String(v) === String(actualValue));
+      case 'notin':
+        return Array.isArray(expectedValue) && !expectedValue.some(v => v == actualValue || String(v) === String(actualValue));
+      default:
+        return true;
+    }
+  }
+
+  // 4. Fallback for legacy flat key-value map e.g. { acqModeId: [1, 2, 6] }
+  return Object.entries(node).every(([k, v]) => {
+    let actualValue = getContextFieldValue(context, k);
+    if (typeof actualValue === 'bigint') actualValue = Number(actualValue);
+
+    if (Array.isArray(v)) {
+      return v.some((item: any) => item == actualValue || String(item) === String(actualValue));
+    }
+    return actualValue == v || String(actualValue) === String(v);
+  });
+}
+
+/**
+ * Helper: Extract target stage code from show_if rule if specified
+ */
+function extractTargetStageCode(node: any): string | null {
+  if (!node || typeof node !== 'object') return null;
+  if (Array.isArray(node.and)) {
+    for (const child of node.and) {
+      const res = extractTargetStageCode(child);
+      if (res) return res;
+    }
+  }
+  if (node.field === 'current_stage_cd' || node.field === 'stage_code' || node.field === 'stage') {
+    return Array.isArray(node.value) ? String(node.value[0]) : String(node.value);
+  }
+  if (node.current_stage_cd || node.stage_code || node.stage) {
+    const val = node.current_stage_cd || node.stage_code || node.stage;
+    return Array.isArray(val) ? String(val[0]) : String(val);
+  }
+  return null;
+}
+
 export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusRequest, any> {
   constructor(
     private repo: IChecklistRepository,
@@ -43,6 +143,8 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
 
       const currentStateCode = context.current_stage_cd || context.currentStateCode || entityStatus?.currentStateCode || 'Drafting';
       context.current_stage_cd = currentStateCode;
+      context.currentStateCode = currentStateCode;
+      context.workflowState = currentStateCode;
 
       // 2. Fetch workflow states for stage ordering & visibility
       const workflowCode = entityStatus?.workflowCode || req.moduleCode;
@@ -80,39 +182,13 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
       let isComplete = true;
 
       for (const rule of rules) {
-        // 4. Evaluate show_if dynamically
+        // 4. Evaluate show_if dynamically with recursive AST evaluator
         let shouldShow = true;
         let ruleTargetStageCode: string | null = null;
 
         if (rule.show_if) {
-          const conditions = rule.show_if as Record<string, any>;
-          for (const [key, value] of Object.entries(conditions)) {
-            // Track stage condition if present (e.g. current_stage_cd or stage_code)
-            if (key === 'current_stage_cd' || key === 'stage_code') {
-              ruleTargetStageCode = Array.isArray(value) ? value[0] : String(value);
-            }
-
-            let contextValue = context[key];
-            if (contextValue === undefined) {
-              if (key === 'acqModeId') contextValue = context.acq_mode_id ?? context.acqModeId;
-              if (key === 'acq_mode_id') contextValue = context.acqModeId ?? context.acq_mode_id;
-              if (key === 'current_stage_cd' || key === 'stage_code' || key === 'stage') {
-                contextValue = context.current_stage_cd ?? context.stage ?? context.currentStateCode;
-              }
-            }
-
-            if (typeof contextValue === 'bigint') {
-              contextValue = Number(contextValue);
-            }
-
-            if (Array.isArray(value)) {
-              // Convert both value and contextValue elements to Number or String if comparing numeric mode IDs
-              const hasMatch = value.some((v: any) => v == contextValue || String(v) === String(contextValue));
-              if (!hasMatch) shouldShow = false;
-            } else {
-              if (contextValue !== value && String(contextValue) !== String(value)) shouldShow = false;
-            }
-          }
+          shouldShow = evaluateConditionNode(rule.show_if, context);
+          ruleTargetStageCode = extractTargetStageCode(rule.show_if);
         }
 
         // Hide future stage items completely if workflow states exist
