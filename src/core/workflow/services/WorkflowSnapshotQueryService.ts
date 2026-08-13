@@ -114,8 +114,9 @@ export class WorkflowSnapshotQueryService {
     const pendingActions: WorkflowPendingAction[] = [];
 
     // A. Plot Schedule Completeness (0 plots = PENDING action)
+    let plotCount = 0;
     if (entityType === 'acq_land_schedule' || moduleCode === 'LAND_SCHEDULE') {
-      const plotCount = await db.plot_schedule.count({
+      plotCount = await db.plot_schedule.count({
         where: { proposal_id: entityId }
       });
 
@@ -299,6 +300,18 @@ export class WorkflowSnapshotQueryService {
         completedBy: log.user ? log.user.name : log.entry_by || 'System',
         justification: log.comments || undefined,
       }));
+
+      // Include completed domain prerequisite actions for Drafting stage
+      if (stateRow.state_code === 'Drafting' && plotCount > 0) {
+        actions.unshift({
+          id: `action-add-plot-completed-${entityId}`,
+          label: `Plot Schedule Configured (${plotCount} plot ${plotCount === 1 ? 'entry' : 'entries'} added)`,
+          actionCode: 'ADD_PLOT_SCHEDULE',
+          status: 'COMPLETED',
+          completedAt: new Date().toISOString(),
+          completedBy: 'Unit Office / User',
+        });
+      }
 
       const nodeRecommendations = isCurrent
         ? allResolvedRecommendations
