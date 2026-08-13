@@ -37,8 +37,10 @@ export class ProposalChecklistResolver implements IChecklistContextResolver {
     // and also to ensure the core immutable properties are always present.
     const baseContext = {
       acq_mode_id: Number(proposal.acq_mode_id),
+      acqModeId: Number(proposal.acq_mode_id),
       is_board_approval_req: proposal.requires_board_approval,
       stage: proposal.current_stage_cd,
+      current_stage_cd: proposal.current_stage_cd,
       
       // Fallbacks for flags usually set by the sync job
       has_tribal_land: proposal.has_tribal_land ?? false,

@@ -93,14 +93,24 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
             }
 
             let contextValue = context[key];
+            if (contextValue === undefined) {
+              if (key === 'acqModeId') contextValue = context.acq_mode_id ?? context.acqModeId;
+              if (key === 'acq_mode_id') contextValue = context.acqModeId ?? context.acq_mode_id;
+              if (key === 'current_stage_cd' || key === 'stage_code' || key === 'stage') {
+                contextValue = context.current_stage_cd ?? context.stage ?? context.currentStateCode;
+              }
+            }
+
             if (typeof contextValue === 'bigint') {
               contextValue = Number(contextValue);
             }
 
             if (Array.isArray(value)) {
-              if (!value.includes(contextValue)) shouldShow = false;
+              // Convert both value and contextValue elements to Number or String if comparing numeric mode IDs
+              const hasMatch = value.some((v: any) => v == contextValue || String(v) === String(contextValue));
+              if (!hasMatch) shouldShow = false;
             } else {
-              if (contextValue !== value) shouldShow = false;
+              if (contextValue !== value && String(contextValue) !== String(value)) shouldShow = false;
             }
           }
         }
