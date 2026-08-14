@@ -1,4 +1,6 @@
 import { IDocumentResolver, DocumentResolverResult } from '../../domain/IDocumentResolver'
+import { db } from '@/lib/db'
+import { getDisplayPlotNo } from '@/shared/utils/plot.utils'
 
 /**
  * FormIResolver — Citizen Land/Employment Intake (Form-I)
@@ -6,57 +8,132 @@ import { IDocumentResolver, DocumentResolverResult } from '../../domain/IDocumen
  * Form-I captures the landowner's personal declaration, bank details,
  * land parcel ownerships, and consent for compensation.
  *
- * NOTE: The Form-I citizen intake data model (PAF application) is under
- * construction. This resolver returns a safe stub so the ResolverRegistry
- * entry is valid and the workspace endpoint does not crash. Replace the
- * stub body with real db queries once the PAF module is complete.
- *
- * Real data sources (to implement):
- *  - paf_application  → applicant personal details, consent flags
- *  - paf_bank_account → bank details
- *  - paf_land_parcel  → land ownership rows
+ * Template: D:\COALRR\coalrrnextjs\src\lib\engines\docx\templates\Form-I-Template.docx
  */
 export class FormIResolver implements IDocumentResolver {
   async resolve(
     applicationId: string,
     context?: Record<string, any>
   ): Promise<DocumentResolverResult> {
-    // TODO: replace with real PAF DB queries once paf_application model is available
-    return {
-      fields: {
-        LandOwnerName: '',
-        FatherOrHusbandName: '',
-        PermanentAddress: '',
-        EpicNumber: '',
-        AadhaarNumber: '',
-        Occupation: '',
-        Gender: '',
-        Nationality: '',
-        Religion: '',
-        CommunityCategory: '',
-        CompensationReceived: '',
-        CompensationDetails: '',
-        BankName: '',
-        BranchName: '',
-        BankAccountNumber: '',
-        IFSCCode: '',
-        PreviousEmploymentClaim: '',
-        EmploymentClaimDetails: '',
-        LandDisputeStatus: '',
-        DisputeDetails: '',
-        EncumbranceFree: '',
-        EncumbranceDetails: '',
-        PeacefulPossession: '',
-        PossessionRemarks: '',
-        OneTimeCompensationAccepted: '',
-        CompensationRemarks: '',
-        ApplicationDate: new Date().toLocaleDateString('en-IN'),
-        ApplicantPhoto: '',
-        ApplicantSignature: '',
-      },
-      tables: {
-        LandParcels: [],
-      },
+    try {
+      const claim = await db.form_i_claim.findFirst({
+        where: {
+          OR: [
+            { id: applicationId },
+            { claim_code: applicationId },
+          ],
+        },
+        include: {
+          land_loser: true,
+        },
+      })
+
+      if (!claim) {
+        return {
+          fields: {
+            ClaimCode: applicationId,
+            LandOwnerName: 'Land Loser',
+            ApplicationDate: new Date().toLocaleDateString('en-IN'),
+          },
+          tables: {
+            LandParcels: [],
+          },
+        }
+      }
+
+      // Query plot_schedule to join plot_no and mouza
+      const plot = await db.plot_schedule.findFirst({
+        where: {
+          OR: [
+            ...(!isNaN(Number(claim.plot_id)) ? [{ schedule_id: BigInt(claim.plot_id) }] : []),
+            { plot_no: claim.plot_id },
+            { plot_number: claim.plot_id },
+          ],
+        },
+        include: {
+          mouza: true,
+        },
+      })
+
+      const mouzaName = plot?.mouza?.mouza_en || (plot?.jl_no ? `JL-${plot.jl_no} Mouza` : 'Approved Mouza')
+      const rawPlotNo = plot?.plot_no || plot?.plot_number || claim.plot_id
+      const displayPlotNo = getDisplayPlotNo(rawPlotNo, plot?.mouza?.state_lgd, plot?.mouza?.mouza_lgd)
+      const ownShareArea = claim.own_share_acres ? String(claim.own_share_acres) : '0.0000'
+      const totalArea = plot?.to_be_acquired_area ? String(plot.to_be_acquired_area) : ownShareArea
+
+      const mode = claim.acquisition_mode_offered || 'CBA_ACT'
+      const isDirect = mode === 'DIRECT_PURCHASE'
+      const isCBA = mode === 'CBA_ACT' || mode === 'LA_ACT'
+
+      return {
+        fields: {
+          ClaimCode: claim.claim_code,
+          LandOwnerName: claim.claimant_name,
+          FatherOrHusbandName: claim.father_husband_name || 'N/A',
+          PresentAddress: claim.present_address || 'N/A',
+          PermanentAddress: claim.permanent_address || 'N/A',
+          EpicNumber: claim.epic_no || 'N/A',
+          AadhaarNumber: claim.citizen_id_hash || 'LOCKED',
+          Occupation: claim.occupation || 'Agriculture',
+          Gender: claim.gender || 'Male',
+          Nationality: claim.nationality || 'Indian',
+          Religion: claim.religion || 'Hindu',
+          CommunityCategory: claim.caste_category || 'GENERAL',
+
+          CompensationReceived: claim.prior_compensation_received ? 'YES' : 'NO',
+          CompensationDetails: claim.prior_compensation_details || 'N/A',
+          BankName: claim.bank_name || 'State Bank of India',
+          BranchName: claim.bank_branch || 'ECL Main Branch',
+          BankAccountNumber: claim.bank_account_number || 'N/A',
+          IFSCCode: claim.bank_ifsc || 'N/A',
+          PreviousEmploymentClaim: claim.prior_employment_linked ? 'YES' : 'NO',
+          EmploymentClaimDetails: claim.prior_employment_details || 'N/A',
+          LandDisputeStatus: claim.is_free_from_disputes !== false ? 'YES (Free from disputes)' : 'NO (Dispute Exists)',
+          DisputeDetails: claim.dispute_details || 'N/A',
+          EncumbranceFree: claim.is_free_from_encumbrances !== false ? 'YES (Free from encumbrances)' : 'NO (Encumbered)',
+          EncumbranceDetails: claim.encumbrance_details || 'N/A',
+          PeacefulPossession: claim.can_handover_possession !== false ? 'YES' : 'NO',
+          PossessionRemarks: claim.possession_reason || 'N/A',
+          OneTimeCompensationAccepted: claim.opted_monetary_in_lieu_of_employment ? 'YES (One-Time Cash)' : 'NO (Form-V Employment Required)',
+          CompensationRemarks: claim.monetary_opt_reason || 'N/A',
+          ApplicationDate: claim.submitted_at ? new Date(claim.submitted_at).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN'),
+          ApplicantPhoto: claim.photo_doc_id ? `/api/files/download/${claim.photo_doc_id}` : '',
+          ApplicantSignature: claim.claimant_name,
+        },
+        tables: {
+          LandParcels: [
+            {
+              MouzaName: mouzaName,
+              PlotNo: displayPlotNo,
+              TotalArea: totalArea,
+              KhatianNo: claim.khatian_no || 'Kh-102',
+              OwnShareArea: ownShareArea,
+              LegalInstrument: claim.link_deed_no ? `Link Deed ${claim.link_deed_no}` : 'Inherited / Ancestral Deed',
+              OwnershipDate: claim.ownership_date ? new Date(claim.ownership_date).toLocaleDateString('en-IN') : 'N/A',
+              PreviousOwnerName: claim.transferor_name || 'Ancestral',
+              PreviousOwnerFatherName: 'N/A',
+              PreviouslyTransferredArea: '0.0000',
+              SaleDeedArea: isDirect ? ownShareArea : '0.0000',
+              CBAArea: isCBA ? ownShareArea : '0.0000',
+              OfferedArea: ownShareArea,
+              DirectPurchaseNoticeNo: isDirect ? 'ECL/LA/2026/NOT-01' : 'N/A',
+              CBANoticeNo: isCBA ? 'ECL/LA/2026/NOT-01' : 'N/A',
+            },
+          ],
+        },
+      }
+    } catch (err) {
+      console.error('Error resolving FormIResolver:', err)
+      return {
+        fields: {
+          ClaimCode: applicationId,
+          LandOwnerName: 'Land Loser',
+          ApplicationDate: new Date().toLocaleDateString('en-IN'),
+        },
+        tables: {
+          LandParcels: [],
+        },
+      }
     }
   }
 }

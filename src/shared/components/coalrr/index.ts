@@ -82,3 +82,10 @@ export * from './selects'
 export { EntityFileManagerModal, EntityFileManagerTrigger } from './file-manager'
 export type { EntityFileManagerModalProps, EntityFileManagerTriggerProps, EntityFile } from './file-manager'
 
+export { LandLoserKycStep } from './claims/LandLoserKycStep'
+export type { LandLoserKycStepProps } from './claims/LandLoserKycStep'
+
+export { FormIStatutoryDocumentView } from './claims/FormIStatutoryDocumentView'
+export type { FormIStatutoryDocumentViewProps } from './claims/FormIStatutoryDocumentView'
+
+

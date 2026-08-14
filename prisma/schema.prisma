@@ -737,24 +737,83 @@ model form_d_ledger_entry {
   @@schema("public")
 }
 
+model land_loser_master {
+  citizen_id_hash     String         @id
+  epic_no             String?        @unique
+  full_name           String
+  father_husband_name String
+  present_address     String
+  permanent_address   String
+  occupation          String?
+  gender              String?
+  nationality         String         @default("Indian")
+  religion            String?
+  caste_category      String?
+  primary_mobile_no   String?
+  bank_name           String?
+  bank_branch         String?
+  bank_account_number String?
+  bank_ifsc           String?
+  photo_doc_id        String?
+  entry_ts            DateTime       @default(now())
+  updt_ts             DateTime       @default(now())
+  form_i_claim        form_i_claim[]
+
+  @@index([epic_no])
+  @@schema("public")
+}
+
 model form_i_claim {
-  id                                   String                      @id
+  id                                   String                      @id @default(uuid())
   claim_code                           String
   plot_id                              String
   citizen_id_hash                      String
+  epic_no                              String?
   claimant_name                        String
+  father_husband_name                  String?
+  present_address                      String?
+  permanent_address                    String?
+  occupation                           String?
+  gender                               String?
+  nationality                          String?                     @default("Indian")
+  religion                             String?
+  caste_category                       String?
+  photo_doc_id                         String?
+  khatian_no                           String?
   own_share_acres                      Decimal                     @db.Decimal(10, 4)
-  opted_monetary_in_lieu_of_employment Boolean                     @default(false)
+  link_deed_no                         String?
+  ownership_date                       DateTime?
+  transferor_name                      String?
+  acquisition_mode_offered             String?                     @default("CBA_ACT")
+  prior_compensation_received          Boolean                     @default(false)
+  prior_compensation_details           String?
+  bank_name                            String?
+  bank_branch                          String?
   bank_account_number                  String?
   bank_ifsc                            String?
+  passbook_doc_id                      String?
+  prior_employment_linked              Boolean                     @default(false)
+  prior_employment_details             String?
+  is_free_from_disputes                Boolean                     @default(true)
+  dispute_details                      String?
+  is_free_from_encumbrances            Boolean                     @default(true)
+  encumbrance_details                  String?
+  can_handover_possession              Boolean                     @default(true)
+  possession_reason                    String?
+  opted_monetary_in_lieu_of_employment Boolean                     @default(false)
+  monetary_opt_reason                  String?
+  form_v_eligible                      Boolean                     @default(false)
+  magistrate_affidavit_doc_id          String?
+  title_deed_doc_id                    String?
   state                                String                      @default("Drafting")
   submitted_at                         DateTime?
   transparency_window_ends_at          DateTime?
   meta                                 String?
   entry_ts                             DateTime                    @default(now())
-  updt_ts                              DateTime
+  updt_ts                              DateTime                    @default(now())
   entry_by                             String?
   updt_by                              String?
+  land_loser                           land_loser_master?          @relation(fields: [citizen_id_hash], references: [citizen_id_hash])
   nominee_pool_contribution            nominee_pool_contribution[]
 
   @@unique([citizen_id_hash, plot_id])
@@ -1219,7 +1278,7 @@ model auth_reset_token {
 }
 
 model checklist_requirement_rule {
-  chk_code               String                 @unique @db.VarChar(50)
+  chk_code               String                 @unique @db.VarChar(60)
   module_code            String                 @db.VarChar(50)
   requirement_type       String                 @db.VarChar(30)
   title                  String                 @db.VarChar(255)

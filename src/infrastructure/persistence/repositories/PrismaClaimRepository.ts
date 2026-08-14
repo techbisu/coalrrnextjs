@@ -1,6 +1,7 @@
 import { UserScopeService } from "@/core/authorization/services/UserScopeService";
 import { db } from '@/lib/db'
 import { IClaimRepository } from '@/modules/land-acquisition/interfaces/IClaimRepository'
+import { randomUUID } from 'crypto'
 
 export class PrismaClaimRepository implements IClaimRepository {
   async findAll(): Promise<any[]> {
@@ -23,8 +24,12 @@ export class PrismaClaimRepository implements IClaimRepository {
   }
 
   async create(data: any): Promise<any> {
+    const payload = {
+      ...data,
+      id: (data.id && String(data.id).trim()) || randomUUID(),
+    }
     return db.form_i_claim.create({
-      data,
+      data: payload,
     })
   }
 
