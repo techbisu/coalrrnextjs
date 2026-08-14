@@ -39,7 +39,7 @@ export function DocToc({ headings }: DocTocProps) {
   }
 
   return (
-    <div className="w-64 shrink-0 hidden lg:block p-4 space-y-3 border-l border-slate-200 dark:border-slate-800 text-xs">
+    <div className="w-64 shrink-0 hidden lg:block p-4 space-y-3 border-l border-slate-200 dark:border-slate-800 text-xs sticky top-14 h-[calc(100vh-3.5rem)]">
       <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider text-[11px]">
         <AlignLeft className="w-3.5 h-3.5 text-emerald-500" />
         <span>On This Page</span>

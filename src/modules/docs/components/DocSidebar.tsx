@@ -15,7 +15,6 @@ import {
   Layers,
   FileCode,
   Compass,
-  Sparkles,
 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { Badge } from '@/shared/components/ui/badge';
@@ -76,34 +75,13 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
 
   return (
     <aside className="w-full flex flex-col h-full bg-slate-50/90 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800/80 text-slate-800 dark:text-slate-200 select-none">
-      {/* Sidebar Header */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-white/80 dark:bg-slate-900/60 backdrop-blur">
-        <Link href="/docs" className="flex items-center gap-2.5 group">
-          <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 transition-colors shadow-sm">
-            <BookOpen className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              COALRR Docs
-              <Badge
-                variant="outline"
-                className="text-[10px] py-0 px-1.5 bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700/60 text-emerald-700 dark:text-emerald-400 font-mono"
-              >
-                {allDocsCount} files
-              </Badge>
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">Developer Handbook</p>
-          </div>
-        </Link>
-      </div>
-
-      {/* Filter Input */}
-      <div className="p-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/40">
+      {/* Filter Input at Top of Sidebar */}
+      <div className="p-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/60 dark:bg-slate-900/40">
         <div className="relative">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 dark:text-slate-500" />
           <Input
             type="text"
-            placeholder="Filter documentation..."
+            placeholder="Filter docs..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-8 pl-8 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus-visible:ring-emerald-500/50 shadow-xs"
@@ -120,7 +98,7 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
       </div>
 
       {/* Navigation Tree */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-4 text-xs scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 text-xs scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
         {/* Subfolders (Architecture, SOP, Agent Rules, etc.) */}
         {rootSubfolders.map((folder) => {
           const isExpanded = isSearching || (expandedFolders[folder.slugPath] ?? false);
@@ -136,7 +114,7 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
             );
 
           return (
-            <div key={folder.slugPath} className="space-y-1">
+            <div key={folder.slugPath} className="space-y-0.5">
               <button
                 onClick={() => toggleFolder(folder.slugPath)}
                 className="w-full flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-800/60 text-slate-800 dark:text-slate-200 font-bold text-xs text-left transition-colors group"
@@ -170,7 +148,7 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
                         key={file.id}
                         href={href}
                         onClick={onSelectDoc}
-                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-[11px] transition-all ${
+                        className={`flex items-center justify-between px-2 py-1 rounded-md text-[11px] transition-all ${
                           isActive
                             ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold border-l-2 border-emerald-500'
                             : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/40 dark:hover:bg-slate-800/40'
@@ -207,10 +185,10 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
 
         {/* Root General Files */}
         {rootFiles.length > 0 && (
-          <div className="space-y-1 pt-3 border-t border-slate-200 dark:border-slate-800">
+          <div className="space-y-0.5 pt-2 border-t border-slate-200 dark:border-slate-800">
             <div className="px-1 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
               <BookOpen className="w-3 h-3 text-emerald-500" />
-              General Guides & Modules
+              General Guides
             </div>
 
             <div className="space-y-0.5">
@@ -223,7 +201,7 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
                     key={file.id}
                     href={href}
                     onClick={onSelectDoc}
-                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-all ${
+                    className={`flex items-center justify-between px-2 py-1 rounded-md text-xs transition-all ${
                       isActive
                         ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold border-l-2 border-emerald-500'
                         : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50'
@@ -246,9 +224,9 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
       </div>
 
       {/* Sidebar Footer */}
-      <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between font-mono">
-        <span>COALRR Next.js</span>
-        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Docs Online</span>
+      <div className="p-2.5 border-t border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between font-mono">
+        <span>COALRR Framework</span>
+        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{allDocsCount} docs</span>
       </div>
     </aside>
   );
@@ -272,7 +250,7 @@ function RenderSubfolder({
   const isExpanded = isSearching || (expandedFolders[folder.slugPath] ?? false);
 
   return (
-    <div className="space-y-0.5 pt-1">
+    <div className="space-y-0.5 pt-0.5">
       <button
         onClick={() => toggleFolder(folder.slugPath)}
         className="w-full flex items-center justify-between p-1 text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"

@@ -30,6 +30,7 @@ export function DocsLayoutClient({ tree, allDocs, children }: DocsLayoutClientPr
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 selection:bg-emerald-500/20 selection:text-emerald-700 dark:selection:text-emerald-300">
       <DocHeader
+        allDocsCount={allDocs.length}
         onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
         onOpenSearch={() => setIsSearchOpen(true)}
       />

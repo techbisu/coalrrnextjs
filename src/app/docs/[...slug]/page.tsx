@@ -39,6 +39,7 @@ export default async function DocSlugPage({ params }: DocPageProps) {
   }
 
   const { meta, content, headings, prevDoc, nextDoc } = doc;
+  const cleanContent = content.replace(/^#\s+.+$/m, '').trim();
 
   return (
     <div className="flex-1 flex w-full justify-center">
@@ -78,7 +79,7 @@ export default async function DocSlugPage({ params }: DocPageProps) {
         </div>
 
         {/* Rendered Formatted Markdown View */}
-        <DocMarkdownViewer content={content} />
+        <DocMarkdownViewer content={cleanContent} />
 
         {/* Previous / Next Document Footer Links */}
         <DocPagination prevDoc={prevDoc} nextDoc={nextDoc} />

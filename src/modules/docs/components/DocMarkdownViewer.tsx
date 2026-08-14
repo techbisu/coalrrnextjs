@@ -4,7 +4,7 @@ import * as React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Link from 'next/link';
-import { Copy, Check, ExternalLink, Info, AlertTriangle, FileCode, CheckCircle2 } from 'lucide-react';
+import { Copy, Check, ExternalLink, Info, AlertTriangle, FileCode } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface DocMarkdownViewerProps {
@@ -13,7 +13,7 @@ interface DocMarkdownViewerProps {
 
 export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
   return (
-    <div className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 leading-relaxed text-sm">
+    <div className="space-y-2 text-slate-800 dark:text-slate-200 text-xs sm:text-sm leading-normal max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -26,12 +26,12 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
             return (
               <h1
                 id={id}
-                className="scroll-m-20 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800 pb-3 mt-8 mb-4 first:mt-0 flex items-center justify-between group"
+                className="scroll-m-20 text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800 pb-2 mt-5 mb-2.5 first:mt-0 flex items-center justify-between group"
               >
                 <a href={`#${id}`} className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
                   {children}
                 </a>
-                <span className="text-slate-300 dark:text-slate-700 opacity-0 group-hover:opacity-100 text-lg font-mono">
+                <span className="text-slate-300 dark:text-slate-700 opacity-0 group-hover:opacity-100 text-base font-mono">
                   #
                 </span>
               </h1>
@@ -46,12 +46,12 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
             return (
               <h2
                 id={id}
-                className="scroll-m-20 text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mt-8 mb-3 pb-1 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between group"
+                className="scroll-m-20 text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 mt-4 mb-2 pb-1 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between group"
               >
                 <a href={`#${id}`} className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
                   {children}
                 </a>
-                <span className="text-slate-300 dark:text-slate-700 opacity-0 group-hover:opacity-100 text-base font-mono">
+                <span className="text-slate-300 dark:text-slate-700 opacity-0 group-hover:opacity-100 text-sm font-mono">
                   #
                 </span>
               </h2>
@@ -66,7 +66,7 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
             return (
               <h3
                 id={id}
-                className="scroll-m-20 text-base font-bold text-slate-900 dark:text-slate-200 mt-6 mb-2 flex items-center gap-2 group"
+                className="scroll-m-20 text-sm font-bold text-slate-900 dark:text-slate-200 mt-3 mb-1 flex items-center gap-1.5 group"
               >
                 <a href={`#${id}`} className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
                   {children}
@@ -74,10 +74,22 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
               </h3>
             );
           },
-          p: ({ children }) => <p className="mb-4 leading-7 text-slate-700 dark:text-slate-300">{children}</p>,
-          ul: ({ children }) => <ul className="my-4 ml-6 list-disc space-y-1.5 text-slate-700 dark:text-slate-300">{children}</ul>,
-          ol: ({ children }) => <ol className="my-4 ml-6 list-decimal space-y-1.5 text-slate-700 dark:text-slate-300">{children}</ol>,
-          li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+          p: ({ children }) => (
+            <p className="my-1.5 leading-relaxed text-slate-700 dark:text-slate-300 text-xs sm:text-sm">
+              {children}
+            </p>
+          ),
+          ul: ({ children }) => (
+            <ul className="my-2 ml-5 list-disc space-y-0.5 text-slate-700 dark:text-slate-300 text-xs sm:text-sm">
+              {children}
+            </ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="my-2 ml-5 list-decimal space-y-0.5 text-slate-700 dark:text-slate-300 text-xs sm:text-sm">
+              {children}
+            </ol>
+          ),
+          li: ({ children }) => <li className="leading-normal py-0.5">{children}</li>,
           blockquote: ({ children }) => {
             const contentStr = String(children);
             const isNote = contentStr.includes('[!NOTE]');
@@ -86,9 +98,9 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
 
             if (isNote || isImportant) {
               return (
-                <div className="my-4 p-4 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200 text-xs space-y-1.5 shadow-xs">
-                  <div className="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-400 text-xs">
-                    <Info className="w-4 h-4" />
+                <div className="my-3 p-3 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200 text-xs space-y-1 shadow-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-400 text-xs">
+                    <Info className="w-3.5 h-3.5" />
                     <span>NOTE / TIP</span>
                   </div>
                   <div>{children}</div>
@@ -98,9 +110,9 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
 
             if (isWarning) {
               return (
-                <div className="my-4 p-4 rounded-xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 text-xs space-y-1.5 shadow-xs">
-                  <div className="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-400 text-xs">
-                    <AlertTriangle className="w-4 h-4" />
+                <div className="my-3 p-3 rounded-lg bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 text-xs space-y-1 shadow-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400 text-xs">
+                    <AlertTriangle className="w-3.5 h-3.5" />
                     <span>WARNING</span>
                   </div>
                   <div>{children}</div>
@@ -109,18 +121,18 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
             }
 
             return (
-              <blockquote className="my-4 pl-4 border-l-4 border-emerald-500 italic text-slate-600 dark:text-slate-400 bg-slate-50/60 dark:bg-slate-900/50 py-2.5 rounded-r-lg">
+              <blockquote className="my-3 pl-3 border-l-3 border-emerald-500 italic text-slate-600 dark:text-slate-400 bg-slate-50/60 dark:bg-slate-900/50 py-1.5 rounded-r-md text-xs">
                 {children}
               </blockquote>
             );
           },
           table: ({ children }) => (
-            <div className="my-6 w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-sm">
-              <table className="w-full text-left text-xs border-collapse min-w-[600px]">{children}</table>
+            <div className="my-3 w-full overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs">
+              <table className="w-full text-left text-xs border-collapse min-w-[550px]">{children}</table>
             </div>
           ),
           thead: ({ children }) => (
-            <thead className="bg-slate-100/80 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 font-bold border-b border-slate-200 dark:border-slate-800">
+            <thead className="bg-slate-100/90 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 font-bold border-b border-slate-200 dark:border-slate-800">
               {children}
             </thead>
           ),
@@ -132,9 +144,9 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
           tr: ({ children }) => (
             <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">{children}</tr>
           ),
-          th: ({ children }) => <th className="p-3 font-bold text-slate-800 dark:text-slate-200 text-xs">{children}</th>,
+          th: ({ children }) => <th className="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200 text-xs">{children}</th>,
           td: ({ children }) => (
-            <td className="p-3 text-slate-700 dark:text-slate-300 text-xs leading-relaxed break-words max-w-md">
+            <td className="py-1.5 px-3 text-slate-700 dark:text-slate-300 text-xs leading-normal font-mono text-[11px] break-words max-w-sm">
               {children}
             </td>
           ),
@@ -156,11 +168,11 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
                     navigator.clipboard.writeText(cleanPath);
                     toast.success(`Copied path: ${cleanPath}`);
                   }}
-                  title={`Click to copy relative codebase path: ${cleanPath}`}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 my-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-[11px] font-mono hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors"
+                  title={`Click to copy relative path: ${cleanPath}`}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 my-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-[11px] font-mono hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors"
                 >
                   <FileCode className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span className="truncate max-w-[300px]">{filename}</span>
+                  <span className="truncate max-w-[280px]">{filename}</span>
                 </button>
               );
             }
@@ -203,7 +215,7 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
             if (isInline) {
               return (
                 <code
-                  className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-emerald-800 dark:text-emerald-300 font-mono text-[11px] font-medium border border-slate-200 dark:border-slate-700/60"
+                  className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-emerald-800 dark:text-emerald-300 font-mono text-[11px] font-semibold border border-slate-200 dark:border-slate-700/60"
                   {...props}
                 >
                   {children}
@@ -232,17 +244,17 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
   };
 
   return (
-    <div className="relative my-5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 overflow-hidden text-xs shadow-lg">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono text-slate-400">
+    <div className="relative my-3 rounded-lg bg-slate-950 border border-slate-800 text-slate-100 overflow-hidden text-xs shadow-md">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono text-slate-400">
         <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
-          <span className="ml-2 font-semibold text-slate-300">{language || 'code'}</span>
+          <div className="w-2 h-2 rounded-full bg-red-500/80" />
+          <div className="w-2 h-2 rounded-full bg-amber-500/80" />
+          <div className="w-2 h-2 rounded-full bg-emerald-500/80" />
+          <span className="ml-1 font-semibold text-slate-300">{language || 'code'}</span>
         </div>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1.5 text-slate-400 hover:text-slate-100 bg-slate-800/80 hover:bg-slate-800 px-2.5 py-1 rounded-md transition-colors"
+          className="flex items-center gap-1 text-slate-400 hover:text-slate-100 bg-slate-800/80 hover:bg-slate-800 px-2 py-0.5 rounded transition-colors"
         >
           {copied ? (
             <>
@@ -258,7 +270,7 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
         </button>
       </div>
 
-      <pre className="p-4 overflow-x-auto font-mono text-xs text-slate-200 leading-relaxed scrollbar-thin scrollbar-thumb-slate-800">
+      <pre className="p-3 overflow-x-auto font-mono text-[11px] leading-snug text-slate-200 scrollbar-thin scrollbar-thumb-slate-800">
         <code>{code}</code>
       </pre>
     </div>
