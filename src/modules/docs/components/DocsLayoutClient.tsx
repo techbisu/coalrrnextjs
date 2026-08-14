@@ -37,7 +37,7 @@ export function DocsLayoutClient({ tree, allDocs, children }: DocsLayoutClientPr
 
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop Sidebar (Left Panel) */}
-        <div className="hidden lg:block w-72 shrink-0 h-[calc(100vh-3.5rem)] sticky top-14">
+        <div className="hidden lg:block w-72 shrink-0 h-[calc(100vh-3.5rem)] sticky">
           <DocSidebar tree={tree} allDocsCount={allDocs.length} />
         </div>
 

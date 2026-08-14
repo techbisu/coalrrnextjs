@@ -28,6 +28,11 @@ export default async function DocsIndexPage() {
   const allDocs = getAllDocFiles();
   const tree = getDocTree();
 
+  // Root General Documentation files
+  const generalDocs = allDocs.filter(
+    (d) => !d.slugPath.includes('/') || d.category === 'General Documentation'
+  );
+
   // Featured documents for quick access
   const featured = [
     { title: 'Developer Guide', slug: 'developer-guide', icon: Code2, desc: 'Quickstart setup, development workflow, and coding conventions.' },
@@ -39,25 +44,25 @@ export default async function DocsIndexPage() {
   ];
 
   return (
-    <div className="flex-1 p-6 md:p-10 max-w-6xl mx-auto space-y-10">
+    <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto space-y-8">
       {/* Hero Banner */}
-      <div className="relative rounded-2xl p-8 bg-gradient-to-br from-slate-900 via-slate-850 to-slate-950 text-white border border-slate-800 shadow-xl overflow-hidden">
+      <div className="relative rounded-2xl p-6 sm:p-8 bg-gradient-to-br from-slate-900 via-slate-850 to-slate-950 text-white border border-slate-800 shadow-xl overflow-hidden">
         <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
           <BookOpen className="w-80 h-80 text-emerald-400" />
         </div>
 
-        <div className="relative space-y-4 max-w-2xl">
+        <div className="relative space-y-3 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5" />
             Developer Knowledge Base
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
             COALRR Framework Documentation
           </h1>
 
-          <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-            Welcome to the official developer documentation hub. Access instant technical specifications, architecture patterns, standard operating procedures, and step-by-step guides.
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            Welcome to the official developer documentation hub. Access technical specifications, architecture patterns, standard operating procedures, and setup guides.
           </p>
 
           <div className="pt-2 flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400">
@@ -77,10 +82,10 @@ export default async function DocsIndexPage() {
       </div>
 
       {/* Featured Quick Start Cards */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-emerald-500" />
+          <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
             Featured Technical Guides
           </h2>
           <span className="text-xs text-slate-500">Most requested by developers</span>
@@ -92,9 +97,9 @@ export default async function DocsIndexPage() {
             return (
               <Link key={item.slug} href={`/docs/${item.slug}`} className="group">
                 <Card className="h-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-emerald-500/50 hover:shadow-md transition-all">
-                  <CardHeader className="pb-2 space-y-2">
+                  <CardHeader className="pb-2 space-y-2 p-4">
                     <div className="flex items-center justify-between">
-                      <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition-transform">
+                      <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition-transform">
                         <Icon className="w-4 h-4" />
                       </div>
                       <ArrowRight className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
@@ -103,7 +108,7 @@ export default async function DocsIndexPage() {
                       {item.title}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-4 pt-0">
                     <CardDescription className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
                       {item.desc}
                     </CardDescription>
@@ -115,10 +120,39 @@ export default async function DocsIndexPage() {
         </div>
       </div>
 
-      {/* Main Categories Section */}
-      <div className="space-y-6">
-        <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-          <Layers className="w-5 h-5 text-sky-500" />
+      {/* 1. General Documentation Section (Shown First) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+          <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
+            General Documentation & Core Guides ({generalDocs.length})
+          </h2>
+          <span className="text-xs text-slate-500">Root developer specifications</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+          {generalDocs.map((doc) => (
+            <Link
+              key={doc.id}
+              href={`/docs/${doc.slugPath}`}
+              className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-emerald-500/50 hover:bg-slate-50 dark:hover:bg-slate-850 transition-all group shadow-xs"
+            >
+              <div className="flex items-center gap-2.5 truncate min-w-0 pr-2">
+                <FileText className="w-4 h-4 text-emerald-500 shrink-0 group-hover:scale-110 transition-transform" />
+                <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 truncate">
+                  {doc.title}
+                </span>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* 2. Main Categories Section (Folders) */}
+      <div className="space-y-4 pt-2">
+        <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+          <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-sky-500" />
           Documentation Categories
         </h2>
 
@@ -155,7 +189,7 @@ export default async function DocsIndexPage() {
                   </Link>
                 ))}
               <div className="pt-2 text-right">
-                <Link href="/docs/architecture/README" className="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline">
+                <Link href="/docs/architecture/application" className="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline">
                   View all architecture files →
                 </Link>
               </div>
