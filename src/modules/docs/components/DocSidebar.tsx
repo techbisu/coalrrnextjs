@@ -15,6 +15,7 @@ import {
   Layers,
   FileCode,
   Compass,
+  Sparkles,
 } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { Badge } from '@/shared/components/ui/badge';
@@ -42,13 +43,14 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
     }));
   };
 
-  // Filter items if search query is active
   const isSearching = searchQuery.trim().length > 0;
   const filterQuery = searchQuery.toLowerCase();
 
   const filterFiles = (files: DocItem[]) =>
     files.filter(
-      (f) => f.title.toLowerCase().includes(filterQuery) || f.relativePath.toLowerCase().includes(filterQuery)
+      (f) =>
+        f.title.toLowerCase().includes(filterQuery) ||
+        f.relativePath.toLowerCase().includes(filterQuery)
     );
 
   const filterFolder = (folder: DocFolder): DocFolder | null => {
@@ -73,40 +75,43 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
     : tree.subfolders;
 
   return (
-    <aside className="w-full flex flex-col h-full bg-slate-900 border-r border-slate-800 text-slate-300">
+    <aside className="w-full flex flex-col h-full bg-slate-50/90 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800/80 text-slate-800 dark:text-slate-200 select-none">
       {/* Sidebar Header */}
-      <div className="p-4 border-b border-slate-800 flex items-center justify-between gap-3 bg-slate-950/60">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-white/80 dark:bg-slate-900/60 backdrop-blur">
         <Link href="/docs" className="flex items-center gap-2.5 group">
-          <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500/20 transition-colors">
+          <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 transition-colors shadow-sm">
             <BookOpen className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-sm font-bold text-slate-100 flex items-center gap-2">
+            <div className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               COALRR Docs
-              <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-mono">
+              <Badge
+                variant="outline"
+                className="text-[10px] py-0 px-1.5 bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700/60 text-emerald-700 dark:text-emerald-400 font-mono"
+              >
                 {allDocsCount} files
               </Badge>
             </div>
-            <p className="text-[11px] text-slate-400">Developer Knowledge Base</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">Developer Handbook</p>
           </div>
         </Link>
       </div>
 
       {/* Filter Input */}
-      <div className="p-3 border-b border-slate-800/80 bg-slate-900/80">
+      <div className="p-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/40">
         <div className="relative">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-500" />
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 dark:text-slate-500" />
           <Input
             type="text"
             placeholder="Filter documentation..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 pl-8 text-xs bg-slate-950/80 border-slate-800 text-slate-200 placeholder:text-slate-500 focus-visible:ring-emerald-500/50"
+            className="h-8 pl-8 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus-visible:ring-emerald-500/50 shadow-xs"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-2 text-xs text-slate-500 hover:text-slate-300"
+              className="absolute right-2 top-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
               ×
             </button>
@@ -115,33 +120,35 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
       </div>
 
       {/* Navigation Tree */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-4 text-xs scrollbar-thin scrollbar-thumb-slate-800">
+      <div className="flex-1 overflow-y-auto p-3 space-y-4 text-xs scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
         {/* Subfolders (Architecture, SOP, Agent Rules, etc.) */}
         {rootSubfolders.map((folder) => {
           const isExpanded = isSearching || (expandedFolders[folder.slugPath] ?? false);
           const folderIcon =
             folder.name === 'architecture' ? (
-              <Layers className="w-3.5 h-3.5 text-sky-400" />
+              <Layers className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400 shrink-0" />
             ) : folder.name === 'sop' ? (
-              <Compass className="w-3.5 h-3.5 text-amber-400" />
+              <Compass className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
             ) : folder.name === 'agent-rules' ? (
-              <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+              <ShieldCheck className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 shrink-0" />
             ) : (
-              <FileCode className="w-3.5 h-3.5 text-emerald-400" />
+              <FileCode className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
             );
 
           return (
             <div key={folder.slugPath} className="space-y-1">
               <button
                 onClick={() => toggleFolder(folder.slugPath)}
-                className="w-full flex items-center justify-between p-1.5 rounded-md hover:bg-slate-800/70 text-slate-200 font-semibold text-xs text-left transition-colors group"
+                className="w-full flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-800/60 text-slate-800 dark:text-slate-200 font-bold text-xs text-left transition-colors group"
               >
                 <div className="flex items-center gap-2 truncate">
                   {folderIcon}
-                  <span className="truncate group-hover:text-white">{folder.title}</span>
+                  <span className="truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-400">
+                    {folder.title}
+                  </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-slate-500 shrink-0">
-                  <span className="text-[10px] font-mono opacity-60">
+                <div className="flex items-center gap-1 text-slate-400 dark:text-slate-500 shrink-0">
+                  <span className="text-[10px] font-mono opacity-80 bg-slate-200/60 dark:bg-slate-800 px-1.5 py-0.2 rounded">
                     {folder.files.length}
                   </span>
                   {isExpanded ? (
@@ -153,7 +160,7 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
               </button>
 
               {isExpanded && (
-                <div className="pl-3 ml-2 border-l border-slate-800 space-y-0.5">
+                <div className="pl-2 ml-2 border-l border-slate-200 dark:border-slate-800 space-y-0.5">
                   {folder.files.map((file) => {
                     const href = `/docs/${file.slugPath}`;
                     const isActive = pathname === href || pathname === `/docs/${file.slugPath}`;
@@ -163,21 +170,24 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
                         key={file.id}
                         href={href}
                         onClick={onSelectDoc}
-                        className={`flex items-center justify-between p-1.5 rounded-md text-[11px] transition-colors ${
+                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-[11px] transition-all ${
                           isActive
-                            ? 'bg-emerald-500/15 text-emerald-300 font-medium border border-emerald-500/20'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold border-l-2 border-emerald-500'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/40 dark:hover:bg-slate-800/40'
                         }`}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <FileText className={`w-3 h-3 shrink-0 ${isActive ? 'text-emerald-400' : 'text-slate-500'}`} />
+                          <FileText
+                            className={`w-3 h-3 shrink-0 ${
+                              isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'
+                            }`}
+                          />
                           <span className="truncate">{file.title}</span>
                         </div>
                       </Link>
                     );
                   })}
 
-                  {/* Nested Subfolders if any */}
                   {folder.subfolders.map((sf) => (
                     <RenderSubfolder
                       key={sf.slugPath}
@@ -195,12 +205,12 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
           );
         })}
 
-        {/* Root Files */}
+        {/* Root General Files */}
         {rootFiles.length > 0 && (
-          <div className="space-y-1 pt-2 border-t border-slate-800/80">
-            <div className="px-1 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-              <BookOpen className="w-3 h-3 text-slate-400" />
-              General Modules & Guides
+          <div className="space-y-1 pt-3 border-t border-slate-200 dark:border-slate-800">
+            <div className="px-1 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+              <BookOpen className="w-3 h-3 text-emerald-500" />
+              General Guides & Modules
             </div>
 
             <div className="space-y-0.5">
@@ -213,14 +223,18 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
                     key={file.id}
                     href={href}
                     onClick={onSelectDoc}
-                    className={`flex items-center justify-between p-1.5 rounded-md text-xs transition-colors ${
+                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-all ${
                       isActive
-                        ? 'bg-emerald-500/15 text-emerald-300 font-medium border border-emerald-500/20'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold border-l-2 border-emerald-500'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800/50'
                     }`}
                   >
                     <div className="flex items-center gap-2 truncate">
-                      <FileText className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-emerald-400' : 'text-slate-500'}`} />
+                      <FileText
+                        className={`w-3.5 h-3.5 shrink-0 ${
+                          isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'
+                        }`}
+                      />
                       <span className="truncate">{file.title}</span>
                     </div>
                   </Link>
@@ -232,9 +246,9 @@ export function DocSidebar({ tree, allDocsCount, onSelectDoc }: DocSidebarProps)
       </div>
 
       {/* Sidebar Footer */}
-      <div className="p-3 border-t border-slate-800 bg-slate-950/80 text-[11px] text-slate-500 flex items-center justify-between">
-        <span>COALRR Framework</span>
-        <span className="font-mono text-[10px]">v2.0</span>
+      <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between font-mono">
+        <span>COALRR Next.js</span>
+        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Docs Online</span>
       </div>
     </aside>
   );
@@ -261,17 +275,21 @@ function RenderSubfolder({
     <div className="space-y-0.5 pt-1">
       <button
         onClick={() => toggleFolder(folder.slugPath)}
-        className="w-full flex items-center justify-between p-1 text-[11px] font-medium text-slate-400 hover:text-slate-200"
+        className="w-full flex items-center justify-between p-1 text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
       >
         <div className="flex items-center gap-1.5 truncate">
-          {isExpanded ? <FolderOpen className="w-3 h-3 text-amber-400" /> : <Folder className="w-3 h-3 text-slate-500" />}
+          {isExpanded ? (
+            <FolderOpen className="w-3 h-3 text-amber-500 shrink-0" />
+          ) : (
+            <Folder className="w-3 h-3 text-slate-400 shrink-0" />
+          )}
           <span className="truncate">{folder.title}</span>
         </div>
         {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
       </button>
 
       {isExpanded && (
-        <div className="pl-2 border-l border-slate-800 space-y-0.5">
+        <div className="pl-2 ml-1 border-l border-slate-200 dark:border-slate-800 space-y-0.5">
           {folder.files.map((file) => {
             const href = `/docs/${file.slugPath}`;
             const isActive = pathname === href;
@@ -280,11 +298,13 @@ function RenderSubfolder({
                 key={file.id}
                 href={href}
                 onClick={onSelectDoc}
-                className={`flex items-center gap-1.5 p-1 rounded text-[11px] truncate ${
-                  isActive ? 'bg-emerald-500/20 text-emerald-300 font-semibold' : 'text-slate-400 hover:text-slate-200'
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] truncate transition-colors ${
+                  isActive
+                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold border-l-2 border-emerald-500'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
-                <FileText className="w-3 h-3 shrink-0 text-slate-500" />
+                <FileText className="w-3 h-3 shrink-0 text-slate-400" />
                 <span className="truncate">{file.title}</span>
               </Link>
             );
