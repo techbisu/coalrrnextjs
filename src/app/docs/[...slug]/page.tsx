@@ -44,9 +44,9 @@ export default async function DocSlugPage({ params }: DocPageProps) {
   return (
     <div className="flex-1 flex w-full justify-center">
       {/* Main Formatted Document Reader */}
-      <div className="flex-1 min-w-0 max-w-4xl p-6 md:p-10 space-y-6">
+      <div className="flex-1 min-w-0 max-w-4xl px-4 py-4 md:px-8 md:py-4 space-y-4">
         {/* Document Header Metadata Bar */}
-        <div className="space-y-3 pb-6 border-b border-slate-200 dark:border-slate-800">
+        <div className="space-y-2 pb-4 border-b border-slate-200 dark:border-slate-800">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="text-xs font-semibold py-0.5 px-2.5 bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
               {meta.category}

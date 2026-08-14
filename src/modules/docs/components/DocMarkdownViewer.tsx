@@ -46,7 +46,7 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
             return (
               <h2
                 id={id}
-                className="scroll-m-20 text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 mt-4 mb-2 pb-1 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between group"
+                className="scroll-m-20 text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 mt-4 mb-2 pb-1 first:mt-0 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between group"
               >
                 <a href={`#${id}`} className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
                   {children}
@@ -66,7 +66,7 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
             return (
               <h3
                 id={id}
-                className="scroll-m-20 text-sm font-bold text-slate-900 dark:text-slate-200 mt-3 mb-1 flex items-center gap-1.5 group"
+                className="scroll-m-20 text-sm font-bold text-slate-900 dark:text-slate-200 mt-3 mb-1 first:mt-0 flex items-center gap-1.5 group"
               >
                 <a href={`#${id}`} className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
                   {children}
@@ -75,12 +75,12 @@ export function DocMarkdownViewer({ content }: DocMarkdownViewerProps) {
             );
           },
           p: ({ children }) => (
-            <p className="my-1.5 leading-relaxed text-slate-700 dark:text-slate-300 text-xs sm:text-sm">
+            <p className="my-1.5 first:mt-0 leading-relaxed text-slate-700 dark:text-slate-300 text-xs sm:text-sm">
               {children}
             </p>
           ),
           ul: ({ children }) => (
-            <ul className="my-2 ml-5 list-disc space-y-0.5 text-slate-700 dark:text-slate-300 text-xs sm:text-sm">
+            <ul className="my-2 first:mt-0 ml-5 list-disc space-y-0.5 text-slate-700 dark:text-slate-300 text-xs sm:text-sm">
               {children}
             </ul>
           ),
