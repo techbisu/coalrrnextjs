@@ -53,8 +53,8 @@ export class PrismaDocumentInstanceRepository implements IDocumentInstanceReposi
     await Audit.logCustomAction({
       activity: `${log.action} on document ${log.document_instance_id}`,
       userId: log.user_id || 'system',
-      ipAddress: log.ip_address || null,
-      userAgent: log.browser || null
+      ipAddress: log.ip_address || undefined,
+      userAgent: log.browser || undefined
     })
     return log
   }

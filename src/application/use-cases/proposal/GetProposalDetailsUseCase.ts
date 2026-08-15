@@ -38,6 +38,7 @@ export interface GetProposalDetailsResponse {
   rate_tenancy_no_emp?: string
   rate_govt_land?: string
   rate_forest_land?: string
+  plots_locked: boolean
   items: Array<{
     id: string
     plot_id: string
@@ -200,6 +201,7 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
       rate_tenancy_no_emp: data.rate_tenancy_land_no_emp?.toString() || '0',
       rate_govt_land: data.rate_govt_land?.toString() || '0',
       rate_forest_land: data.rate_forest_land?.toString() || '0',
+      plots_locked: (data as any).plots_locked ?? false,
       items: items,
       entry_ts: new Date(data.proposal_dt).toISOString(),
     }

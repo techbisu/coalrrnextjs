@@ -36,6 +36,9 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
   const [userName, setUserName] = useState<string>('');
   const [signatureInput, setSignatureInput] = useState<string>('');
   const [isSigning, setIsSigning] = useState<boolean>(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewComment, setReviewComment] = useState<string>('');
+  const [isReviewing, setIsReviewing] = useState<boolean>(false);
 
   const [isFormCollapsed, setIsFormCollapsed] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -79,6 +82,7 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
             setUserRoles(res.userRoles || []);
             setUserPermissions(res.userPermissions || []);
             setUserName(res.userName || res.userEmail || 'Authorized Signee');
+            setReviews(res.instance.review_data || []);
 
             const noFields = !res.fields || res.fields.length === 0;
             if (noFields) {
@@ -177,6 +181,30 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
     }
   };
 
+  const handleReviewDocument = async (decision: 'APPROVED' | 'REVISION_REQUESTED') => {
+    if (!instanceId) return;
+    setIsReviewing(true);
+    try {
+      const res = await fetch('/api/document-engine/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instanceId, decision, comment: reviewComment })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Document review recorded: ${decision}`);
+        setReviews(data.reviews || []);
+        setReviewComment('');
+      } else {
+        toast.error(data.error || 'Failed to record review');
+      }
+    } catch (err: any) {
+      toast.error('Failed to submit review: ' + err.message);
+    } finally {
+      setIsReviewing(false);
+    }
+  };
+
   const handleDownloadPdf = async () => {
     if (!fileId) return;
     setIsDownloadingPdf(true);
@@ -197,6 +225,48 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
       alert('Failed to download PDF.');
     } finally {
       setIsDownloadingPdf(false);
+    }
+  };
+
+  const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
+
+  const canDownloadDocx =
+    userPermissions.includes('document.download_docx') ||
+    userPermissions.includes('document.edit') ||
+    userPermissions.includes('document.generate') ||
+    userPermissions.includes('*') ||
+    userRoles.some((r: string) => {
+      const rl = r.toLowerCase();
+      return rl.includes('admin') || rl.includes('super') || rl.includes('officer') || rl.includes('cell');
+    });
+
+  const handleDownloadDocx = async () => {
+    if (!fileId) return;
+    if (!canDownloadDocx) {
+      toast.error('Forbidden: Requires permission document.download_docx to download raw DOCX files');
+      return;
+    }
+    setIsDownloadingDocx(true);
+    try {
+      const response = await fetch(`/api/files/${fileId}/download`);
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Download failed');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${templateCode}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Downloaded DOCX file successfully');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to download DOCX');
+    } finally {
+      setIsDownloadingDocx(false);
     }
   };
 
@@ -232,13 +302,28 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
           <div className="flex items-center gap-4">
             {fileId && (
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="shadow-sm transition-all duration-200 bg-white text-blue-700 hover:text-blue-800 hover:bg-blue-50 border-blue-200">
-                  {isDownloadingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="shadow-sm transition-all duration-200 bg-white text-blue-700 hover:text-blue-800 hover:bg-blue-50 border-blue-200 text-xs">
+                  {isDownloadingPdf ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1.5" />}
                   Download PDF
                 </Button>
-                <Button size="sm" onClick={() => handleGenerate()} disabled={isGenerating} className="shadow-sm transition-all duration-200">
-                  {isGenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PenTool className="w-4 h-4 mr-2" />}
-                  Regenerate Document
+
+                {canDownloadDocx && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleDownloadDocx} 
+                    disabled={isDownloadingDocx} 
+                    title="Download editable DOCX template"
+                    className="shadow-sm transition-all duration-200 text-xs bg-white text-purple-700 hover:text-purple-800 hover:bg-purple-50 border-purple-200"
+                  >
+                    {isDownloadingDocx ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <FileText className="w-3.5 h-3.5 mr-1.5" />}
+                    Download DOCX
+                  </Button>
+                )}
+
+                <Button size="sm" onClick={() => handleGenerate()} disabled={isGenerating} className="shadow-sm transition-all duration-200 text-xs">
+                  {isGenerating ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <PenTool className="w-3.5 h-3.5 mr-1.5" />}
+                  Regenerate
                 </Button>
               </div>
             )}
@@ -364,6 +449,102 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
                       />
                     </CardContent>
                   )}
+                </Card>
+              )}
+
+              {/* Document Review & Vetting Section */}
+              {fileId && (
+                <Card className="shadow-sm overflow-hidden border-purple-200/80 bg-white">
+                  <CardHeader className="p-4 bg-purple-50/60 border-b border-purple-100">
+                    <CardTitle className="text-base font-semibold text-purple-950 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-purple-600" />
+                        <span>Document Review & Approval</span>
+                      </div>
+                      <Badge variant="outline" className={cn(
+                        "text-xs font-mono",
+                        reviews.some((r: any) => r.decision === 'APPROVED') 
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-purple-50 text-purple-700 border-purple-200"
+                      )}>
+                        {reviews.some((r: any) => r.decision === 'APPROVED') ? 'Approved' : 'Pending Review'}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="text-xs text-purple-800 mt-1">
+                      Official document vetting stage. Authorized reviewers approve content prior to signing.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-3">
+                    {/* Review Decision History */}
+                    {reviews.length > 0 && (
+                      <div className="space-y-2 mb-3">
+                        <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wide">Review History</span>
+                        {reviews.map((rev: any, idx: number) => (
+                          <div key={idx} className={cn(
+                            "p-2.5 rounded-lg border text-xs space-y-1",
+                            rev.decision === 'APPROVED' ? "bg-emerald-50/50 border-emerald-200 text-emerald-900" :
+                            rev.decision === 'REVISION_REQUESTED' ? "bg-amber-50/50 border-amber-200 text-amber-900" :
+                            "bg-slate-50 border-slate-200 text-slate-700"
+                          )}>
+                            <div className="flex items-center justify-between font-medium">
+                              <span>{rev.reviewerName || 'Reviewer'}</span>
+                              <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                                {rev.decision}
+                              </Badge>
+                            </div>
+                            {rev.comment && <p className="text-[11px] italic opacity-90">"{rev.comment}"</p>}
+                            <div className="text-[9px] opacity-60 text-right">
+                              {rev.timestamp ? new Date(rev.timestamp).toLocaleString('en-IN') : ''}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Reviewer Action Form */}
+                    {(
+                      userPermissions.includes(`${templateCode.toLowerCase()}.review`) ||
+                      userPermissions.includes('document.review') ||
+                      userPermissions.includes('workflow.approve') ||
+                      userPermissions.includes('*') ||
+                      userRoles.some((r: string) => {
+                        const rl = r.toLowerCase()
+                        return rl.includes('admin') || rl.includes('super') || rl.includes('officer')
+                      })
+                    ) ? (
+                      <div className="space-y-2 pt-2 border-t border-purple-100">
+                        <textarea
+                          value={reviewComment}
+                          onChange={(e) => setReviewComment(e.target.value)}
+                          placeholder="Optional review remarks / notes…"
+                          className="w-full text-xs p-2.5 rounded-md border border-slate-200 focus:outline-none focus:ring-1 focus:ring-purple-400 min-h-[60px] resize-none"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs border-amber-300 text-amber-800 hover:bg-amber-50 h-8"
+                            disabled={isReviewing}
+                            onClick={() => handleReviewDocument('REVISION_REQUESTED')}
+                          >
+                            Request Revision
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="text-xs bg-purple-700 hover:bg-purple-800 text-white h-8 shadow-sm"
+                            disabled={isReviewing}
+                            onClick={() => handleReviewDocument('APPROVED')}
+                          >
+                            Approve Document
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-500 italic">
+                        Requires permission <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-[10px]">{templateCode.toLowerCase()}.review</code> to submit review.
+                      </p>
+                    )}
+                  </CardContent>
                 </Card>
               )}
 

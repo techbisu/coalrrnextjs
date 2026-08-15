@@ -74,6 +74,7 @@ export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWork
         resolver_fields_json: resolvedData.fields as any,
         resolver_tables_json: resolvedData.tables as any,
         signature_data_json: [],
+        review_data_json: [],
         final_fields_json: {},
         generated_docx_path: null,
         generated_pdf_path: null,

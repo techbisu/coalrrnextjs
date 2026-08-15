@@ -116,7 +116,8 @@ export async function POST(req: NextRequest) {
         id: instance.id,
         generated_docx_path: instance.generated_docx_path,
         form_data: instance.form_data ?? {},
-        signature_data: instance.signature_data_json ?? []
+        signature_data: instance.signature_data_json ?? [],
+        review_data: (instance as any).review_data_json ?? []
       },
       fields: parsedFields,
       signatures: pendingSignatures,

@@ -103,7 +103,7 @@ export class WorkflowActionHistoryService {
       orderBy: { entry_ts: 'desc' },
       include: {
         user: {
-          select: { id: true, name: true, designation: true, mobile: true }
+          select: { id: true, name: true, designation: true, mobile: true, email: true }
         }
       }
     })

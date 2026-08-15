@@ -135,11 +135,9 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
       const context = await resolver.resolve(req.checkableId);
 
       // Resolve entity current workflow state (e.g. current_stage_cd)
-      const entityStatus = await workflowTargetResolverRegistry.resolveStatus(
-        req.moduleCode,
-        req.checkableType,
-        req.checkableId
-      );
+      const entityStatus = await workflowTargetResolverRegistry
+        .resolveStatus(req.moduleCode, req.checkableType, req.checkableId)
+        .catch(() => null);
 
       const currentStateCode = context.current_stage_cd || context.currentStateCode || entityStatus?.currentStateCode || 'Drafting';
       context.current_stage_cd = currentStateCode;
@@ -148,10 +146,17 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
 
       // 2. Fetch workflow states for stage ordering & visibility
       const workflowCode = entityStatus?.workflowCode || req.moduleCode;
-      const dbStates = await db.workflow_states.findMany({
-        where: { workflow_code: workflowCode },
-        orderBy: { step_order: 'asc' }
-      });
+      let dbStates: any[] = [];
+      try {
+        if ((db as any)?.workflow_states?.findMany) {
+          dbStates = await (db as any).workflow_states.findMany({
+            where: { workflow_code: workflowCode },
+            orderBy: { step_order: 'asc' }
+          });
+        }
+      } catch {
+        dbStates = [];
+      }
 
       const currentStateObj = dbStates.find(s => s.state_code === currentStateCode);
       const currentStepOrder = currentStateObj ? Number(currentStateObj.step_order) : 1.0;
@@ -203,6 +208,17 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
 
         let submission = submissionsByReqId.get((rule as any).chk_id || rule.id);
 
+        // Auto-Evaluation for Plot Schedule from ConditionContext facts
+        const chkCodeUpper = (rule.chk_code || '').toUpperCase();
+        const isPlotScheduleRule = chkCodeUpper.includes('PLOT') || rule.input_schema?.auto_eval_fact === 'plot_count';
+
+        if (!submission && isPlotScheduleRule && (Number(context.plot_count || 0) > 0 || context.has_plots === true)) {
+          submission = {
+            status: 'AUTO_SATISFIED',
+            user_input: { autoEvaluated: true, plotCount: context.plot_count }
+          } as any;
+        }
+
         // 5. Auto-Fetch Inheritance
         if (!submission && rule.inherit_from) {
           const inheritConfig = rule.inherit_from as any;
@@ -220,7 +236,7 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
 
         // 6. Generated Document Type override
         if (rule.input_schema?.type === 'generated_document' && this.documentAdapter) {
-          const docResult = await this.documentAdapter.resolveStatus(rule, req.checkableType, req.checkableId, submission);
+          const docResult = await this.documentAdapter.resolveStatus(rule, req.checkableType, req.checkableId, submission, (req as any).userPermissions || []);
           if (docResult.newlySubmitted) {
             submission = { status: 'SUBMITTED', document_id: docResult.generatedDocInfo.generatedDocId };
             isSatisfied = true;

@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { ok, serverError, badRequest } from '@/app/api/_lib'
-import { generateDocumentUseCase } from '@/infrastructure/di/Container'
 import { db } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
@@ -22,9 +21,43 @@ export async function POST(req: NextRequest) {
     const instance = await db.document_instance.findUnique({ where: { id: instanceId } })
     if (!instance) return badRequest('Document instance not found')
 
-    const existingSigs = Array.isArray(instance.signature_data_json) ? instance.signature_data_json : []
+    // 1. Server-side Permission Validation (Strict Security Guard)
+    const userPerms = auth.user.permissions || []
+    const userRoles = auth.user.roles || []
+
+    const isAuthorized =
+      userPerms.includes(targetPerm) ||
+      userPerms.includes('document.sign') ||
+      userPerms.includes('*') ||
+      userRoles.some((r: string) => {
+        const rl = r.toLowerCase().replace(/[^a-z0-9]/g, '')
+        return rl.includes('admin') || rl.includes('super')
+      })
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: `Forbidden: Missing signature permission ${targetPerm}` }, { status: 403 })
+    }
+
+    // 2. Sequential Step Validation
+    const sigRules = Array.isArray(instance.resolver_signatures_json)
+      ? (instance.resolver_signatures_json as any[])
+      : []
+    const sortedRules = [...sigRules].sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+    const existingSigs = Array.isArray(instance.signature_data_json) ? (instance.signature_data_json as any[]) : []
+
+    const targetRuleIndex = sortedRules.findIndex(r => (r.sig_permission || r.role) === targetPerm)
+    if (targetRuleIndex > 0) {
+      for (let k = 0; k < targetRuleIndex; k++) {
+        const prev = sortedRules[k]
+        const prevPerm = prev.sig_permission || prev.role
+        if (prev.is_required && !existingSigs.some(s => (s.sig_permission || s.role) === prevPerm)) {
+          return badRequest(`Sequential error: Step ${k + 1} (${prevPerm}) must be signed before step ${targetRuleIndex + 1}`)
+        }
+      }
+    }
+
     const updatedSigs = [
-      ...(existingSigs as any[]).filter((s: any) => (s.sig_permission || s.role) !== targetPerm),
+      ...existingSigs.filter((s: any) => (s.sig_permission || s.role) !== targetPerm),
       {
         role: targetPerm,
         sig_permission: targetPerm,

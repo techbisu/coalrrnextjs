@@ -1,6 +1,7 @@
 import { IProposalRepository, ProposalDTO, PlotScheduleDTO, PlotScheduleLandTypeDTO } from '@/domain/entities/proposal';
 import { db } from '@/lib/db';
 import { Proposal, ProposalId, ScheduleCode, ProposalState, Checklist } from '@/domain/entities/proposal';
+import { MODULE_CODES, CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config';
 import { Area } from '@/domain/value-objects/Area';
 import { UserScopeService } from '@/core/authorization/services/UserScopeService';
 
@@ -20,6 +21,19 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
 
     if (!prop) return null;
 
+    const flags = await (client as any).entity_flag?.findMany({
+      where: {
+        entity_type: 'acq_land_schedule',
+        entity_id: id,
+      }
+    }).catch(() => []);
+
+    const flagMap: Record<string, any> = {};
+    if (Array.isArray(flags)) {
+      for (const f of flags) {
+        flagMap[f.flag_code] = f.flag_value;
+      }
+    }
 
     const plots = prop.plot_schedule.map(p => p.plot_no);
 
@@ -46,10 +60,11 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
       rateForestLand: Number(prop.rate_forest_land || 0),
       employmentProposedCount: prop.employment_proposed_count || 0,
       employmentSystem: prop.employment_system || 'PACKAGE_DEAL',
-      hasDebottarLand: prop.has_debottar_land ?? false,
-      hasTribalLand: prop.has_tribal_land ?? false,
-      hasDisputedLand: prop.is_disputed_land ?? false,
-      hasFormalNegotiation: prop.has_formal_negotiation ?? false,
+      hasDebottarLand: flagMap['has_debottar_land'] ?? false,
+      hasTribalLand: flagMap['has_tribal_land'] ?? false,
+      hasDisputedLand: flagMap['is_disputed_land'] ?? false,
+      hasFormalNegotiation: flagMap['has_formal_negotiation'] ?? false,
+      requiresBoardApproval: flagMap['requires_board_approval'] ?? true,
       plotIds: plots,
       createdAt: prop.proposal_dt,
       updatedAt: prop.proposal_dt
@@ -93,10 +108,6 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
         rate_forest_land: data.rateForestLand,
         employment_proposed_count: data.employmentProposedCount,
         employment_system: data.employmentSystem,
-        has_debottar_land: data.hasDebottarLand,
-        has_tribal_land: data.hasTribalLand,
-        is_disputed_land: data.hasDisputedLand,
-        has_formal_negotiation: data.hasFormalNegotiation,
       },
       create: {
         proposal_id: data.id,
@@ -109,7 +120,6 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
         purpose_justification: data.proposalTitle,
         pr_scheme_ref_no: (data as any).adjacentColliery || (data as any).pr_scheme_ref_no,
         is_within_pr_limit: true,
-        requires_board_approval: true,
         current_stage_cd: data.state.slice(0, 30),
         overall_status: data.state.slice(0, 20),
         tot_acq_area: Number(data.totalAreaAcres),
@@ -121,12 +131,36 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
         rate_forest_land: data.rateForestLand,
         employment_proposed_count: data.employmentProposedCount,
         employment_system: data.employmentSystem,
-        has_debottar_land: data.hasDebottarLand,
-        has_tribal_land: data.hasTribalLand,
-        is_disputed_land: data.hasDisputedLand,
-        has_formal_negotiation: data.hasFormalNegotiation,
       }
     });
+
+    const flagsToSet = [
+      { code: 'requires_board_approval', val: data.requiresBoardApproval ?? true },
+      { code: 'has_debottar_land', val: data.hasDebottarLand ?? false },
+      { code: 'has_tribal_land', val: data.hasTribalLand ?? false },
+      { code: 'is_disputed_land', val: data.hasDisputedLand ?? false },
+      { code: 'has_formal_negotiation', val: data.hasFormalNegotiation ?? false },
+    ];
+
+    for (const f of flagsToSet) {
+      await (client as any).entity_flag?.upsert({
+        where: {
+          entity_type_entity_id_flag_code: {
+            entity_type: 'acq_land_schedule',
+            entity_id: data.id,
+            flag_code: f.code,
+          },
+        },
+        update: { flag_value: f.val, updt_ts: new Date() },
+        create: {
+          entity_type: 'acq_land_schedule',
+          entity_id: data.id,
+          flag_code: f.code,
+          flag_value: f.val,
+          source: 'SYSTEM',
+        },
+      }).catch(() => null);
+    }
   }
 
   async isPlotInActiveProposal(plotId: string, excludeProposalId?: string): Promise<boolean> {
@@ -234,8 +268,6 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
           purpose_justification: data.proposal.purpose_justification,
           pr_scheme_ref_no: data.proposal.pr_scheme_ref_no,
           is_within_pr_limit: data.proposal.is_within_pr_limit,
-          cmd_admin_approval_ref: data.proposal.cmd_admin_approval_ref,
-          requires_board_approval: data.proposal.requires_board_approval,
           total_land_cost_est: data.proposal.total_land_cost_est,
           total_rehab_cost_est: data.proposal.total_rehab_cost_est,
           total_employment_cost_est: data.proposal.total_employment_cost_est,
@@ -246,10 +278,6 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
           rate_forest_land: data.proposal.rate_forest_land ?? 0,
           employment_proposed_count: data.proposal.employment_proposed_count ?? 0,
           employment_system: data.proposal.employment_system ?? 'PACKAGE_DEAL',
-          has_debottar_land: data.proposal.has_debottar_land ?? false,
-          has_tribal_land: data.proposal.has_tribal_land ?? false,
-          is_disputed_land: (data.proposal as any).is_disputed_land ?? false,
-          has_formal_negotiation: data.proposal.has_formal_negotiation ?? false,
           current_stage_cd: data.proposal.current_stage_cd,
           overall_status: data.proposal.overall_status,
           entry_by: data.proposal.entry_by
@@ -257,6 +285,49 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
       });
 
       const proposalId = createdProposal.proposal_id.toString();
+
+      // Auto-assign initial drafting workflow assignment to initiating user
+      await tx.workflow_action_history.create({
+        data: {
+          entity_type: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
+          entity_id: proposalId,
+          workflow_code: MODULE_CODES.LAND_SCHEDULE,
+          action: 'PROPOSAL_INITIATED',
+          from_state: 'DRAFT',
+          to_state: 'Drafting',
+          entry_by: data.proposal.entry_by || 'Unit Nodal Officer',
+          comments: 'Proposal initial drafting created and assigned to initiating officer',
+          target_recipient_label: 'Unit Nodal Officer',
+        }
+      }).catch(() => null);
+
+      const flagsToSet = [
+        { code: 'requires_board_approval', val: data.proposal.requires_board_approval ?? true },
+        { code: 'has_debottar_land', val: data.proposal.has_debottar_land ?? false },
+        { code: 'has_tribal_land', val: data.proposal.has_tribal_land ?? false },
+        { code: 'is_disputed_land', val: (data.proposal as any).is_disputed_land ?? false },
+        { code: 'has_formal_negotiation', val: data.proposal.has_formal_negotiation ?? false },
+      ];
+
+      for (const f of flagsToSet) {
+        await (tx as any).entity_flag?.upsert({
+          where: {
+            entity_type_entity_id_flag_code: {
+              entity_type: 'acq_land_schedule',
+              entity_id: proposalId,
+              flag_code: f.code,
+            },
+          },
+          update: { flag_value: f.val, updt_ts: new Date() },
+          create: {
+            entity_type: 'acq_land_schedule',
+            entity_id: proposalId,
+            flag_code: f.code,
+            flag_value: f.val,
+            source: 'SYSTEM',
+          },
+        }).catch(() => null);
+      }
 
       const scheduleMap = new Map<string, string>(); 
       
@@ -312,6 +383,20 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
     });
     if (!prop) return null;
     
+    const flags = await (db as any).entity_flag?.findMany({
+      where: {
+        entity_type: 'acq_land_schedule',
+        entity_id: proposalId,
+      }
+    }).catch(() => []);
+
+    const flagMap: Record<string, any> = {};
+    if (Array.isArray(flags)) {
+      for (const f of flags) {
+        flagMap[f.flag_code] = f.flag_value;
+      }
+    }
+
     return {
       proposal_id: prop.proposal_id,
       proposal_no: prop.proposal_no,
@@ -324,7 +409,11 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
       pr_scheme_ref_no: prop.pr_scheme_ref_no ?? undefined,
       is_within_pr_limit: prop.is_within_pr_limit,
       cmd_admin_approval_ref: prop.cmd_admin_approval_ref ?? undefined,
-      requires_board_approval: prop.requires_board_approval,
+      requires_board_approval: flagMap['requires_board_approval'] ?? true,
+      has_debottar_land: flagMap['has_debottar_land'] ?? false,
+      has_tribal_land: flagMap['has_tribal_land'] ?? false,
+      is_disputed_land: flagMap['is_disputed_land'] ?? false,
+      has_formal_negotiation: flagMap['has_formal_negotiation'] ?? false,
       current_stage_cd: prop.current_stage_cd,
       overall_status: prop.overall_status,
       entry_by: prop.entry_by

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       where: { template_code: instance.template_code, is_active: true }
     })
     
-    // 3. Build dynamic Zod schema with passthrough so custom or unseeded fields are preserved
+    // 3. Build dynamic Zod schema with passthrough
     let parsedData = formData
     if (fields.length > 0) {
       const schema = createDynamicZodSchema(fields.map((f: any) => ({
@@ -45,6 +45,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 4. Content Version Invalidation: Check if form data changed after reviews/signatures
+    const oldFormDataStr = JSON.stringify(instance.form_data || {})
+    const newFormDataStr = JSON.stringify(parsedData || {})
+    const contentChanged = oldFormDataStr !== newFormDataStr
+
+    let updatedReviews = (instance as any).review_data_json
+    let updatedSigs = instance.signature_data_json
+
+    if (contentChanged) {
+      // Invalidate review approvals if form content changed after approval
+      const existingReviews = Array.isArray((instance as any).review_data_json)
+        ? ((instance as any).review_data_json as any[])
+        : []
+
+      if (existingReviews.length > 0) {
+        updatedReviews = existingReviews.map((r: any) => ({
+          ...r,
+          decision: 'INVALIDATED_DUE_TO_CONTENT_CHANGE',
+          invalidatedAt: new Date().toISOString()
+        }))
+      }
+    }
+
     const result = await saveDocumentFormUseCase.execute({ 
       instanceId, 
       formData: parsedData,
@@ -55,7 +78,14 @@ export async function POST(req: NextRequest) {
       return serverError(result.error as string)
     }
 
-    return ok({ success: true })
+    if (contentChanged && updatedReviews !== (instance as any).review_data_json) {
+      await db.document_instance.update({
+        where: { id: instanceId },
+        data: { review_data_json: updatedReviews }
+      })
+    }
+
+    return ok({ success: true, contentChanged })
   } catch (error: any) {
     console.error('Error saving form data:', error)
     return serverError('Failed to save form data', error.message)

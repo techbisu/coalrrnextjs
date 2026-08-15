@@ -17,12 +17,19 @@ import {
   Sparkles,
   Lightbulb,
   AlertTriangle,
+  Lock,
+  ChevronDown,
+  ChevronUp,
+  Undo,
 } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { useWorkflowSnapshot } from '@/shared/hooks/useWorkflowSnapshot';
+import { UserInfoBadge } from './UserInfoBadge';
 import type { WorkflowPendingAction, WorkflowAssignmentNode } from '@/core/workflow/types/snapshot.types';
 
 export interface WorkflowTimelineFeedProps {
@@ -34,7 +41,8 @@ export interface WorkflowTimelineFeedProps {
   className?: string;
   onExecuteAction?: (action: WorkflowPendingAction) => void;
   onRecordMilestone?: () => void;
-  onSignDocument?: (action: WorkflowPendingAction) => void;
+  onSignDocument?: () => void;
+  onExecuteTransition?: (transition: any) => void;
 }
 
 export function WorkflowTimelineFeed({
@@ -47,6 +55,7 @@ export function WorkflowTimelineFeed({
   onExecuteAction,
   onRecordMilestone,
   onSignDocument,
+  onExecuteTransition,
 }: WorkflowTimelineFeedProps) {
   const { data: snapshot, isLoading, isError, refetch } = useWorkflowSnapshot(
     moduleCode,
@@ -54,6 +63,12 @@ export function WorkflowTimelineFeed({
     entityId,
     userRole
   );
+
+  const [collapsedNodes, setCollapsedNodes] = React.useState<Record<string, boolean>>({});
+
+  const toggleNode = (id: string) => {
+    setCollapsedNodes((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   if (isLoading) {
     return (
@@ -79,11 +94,11 @@ export function WorkflowTimelineFeed({
   const { currentState, currentAssignment, assignments } = snapshot;
 
   return (
-    <Card className={`border shadow-sm bg-white overflow-hidden ${className}`}>
-      <CardHeader className="pb-3 bg-slate-50/50 border-b border-slate-100 flex flex-row items-center justify-between">
+    <Card className={`border shadow-sm bg-white dark:bg-slate-950 overflow-hidden ${className}`}>
+      <CardHeader className="pb-3 bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 flex flex-row items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-emerald-600" />
-          <CardTitle className="text-sm font-semibold text-slate-800">
+          <CardTitle className="text-sm font-semibold text-slate-800 dark:text-slate-200">
             Workflow Timeline & Action Feed
           </CardTitle>
         </div>
@@ -107,36 +122,37 @@ export function WorkflowTimelineFeed({
             No assignments recorded yet.
           </div>
         ) : (
-          <div className="relative pl-6 space-y-8 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+          <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
             {assignments.map((assignment) => {
               const isCurrent = assignment.status === 'CURRENT';
               const isCompleted = assignment.status === 'COMPLETED';
               const isWaiting = assignment.status === 'WAITING';
+              const isCollapsed = !isCurrent && collapsedNodes[assignment.id] === true;
 
               return (
-                <div key={assignment.id} className="relative group space-y-3">
+                <div key={assignment.id} className="relative group space-y-2.5">
                   {/* Node Badge */}
                   <div
                     className={`absolute -left-[23px] top-1 w-4 h-4 rounded-full border-2 border-white shadow-sm flex items-center justify-center ring-2 ${
                       isCurrent
-                        ? 'bg-amber-500 ring-amber-100'
+                        ? 'bg-amber-500 ring-amber-100 dark:ring-amber-950'
                         : isCompleted
-                        ? 'bg-emerald-600 ring-emerald-100'
-                        : 'bg-slate-300 ring-slate-100'
+                        ? 'bg-emerald-600 ring-emerald-100 dark:ring-emerald-950'
+                        : 'bg-slate-300 ring-slate-100 dark:ring-slate-900'
                     }`}
                   />
 
                   {/* Assignment Header */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-slate-900">
-                        {isCompleted && '✓ '}
-                        {isCurrent && '● '}
-                        {isWaiting && '○ '}
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                        {isCompleted && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                        {isCurrent && <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />}
+                        {isWaiting && <span className="w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0" />}
                         Assignment: {assignment.stageName}
                       </span>
                       {isCurrent && (
-                        <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] uppercase tracking-wider font-semibold">
+                        <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[10px] uppercase tracking-wider font-semibold dark:bg-amber-950/60 dark:text-amber-300">
                           CURRENT ASSIGNMENT
                         </Badge>
                       )}
@@ -145,242 +161,176 @@ export function WorkflowTimelineFeed({
                           WAITING
                         </Badge>
                       )}
+                      {assignment.actions && assignment.actions.length > 0 && (
+                        <Badge variant="secondary" className="text-[10px] font-mono">
+                          {assignment.actions.length} Action Log{assignment.actions.length === 1 ? '' : 's'}
+                        </Badge>
+                      )}
                     </div>
+
+                    {!isCurrent && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 gap-1"
+                        onClick={() => toggleNode(assignment.id)}
+                      >
+                        <span>{isCollapsed ? 'Expand' : 'Collapse'}</span>
+                        {isCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                      </Button>
+                    )}
                   </div>
 
-                  <div className="text-xs text-slate-600 flex items-center gap-1.5 font-medium">
-                    <User className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Assigned to:</span>
-                    <span className="font-semibold text-slate-800">
-                      {assignment.assignedUser
-                        ? `${assignment.assignedUser.name} (${assignment.assignedRole})`
-                        : assignment.assignedRole}
-                    </span>
-                  </div>
+                  {!isCollapsed && (
+                    <div className="space-y-3 pt-0.5">
+                      <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2 font-medium">
+                        <span className="text-slate-500">Assigned to:</span>
+                        <UserInfoBadge user={assignment.assignedUser} role={assignment.assignedRole} />
+                      </div>
 
-                  {/* 1. COMPLETED ACTIONS HISTORY */}
-                  {assignment.actions.length > 0 && (
-                    <div className="space-y-2 pt-1">
-                      {assignment.actions.map((act) => (
-                        <div
-                          key={act.id}
-                          className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-100 space-y-1.5 text-xs"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-emerald-950 flex items-center gap-1.5">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              {act.label}
-                            </span>
-                            {act.completedAt && (
-                              <span className="text-[11px] text-slate-400">
-                                {new Date(act.completedAt).toLocaleString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                })}
-                              </span>
-                            )}
+                      {/* 1. COMPLETED ACTIONS HISTORY (FORWARD & RETURN LOGS) */}
+                      {assignment.actions && assignment.actions.length > 0 && (
+                        <div className="space-y-2">
+                          {assignment.actions.map((act) => {
+                            const isReturnAction =
+                              (act.label && (act.label.toLowerCase().includes('return') || act.label.toLowerCase().includes('reject'))) ||
+                              ((act as any).action && ((act as any).action.toLowerCase().includes('return') || (act as any).action.toLowerCase().includes('reject')));
+
+                            return (
+                              <div
+                                key={act.id}
+                                className={cn(
+                                  'p-3 rounded-xl border space-y-2 text-xs transition-all',
+                                  isReturnAction
+                                    ? 'bg-amber-50/60 border-amber-200/90 dark:bg-amber-950/30 dark:border-amber-900'
+                                    : 'bg-emerald-50/60 border-emerald-200/90 dark:bg-emerald-950/30 dark:border-emerald-900'
+                                )}
+                              >
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <span
+                                    className={cn(
+                                      'font-bold flex items-center gap-1.5 text-xs',
+                                      isReturnAction ? 'text-amber-950 dark:text-amber-200' : 'text-emerald-950 dark:text-emerald-200'
+                                    )}
+                                  >
+                                    {isReturnAction ? (
+                                      <Undo className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                    ) : (
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    )}
+                                    {act.label || (act as any).action || 'Workflow Action Executed'}
+                                  </span>
+                                  {act.completedAt && (
+                                    <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                      {new Date(act.completedAt).toLocaleString('en-IN', {
+                                        day: '2-digit',
+                                        month: 'short',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {((act as any).completedUser || act.completedBy || (act as any).completedRole) && (
+                                  <div className="text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-medium text-slate-500">Performed by:</span>
+                                    {(act as any).completedUser ? (
+                                      <UserInfoBadge user={(act as any).completedUser} role={(act as any).completedRole} />
+                                    ) : (
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200">{act.completedBy || (act as any).completedRole}</span>
+                                    )}
+                                  </div>
+                                )}
+
+                                {act.justification && (
+                                  <div className="p-2.5 rounded-md bg-white/90 border border-slate-200/80 dark:bg-slate-900 dark:border-slate-800 text-slate-700 dark:text-slate-300 italic flex items-start gap-2">
+                                    <MessageSquare className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                                    <div className="leading-relaxed">
+                                      <span className="font-bold not-italic text-slate-900 dark:text-slate-100 mr-1.5">
+                                        Justification / Remarks:
+                                      </span>
+                                      &ldquo;{act.justification}&rdquo;
+                                    </div>
+                                  </div>
+                                )}
+
+                                {act.attachments && act.attachments.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 pt-1">
+                                    {act.attachments.map((att: any) => (
+                                      <a
+                                        key={att.id}
+                                        href={`/api/documents/${att.id}/download`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white text-emerald-800 border border-emerald-300 hover:bg-emerald-50 dark:bg-slate-900 dark:text-emerald-300 dark:border-emerald-800 text-[11px] font-semibold transition-colors shadow-2xs"
+                                      >
+                                        <Paperclip className="w-3 h-3 text-emerald-600 shrink-0" />
+                                        <span className="truncate max-w-[180px]">{att.fileName}</span>
+                                        <Download className="w-3 h-3 text-emerald-600 shrink-0 ml-0.5" />
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* 2. CURRENT ASSIGNMENT PENDING ACTIONS (MINIMAL LIST ONLY) */}
+                      {isCurrent && assignment.pendingActions && assignment.pendingActions.length > 0 && (
+                        <div className="p-3 rounded-lg bg-amber-50/40 dark:bg-amber-950/20 space-y-2.5">
+                          <div className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5 uppercase tracking-wide">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            Pending Stage Prerequisites ({assignment.pendingActions.filter((p) => p.status !== 'COMPLETED').length} Remaining)
                           </div>
 
-                          {act.completedBy && (
-                            <div className="text-[11px] text-slate-500">
-                              Completed by: <span className="font-medium text-slate-700">{act.completedBy}</span>
-                            </div>
-                          )}
+                          <div className="space-y-2 pl-1">
+                            {assignment.pendingActions.map((pending) => {
+                              const isCompleted = pending.status === 'COMPLETED';
 
-                          {act.justification && (
-                            <div className="p-2 rounded bg-white/80 border border-slate-200 text-slate-700 italic flex items-start gap-1.5">
-                              <MessageSquare className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                              <div>
-                                <span className="font-semibold not-italic text-slate-900 mr-1">
-                                  Justification:
-                                </span>
-                                &ldquo;{act.justification}&rdquo;
-                              </div>
-                            </div>
-                          )}
-
-                          {act.attachments && act.attachments.length > 0 && (
-                            <div className="flex flex-wrap gap-2 pt-1">
-                              {act.attachments.map((att) => (
-                                <a
-                                  key={att.id}
-                                  href={`/api/documents/${att.id}/download`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 text-[11px] font-medium transition-colors"
-                                >
-                                  <Paperclip className="w-3 h-3 text-emerald-600" />
-                                  <span>{att.fileName}</span>
-                                  <Download className="w-3 h-3 ml-0.5 text-emerald-600" />
-                                </a>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* 2. CURRENT ASSIGNMENT PENDING ACTIONS */}
-                  {isCurrent && assignment.pendingActions && assignment.pendingActions.length > 0 && (
-                    <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/80 space-y-3">
-                      <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5 uppercase tracking-wide">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                        Pending Actions for Current Assignment
-                      </div>
-
-                      <div className="space-y-2">
-                        {assignment.pendingActions.map((pending) => {
-                          const canAct = pending.isAuthorizedForCurrentUser && pending.status === 'PENDING';
-
-                          return (
-                            <div
-                              key={pending.id}
-                              className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
-                                canAct
-                                  ? 'bg-white border-amber-300 shadow-sm'
-                                  : 'bg-slate-50/80 border-slate-200 opacity-90'
-                              }`}
-                            >
-                              <div className="space-y-0.5 text-xs">
-                                <div className="font-semibold text-slate-900 flex items-center gap-1.5">
-                                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-                                  {pending.label}
-                                </div>
-                                {pending.description && (
-                                  <p className="text-[11px] text-slate-500 pl-3.5">
-                                    {pending.description}
-                                  </p>
-                                )}
-                              </div>
-
-                              {/* Actionable Button (Rendered ONLY if current user is authorized and backend permits) */}
-                              <div>
-                                {canAct ? (
-                                  pending.type === 'DOCUMENT_SIGNATURE' ? (
-                                    <Button
-                                      size="sm"
-                                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs h-8 px-3 shadow-xs gap-1.5"
-                                      onClick={() => onSignDocument && onSignDocument(pending)}
-                                    >
-                                      <FileSignature className="w-3.5 h-3.5" />
-                                      Sign Document
-                                    </Button>
-                                  ) : pending.type === 'MILESTONE' ? (
-                                    <Button
-                                      size="sm"
-                                      className="bg-purple-600 hover:bg-purple-700 text-white font-medium text-xs h-8 px-3 shadow-xs gap-1.5"
-                                      onClick={() => onRecordMilestone && onRecordMilestone()}
-                                    >
-                                      <Award className="w-3.5 h-3.5" />
-                                      Record Milestone
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      className="bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs h-8 px-3 shadow-xs gap-1.5"
-                                      onClick={() => onExecuteAction && onExecuteAction(pending)}
-                                    >
-                                      <ChevronRight className="w-3.5 h-3.5" />
-                                      Execute Action
-                                    </Button>
-                                  )
-                                ) : (
-                                  <Badge variant="outline" className="text-[11px] text-slate-400 font-normal">
-                                    {pending.status === 'BLOCKED' ? 'Prerequisite Blocked' : 'View Only'}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 3. CURRENT ASSIGNMENT RECOMMENDATIONS */}
-                  {isCurrent && (assignment as any).recommendations && (assignment as any).recommendations.length > 0 && (
-                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
-                      <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
-                        <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-                        Recommendations &amp; Action Items
-                      </div>
-
-                      <div className="space-y-2">
-                        {((assignment as any).recommendations as any[]).map((rec) => {
-                          const isRequired = rec.mode === 'REQUIRED';
-                          const isFulfilled = rec.status === 'FULFILLED';
-
-                          return (
-                            <div
-                              key={rec.id}
-                              className={`p-3 rounded-lg border flex items-center justify-between gap-3 text-xs ${
-                                isFulfilled
-                                  ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
-                                  : isRequired
-                                  ? 'bg-amber-50/80 border-amber-300 text-amber-950'
-                                  : 'bg-blue-50/60 border-blue-200 text-blue-950'
-                              }`}
-                            >
-                              <div className="space-y-0.5">
-                                <div className="font-semibold flex items-center gap-1.5">
-                                  {isFulfilled ? (
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                  ) : isRequired ? (
-                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                  ) : (
-                                    <Lightbulb className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                              return (
+                                <div
+                                  key={pending.id}
+                                  className={cn(
+                                    'space-y-0.5 text-xs transition-colors py-0.5',
+                                    isCompleted ? 'text-slate-500 opacity-75' : 'text-slate-800 dark:text-slate-200'
                                   )}
-                                  <span>{rec.label}</span>
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-[10px] uppercase font-bold px-1.5 py-0.2 ${
-                                      isRequired
-                                        ? 'bg-amber-100 text-amber-800 border-amber-300'
-                                        : 'bg-blue-100 text-blue-800 border-blue-300'
-                                    }`}
-                                  >
-                                    {rec.mode}
-                                  </Badge>
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    {isCompleted ? (
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    ) : (
+                                      <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0 italic" />
+                                    )}
+                                    <span
+                                      className={cn(
+                                        'italic font-semibold truncate',
+                                        isCompleted ? 'text-slate-500 line-through' : 'text-slate-800 dark:text-slate-200'
+                                      )}
+                                    >
+                                      {pending.label}
+                                    </span>
+                                  </div>
+
+                                  {pending.description && (
+                                    <p
+                                      className={cn(
+                                        'text-[11px] pl-5.5 leading-snug',
+                                        isCompleted ? 'text-slate-400 line-through' : 'text-slate-600 dark:text-slate-400'
+                                      )}
+                                    >
+                                      {pending.description}
+                                    </p>
+                                  )}
                                 </div>
-
-                                {rec.reason && (
-                                  <p className="text-[11px] text-slate-600 italic pl-5">
-                                    &ldquo;{rec.reason}&rdquo;
-                                  </p>
-                                )}
-
-                                {rec.createdBy && (
-                                  <p className="text-[10px] text-slate-400 pl-5">
-                                    By: {rec.createdBy}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div>
-                                {isFulfilled ? (
-                                  <Badge className="bg-emerald-600 text-white text-[10px] uppercase font-bold">
-                                    ✓ FULFILLED
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="secondary" className="text-[10px] uppercase font-bold">
-                                    PENDING
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 3. WAITING ASSIGNMENT PLACEHOLDER */}
-                  {isWaiting && (
-                    <div className="text-xs text-slate-400 italic pl-1">
-                      Waiting for previous assignment completion.
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

@@ -41,6 +41,7 @@ export interface ProposalProps {
   hasTribalLand?: boolean
   hasDisputedLand?: boolean
   hasFormalNegotiation?: boolean
+  requiresBoardApproval?: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -68,6 +69,7 @@ export interface CreateProposalProps {
   hasTribalLand?: boolean
   hasDisputedLand?: boolean
   hasFormalNegotiation?: boolean
+  requiresBoardApproval?: boolean
 }
 
 export interface UpdateProposalProps {
@@ -144,6 +146,7 @@ export class Proposal extends AggregateRoot<string> {
   private _hasTribalLand: boolean
   private _hasDisputedLand: boolean
   private _hasFormalNegotiation: boolean
+  private _requiresBoardApproval: boolean
   private _createdAt: Date
   private _updatedAt: Date
 
@@ -175,6 +178,7 @@ export class Proposal extends AggregateRoot<string> {
     this._hasTribalLand = props.hasTribalLand ?? false
     this._hasDisputedLand = props.hasDisputedLand ?? false
     this._hasFormalNegotiation = props.hasFormalNegotiation ?? false
+    this._requiresBoardApproval = props.requiresBoardApproval ?? true
     this._createdAt = props.createdAt
     this._updatedAt = props.updatedAt
   }
@@ -242,6 +246,7 @@ export class Proposal extends AggregateRoot<string> {
       hasTribalLand: props.hasTribalLand ?? false,
       hasDisputedLand: props.hasDisputedLand ?? false,
       hasFormalNegotiation: props.hasFormalNegotiation ?? false,
+      requiresBoardApproval: props.requiresBoardApproval ?? true,
       createdAt: now,
       updatedAt: now,
     })
@@ -284,6 +289,7 @@ export class Proposal extends AggregateRoot<string> {
     hasTribalLand?: boolean
     hasDisputedLand?: boolean
     hasFormalNegotiation?: boolean
+    requiresBoardApproval?: boolean
     plotIds: string[]
     createdAt: Date
     updatedAt: Date
@@ -315,6 +321,7 @@ export class Proposal extends AggregateRoot<string> {
       hasTribalLand: data.hasTribalLand,
       hasDisputedLand: data.hasDisputedLand,
       hasFormalNegotiation: data.hasFormalNegotiation,
+      requiresBoardApproval: data.requiresBoardApproval,
       plotIds: data.plotIds,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
@@ -633,6 +640,10 @@ export class Proposal extends AggregateRoot<string> {
     return this._hasFormalNegotiation
   }
 
+  get requiresBoardApproval(): boolean {
+    return this._requiresBoardApproval
+  }
+
   get createdAt(): Date {
     return this._createdAt
   }
@@ -669,6 +680,7 @@ export class Proposal extends AggregateRoot<string> {
     hasTribalLand?: boolean
     hasDisputedLand?: boolean
     hasFormalNegotiation?: boolean
+    requiresBoardApproval?: boolean
     createdAt: Date
     updatedAt: Date
   } {
@@ -698,6 +710,7 @@ export class Proposal extends AggregateRoot<string> {
       hasTribalLand: this._hasTribalLand,
       hasDisputedLand: this._hasDisputedLand,
       hasFormalNegotiation: this._hasFormalNegotiation,
+      requiresBoardApproval: this._requiresBoardApproval,
       totalAreaAcres: this._totalArea.value.toString(),
       createdAt: this._createdAt,
       updatedAt: this._updatedAt,

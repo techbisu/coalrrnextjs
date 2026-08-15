@@ -161,4 +161,20 @@ To eliminate high DB read latency on low-churn configuration tables (`checklist_
 3. **Database Fallback**: PostgreSQL is queried only on cache miss, automatically repopulating L1 and L2 caches.
 
 ### Data Flow
-`Checklist Workspace UI` $\rightarrow$ `GetChecklistStatusUseCase` $\rightarrow$ `PrismaChecklistRepository` $\rightarrow$ `ConfigCacheService` (L1 RAM / L2 Redis) $\rightarrow$ `PostgreSQL DB`
+`Checklist Workspace UI` $\rightarrow$ `GetChecklistStatusUseCase` $\rightarrow$ `ProposalChecklistResolver` $\rightarrow$ `FactResolver` $\rightarrow$ `ConditionContext` $\rightarrow$ `evaluateConditionNode` (AST Evaluator) $\rightarrow$ `Checklist Status Response`
+
+---
+
+## FactResolver & ConditionContext Integration (Phase 3)
+
+The Checklist Service integrates directly with the unified [`FactResolver`](file:///d:/coalrrnextjs/src/core/flags/services/FactResolver.ts) and [`ConditionContextBuilder`](file:///d:/coalrrnextjs/src/core/flags/services/ConditionContextBuilder.ts) (see [`docs/fact_resolver_condition_context.md`](file:///d:/coalrrnextjs/docs/fact_resolver_condition_context.md)):
+
+1. **Single AST Condition Evaluator**: Uses `evaluateConditionNode` in `GetChecklistStatusUseCase` without duplicate rule evaluators.
+2. **Unified Context**: FactResolver merges authoritative domain data (`acq_proposal`, `project`), dynamic land metrics (`plot_count`), `checklist_entity_context` snapshot fallbacks, and manual `public.entity_flag` overrides.
+3. **Dynamic Plot Schedule Auto-Fulfillment**: When `plot_count > 0` (or `has_plots === true`), requirement `ADD_PLOT_SCHEDULE` is marked as `AUTO_SATISFIED`.
+4. **Key Integration Files**:
+   - [`src/core/proposal/checklist/ProposalChecklistResolver.ts`](file:///d:/coalrrnextjs/src/core/proposal/checklist/ProposalChecklistResolver.ts)
+   - [`src/core/flags/adapters/AcqLandScheduleFactAdapter.ts`](file:///d:/coalrrnextjs/src/core/flags/adapters/AcqLandScheduleFactAdapter.ts)
+   - [`src/core/checklist/usecases/GetChecklistStatusUseCase.ts`](file:///d:/coalrrnextjs/src/core/checklist/usecases/GetChecklistStatusUseCase.ts)
+   - [`tests/unit/core/checklist/ChecklistConditionContextIntegration.test.ts`](file:///d:/coalrrnextjs/tests/unit/core/checklist/ChecklistConditionContextIntegration.test.ts)
+

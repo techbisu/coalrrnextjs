@@ -1,95 +1,117 @@
 # Document Engine (Workspace) Documentation
 
-The Document Engine is a Clean Architecture module responsible for managing the lifecycle of documents (Draft vs Generated, Dynamic Forms, Signatures) and orchestrating generation. It relies on the pure core engine (`src/lib/engines/docx`) for actual zip and XML manipulation.
-
-## Core Architecture
-- **Core Engine (`src/lib/engines/docx`)**: Pure, stateless `.docx` generation logic with `nullGetter()` protection.
-- **Application Layer (`src/modules/document-engine/application/use-cases`)**: Clean Use Cases (`StartDocumentWorkspaceUseCase`, `GenerateDocumentUseCase`).
-- **API Layer (`src/app/api/document-engine`)**: Secure REST API endpoints orchestrating Use Cases (`/workspace`, `/generate`, `/sign`, `/save-form`).
-- **Shared UI (`src/shared/components/coalrr/DocumentWorkspaceModal.tsx`)**: Reusable platform UI workspace with dynamic forms, auto-collapsible panels, and sequential signature workflows.
-- **File Management & HTML Preview (`FilePreview.tsx`)**: Renders `.docx` documents instantly in-browser using `mammoth.convertToHtml()`.
-
-## Core Features
-- **Idempotent Workspaces**: Workspaces are initialized as Drafts. Re-running generation cleanly overwrites the buffer and updates `document_instance`.
-- **Dynamic Form Engine**: Fields defined in `document_template_field` dynamically render as a React form with `.passthrough()` Zod validation.
-- **Auto-Collapsible Sidebar Card**: Form inputs ("Additional Information") auto-collapse upon saving/submitting, giving full focus to the preview and signatures.
-- **Permission-Driven Signature Routing (`sig_permission`)**: Signature steps store exact permission names (`<template>.sign.<role>`) in `document_template_signature.sig_permission`.
-- **Sequential Signature Pipeline**: Signatures are sorted by `display_order`. Step $N+1$ unlocks strictly after Step $N$ is signed.
-- **In-Browser Mammoth HTML Preview**: Browser renders `.docx` buffers natively via HTML conversion without requiring server-side LibreOffice instances.
+The Document Engine is a Clean Architecture module responsible for managing the complete statutory document lifecycle (**`GENERATE` $\rightarrow$ `ADDITIONAL_INFO` $\rightarrow$ `REVIEW` $\rightarrow$ `SIGN` $\rightarrow$ `COMPLETED`**), dynamic forms, document review/vetting, permission-driven sequential signatures, and dual-format document streaming. It relies on the pure core engine (`src/lib/engines/docx`) for actual zip and XML manipulation.
 
 ---
 
-## How to Register a New Form Template (Step-by-Step)
+## Core Architecture
 
-Follow this guide to introduce a new document type (e.g., "Form XXIV") into the system.
-
-### Step 1: Create the `.docx` Template
-Create a Microsoft Word document. Place variables inside single curly braces `{}`.
-- Single variables: `{ApplicantName}`, `{ProjectBoundary}`
-- Tables/Loops: 
-  ```text
-  {#items}
-  {itemName} - {itemCost}
-  {/items}
-  ```
-- Signatures & Seals: `{Sig_GM_Page1}`, `{LandOfficer_Name}`, `{LandOfficer_Date}`
-
-### Step 2: Store the File
-For system-critical templates that must be tracked by version control, place your `.docx` file in the core engine's internal templates directory:
-`src/lib/engines/docx/templates/FormXXIV_Template.docx`. 
-
-### Step 3: Database Registry (`document_template`)
-Register the core template in the database.
-```sql
-INSERT INTO document_template (id, template_code, template_name, storage_path)
-VALUES (gen_random_uuid(), 'FORM-XXIV', 'Land Acquisition Notice', 'FormXXIV_Template.docx');
+```mermaid
+flowchart TD
+    A[Checklist Requirement Engine] -->|GetChecklistStatusUseCase| B[GeneratedDocumentChecklistAdapter]
+    B -->|Resolves Steps & Status| C[document_instance]
+    
+    subgraph Document Engine Module
+        D[StartDocumentWorkspaceUseCase] -->|Initializes Workspace| C
+        E[SaveDocumentFormUseCase] -->|Saves Form & Invalidates Stale Reviews| C
+        F[Document Review API /review] -->|Records Approval / Revision| C
+        G[GenerateDocumentUseCase / generateDocumentJob] -->|Compiles DOCX Buffer| H[File Storage]
+        I[Sign Endpoint /sign] -->|Sequential Signature Guard| C
+    end
+    
+    C -->|Single Source of Truth| J[Checklist UI / Timeline / Pending Actions / Workflow Guards]
 ```
 
-### Step 4: Configure Dynamic Form Fields (`document_template_field`)
-Define the custom fields the user must fill out before generating the document.
-```sql
-INSERT INTO document_template_field (id, template_code, field_key, label, field_type, is_required, display_order, show_if)
-VALUES 
-(gen_random_uuid(), 'FORM-XXIV', 'NoticeDate', 'Notice Date', 'date', true, 1, null),
-(gen_random_uuid(), 'FORM-XXIV', 'CustomRemarks', 'Remarks (Govt Only)', 'text', false, 2, 
-  '{"ModeGovtTransfer": {"$eq": "1"}}'::jsonb
-);
+- **Core Engine (`src/lib/engines/docx`)**: Pure, stateless `.docx` generation logic with `nullGetter()` protection.
+- **Application Layer (`src/modules/document-engine/application/use-cases`)**: Clean Use Cases (`StartDocumentWorkspaceUseCase`, `GenerateDocumentUseCase`, `SaveDocumentDocumentUseCase`).
+- **API Layer (`src/app/api/document-engine`)**: Secure REST API endpoints orchestrating Use Cases (`/workspace`, `/generate`, `/sign`, `/save-form`, `/review`).
+- **Shared UI (`src/shared/components/coalrr/DocumentWorkspaceModal.tsx`)**: Reusable platform UI workspace with dynamic forms, document review history card, auto-collapsible panels, sequential signature workflows, and dual format downloads.
+- **File Management & HTML Preview (`FilePreview.tsx`)**: Renders `.docx` documents instantly in-browser using `mammoth.convertToHtml()`.
+
+---
+
+## Complete Document Requirement Lifecycle
+
+The Document Engine integrates directly with the **Checklist Requirement Engine** via [`GeneratedDocumentChecklistAdapter.ts`](file:///d:/coalrrnextjs/src/core/checklist/services/GeneratedDocumentChecklistAdapter.ts). Every statutory document requirement resolves a step sequence configured in `checklist_requirement_rule.input_schema.completion_steps`.
+
+### 1. Configured Lifecycle Steps
+
+| Step | Action Required | Evidence Collected | Permission Required |
+| :--- | :--- | :--- | :--- |
+| **`GENERATE`** | Initial document compilation from domain placeholders | `instance.generated_docx_path` is not null | `<template>.generate` / `document.generate` |
+| **`ADDITIONAL_INFO`** | Submitting user input fields in dynamic form | `instance.form_data` is saved & non-empty | `<template>.additional_info` / `document.edit` |
+| **`REVIEW`** | Reviewing content and recording vetting decision | Entry in `instance.review_data_json` with `decision === 'APPROVED'` | `<template>.review` / `document.review` / `workflow.approve` |
+| **`SIGN`** | Applying sequential role signatures | `instance.signature_data_json` contains all required signatures | `document_template_signature.sig_permission` |
+
+### 2. Step Status Resolution & Action Guidance
+
+The adapter computes individual step progress (`stepDetails`) and next action (`nextAction`):
+- **`COMPLETED`**: Evidence exists for the step.
+- **`PENDING`**: Step is active and ready for current user action.
+- **`LOCKED`**: Step is waiting for a prior required step (e.g. signature waiting for review approval).
+
+```json
+{
+  "status": "in_progress",
+  "generatedDocInfo": {
+    "instanceId": "doc-inst-123",
+    "templateCode": "FORM_VII",
+    "status": "DRAFT",
+    "stepDetails": [
+      { "type": "GENERATE", "status": "COMPLETED", "label": "Generate Document" },
+      { "type": "ADDITIONAL_INFO", "status": "COMPLETED", "label": "Fill Additional Info" },
+      { "type": "REVIEW", "status": "PENDING", "permission": "form_vii.review", "label": "Review & Approve" },
+      { "type": "SIGN", "status": "LOCKED", "label": "Apply Signatures" }
+    ],
+    "nextAction": {
+      "type": "REVIEW",
+      "permission": "form_vii.review",
+      "label": "Review & Approve",
+      "canCurrentUserAct": true
+    }
+  }
+}
 ```
 
-### Step 5: Configure Permission Signature Routing (`document_template_signature`)
-Define signature steps in `document_template_signature` using explicit **permission names** in `sig_permission`:
+---
 
-```sql
-INSERT INTO document_template_signature 
-  (id, template_code, sig_permission, workflow_state, placeholders, is_required, display_order)
-VALUES 
-  -- Step 1: Requires permission 'form_xxiv.sign.land_cell_member'
-  (gen_random_uuid(), 'FORM-XXIV', 'form_xxiv.sign.land_cell_member', 'AreaVetted', '{"name":"LandCell_Name","date":"LandCell_Date"}'::jsonb, true, 1),
-  -- Step 2: Requires permission 'form_xxiv.sign.land_officer'
-  (gen_random_uuid(), 'FORM-XXIV', 'form_xxiv.sign.land_officer', 'AreaVetted', '{"name":"LandOfficer_Name","date":"LandOfficer_Date"}'::jsonb, true, 2),
-  -- Step 3: Requires permission 'form_xxiv.sign.area_gm'
-  (gen_random_uuid(), 'FORM-XXIV', 'form_xxiv.sign.area_gm', 'Approved', '{"name":"AreaGM_Name","date":"AreaGM_Date"}'::jsonb, true, 3);
+## Document Review & Vetting Engine
+
+### 1. Database Schema (`document_instance.review_data_json`)
+Document reviews are stored in the JSONB column `review_data_json`:
+```json
+[
+  {
+    "decision": "APPROVED",
+    "comment": "Verified land schedule boundaries against mining lease map.",
+    "reviewerId": "usr-456",
+    "reviewerName": "Senior Land Officer",
+    "permission": "form_vii.review",
+    "timestamp": "2026-08-14T12:00:00.000Z"
+  }
+]
 ```
 
-### Step 6: Seed Permission to Roles (`permission` & `role_has_permission`)
-```sql
--- 1. Create permission
-INSERT INTO "permission" (id, name, guard_name, updt_ts)
-VALUES (gen_random_uuid(), 'form_xxiv.sign.land_cell_member', 'web', NOW());
+### 2. Review Endpoint (`POST /api/document-engine/review`)
+- **Payload**: `{ instanceId: string, decision: 'APPROVED' | 'REVISION_REQUESTED', comment?: string }`
+- **Server-Side Authorization**: Requires permission `<template_code_lowercase>.review` or `document.review` or `workflow.approve` or `*` or an authorized role (`admin`, `super`, `officer`).
+- **Audit & Outbox Events**: Emits `DOCUMENT_REVIEWED` / `DOCUMENT_REVISION_REQUESTED` events to `outbox_events` and logs activity via `Audit.logCustomAction`.
 
--- 2. Link permission to role
-INSERT INTO "role_has_permission" (role_id, permission_id, updt_ts)
-SELECT r.id, p.id, NOW()
-FROM "role" r, "permission" p
-WHERE r.name = 'area_officer' AND p.name = 'form_xxiv.sign.land_cell_member';
-```
+---
+
+## Content Modification & Version Invalidation
+
+When form data is modified via `POST /api/document-engine/save-form` after document reviews have been recorded:
+1. The server compares `instance.form_data` against the newly submitted data.
+2. If content changed, existing review entries are marked `decision = 'INVALIDATED_DUE_TO_CONTENT_CHANGE'`.
+3. The requirement status automatically transitions back to **`IN_PROGRESS`**, requiring the reviewer to re-inspect and re-approve the updated document.
 
 ---
 
 ## Permission-Driven & Sequential Signature Architecture
 
 ### 1. `sig_permission` Column Mapping
-`document_template_signature.sig_permission` stores the explicit permission string:
+`document_template_signature.sig_permission` stores explicit permission strings:
 ```
 <template_code_lowercase>.sign.<role_code_lowercase>
 ```
@@ -103,46 +125,72 @@ WHERE r.name = 'area_officer' AND p.name = 'form_xxiv.sign.land_cell_member';
   - `form_vii.sign.acq_land_clerk` (Step 1)
   - `form_vii.sign.acq_surveyor` (Step 2)
   - `form_vii.sign.acq_project_manager` (Step 3)
-  - `form_vii.sign.acq_land_officer` (Step 5)
-  - `form_vii.sign.acq_agm` (Step 6)
+  - `form_vii.sign.acq_land_officer` (Step 4)
+  - `form_vii.sign.acq_agm` (Step 5)
 
-### 2. Sequential Step Enforcement
-Signature steps are executed strictly in order of `display_order`:
-- **Step 1**: Available immediately to authorized users.
-- **Step 2**: Remains `Locked (Step 1 Pending)` until Step 1 signature is submitted and recorded in `document_instance.signature_data_json`.
-- **Step 3**: Unlocks only after Step 2 signature is recorded.
+### 2. Server-Side Sequential & Authorization Guards (`POST /api/document-engine/sign`)
+- **Permission Check**: Verifies that `auth.user.permissions` contains the exact `sig_permission` or `document.sign` / `*`.
+- **Sequential Guard**: Rejects signature attempt if preceding required steps in `resolver_signatures_json` are unsigned:
+  > *"Sequential error: Step 1 (form_xxii.sign.area_land_cell_member) must be signed before step 2."*
 
 ---
 
-## FormXXIIResolver & Document Engine Business Logic
+## Dual Format Streaming & Security Guards
 
-### 1. File-Scoped Module Hoisting (`getFormVal`)
-The `getFormVal` helper is defined at file scope (outside class methods) to ensure zero TDZ (Temporal Dead Zone) hoisting errors:
-- Normalizes `formData` key lookup across `PascalCase`, `camelCase`, `snake_case`.
-- Provides fallback defaults across DB columns and administrative strings (`"NO - Within Approved Limits"`).
+Documents generated by the engine can be retrieved in two formats via `GET /api/files/[fileId]/download`:
 
-### 2. Form XXII Use-Wise Deviation Placeholders
-Row 3 (Deviation) of the Use-wise table supports the following placeholder aliases:
-- **Excavating Area**: `{DevExcavating}`, `{DevExcavation}`, `{DevExcavatingArea}`, `{dev_excavating}`
-- **Safety Zone**: `{DevSafetyZone}`, `{DevSafety}`, `{DevSafetyZoneArea}`, `{dev_safety_zone}`
-- **OB Dump**: `{DevObDump}`, `{DevOb}`, `{DevObDumpArea}`, `{dev_ob_dump}`
-- **Infrastructure**: `{DevInfrastructure}`, `{DevInfra}`, `{DevInfrastructureArea}`, `{dev_infrastructure}`
-- **Diversion**: `{DevDiversion}`, `{DevDiversionArea}`, `{dev_diversion}`
-- **Rehabilitation**: `{DevRehabilitation}`, `{DevRehab}`, `{DevRehabilitationArea}`, `{dev_rehabilitation}`
-- **Other Purpose**: `{DevOther}`, `{DevOtherPurpose}`, `{DevOtherArea}`, `{dev_other}`
-- **Total Deviation**: `{DevTotal}` (Type-Wise), `{DevUseTotal}` / `{dev_use_total}` (Use-Wise)
+### 1. Watermarked PDF Download (`format=pdf` or `preview=true`)
+- Available to authorized project viewers.
+- Dynamically applies QR code verification stamp, downloader user details, and timestamp.
 
-### 3. Query Service Abstraction
-Resolvers (e.g., `FormXXIIResolver`, `FormVIIResolver`) MUST NOT query Prisma `db` directly to maintain Clean Architecture service layer rules. They inject `IDocumentQueryService` (implemented via `PrismaDocumentQueryService`) to safely fetch necessary domain data (proposals, projects, plots).
+### 2. Editable Raw `.docx` Download (`!forcePdf && !isPreview`)
+- **API-Level Security Guard**: Enforces server-side authorization check.
+  - Requires permission `document.download_docx`, `document.edit`, `document.generate`, `*`, or an authorized role (`admin`, `super`, `officer`, `cell`).
+  - Returns HTTP **`403 Forbidden`** if unauthorized.
+- **UI-Level Security Guard**: The `[ Download DOCX ]` button renders in [`DocumentWorkspaceModal.tsx`](file:///d:/coalrrnextjs/src/shared/components/coalrr/DocumentWorkspaceModal.tsx) strictly when `canDownloadDocx === true`.
+
+---
+
+## How to Register a New Form Template (Step-by-Step)
+
+### Step 1: Create the `.docx` Template
+Create a Microsoft Word document. Place variables inside single curly braces `{}`.
+
+### Step 2: Store the File
+Place file in `src/lib/engines/docx/templates/FormXXIV_Template.docx`.
+
+### Step 3: Database Registry (`document_template`)
+```sql
+INSERT INTO document_template (id, template_code, template_name, storage_path)
+VALUES (gen_random_uuid(), 'FORM-XXIV', 'Land Acquisition Notice', 'FormXXIV_Template.docx');
+```
+
+### Step 4: Configure Dynamic Form Fields (`document_template_field`)
+```sql
+INSERT INTO document_template_field (id, template_code, field_key, label, field_type, is_required, display_order)
+VALUES 
+(gen_random_uuid(), 'FORM-XXIV', 'NoticeDate', 'Notice Date', 'date', true, 1);
+```
+
+### Step 5: Configure Permission Signature Routing (`document_template_signature`)
+```sql
+INSERT INTO document_template_signature 
+  (id, template_code, sig_permission, workflow_state, placeholders, is_required, display_order)
+VALUES 
+  (gen_random_uuid(), 'FORM-XXIV', 'form_xxiv.sign.land_cell_member', 'AreaVetted', '{"name":"LandCell_Name","date":"LandCell_Date"}'::jsonb, true, 1),
+  (gen_random_uuid(), 'FORM-XXIV', 'form_xxiv.sign.land_officer', 'AreaVetted', '{"name":"LandOfficer_Name","date":"LandOfficer_Date"}'::jsonb, true, 2);
+```
 
 ---
 
 ## API Endpoints Reference
 
-| Route | Method | Payload / Parameters | Description |
+| Route | Method | Access Guard / Permission | Description |
 | :--- | :--- | :--- | :--- |
-| `/api/document-engine/workspace` | `POST` | `{ templateCode, applicationId, extraData }` | Initializes workspace draft, returns fields, signatures, and user permissions |
-| `/api/document-engine/generate` | `POST` | `{ instanceId }` | Resolves fields, applies signatures, generates `.docx` buffer, saves file |
-| `/api/document-engine/sign` | `POST` | `{ instanceId, sig_permission, signatureText }` | Records signature entry in `signature_data_json` and auto-regenerates document |
-| `/api/document-engine/save-form` | `POST` | `{ instanceId, formData }` | Saves form data with `.passthrough()` Zod schema validation |
-
+| `/api/document-engine/workspace` | `POST` | `project.view` | Initializes workspace draft, returns fields, signatures, review data, and user permissions |
+| `/api/document-engine/generate` | `POST` | `document.generate` / `project.view` | Resolves fields, applies signatures, compiles `.docx` buffer |
+| `/api/document-engine/save-form` | `POST` | `document.edit` / `project.view` | Saves dynamic form fields; invalidates stale reviews on content change |
+| `/api/document-engine/review` | `POST` | `template_code.review` / `document.review` | Records `APPROVED` or `REVISION_REQUESTED` decision in `review_data_json` |
+| `/api/document-engine/sign` | `POST` | `document_template_signature.sig_permission` | Validates sequential step order & applies digital signature entry |
+| `/api/files/[fileId]/download?format=pdf` | `GET` | `project.view` | Streams watermarked PDF with verification QR code |
+| `/api/files/[fileId]/download` | `GET` | `document.download_docx` / `document.edit` | Streams raw editable `.docx` file (enforces HTTP 403 when unauthorized) |

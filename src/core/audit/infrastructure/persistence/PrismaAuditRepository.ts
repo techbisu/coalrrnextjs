@@ -4,9 +4,15 @@ import { ApplicationLog } from '../../domain/entities/ApplicationLog'
 import { PrismaClient } from '@prisma/client'
 
 // We use a raw PrismaClient here so we don't trigger the AuditExtension interceptor loop.
-// However, since it is a background queue worker doing the inserts, we could use db, 
-// but using a lightweight PrismaClient ensures strict decoupling for audit inserts.
-const prisma = new PrismaClient()
+const globalForRawPrisma = globalThis as unknown as {
+  rawPrisma: PrismaClient | undefined
+}
+
+const prisma = globalForRawPrisma.rawPrisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForRawPrisma.rawPrisma = prisma
+}
 
 export class PrismaAuditRepository implements IAuditRepository {
   

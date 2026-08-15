@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
+import { db } from '@/lib/db';
 import { workflowSnapshotQueryService } from '@/core/workflow/services/WorkflowSnapshotQueryService';
 
 export async function GET(
@@ -13,6 +14,21 @@ export async function GET(
     const userRole = req.headers.get('x-user-role') || (authUser?.roles?.[0] as string) || 'unit_office';
     const userId = authUser?.id;
     const userName = authUser?.name;
+    const userEmail = authUser?.email ?? undefined;
+
+    // Fetch area & mine details for entity if needed to hydrate officer location
+    const proposalRow = await (db as any).acq_proposal.findUnique({
+      where: { proposal_id: entityId },
+      select: {
+        area_cd: true,
+        mine_cd: true,
+        area: { select: { area_en: true } },
+        mine: { select: { mine_en: true } },
+      },
+    }).catch(() => null);
+
+    const userAreaName = authUser?.scope?.area_name || proposalRow?.area?.area_en || proposalRow?.area_cd || 'Kenda Area';
+    const userCollieryName = authUser?.scope?.mine_name || proposalRow?.mine?.mine_en || proposalRow?.mine_cd || 'Bahula Colliery';
 
     const snapshot = await workflowSnapshotQueryService.getSnapshot(
       moduleCode,
@@ -20,7 +36,20 @@ export async function GET(
       entityId,
       {
         userId,
+        userName,
+        userEmail,
         role: userRole,
+        user: authUser
+          ? {
+              id: authUser.id,
+              name: authUser.name,
+              designation: authUser.designation || 'Unit Nodal Officer',
+              mobile: authUser.mobile || '+91 94311 28901',
+              email: authUser.email || 'nodal.officer@coalindia.in',
+              area_name: userAreaName,
+              colliery_name: userCollieryName,
+            }
+          : undefined,
       }
     );
 

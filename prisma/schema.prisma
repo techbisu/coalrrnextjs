@@ -551,6 +551,7 @@ model document_instance {
   updt_ts                  DateTime          @default(now())
   entry_by                 String?
   updt_by                  String?
+  review_data_json         Json?
   document_template        document_template @relation(fields: [template_code], references: [template_code])
 
   @@schema("public")
@@ -1280,6 +1281,24 @@ model checklist_entity_context {
   @@schema("public")
 }
 
+model entity_flag {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_type String   @db.VarChar(64)
+  entity_id   String   @db.VarChar(64)
+  flag_code   String   @db.VarChar(80)
+  flag_value  Json
+  source      String?  @default("SYSTEM") @db.VarChar(50)
+  entry_ts    DateTime @default(now()) @db.Timestamptz(6)
+  updt_ts     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  entry_by    String?  @default("system") @db.VarChar(64)
+  updt_by     String?  @db.VarChar(64)
+
+  @@unique([entity_type, entity_id, flag_code], map: "uq_entity_flag")
+  @@index([entity_type, entity_id], map: "idx_entity_flag_entity")
+  @@index([flag_code], map: "idx_entity_flag_code")
+  @@schema("public")
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model acq_proposal {
   proposal_id                String          @id(map: "acq_proposal_pk") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1293,7 +1312,6 @@ model acq_proposal {
   pr_scheme_ref_no           String?         @db.VarChar(100)
   is_within_pr_limit         Boolean         @default(true)
   cmd_admin_approval_ref     String?         @db.VarChar(100)
-  requires_board_approval    Boolean         @default(false)
   total_land_cost_est        Decimal?        @db.Decimal(18, 2)
   total_rehab_cost_est       Decimal?        @db.Decimal(18, 2)
   total_employment_cost_est  Decimal?        @db.Decimal(18, 2)
@@ -1315,10 +1333,6 @@ model acq_proposal {
   rate_forest_land           Decimal?        @default(0) @db.Decimal(18, 2)
   employment_proposed_count  Int?            @default(0)
   employment_system          String?         @default("PACKAGE_DEAL") @db.VarChar(30)
-  has_debottar_land          Boolean?        @default(false)
-  has_tribal_land            Boolean?        @default(false)
-  has_formal_negotiation     Boolean?        @default(false)
-  is_disputed_land           Boolean?        @default(false)
   area                       area            @relation(fields: [area_cd], references: [area_cd], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_area")
   mine                       mine            @relation(fields: [mine_cd], references: [mine_cd], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_mine")
   acqu_mode                  acqu_mode       @relation(fields: [acq_mode_id], references: [acq_mode_id], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_mode")

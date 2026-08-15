@@ -93,6 +93,8 @@ export interface ScheduleDetail {
   total_area_acres: string
   notification_date: string | null
   mode_specific_checklist: string
+  /** True when the unit office has explicitly locked the plot schedule via the Lock button. */
+  plots_locked: boolean
   items: ScheduleItem[]
   entry_ts: string
   proposed_by: string

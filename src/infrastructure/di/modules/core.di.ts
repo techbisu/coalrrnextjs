@@ -21,7 +21,20 @@ import { PrismaProjectRepository } from '@/infrastructure/persistence/repositori
 import { ProposalChecklistResolver } from '@/core/proposal/checklist/ProposalChecklistResolver'
 import { PrismaAcqProposalRepository } from '@/infrastructure/persistence/repositories/PrismaAcqProposalRepository'
 import { ManualMilestoneService } from '@/core/workflow/services/ManualMilestoneService'
+import { PrismaEntityFlagRepository } from '@/core/flags/infrastructure/persistence/PrismaEntityFlagRepository'
+import { EntityFlagService } from '@/core/flags/services/EntityFlagService'
+import { FactResolver } from '@/core/flags/services/FactResolver'
+import { AcqLandScheduleFactAdapter } from '@/core/flags/adapters/AcqLandScheduleFactAdapter'
+import { ProjectFactAdapter } from '@/core/flags/adapters/ProjectFactAdapter'
+import { ConditionContextBuilder } from '@/core/flags/services/ConditionContextBuilder'
 import { db } from '@/lib/db'
+
+import { processRegistry } from '@/core/workflow/ProcessRegistry'
+import { processInstanceService } from '@/core/workflow/services/ProcessInstanceService'
+import { workflowTaskService } from '@/core/workflow/services/WorkflowTaskService'
+import { workflowBranchService } from '@/core/workflow/services/WorkflowBranchService'
+import { workflowReactionService } from '@/core/workflow/services/WorkflowReactionService'
+import { jobDispatcher as coreJobDispatcher } from '@/core/jobs/services/JobDispatcherService'
 
 const globalForCoreDI = globalThis as unknown as {
   getNomineePoolsUseCase: GetNomineePoolsUseCase | undefined
@@ -43,10 +56,19 @@ const notificationStorage = new PrismaNotificationStorage()
 // Initialize Global Configs
 NotificationConfig.initialize(notificationStorage)
 
+export const entityFlagRepository = new PrismaEntityFlagRepository()
+export const entityFlagService = new EntityFlagService(entityFlagRepository)
+
+export const factResolver = new FactResolver(entityFlagRepository)
+factResolver.registerAdapter(new AcqLandScheduleFactAdapter())
+factResolver.registerAdapter(new ProjectFactAdapter())
+
+export const conditionContextBuilder = new ConditionContextBuilder(factResolver)
+
 const checklistRegistry = globalForCoreDI.checklistRegistry ?? new ChecklistContextRegistry()
 
 checklistRegistry.register('PROJECT_MASTER', new ProjectChecklistResolver(new PrismaProjectRepository()))
-checklistRegistry.register(MODULE_CODES.LAND_SCHEDULE, new ProposalChecklistResolver(new PrismaAcqProposalRepository()))
+checklistRegistry.register(MODULE_CODES.LAND_SCHEDULE, new ProposalChecklistResolver(new PrismaAcqProposalRepository(), conditionContextBuilder))
 
 const checklistRepository = new PrismaChecklistRepository()
 const documentAdapter = new GeneratedDocumentChecklistAdapter(documentInstanceRepository, checklistRepository)
@@ -74,14 +96,6 @@ export const auditQueue = {
   }
 }
 
-import { processRegistry } from '@/core/workflow/ProcessRegistry'
-import { processInstanceService } from '@/core/workflow/services/ProcessInstanceService'
-import { workflowTaskService } from '@/core/workflow/services/WorkflowTaskService'
-import { workflowBranchService } from '@/core/workflow/services/WorkflowBranchService'
-import { workflowReactionService } from '@/core/workflow/services/WorkflowReactionService'
-
-import { jobDispatcher as coreJobDispatcher } from '@/core/jobs/services/JobDispatcherService'
-
 export const jobDispatcher = globalForCoreDI.jobDispatcher ?? coreJobDispatcher
 export const Container = {
   jobDispatcher,
@@ -93,6 +107,11 @@ export const Container = {
   workflowTaskService,
   workflowBranchService,
   workflowReactionService,
+  entityFlagRepository,
+  entityFlagService,
+  factResolver,
+  conditionContextBuilder,
+  auditQueue,
 }
 
 if (process.env.NODE_ENV !== 'production') {

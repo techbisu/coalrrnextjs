@@ -15,8 +15,8 @@ import { StateBadge, DEFAULT_STATE_META } from './StateBadge'
 export interface ReviewTaskView {
   role: string
   status: 'pending' | 'approved' | 'rejected'
-  decided_by?: string
-  decided_at?: string
+  decidedBy?: string
+  decidedAt?: string
   comment?: string
 }
 
@@ -33,16 +33,8 @@ export interface ApprovalPanelProps {
   reviewTasks?: ReviewTaskView[]
   availableTransitions: AvailableTransition[]
   actorRole?: string
-  isParallelBranch?: boolean
-  roleLabels?: Record<string, string>
-  onActorRoleChange?: (role: string) => void
   onAction?: (transitionName: string) => void
   className?: string
-}
-
-function formatRoleLabel(roleName?: string): string {
-  if (!roleName) return 'Officer'
-  return ROLE_LABELS[roleName] ?? roleName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -68,16 +60,12 @@ export function ApprovalPanel({
   reviewTasks = [],
   availableTransitions,
   actorRole,
-  isParallelBranch,
-  roleLabels = ROLE_LABELS,
-  onActorRoleChange,
   onAction,
   className,
 }: ApprovalPanelProps) {
   const meta = stateMeta ?? DEFAULT_STATE_META[currentState]
-  const isParallel = isParallelBranch ?? (reviewTasks.length > 1 || currentState.toLowerCase().includes('parallel'))
+  const isParallel = currentState === 'HqParallelVetting'
   const approvedCount = reviewTasks.filter((t) => t.status === 'approved').length
-  const allApproved = reviewTasks.length > 0 && approvedCount === reviewTasks.length
 
   const transitionButtonVariant = (t: AvailableTransition) => {
     if (t.label.toLowerCase().includes('reject')) return 'destructive'
@@ -89,7 +77,7 @@ export function ApprovalPanel({
     <Card className={cn('border-border/60 shadow-sm', className)}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base">Actor Role &amp; Approval Chain</CardTitle>
+          <CardTitle className="text-base">Approval Chain</CardTitle>
           <StateBadge state={currentState} meta={meta} size="md" />
         </div>
         {meta?.description && (
@@ -98,26 +86,12 @@ export function ApprovalPanel({
       </CardHeader>
 
       <CardContent className="space-y-4 pt-0">
-        <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs">
-          <span className="font-medium text-muted-foreground">Authenticated Role:</span>
-          {onActorRoleChange ? (
-            <div className="flex items-center gap-1.5">
-              <Badge variant="outline" className="font-semibold text-xs bg-background text-foreground">
-                {ROLE_LABELS[actorRole || 'unit_office'] ?? actorRole}
-              </Badge>
-            </div>
-          ) : (
-            <Badge variant="outline" className="font-semibold text-xs bg-background">
-              {ROLE_LABELS[actorRole || 'unit_office'] ?? actorRole}
-            </Badge>
-          )}
-        </div>
         {/* Parallel review fan-out */}
         {isParallel && reviewTasks.length > 0 && (
           <div className="rounded-lg border border-violet-200 bg-violet-50/50 p-3 dark:border-violet-900 dark:bg-violet-950/20">
             <div className="mb-2 flex items-center gap-2">
               <GitBranch className="h-4 w-4 text-violet-600" />
-              <span className="text-sm font-medium text-violet-900 dark:text-violet-200">Parallel Vetting — {approvedCount}/{reviewTasks.length} approved</span>
+              <span className="text-sm font-medium text-violet-900 dark:text-violet-200">Parallel Vetting &mdash; {approvedCount}/{reviewTasks.length} approved</span>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {reviewTasks.map((task) => {
@@ -132,12 +106,12 @@ export function ApprovalPanel({
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium">{ROLE_LABELS[task.role] ?? task.role}</span>
                       </div>
-                      {task.decided_by && (
+                      {task.decidedBy && (
                         <p className="text-[11px] text-muted-foreground">
-                          by {task.decided_by}{task.decided_at ? ` · ${task.decided_at}` : ''}
+                          by {task.decidedBy}{task.decidedAt ? ` &bull; ${task.decidedAt}` : ''}
                         </p>
                       )}
-                      {task.comment && <p className="mt-0.5 text-[11px] italic text-muted-foreground">"{task.comment}"</p>}
+                      {task.comment && <p className="mt-0.5 text-[11px] italic text-muted-foreground">&ldquo;{task.comment}&rdquo;</p>}
                     </div>
                   </div>
                 )
@@ -169,67 +143,49 @@ export function ApprovalPanel({
 
         <Separator />
 
-        {/* Action buttons — Sequential Display & Prerequisite Enforcement */}
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Available Stage Actions</p>
-            {availableTransitions.length > 0 && (
-              <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
-                {availableTransitions.length} {availableTransitions.length === 1 ? 'Action' : 'Sequential Actions'}
-              </Badge>
-            )}
-          </div>
-
+        {/* Action buttons */}
+        <div className="space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Available Actions</p>
           {availableTransitions.length === 0 ? (
             <div className="flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
               <Lock className="h-3.5 w-3.5" />
               No transitions available from this state (terminal or awaiting upstream action).
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              {availableTransitions.map((t, idx) => {
+            <div className="flex flex-wrap gap-2">
+              {availableTransitions.map((t) => {
                 const roleMatches = !actorRole || t.role === actorRole
                 const blocked = !!t.guardFailed
                 const disabled = !roleMatches || blocked
                 const variant = transitionButtonVariant(t)
-                const itemKey = `${t.name}-${t.role || 'role'}-${idx}`
-
                 const button = (
                   <Button
-                    key={itemKey}
+                    key={t.name}
                     onClick={() => !disabled && onAction?.(t.name)}
                     disabled={disabled}
                     variant={variant}
                     size="sm"
                     className={cn(
-                      "w-full justify-between h-auto py-2.5 px-3 text-xs font-medium transition-all shadow-sm",
-                      variant === 'default' && !blocked && 'bg-emerald-600 hover:bg-emerald-700 text-white font-semibold',
-                      variant === 'outline' && 'border-amber-400 text-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950',
-                      disabled && "opacity-60 cursor-not-allowed bg-slate-100 text-slate-500 border-slate-200"
+                      variant === 'default' && !blocked && 'bg-emerald-600 hover:bg-emerald-700',
+                      variant === 'outline' && 'border-amber-400 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950',
                     )}
                   >
-                    <span className="flex items-center gap-2 truncate">
-                      <span className="w-5 h-5 rounded-full bg-slate-200/80 text-slate-700 font-mono text-[10px] flex items-center justify-center font-bold shrink-0">
-                        {idx + 1}
-                      </span>
-                      <span className="truncate">{t.label}</span>
-                    </span>
-                    <ArrowRight className="h-3.5 w-3.5 shrink-0 ml-1" />
+                    {t.label}
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 )
-
                 if (disabled) {
                   return (
-                    <TooltipProvider key={itemKey} delayDuration={150}>
+                    <TooltipProvider key={t.name} delayDuration={150}>
                       <Tooltip>
-                        <TooltipTrigger asChild><div>{button}</div></TooltipTrigger>
+                        <TooltipTrigger asChild><span>{button}</span></TooltipTrigger>
                         <TooltipContent side="bottom" className="max-w-xs">
                           {blocked ? (
                             <>
                               <p className="flex items-center gap-1.5 font-medium text-rose-600">
-                                <ShieldAlert className="h-3.5 w-3.5" /> Prerequisite Incomplete
+                                <ShieldAlert className="h-3.5 w-3.5" /> Guard failed
                               </p>
-                              <p className="mt-1 text-xs text-slate-200">{t.guardFailed!.reason}</p>
+                              <p className="mt-1 text-xs">{t.guardFailed!.reason}</p>
                             </>
                           ) : (
                             <p className="text-xs">Requires role: <span className="font-medium">{ROLE_LABELS[t.role] ?? t.role}</span></p>
@@ -239,7 +195,6 @@ export function ApprovalPanel({
                     </TooltipProvider>
                   )
                 }
-
                 return button
               })}
             </div>

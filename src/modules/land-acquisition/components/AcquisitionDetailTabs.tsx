@@ -6,10 +6,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { Can } from '@/authorization/components/Can'
 import {
-  SectionCard, DataTable, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline, ActionJustificationDialog, PartialAreaInputDialog, ProcessActionCenter, UnifiedWorkflowTimeline, WorkflowTimelineFeed, WorkflowActionBar, WorkflowActionDialog
+  SectionCard, DataTable, StateBadge, SmartChecklist, ApprovalPanel, StatusTimeline, WorkflowActionCommandCenter, PartialAreaInputDialog, ProcessActionCenter, UnifiedWorkflowTimeline, WorkflowTimelineFeed, WorkflowActionBar
 } from '@/shared/components/coalrr'
 import { useWorkflowSnapshot } from '@/shared/hooks/useWorkflowSnapshot'
-import { MODULE_CODES, CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
+import { MODULE_CODES, CHECKABLE_ENTITY_TYPES, resolveWorkflowCode } from '@/core/config/module-codes.config'
 import type { WorkflowTransitionOption } from '@/core/workflow/types/snapshot.types'
 
 import { ProposalOverviewSection } from './sections/ProposalOverviewSection'
@@ -17,6 +17,7 @@ import { ProposalMetaBreakdownCard } from './sections/ProposalMetaBreakdownCard'
 import type {
   Column, AvailableTransition, TimelineNode, ChecklistItem, ChecklistItemStatus, StageStep,
 } from '@/shared/components/coalrr'
+import { cn } from '@/lib/utils'
 import { formatNumber, timeAgo,  } from '@/lib/utils/formatters'
 import { useUiState } from '@/providers/UiStateProvider'
 import { useAuth } from '@/authorization/providers/AuthProvider'
@@ -34,6 +35,7 @@ import {
 } from '@/shared/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,6 +73,8 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
   const router = useRouter()
   const { user } = useAuth()
   const [activeTab, setActiveTab] = React.useState<'checklist' | 'plots' | 'milestones'>('checklist')
+  const [selectedTransition, setSelectedTransition] = React.useState<WorkflowTransitionOption | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
 
   const mapUserRole = (rawRole?: string) => {
     if (!rawRole) return 'unit_office'
@@ -93,6 +97,20 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
     actorRole
   )
 
+  const modeId = (schedule as any).acq_mode_id ? Number((schedule as any).acq_mode_id) : undefined
+  const workflowCode = resolveWorkflowCode(MODULE_CODES.LAND_SCHEDULE, modeId)
+
+  const { data: dbStatesData } = useQuery({
+    queryKey: ['workflow-states', workflowCode],
+    queryFn: async () => {
+      const res = await fetch(`/api/workflow/states?workflowCode=${workflowCode}`)
+      if (!res.ok) return []
+      const json = await res.json()
+      return (json.states || []) as Array<{ state_code: string; label: string; step_order: number; is_terminal: boolean }>
+    },
+    enabled: Boolean(workflowCode),
+  })
+
   const handleProcessUpdated = () => {
     qc.invalidateQueries({ queryKey: ['schedules'] })
     qc.invalidateQueries({ queryKey: ['schedule', schedule.id] })
@@ -103,31 +121,51 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
     router.refresh()
   }
 
-  // Dynamic stage progress steps from workflow snapshot
-  const stages: StageStep[] = snapshot?.assignments && snapshot.assignments.length > 0
-    ? snapshot.assignments.map(a => ({
+  // Fully DB-configured dynamic stage progress steps for active acquisition mode
+  const currentStateCode = snapshot?.currentState?.stateCode || schedule.state || 'Drafting'
+  const currentStepOrder = dbStatesData?.find((s) => s.state_code === currentStateCode)?.step_order ?? 1
+
+  const stages: StageStep[] = (dbStatesData && dbStatesData.length > 0)
+    ? dbStatesData.map((s) => ({
+        code: s.state_code,
+        label: s.label,
+        status: s.state_code === currentStateCode
+          ? 'current'
+          : s.step_order < currentStepOrder
+          ? 'done'
+          : 'pending',
+        order: s.step_order,
+      }))
+    : snapshot?.assignments && snapshot.assignments.length > 0
+    ? snapshot.assignments.map((a) => ({
         code: a.id.replace('assignment-', ''),
         label: a.stageName,
-        status: a.status === 'CURRENT' ? 'current' : a.status === 'COMPLETED' ? 'done' : 'pending'
+        status: a.status === 'CURRENT' ? 'current' : a.status === 'COMPLETED' ? 'done' : 'pending',
       }))
-    : [
-        { code: 'Drafting', label: 'Drafting', status: schedule.state === 'Drafting' ? 'current' : 'done' },
-        { code: 'UnitSubmitted', label: 'Unit Office', status: schedule.state === 'UnitSubmitted' ? 'current' : (schedule.state === 'Drafting' ? 'pending' : 'done') },
-        { code: 'AreaVetting', label: 'Area Office', status: schedule.state === 'AreaVetting' ? 'current' : (['Drafting', 'UnitSubmitted'].includes(schedule.state) ? 'pending' : 'done') },
-        { code: 'HqParallelVetting', label: 'HQ Parallel', status: schedule.state === 'HqParallelVetting' ? 'current' : (['Drafting', 'UnitSubmitted', 'AreaVetting'].includes(schedule.state) ? 'pending' : 'done') },
-        { code: 'GmLreReview', label: 'GM (LRE)', status: schedule.state === 'GmLreReview' ? 'current' : (['Published'].includes(schedule.state) ? 'done' : 'pending') },
-        { code: 'Published', label: 'Published', status: schedule.state === 'Published' ? 'done' : 'pending' },
-      ];
+    : []
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column (8 cols): Unified Timeline Feed & Main Workspace Tabs */}
         <div className="lg:col-span-8 space-y-6">
-          <UnifiedWorkflowTimeline
+          <WorkflowTimelineFeed
             moduleCode={MODULE_CODES.LAND_SCHEDULE}
+            entityType={CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE}
             entityId={schedule.id}
-            stages={stages}
+            userRole={actorRole}
+            onExecuteAction={(action) => {
+              const isPlot = action.code === 'ADD_PLOT_SCHEDULE'
+              const isChecklist = action.code === 'INITIAL_CHECKLIST'
+              const targetTab: 'checklist' | 'plots' | 'milestones' = (action.metadata?.targetTab as any) || (isPlot ? 'plots' : 'checklist')
+              setActiveTab(targetTab)
+            }}
+            onRecordMilestone={() => setActiveTab('milestones')}
+            onSignDocument={() => setActiveTab('checklist')}
+            onExecuteTransition={(t) => {
+              setSelectedTransition(t)
+              setIsDialogOpen(true)
+            }}
           />
 
           <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="w-full">
@@ -159,11 +197,22 @@ export function AcquisitionDetailTabs({ schedule }: { schedule: ScheduleDetail }
             snapshot={snapshot}
             onSelectTab={(tab) => setActiveTab(tab)}
             onActionTriggered={handleProcessUpdated}
+            onSelectTransition={(t) => {
+              setSelectedTransition(t)
+              setIsDialogOpen(true)
+            }}
           />
           <ProposalMetaBreakdownCard schedule={schedule} />
           <LimitsTab schedule={schedule} />
         </div>
       </div>
+
+      <WorkflowActionCommandCenter
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        proposalId={schedule.id}
+        transition={selectedTransition as any}
+      />
     </div>
   )
 }
@@ -173,17 +222,22 @@ function PendingActionBanner({
   actorRole,
   snapshot,
   onSelectTab,
-  onActionTriggered
+  onActionTriggered,
+  onSelectTransition,
 }: {
   schedule: ScheduleDetail;
   actorRole: string;
   snapshot?: any;
   onSelectTab: (tab: 'checklist' | 'plots' | 'milestones') => void;
   onActionTriggered?: () => void;
+  onSelectTransition?: (transition: WorkflowTransitionOption) => void;
 }) {
   const qc = useQueryClient()
   const pendingActions = snapshot?.currentAssignment?.pendingActions || []
   const availableTransitions = snapshot?.availableTransitions || []
+
+  const incompletePendingCount = pendingActions.filter((p: any) => p.status !== 'COMPLETED').length
+  const isAllPendingWorkCompleted = incompletePendingCount === 0
 
   const [selectedTransition, setSelectedTransition] = React.useState<WorkflowTransitionOption | null>(null)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
@@ -236,94 +290,93 @@ function PendingActionBanner({
   })
 
   return (
-    <SectionCard title="My Pending Actions" icon={ShieldCheck} description="Required tasks for your role in the active stage">
+    <SectionCard title="My Pending Actions" icon={ShieldCheck} description="State transition actions for your active role">
       <div className="space-y-4">
-        {/* Dynamic Pending Action Stack */}
-        {pendingActions.length === 0 ? (
-          <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-            <span>All stage prerequisites complete! You may proceed with available state transitions.</span>
+        {/* Status Summary Banner */}
+        {!isAllPendingWorkCompleted ? (
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200/90 dark:bg-amber-950/30 dark:border-amber-900 space-y-1.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-200">
+              <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Pending Tasks Incomplete ({incompletePendingCount} Remaining)</span>
+            </div>
+            <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+              You must complete all mandatory checklist rules and plot schedule locks before state transition actions become available.
+            </p>
           </div>
         ) : (
-          <div className="space-y-2.5">
-            {pendingActions.map((action: any) => {
-              const isPlot = action.code === 'ADD_PLOT_SCHEDULE';
-              const isChecklist = action.code === 'INITIAL_CHECKLIST';
-              const targetTab = action.metadata?.targetTab || (isPlot ? 'plots' : 'checklist');
-
-              return (
-                <div
-                  key={action.id}
-                  className="flex items-start justify-between p-3 rounded-lg border border-border/80 bg-card hover:bg-muted/40 transition-colors gap-3"
-                >
-                  <div className="space-y-0.5 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-xs text-foreground truncate">{action.label}</span>
-                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-amber-50 text-amber-800 border-amber-300">
-                        {action.type || 'PENDING'}
-                      </Badge>
-                    </div>
-                    {action.description && (
-                      <p className="text-[11px] text-muted-foreground line-clamp-1">{action.description}</p>
-                    )}
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs px-2.5 shrink-0 bg-primary/5 hover:bg-primary/10 text-primary border-primary/20"
-                    onClick={() => onSelectTab(targetTab)}
-                  >
-                    {isPlot ? 'Add Plots' : isChecklist ? 'View Rules' : 'Open Workspace'}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Transition Actions */}
-        {availableTransitions.length > 0 && (
-          <div className="pt-3 border-t border-border space-y-2">
-            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Available Transitions</div>
-            <div className="flex flex-wrap gap-2">
-              {availableTransitions.map((t: WorkflowTransitionOption) => (
-                <Button
-                  key={t.transitionId || t.name}
-                  size="sm"
-                  className="text-xs font-semibold"
-                  disabled={verify.isPending}
-                  onClick={() => {
-                    setSelectedTransition(t)
-                    setIsDialogOpen(true)
-                  }}
-                >
-                  {t.name}
-                </Button>
-              ))}
+          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 dark:bg-emerald-950/30 dark:border-emerald-900 space-y-1">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-900 dark:text-emerald-200">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+              <span>All Stage Tasks Completed (100%)</span>
             </div>
+            <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
+              Prerequisites met. Select a transition action below to advance or return the proposal.
+            </p>
           </div>
         )}
-      </div>
 
-      <ActionJustificationDialog
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        actionName={selectedTransition?.name || ''}
-        actionLabel={selectedTransition?.name || ''}
-        isReturn={selectedTransition?.name.includes('return') || selectedTransition?.name.includes('reject')}
-        onSubmit={async ({ comments, targetRecipient, targetRecipientId, file }) => {
-          if (selectedTransition) {
-            const finalRemarks = targetRecipient ? `${targetRecipient}. ${comments}`.trim() : comments
-            await verify.mutateAsync({
-              transitionName: selectedTransition.name,
-              comments: finalRemarks,
-              file,
-              targetRecipientId,
-            })
-          }
-        }}
-      />
+        {/* Transition Action Buttons */}
+        <div className="space-y-2 pt-1">
+          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Available Workflow Transitions
+          </div>
+
+          {availableTransitions.length === 0 ? (
+            <div className="p-3 rounded-lg bg-muted/40 text-xs text-muted-foreground italic flex items-center gap-2">
+              <Lock className="h-3.5 w-3.5" />
+              No transitions available from this state.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {availableTransitions.map((t: WorkflowTransitionOption) => {
+                const isReturn = t.name.toLowerCase().includes('return') || t.name.toLowerCase().includes('reject');
+
+                const btn = (
+                  <Button
+                    key={t.transitionId || t.name}
+                    size="sm"
+                    disabled={!isAllPendingWorkCompleted}
+                    className={cn(
+                      'w-full justify-between h-9 px-3.5 text-xs font-semibold shadow-xs transition-all',
+                      isReturn
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white',
+                      !isAllPendingWorkCompleted && 'opacity-60 cursor-not-allowed bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-400'
+                    )}
+                    onClick={() => isAllPendingWorkCompleted && onSelectTransition && onSelectTransition(t)}
+                  >
+                    <span>{t.name}</span>
+                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                  </Button>
+                );
+
+                if (!isAllPendingWorkCompleted) {
+                  return (
+                    <TooltipProvider key={t.transitionId || t.name} delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>{btn}</div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" sideOffset={6} className="text-xs max-w-xs font-medium bg-slate-900 text-slate-100 border border-slate-800 shadow-2xl p-3 rounded-lg">
+                          <div className="flex items-center gap-1.5 font-bold text-amber-400">
+                            <Lock className="w-3.5 h-3.5 text-amber-400" />
+                            Complete your pending work first
+                          </div>
+                          <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                            Complete all {incompletePendingCount} remaining pending task(s) in the timeline before executing this action.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                }
+
+                return btn;
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </SectionCard>
   )
 }
@@ -356,13 +409,14 @@ function PlotsTab({
   const { user } = useAuth()
   const normalizedState = getNormalizedState(schedule.state)
   const isDrafting = normalizedState === 'Drafting'
+  const isLocked = schedule.plots_locked
   
   // Logic: Users cannot edit while verification is running.
   // Exception: Area GM can edit/delete disputed plots when the workflow is frozen by a grievance/overlap.
   // For this prototype, we'll assume the presence of grievances means frozen.
   const hasGrievances = (schedule as any).grievances?.some((g: any) => !g.resolution)
   const isAGM = user?.roles.includes('area_gm')
-  const canEdit = isDrafting || (hasGrievances && isAGM)
+  const canEdit = (isDrafting && !isLocked) || (hasGrievances && isAGM)
 
   const [addOpen, setAddOpen] = React.useState(false)
   const [editPlotId, setEditPlotId] = React.useState<string | null>(null)
@@ -381,6 +435,22 @@ function PlotsTab({
       onChanged()
     },
     onError: (e: Error) => toast.error(e.message),
+  })
+
+  const lockSchedule = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`/api/proposals/${schedule.id}/plots/lock`, { method: 'POST' })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error ?? 'Failed to lock schedule')
+      return data
+    },
+    onSuccess: () => {
+      toast.success('Plot schedule locked', {
+        description: 'The plot schedule has been finalised and is now part of the workflow record.',
+      })
+      onChanged()
+    },
+    onError: (e: Error) => toast.error('Lock failed', { description: e.message }),
   })
 
   const updateStatus = useMutation({
@@ -604,21 +674,83 @@ function PlotsTab({
           <div>
             <h3 className="text-sm font-semibold flex items-center gap-2"><Layers className="h-4 w-4 text-sky-600 dark:text-sky-400" /> Schedule Items (Plots)</h3>
             <p className="text-xs text-muted-foreground mt-1">
-              {isDrafting
-                ? `${schedule.items.length} plot(s) · total ${formatNumber(schedule.total_area_acres, 4)} acres`
+              {isDrafting && !isLocked
+                ? `${schedule.items.length} plot(s) · total ${formatNumber(schedule.total_area_acres, 4)} acres · add all plots then lock to proceed`
+                : isLocked
+                ? `Schedule locked — ${schedule.items.length} plot(s) · ${formatNumber(schedule.total_area_acres, 4)} acres`
                 : `Schedule locked in ${schedule.state} — plots cannot be added or removed`}
             </p>
           </div>
-          <PlotScheduleManager 
-            proposalId={schedule.id} 
-            isDrafting={isDrafting} 
-            projectStateLgd={schedule.project_state_lgd}
-            projectMouzas={schedule.projectMouzas}
-            editPlotId={editPlotId}
-            setEditPlotId={setEditPlotId}
-            onChanged={onChanged} 
-          />
+          <div className="flex items-center gap-2">
+            {isDrafting && !isLocked && schedule.items.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700 dark:hover:bg-amber-950/60"
+                    disabled={lockSchedule.isPending}
+                  >
+                    {lockSchedule.isPending
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Lock className="h-3.5 w-3.5" />}
+                    Lock Plot Schedule
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-amber-600" />
+                      Lock Plot Schedule?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-2">
+                      <p>
+                        You are about to lock the plot schedule for proposal{' '}
+                        <strong>{schedule.schedule_code}</strong> with{' '}
+                        <strong>{schedule.items.length} plot(s)</strong> totalling{' '}
+                        <strong>{formatNumber(schedule.total_area_acres, 4)} acres</strong>.
+                      </p>
+                      <p className="text-amber-700 dark:text-amber-400 font-medium">
+                        ⚠ Once locked, no plots can be added or removed. This action marks the
+                        Plot Schedule step as complete in the workflow timeline.
+                      </p>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => lockSchedule.mutate()}
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      <Lock className="h-4 w-4 mr-1.5" />
+                      Confirm Lock
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <PlotScheduleManager 
+              proposalId={schedule.id} 
+              isDrafting={isDrafting && !isLocked} 
+              projectStateLgd={schedule.project_state_lgd}
+              projectMouzas={schedule.projectMouzas}
+              editPlotId={editPlotId}
+              setEditPlotId={setEditPlotId}
+              onChanged={onChanged} 
+            />
+          </div>
         </div>
+
+        {/* Locked banner */}
+        {isLocked && (
+          <div className="flex items-center gap-2.5 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300">
+            <Lock className="h-4 w-4 shrink-0 text-emerald-600" />
+            <div>
+              <span className="font-semibold">Plot Schedule Locked</span>
+              <span className="ml-1 text-muted-foreground">— {schedule.items.length} plot(s) · {formatNumber(schedule.total_area_acres, 4)} acres. This step is marked complete in the workflow timeline.</span>
+            </div>
+          </div>
+        )}
 
         <DataTable
           columns={columns}

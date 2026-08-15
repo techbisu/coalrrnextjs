@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Clock, CheckCircle2, Circle, ArrowRight, Paperclip, Download, MessageSquare,
-  GitBranch, User, MapPin, Building2, Phone, Mail, ChevronDown, ChevronUp, History, Sparkles, Check
+  GitBranch, User, MapPin, Building2, Phone, Mail, ChevronDown, ChevronUp, History, Sparkles, Check, Lightbulb, AlertTriangle
 } from 'lucide-react'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
@@ -14,6 +14,9 @@ import { Avatar, AvatarFallback } from '@/shared/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover'
 import { cn } from '@/lib/utils'
+
+import { useWorkflowSnapshot } from '@/shared/hooks/useWorkflowSnapshot'
+import { CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
 
 export interface StageStep {
   code: string
@@ -25,10 +28,14 @@ export interface StageStep {
 export interface UnifiedWorkflowTimelineProps {
   moduleCode: string
   entityId: string
+  entityType?: string
+  userRole?: string
   stages?: StageStep[]
   maxHeight?: number | string
   defaultOpen?: boolean
   className?: string
+  onExecuteTransition?: (transition: any) => void
+  onSelectTab?: (tab: 'checklist' | 'plots' | 'milestones') => void
 }
 
 export interface WorkflowHistoryItem {
@@ -67,14 +74,23 @@ export interface ParallelReviewTask {
   entry_ts: string
 }
 
-function formatDateTimeLabel(dateStr: string): string {
+function formatDateHeader(dateStr?: string | Date): string {
+  if (!dateStr) return 'Current Active Stage'
   try {
     const d = new Date(dateStr)
-    const dateFormatted = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-    const timeFormatted = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
-    return `${dateFormatted}, ${timeFormatted}`
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   } catch {
-    return dateStr
+    return String(dateStr)
+  }
+}
+
+function formatTimeLabel(dateStr?: string | Date): string {
+  if (!dateStr) return ''
+  try {
+    const d = new Date(dateStr)
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+  } catch {
+    return ''
   }
 }
 
@@ -92,12 +108,23 @@ function getInitials(name?: string): string {
 export function UnifiedWorkflowTimeline({
   moduleCode,
   entityId,
+  entityType = CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
+  userRole = 'unit_office',
   stages = [],
-  maxHeight = 550,
+  maxHeight = 650,
   defaultOpen = true,
   className = '',
+  onExecuteTransition,
+  onSelectTab,
 }: UnifiedWorkflowTimelineProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  const { data: snapshot } = useWorkflowSnapshot(
+    moduleCode,
+    entityType,
+    entityId,
+    userRole
+  )
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['workflow', 'history', moduleCode, entityId],
@@ -133,13 +160,25 @@ export function UnifiedWorkflowTimeline({
   const { history = [], parallelTasks = [] } = data
   const currentIndex = Math.max(stages.findIndex((s) => s.status === 'current'), 0)
   const currentStageObj = stages[currentIndex]
+  const pendingActions = snapshot?.currentAssignment?.pendingActions || []
+  const availableTransitions = snapshot?.availableTransitions || []
+
+  // Group history items by date
+  const groupedHistory = history.reduce((acc, item) => {
+    const header = formatDateHeader(item.entry_ts)
+    if (!acc[header]) acc[header] = []
+    acc[header].push(item)
+    return acc
+  }, {} as Record<string, WorkflowHistoryItem[]>)
+
+  const currentDateHeader = formatDateHeader(new Date())
 
   return (
     <div className={cn('rounded-xl border border-border/80 bg-card shadow-sm transition-all duration-200 overflow-hidden', className)}>
-      {/* Header Bar with Collapsible Toggle */}
+      {/* Header Bar */}
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between p-3.5 bg-muted/20 hover:bg-muted/30 cursor-pointer transition-colors select-none border-b border-border/60"
+        className="flex items-center justify-between p-3.5 bg-slate-50/70 hover:bg-slate-100/80 dark:bg-slate-900/60 dark:hover:bg-slate-900 cursor-pointer transition-colors select-none border-b border-border/60"
       >
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
@@ -147,13 +186,13 @@ export function UnifiedWorkflowTimeline({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold text-foreground truncate">Workflow Stage Progress &amp; Audit Feed</span>
+              <span className="text-sm font-bold text-foreground truncate">Workflow Stage Progress &amp; Audit Timeline</span>
               <Badge variant="outline" className="text-[10px] font-mono bg-background">
                 {moduleCode}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground truncate">
-              {history.length} Action Event{history.length === 1 ? '' : 's'} Recorded
+              {history.length} Completed Action Event{history.length === 1 ? '' : 's'} &bull; {pendingActions.length} Pending Action{pendingActions.length === 1 ? '' : 's'}
             </p>
           </div>
         </div>
@@ -165,7 +204,7 @@ export function UnifiedWorkflowTimeline({
       </div>
 
       {isOpen && (
-        <div className="p-4 space-y-5 animate-in fade-in-50 duration-200" style={{ maxHeight, overflowY: 'auto' }}>
+        <div className="p-4 space-y-6 animate-in fade-in-50 duration-200" style={{ maxHeight, overflowY: 'auto' }}>
           {/* Executive Pipeline Stage Stepper Track */}
           {stages.length > 0 && (
             <div className="p-4 rounded-xl border border-border/80 bg-gradient-to-br from-card via-muted/10 to-card shadow-xs space-y-4">
@@ -179,9 +218,8 @@ export function UnifiedWorkflowTimeline({
                 </Badge>
               </div>
 
-              {/* Numbered Stepper Track with Connected Progress Bar */}
+              {/* Numbered Stepper Track */}
               <div className="relative flex items-center justify-between px-2 pt-1 pb-2">
-                {/* Background Connecting Line */}
                 <div className="absolute left-6 right-6 top-4 h-1 bg-muted rounded-full -z-0" />
                 <div
                   className="absolute left-6 top-4 h-1 bg-gradient-to-r from-emerald-500 to-sky-500 rounded-full transition-all duration-500 -z-0"
@@ -252,157 +290,236 @@ export function UnifiedWorkflowTimeline({
             </div>
           )}
 
-          {/* Unified Timeline Action Feed */}
-          {history.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/80 p-8 text-center bg-muted/10 space-y-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-sky-600 mx-auto dark:bg-sky-950 dark:text-sky-300">
-                <History className="h-5 w-5" />
+          {/* Clean Executive Vertical Timeline */}
+          <div className="space-y-8">
+            {/* CURRENT ACTIVE STAGE NODE */}
+            <div className="space-y-3">
+              {/* Date Header */}
+              <div className="flex items-center gap-2 text-xs font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider font-mono">
+                <Clock className="w-3.5 h-3.5 text-sky-600" />
+                <span>{currentDateHeader}</span>
+                <span className="text-muted-foreground text-[10px]">&bull; Active Stage</span>
               </div>
-              <p className="text-xs font-semibold text-foreground">No Action History Recorded Yet</p>
-              <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
-                Initial proposal drafting is in progress. As actions, recommendations, and statutory clearances are completed, they will appear here chronologically.
-              </p>
-            </div>
-          ) : (
-            <div className="relative pl-7 space-y-5 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-border/60">
-              {history.map((item) => {
-                const actorName = item.user?.name || item.user_name_label || 'Authorized Officer'
-                const actorDesignation = item.user?.designation || item.user_role_label || 'Officer'
-                const formattedTime = formatDateTimeLabel(item.entry_ts)
-                const isReturn = item.action.toLowerCase().includes('return') || item.action.toLowerCase().includes('reject')
-                const initials = getInitials(actorName)
 
-                return (
-                  <div key={item.wah_id} className="relative group animate-in fade-in-50 duration-300">
-                    {/* Interactive User Avatar Popover Tooltip */}
-                    <div className="absolute -left-[29px] top-0 shrink-0">
-                      <Popover>
-                        <TooltipProvider delayDuration={150}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <PopoverTrigger asChild>
-                                <button className="focus:outline-none ring-offset-background transition-transform active:scale-95 cursor-pointer">
-                                  <Avatar className="h-6 w-6 border-2 border-background shadow-xs ring-1 ring-border">
-                                    <AvatarFallback className="text-[10px] font-bold bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200">
-                                      {initials}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                </button>
-                              </PopoverTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="text-xs">
-                              Click to view {actorName} details
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+              <div className="relative pl-6 space-y-3 before:absolute before:left-2 before:top-2 before:bottom-0 before:w-0.5 before:bg-sky-300 dark:before:bg-sky-800">
+                <div className="absolute -left-[3px] top-1.5 w-3 h-3 rounded-full bg-sky-600 ring-4 ring-sky-100 dark:ring-sky-950" />
 
-                        <PopoverContent side="right" className="w-72 p-3 text-xs space-y-2 border border-border shadow-xl">
-                          <div className="flex items-center gap-2 border-b pb-2">
-                            <Avatar className="h-9 w-9">
-                              <AvatarFallback className="text-xs font-bold bg-sky-600 text-white">
-                                {initials}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-bold text-foreground text-sm leading-tight">{actorName}</p>
-                              <p className="text-muted-foreground text-[11px] font-medium">{actorDesignation}</p>
-                            </div>
-                          </div>
+                {/* Stage Title & Description */}
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-extrabold text-foreground">
+                      Stage {currentIndex + 1}: {currentStageObj?.label || 'Active Stage'}
+                    </span>
+                    <Badge variant="default" className="bg-sky-600 text-white text-[10px] uppercase font-bold px-2 py-0.5">
+                      Current Stage
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Initial proposal drafting, title clearance verification, and compliance assembly in progress.
+                  </p>
+                </div>
 
-                          <div className="space-y-1.5 text-muted-foreground pt-1">
-                            <div className="flex items-center gap-2">
-                              <Building2 className="h-3.5 w-3.5 shrink-0 text-sky-600" />
-                              <span>Area Office: <strong className="text-foreground">{item.user?.area_name || 'ECL HQ / Area Office'}</strong></span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                              <span>Mine / Unit: <strong className="text-foreground">{item.user?.colliery_name || 'Colliery Office'}</strong></span>
-                            </div>
-                            {item.user?.mobile && (
-                              <div className="flex items-center gap-2">
-                                <Phone className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                                <span>Mobile: <strong className="text-foreground">{item.user.mobile}</strong></span>
-                              </div>
-                            )}
-                            {item.user?.email && (
-                              <div className="flex items-center gap-2">
-                                <Mail className="h-3.5 w-3.5 shrink-0 text-violet-600" />
-                                <span className="truncate">{item.user.email}</span>
-                              </div>
-                            )}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                {/* Assigned Official Profile */}
+                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 dark:bg-slate-900/80 dark:border-slate-800 text-xs flex items-center gap-2.5">
+                  <Avatar className="h-7 w-7 border border-sky-300">
+                    <AvatarFallback className="text-[10px] font-bold bg-sky-600 text-white">
+                      OFF
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <span className="text-muted-foreground">Assigned Official / Role: </span>
+                    <span className="font-semibold text-foreground">Unit Surveyor / Initiating Unit ({userRole})</span>
+                  </div>
+                </div>
+
+                {/* Simple Pending / Completed Work List */}
+                <div className="space-y-2 pt-1">
+                  <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Pending Work &amp; Action Items ({pendingActions.length})</span>
+                  </div>
+
+                  {pendingActions.length === 0 ? (
+                    <div className="p-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>All active stage prerequisites complete! You may execute available workflow transitions.</span>
                     </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {pendingActions.map((pending: any) => {
+                        const isPlot = pending.code === 'ADD_PLOT_SCHEDULE'
+                        const isChecklist = pending.code === 'INITIAL_CHECKLIST'
+                        const targetTab = pending.metadata?.targetTab || (isPlot ? 'plots' : 'checklist')
+                        const isDone = pending.status === 'COMPLETED'
 
-                    {/* Main Action Feed Details */}
-                    <div className="space-y-1.5 text-xs bg-card p-3 rounded-lg border border-border/60 hover:border-border transition-all">
-                      <div className="flex items-center justify-between flex-wrap gap-1">
-                        <div className="flex items-center gap-1.5 font-medium text-foreground">
-                          <span className="font-semibold">{actorName}</span>
-                          <span className="text-muted-foreground">({actorDesignation})</span>
-                        </div>
-                        <span className="text-[11px] text-muted-foreground font-mono">{formattedTime}</span>
-                      </div>
-
-                      {/* Action Pill & Transition Badge */}
-                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
-                          isReturn
-                            ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
-                            : 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300'
-                        }`}>
-                          {item.action.replace(/_/g, ' ')}
-                        </span>
-
-                        {item.from_state && item.to_state && (
-                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/40 px-2 py-0.5 rounded border border-border">
-                            <span>{item.from_state}</span>
-                            <ArrowRight className="w-3 h-3 text-muted-foreground" />
-                            <span className="font-semibold text-foreground">{item.to_state}</span>
-                          </div>
-                        )}
-
-                        {item.target_recipient_label && (
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1 bg-muted/40 px-2 py-0.5 rounded border border-border">
-                            <ArrowRight className="w-3 h-3 text-muted-foreground" />
-                            {item.target_recipient_label}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Justification Comment */}
-                      {item.comments && (
-                        <div className="p-2 rounded bg-muted/30 border border-border/60 text-foreground leading-relaxed italic flex items-start gap-1.5 mt-1">
-                          <MessageSquare className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                          <div>
-                            <span className="font-semibold not-italic text-foreground mr-1">Comment:</span>
-                            &ldquo;{item.comments}&rdquo;
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Attached File */}
-                      {item.attachment && (
-                        <div className="pt-1">
-                          <a
-                            href={`/api/documents/${item.attachment.id}/download`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-sky-50 text-sky-800 border border-sky-300 hover:bg-sky-100 transition-colors font-medium text-[11px] dark:bg-sky-950/40 dark:text-sky-300"
+                        return (
+                          <div
+                            key={pending.id}
+                            className={cn(
+                              'p-3 rounded-lg border flex items-center justify-between gap-3 text-xs transition-colors',
+                              isDone
+                                ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                                : 'bg-card border-border hover:border-muted-foreground/40'
+                            )}
                           >
-                            <Paperclip className="w-3.5 h-3.5 text-sky-600" />
-                            <span>Attachment: [{item.attachment.original_name}]</span>
-                            <Download className="w-3 h-3 ml-1 text-sky-600" />
-                          </a>
-                        </div>
-                      )}
+                            <div className="space-y-0.5 min-w-0">
+                              <div className="font-semibold text-foreground flex items-center gap-2">
+                                {isDone ? (
+                                  <Badge className="bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.2">
+                                    ✓ COMPLETED
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[10px] font-bold px-1.5 py-0.2">
+                                    PENDING
+                                  </Badge>
+                                )}
+                                <span className="truncate">{pending.label}</span>
+                              </div>
+                              {pending.description && (
+                                <p className="text-[11px] text-muted-foreground line-clamp-1">{pending.description}</p>
+                              )}
+                            </div>
+
+                            {!isDone && onSelectTab && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs px-2.5 shrink-0 bg-primary/5 hover:bg-primary/10 text-primary border-primary/20"
+                                onClick={() => onSelectTab(targetTab)}
+                              >
+                                {isPlot ? 'Add Plots' : isChecklist ? 'View Rules' : 'Open Workspace'}
+                              </Button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Available Transition Action Buttons */}
+                {availableTransitions.length > 0 && (
+                  <div className="pt-2">
+                    <div className="text-xs font-bold text-foreground mb-2 flex items-center gap-1.5">
+                      <ArrowRight className="w-3.5 h-3.5 text-emerald-600" />
+                      Available Workflow Transition Actions
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {availableTransitions.map((t: any) => (
+                        <Button
+                          key={t.transitionId || t.name}
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-8 px-3 shadow-xs gap-1.5"
+                          onClick={() => onExecuteTransition && onExecuteTransition(t)}
+                        >
+                          <ArrowRight className="w-3.5 h-3.5" />
+                          {t.name}
+                        </Button>
+                      ))}
                     </div>
                   </div>
-                )
-              })}
+                )}
+              </div>
             </div>
-          )}
+
+            {/* COMPLETED HISTORY NODES BY DATE */}
+            {Object.keys(groupedHistory).length > 0 && (
+              <div className="space-y-6 pt-4 border-t border-border/60">
+                {Object.entries(groupedHistory).map(([dateGroup, items]) => (
+                  <div key={dateGroup} className="space-y-3">
+                    {/* Date Header */}
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono">
+                      <Clock className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{dateGroup}</span>
+                    </div>
+
+                    <div className="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-0 before:w-0.5 before:bg-emerald-300 dark:before:bg-emerald-800">
+                      {items.map((item) => {
+                        const actorName = item.user?.name || item.user_name_label || 'Authorized Officer'
+                        const actorDesignation = item.user?.designation || item.user_role_label || 'Officer'
+                        const formattedTime = formatTimeLabel(item.entry_ts)
+                        const isReturn = item.action.toLowerCase().includes('return') || item.action.toLowerCase().includes('reject')
+                        const initials = getInitials(actorName)
+
+                        return (
+                          <div key={item.wah_id} className="relative space-y-2">
+                            <div className="absolute -left-[3px] top-1.5 w-3 h-3 rounded-full bg-emerald-600 ring-4 ring-emerald-100 dark:ring-emerald-950" />
+
+                            {/* Action Header & Officer */}
+                            <div className="flex items-center justify-between flex-wrap gap-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
+                                  isReturn
+                                    ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                    : 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                }`}>
+                                  {item.action.replace(/_/g, ' ')}
+                                </span>
+                                {item.from_state && item.to_state && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {item.from_state} &rarr; <strong className="text-foreground">{item.to_state}</strong>
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] font-mono text-muted-foreground">{formattedTime}</span>
+                            </div>
+
+                            {/* Officer Profile */}
+                            <div className="p-2 rounded bg-muted/20 border border-border/50 text-xs flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarFallback className="text-[10px] font-bold bg-sky-100 text-sky-900">
+                                    {initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <span className="font-semibold text-foreground">{actorName}</span>
+                                  <span className="text-muted-foreground text-[11px]"> ({actorDesignation})</span>
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border-emerald-200">
+                                ✓ COMPLETED
+                              </Badge>
+                            </div>
+
+                            {/* FORWARD ACTION DETAILS */}
+                            {/* 1. Justification / Remarks */}
+                            {item.comments && (
+                              <div className="p-2.5 rounded bg-slate-50 border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 text-xs space-y-1">
+                                <div className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                  <MessageSquare className="w-3.5 h-3.5 text-sky-600" />
+                                  <span>Justification / Review Remarks</span>
+                                </div>
+                                <p className="text-slate-700 dark:text-slate-300 italic pl-5">
+                                  &ldquo;{item.comments}&rdquo;
+                                </p>
+                              </div>
+                            )}
+
+                            {/* 2. Attached Files */}
+                            {item.attachment && (
+                              <div className="pt-1">
+                                <a
+                                  href={`/api/documents/${item.attachment.id}/download`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-300 hover:bg-sky-100 transition-colors font-medium text-xs dark:bg-sky-950/40 dark:text-sky-300"
+                                >
+                                  <Paperclip className="w-3.5 h-3.5 text-sky-600" />
+                                  <span>Attached Document: [{item.attachment.original_name}]</span>
+                                  <Download className="w-3.5 h-3.5 ml-1 text-sky-600" />
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -12,7 +12,7 @@ import { syncChecklistContextHandler } from '../handlers/syncChecklistContext.jo
 import { generateDocumentJob } from '../handlers/generateDocument.job'
 
 // Job Registry — add new handlers here, never use magic strings at call sites
-const jobHandlers: Record<string, (payload: any) => Promise<void>> = {
+const jobHandlers: Record<string, (payload: any) => Promise<any>> = {
   auditLog:                auditLogHandler,
   expireCaptchas:          expireCaptchasHandler,
   processNotificationEvent: processNotificationEvent,

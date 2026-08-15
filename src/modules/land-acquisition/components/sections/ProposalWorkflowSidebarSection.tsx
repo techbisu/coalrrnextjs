@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { WorkflowTimelineFeed } from '@/shared/components/coalrr/WorkflowTimelineFeed';
 import { WorkflowActionBar } from '@/shared/components/coalrr/workflow/WorkflowActionBar';
-import { WorkflowActionDialog } from '@/shared/components/coalrr/workflow/WorkflowActionDialog';
+import { WorkflowActionCommandCenter } from '@/shared/components/coalrr/workflow/WorkflowActionCommandCenter';
 import { LimitCheckPanel } from '@/shared/components/coalrr';
 import { MODULE_CODES, CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config';
 import { useWorkflowSnapshot } from '@/shared/hooks/useWorkflowSnapshot';
@@ -104,14 +104,12 @@ export function ProposalWorkflowSidebarSection({
         }}
       />
 
-      {/* 3. Generic Action Dialog */}
-      <WorkflowActionDialog
+      {/* 3. Metadata-Driven Action Command Center */}
+      <WorkflowActionCommandCenter
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
-        transition={selectedTransition}
-        onSubmitTransition={async ({ transition, comments }) => {
-          await transitionMutation.mutateAsync({ transition, comments });
-        }}
+        proposalId={proposalId}
+        transition={selectedTransition as any}
       />
 
       {/* 4. Project Baseline Limits Gauge */}

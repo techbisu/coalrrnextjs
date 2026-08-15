@@ -1,77 +1,97 @@
 import { db } from '@/lib/db'
-import { MODULE_CODES, ACQ_LAND_SCHEDULE, normalizeModuleCode } from '@/core/config/module-codes.config'
+import { ACQ_LAND_SCHEDULE } from '@/core/config/module-codes.config'
 
 export interface SyncChecklistContextPayload {
-  moduleCode: string
-  entityId: string
+  entityId: string // proposal_id
 }
 
-export const syncChecklistContextHandler = async (payload: SyncChecklistContextPayload): Promise<void> => {
-  const { moduleCode, entityId } = payload
-  
-  if (normalizeModuleCode(moduleCode) !== MODULE_CODES.LAND_SCHEDULE) {
-    console.log(`[syncChecklistContext] Skipping unsupported module: ${moduleCode}`)
-    return
-  }
-  
-  console.log(`[syncChecklistContext] Syncing context for ${moduleCode} ID: ${entityId}`)
+export type JobResult<T = void> =
+  | { isSuccess: true; value?: T }
+  | { isSuccess: false; error: Error }
 
-  // 1. Fetch proposal and plots
+export type JobHandler<P, R = void> = (payload: P) => Promise<JobResult<R>>
+
+/**
+ * syncChecklistContext Job Handler
+ *
+ * Scans proposal and plot schedule records for a given proposal ID,
+ * aggregates dynamic land types, and caches the resolved flags into
+ * `checklist_entity_context` table for fast O(1) checklist condition evaluations.
+ */
+export const syncChecklistContextHandler = async (payload: SyncChecklistContextPayload): Promise<JobResult<void>> => {
+  const { entityId } = payload
+
+  if (!entityId) {
+    return { isSuccess: false, error: new Error('entityId is required') }
+  }
+
+  // 1. Fetch Proposal
   const proposal = await db.acq_proposal.findUnique({
     where: { proposal_id: entityId },
-    include: {
-      plot_schedule: {
-        include: {
-          plot_schedule_land_type: true
+    select: {
+      proposal_id: true,
+      acq_mode_id: true,
+      proj_cd: true,
+      current_stage_cd: true,
+      total_employment_cost_est: true,
+    }
+  })
+
+  if (!proposal) {
+    return { isSuccess: false, error: new Error(`Proposal not found for ID: ${entityId}`) }
+  }
+
+  // 2. Fetch Plot Schedules and Land Types
+  const plots = await db.plot_schedule.findMany({
+    where: { proposal_id: entityId },
+    select: {
+      plot_schedule_land_type: {
+        select: {
+          landt_id: true,
+          area_to_acquire: true
         }
       }
     }
   })
 
-  if (!proposal) {
-    console.warn(`[syncChecklistContext] Proposal not found: ${entityId}`)
-    return
+  // Extract all landt_ids
+  const landtIds = new Set<string>()
+  plots.forEach(p => {
+    p.plot_schedule_land_type.forEach(lt => {
+      landtIds.add(String(lt.landt_id))
+    })
+  })
+
+  // Fetch Land Type Master Names
+  const landTypes = await (db.landtype as any).findMany({
+    where: {
+      landt_id: {
+        in: Array.from(landtIds).map(id => BigInt(id))
+      }
+    }
+  })
+
+  const typeNameMap = new Map<string, string>()
+  if (Array.isArray(landTypes)) {
+    landTypes.forEach((lt: any) => {
+      const slug = lt.land_type_slug ? String(lt.land_type_slug).toLowerCase() : ''
+      const name = lt.land_type_name_en ? String(lt.land_type_name_en).toLowerCase() : ''
+      typeNameMap.set(String(lt.landt_id), `${slug} ${name}`)
+    })
   }
 
-  // 2. Initialize flags
-  let has_tribal_land = proposal.has_tribal_land ?? false
-  let has_debottar_land = proposal.has_debottar_land ?? false
+  // 3. Derived Land Classification Flags
+  let has_tribal_land = false
+  let has_debottar_land = false
   let has_displacement = false
   let has_forest_land = false
   let has_tenancy_land = false
   let has_govt_land = false
-  let has_patta_land = false // Extra check for patta land if needed
-  let has_disputed_land = proposal.is_disputed_land ?? false
+  let has_patta_land = false
+  let has_disputed_land = false
 
-  // 3. Scan plots and land types
-  const plots = proposal.plot_schedule || []
-  
-  // To avoid hitting the DB in a loop, fetch all unique land type IDs
-  const landTypeIds = new Set<string>()
-  for (const plot of plots) {
-    for (const lt of (plot as any).plot_schedule_land_type || []) {
-      if (lt.landt_id) {
-        landTypeIds.add(String(lt.landt_id))
-      }
-    }
-  }
-
-  const masterTypes = await db.landtype.findMany({
-    where: {
-      landt_id: { in: Array.from(landTypeIds).map(id => BigInt(id)) }
-    }
-  })
-
-  // Map for easy lookup
-  const typeNameMap = new Map<string, string>()
-  for (const mt of masterTypes) {
-    typeNameMap.set(String(mt.landt_id), mt.land_type.toLowerCase())
-  }
-
-  // Process plots
-  for (const plot of plots) {
-    const lts = (plot as any).plot_schedule_land_type || []
-    for (const lt of lts) {
+  for (const p of plots) {
+    for (const lt of p.plot_schedule_land_type) {
       const typeName = typeNameMap.get(String(lt.landt_id))
       if (typeName) {
         if (typeName.includes('tribal') || typeName.includes('cnt') || typeName.includes('spt')) has_tribal_land = true
@@ -107,18 +127,33 @@ export const syncChecklistContextHandler = async (payload: SyncChecklistContextP
     }
   }
 
-  const has_formal_negotiation = proposal.has_formal_negotiation ?? (Number(proposal.acq_mode_id) === 6)
+  // 5. Fetch authoritative entity_flags
+  const flags = await (db as any).entity_flag?.findMany({
+    where: {
+      entity_type: ACQ_LAND_SCHEDULE,
+      entity_id: entityId,
+    }
+  }).catch(() => [])
 
-  // 5. Construct Context Object (lowercase keys)
+  const flagMap: Record<string, any> = {}
+  if (Array.isArray(flags)) {
+    for (const f of flags) {
+      flagMap[f.flag_code] = f.flag_value
+    }
+  }
+
+  const has_formal_negotiation = flagMap['has_formal_negotiation'] ?? (Number(proposal.acq_mode_id) === 6)
+
+  // 6. Construct Context Object (lowercase keys)
   const contextData = {
-    has_tribal_land,
-    has_debottar_land,
+    has_tribal_land: flagMap['has_tribal_land'] ?? has_tribal_land,
+    has_debottar_land: flagMap['has_debottar_land'] ?? has_debottar_land,
     has_displacement,
     has_forest_land,
     has_tenancy_land,
     has_govt_land,
     has_patta_land,
-    has_disputed_land,
+    has_disputed_land: flagMap['is_disputed_land'] ?? has_disputed_land,
     has_statutory_clearances,
     has_employment_involvement,
     has_formal_negotiation,
@@ -126,13 +161,13 @@ export const syncChecklistContextHandler = async (payload: SyncChecklistContextP
     // Core proposal properties that shouldn't change without a proposal update
     acqModeId: Number(proposal.acq_mode_id),
     is_rfctlarr: Number(proposal.acq_mode_id) === 2,
-    is_board_approval_req: proposal.requires_board_approval,
+    is_board_approval_req: flagMap['requires_board_approval'] ?? true,
     stage: proposal.current_stage_cd
   }
 
   const targetCheckableType = ACQ_LAND_SCHEDULE
   
-  // 6. Upsert into checklist_entity_context
+  // 7. Upsert into checklist_entity_context
   await db.checklist_entity_context.upsert({
     where: {
       checkable_type_checkable_id: {
@@ -151,5 +186,5 @@ export const syncChecklistContextHandler = async (payload: SyncChecklistContextP
     }
   })
 
-  console.log(`[syncChecklistContext] Successfully synced context for ${moduleCode} ID: ${entityId}`)
+  return { isSuccess: true }
 }

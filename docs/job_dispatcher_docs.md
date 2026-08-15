@@ -29,7 +29,7 @@ The dispatcher automatically alters its behavior based on the `NODE_ENV`:
 ## 3. The Job Registry
 The service maintains a strictly typed **Job Registry** (`jobHandlers`). 
 ```typescript
-const jobHandlers: Record<string, (payload: any) => Promise<void>> = {
+const jobHandlers: Record<string, (payload: any) => Promise<any>> = {
   auditLog:                auditLogHandler,
   processNotificationEvent: processNotificationEvent,
   // ...

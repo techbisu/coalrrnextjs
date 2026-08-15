@@ -21,8 +21,6 @@ export { SmartChecklist } from './SmartChecklist'
 export type { ChecklistItem, ChecklistItemStatus, SmartChecklistProps } from './SmartChecklist'
 
 export { ApprovalPanel } from './ApprovalPanel'
-export { ActionJustificationDialog } from './ActionJustificationDialog'
-export type { ActionJustificationDialogProps } from './ActionJustificationDialog'
 export { PartialAreaInputDialog } from './PartialAreaInputDialog'
 export type { PartialAreaInputDialogProps } from './PartialAreaInputDialog'
 
@@ -65,8 +63,8 @@ export type { WorkflowTimelineFeedProps } from './WorkflowTimelineFeed'
 export { WorkflowActionBar } from './workflow/WorkflowActionBar'
 export type { WorkflowActionBarProps } from './workflow/WorkflowActionBar'
 
-export { WorkflowActionDialog } from './workflow/WorkflowActionDialog'
-export type { WorkflowActionDialogProps } from './workflow/WorkflowActionDialog'
+export { WorkflowActionCommandCenter } from './workflow/WorkflowActionCommandCenter'
+export type { WorkflowActionCommandCenterProps } from './workflow/WorkflowActionCommandCenter'
 
 
 export { ProcessActionCenter } from './ProcessActionCenter'
@@ -81,4 +79,7 @@ export * from './selects'
 
 export { EntityFileManagerModal, EntityFileManagerTrigger } from './file-manager'
 export type { EntityFileManagerModalProps, EntityFileManagerTriggerProps, EntityFile } from './file-manager'
+
+export { UserInfoBadge } from './UserInfoBadge'
+export type { UserInfoBadgeProps } from './UserInfoBadge'
 

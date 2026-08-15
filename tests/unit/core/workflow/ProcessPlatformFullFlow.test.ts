@@ -67,6 +67,9 @@ vi.mock('@/lib/db', () => {
         create: vi.fn().mockImplementation(({ data }) => Promise.resolve({ id: 'ms-1', ...data })),
         findMany: vi.fn().mockResolvedValue([]),
       },
+      milestone_definition: {
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
       proposal_snapshot: {
         create: vi.fn().mockResolvedValue({ id: 'snap-1' }),
       },

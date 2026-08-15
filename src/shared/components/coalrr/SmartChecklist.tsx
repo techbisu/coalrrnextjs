@@ -8,10 +8,24 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shar
 import { Badge } from '@/shared/components/ui/badge'
 import { cn } from '@/lib/utils'
 import {
-  CheckCircle2, Circle, Clock, AlertCircle, FileText, ChevronRight, Lock,
+  CheckCircle2, Circle, Clock, AlertCircle, FileText, ChevronRight, Lock, PenTool, Edit3, ShieldCheck, ExternalLink,
 } from 'lucide-react'
 
 export type ChecklistItemStatus = 'pending' | 'in_progress' | 'complete' | 'skipped'
+
+export interface StepDetail {
+  type: 'GENERATE' | 'ADDITIONAL_INFO' | 'REVIEW' | 'SIGN'
+  status: 'COMPLETED' | 'IN_PROGRESS' | 'PENDING' | 'LOCKED'
+  permission?: string
+  label: string
+}
+
+export interface NextActionInfo {
+  type: 'GENERATE' | 'ADDITIONAL_INFO' | 'REVIEW' | 'SIGN'
+  permission?: string
+  label: string
+  canCurrentUserAct?: boolean
+}
 
 export interface ChecklistItem {
   key: string
@@ -25,6 +39,8 @@ export interface ChecklistItem {
     templateCode: string
     status: 'PENDING' | 'DRAFT' | 'INCOMPLETE' | 'COMPLETED'
     generatedDocId?: string
+    stepDetails?: StepDetail[]
+    nextAction?: NextActionInfo
   }
   document_id?: string
   helpText?: string
@@ -44,6 +60,10 @@ export interface SmartChecklistProps {
   onGenerateDocument?: (item: ChecklistItem) => void
   onRegenerateDocument?: (item: ChecklistItem) => void
   onContinueDraft?: (item: ChecklistItem) => void
+  onOpenWorkspace?: (item: ChecklistItem) => void
+  onReviewDocument?: (item: ChecklistItem) => void
+  onSignDocument?: (item: ChecklistItem) => void
+  onFillAdditionalInfo?: (item: ChecklistItem) => void
   className?: string
 }
 
@@ -66,6 +86,10 @@ export function SmartChecklist({
   onGenerateDocument,
   onRegenerateDocument,
   onContinueDraft,
+  onOpenWorkspace,
+  onReviewDocument,
+  onSignDocument,
+  onFillAdditionalInfo,
   className,
 }: SmartChecklistProps) {
   const requiredItems = items.filter((i) => i.required)
@@ -97,61 +121,100 @@ export function SmartChecklist({
         <Progress value={percent} className="mt-2 h-1.5" indicatorClassName={allRequiredDone ? 'bg-emerald-500' : 'bg-amber-500'} />
       </CardHeader>
 
-      <CardContent className="space-y-1.5 pt-0">
+      <CardContent className="space-y-2 pt-0">
         {items.map((item) => (
           <div
             key={item.key}
             className={cn(
-              'flex items-start gap-3 rounded-md border border-transparent px-2.5 py-2 transition',
-              item.status === 'complete' && 'bg-emerald-50/50 dark:bg-emerald-950/20',
-              item.status === 'in_progress' && 'bg-amber-50/50 dark:bg-amber-950/20',
+              'flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-md border border-transparent px-3 py-2.5 transition',
+              item.status === 'complete' && 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100',
+              item.status === 'in_progress' && 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-100',
             )}
           >
-            <div className="mt-0.5 shrink-0">{STATUS_ICON[item.status]}</div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className={cn('text-sm', item.status === 'complete' ? 'text-foreground line-through decoration-emerald-400/60' : 'text-foreground')}>
-                  {item.label}
-                </span>
-                {item.required && (
-                  <Badge variant="secondary" className="h-4 px-1 text-[10px] uppercase">required</Badge>
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <div className="mt-0.5 shrink-0">{STATUS_ICON[item.status]}</div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={cn('text-sm font-medium', item.status === 'complete' ? 'text-foreground line-through decoration-emerald-400/60' : 'text-foreground')}>
+                    {item.label}
+                  </span>
+                  {item.required && (
+                    <Badge variant="secondary" className="h-4 px-1 text-[10px] uppercase">required</Badge>
+                  )}
+                </div>
+
+                {/* Step Progress Pills for generated_document */}
+                {item.type === 'generated_document' && item.generatedDocInfo?.stepDetails && (
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    {item.generatedDocInfo.stepDetails.map((st, idx) => (
+                      <Badge
+                        key={idx}
+                        variant="outline"
+                        className={cn(
+                          'text-[10px] px-1.5 py-0 font-normal h-4 gap-1',
+                          st.status === 'COMPLETED' && 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                          st.status === 'PENDING' && 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse',
+                          st.status === 'LOCKED' && 'bg-slate-100 text-slate-400 border-slate-200',
+                        )}
+                      >
+                        {st.status === 'COMPLETED' ? '✓' : st.status === 'LOCKED' ? '🔒' : '⏳'} {st.type}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                {item.helpText && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">{item.helpText}</p>
                 )}
               </div>
-              {item.helpText && (
-                <p className="mt-0.5 text-xs text-muted-foreground">{item.helpText}</p>
-              )}
             </div>
 
+            {/* Direct Action Buttons Surface */}
             {item.type === 'generated_document' && item.generatedDocInfo ? (
-              <div className="flex items-center gap-2 ml-4">
-                {item.generatedDocInfo.status === 'PENDING' && onGenerateDocument && (
-                  <Button variant="outline" size="sm" onClick={() => onGenerateDocument(item)}>
-                    Generate Document
-                  </Button>
-                )}
-                {(item.generatedDocInfo.status === 'DRAFT' || item.generatedDocInfo.status === 'INCOMPLETE') && onContinueDraft && (
-                  <Button variant="outline" size="sm" onClick={() => onContinueDraft(item)}>
-                    Continue Draft
-                  </Button>
-                )}
-                {item.generatedDocInfo.status === 'COMPLETED' && (
-                  <div className="flex items-center gap-2">
-                    {onViewDocument && (
-                       <Button variant="secondary" size="sm" onClick={() => onViewDocument(item)}>
-                         <FileText className="mr-1.5 h-3.5 w-3.5" /> View
-                       </Button>
-                    )}
-                    {onRegenerateDocument && (
-                      <Button variant="outline" size="sm" onClick={() => onRegenerateDocument(item)}>
-                        Regenerate
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto flex-wrap">
+                {/* Next Action Direct Execution */}
+                {item.generatedDocInfo.nextAction ? (
+                  item.generatedDocInfo.nextAction.canCurrentUserAct !== false ? (
+                    item.generatedDocInfo.nextAction.type === 'GENERATE' && (onGenerateDocument || onContinueDraft) ? (
+                      <Button size="sm" variant="default" className="h-8 text-xs gap-1.5 shadow-sm" onClick={() => (onGenerateDocument || onContinueDraft)!(item)}>
+                        <PenTool className="h-3.5 w-3.5" /> Generate
                       </Button>
-                    )}
-                  </div>
+                    ) : item.generatedDocInfo.nextAction.type === 'ADDITIONAL_INFO' && (onFillAdditionalInfo || onOpenWorkspace) ? (
+                      <Button size="sm" variant="default" className="h-8 text-xs gap-1.5 shadow-sm bg-blue-600 hover:bg-blue-700" onClick={() => (onFillAdditionalInfo || onOpenWorkspace)!(item)}>
+                        <Edit3 className="h-3.5 w-3.5" /> Fill Info
+                      </Button>
+                    ) : item.generatedDocInfo.nextAction.type === 'REVIEW' && (onReviewDocument || onOpenWorkspace) ? (
+                      <Button size="sm" variant="default" className="h-8 text-xs gap-1.5 shadow-sm bg-purple-600 hover:bg-purple-700" onClick={() => (onReviewDocument || onOpenWorkspace)!(item)}>
+                        <ShieldCheck className="h-3.5 w-3.5" /> Review
+                      </Button>
+                    ) : item.generatedDocInfo.nextAction.type === 'SIGN' && (onSignDocument || onOpenWorkspace) ? (
+                      <Button size="sm" variant="default" className="h-8 text-xs gap-1.5 shadow-sm bg-emerald-600 hover:bg-emerald-700" onClick={() => (onSignDocument || onOpenWorkspace)!(item)}>
+                        <PenTool className="h-3.5 w-3.5" /> Sign
+                      </Button>
+                    ) : null
+                  ) : (
+                    <Badge variant="outline" className="text-[11px] text-amber-700 bg-amber-50 border-amber-200 py-1">
+                      Awaiting Authorized {item.generatedDocInfo.nextAction.type === 'REVIEW' ? 'Reviewer' : 'Signer'}
+                    </Badge>
+                  )
+                ) : null}
+
+                {/* Workspace Modal Trigger (Hybrid Surface) */}
+                {(onOpenWorkspace || onContinueDraft) && (
+                  <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => (onOpenWorkspace || onContinueDraft)!(item)}>
+                    <ExternalLink className="h-3.5 w-3.5" /> Workspace
+                  </Button>
+                )}
+
+                {item.generatedDocInfo.status === 'COMPLETED' && onViewDocument && (
+                  <Button variant="secondary" size="sm" className="h-8 text-xs gap-1" onClick={() => onViewDocument(item)}>
+                    <FileText className="h-3.5 w-3.5" /> View
+                  </Button>
                 )}
               </div>
             ) : (
               item.document_id && onViewDocument && (
-                <Button variant="secondary" size="sm" onClick={() => onViewDocument(item)} className="ml-4">
+                <Button variant="secondary" size="sm" onClick={() => onViewDocument(item)} className="shrink-0 h-8 text-xs">
                   <FileText className="mr-1.5 h-3.5 w-3.5" /> View
                 </Button>
               )

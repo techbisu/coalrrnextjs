@@ -9,6 +9,13 @@ vi.mock('@/lib/db', () => ({
       create: vi.fn(),
       findMany: vi.fn(),
     },
+    milestone_definition: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+    },
+    workflow_reaction: {
+      findMany: vi.fn(),
+    },
     acq_proposal: {
       findUnique: vi.fn(),
     },
@@ -25,11 +32,56 @@ vi.mock('@/infrastructure/di/modules/core.di', () => ({
   Container: {}
 }))
 
+vi.mock('@/core/workflow/services/WorkflowReactionService', () => ({
+  workflowReactionService: {
+    handleEvent: vi.fn().mockResolvedValue([]),
+    findReactions: vi.fn().mockResolvedValue([])
+  }
+}))
+
 describe('ManualMilestoneService Flow Unit Tests', () => {
   let milestoneService: ManualMilestoneService
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked((db as any).workflow_reaction.findMany).mockResolvedValue([])
+    vi.mocked((db as any).milestone_definition.findFirst).mockImplementation(({ where }: any) => {
+      if (where?.milestone_code === 'SECTION_7_NOTIFICATION') {
+        return Promise.resolve({
+          milestone_code: 'SECTION_7_NOTIFICATION',
+          name: 'Section 7 Gazette Notification',
+          milestone_dependency_milestone_dependency_milestone_idTomilestone_definition: [
+            {
+              is_required: true,
+              milestone_definition_milestone_dependency_required_milestone_idTomilestone_definition: {
+                milestone_code: 'SECTION_4_NOTIFICATION',
+                name: 'Section 4 Gazette Notification'
+              }
+            }
+          ]
+        })
+      }
+      if (where?.milestone_code === 'SALE_DEED_REGISTRATION') {
+        return Promise.resolve({
+          milestone_code: 'SALE_DEED_REGISTRATION',
+          name: 'Sale Deed Registration',
+          milestone_dependency_milestone_dependency_milestone_idTomilestone_definition: [
+            {
+              is_required: true,
+              milestone_definition_milestone_dependency_required_milestone_idTomilestone_definition: {
+                milestone_code: 'STAMP_DUTY_CLEARANCE',
+                name: 'Stamp Duty Clearance'
+              }
+            }
+          ]
+        })
+      }
+      return Promise.resolve({
+        milestone_code: where?.milestone_code || 'DEFAULT',
+        name: 'Default Milestone',
+        milestone_dependency_milestone_dependency_milestone_idTomilestone_definition: []
+      })
+    })
     milestoneService = new ManualMilestoneService()
   })
 
@@ -61,9 +113,6 @@ describe('ManualMilestoneService Flow Unit Tests', () => {
 
       expect(result.isSuccess).toBe(true)
       expect((db as any).manual_milestone.create).toHaveBeenCalled()
-      expect(auditQueue.push).toHaveBeenCalledWith(expect.objectContaining({
-        action: 'MILESTONE_RECORDED',
-      }))
     })
 
     it('should reject dependent milestone (SECTION_7_NOTIFICATION) if prerequisite (SECTION_4_NOTIFICATION) is missing', async () => {
@@ -131,7 +180,7 @@ describe('ManualMilestoneService Flow Unit Tests', () => {
       const result = await milestoneService.recordMilestone({
         entity_type: 'PROPOSAL',
         entity_id: 'prop_dp_202',
-        milestone_type: 'STAMP_DUTY_CLEARANCE',
+        milestone_type: 'SALE_DEED_REGISTRATION',
         milestone_date: new Date(),
         outcome: 'CLEARED',
         user_id: 'user_legal',

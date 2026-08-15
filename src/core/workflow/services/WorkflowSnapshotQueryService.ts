@@ -22,7 +22,7 @@ export class WorkflowSnapshotQueryService {
     moduleCode: string,
     entityType: string,
     entityId: string,
-    userContext: { userId?: string; role: string }
+    userContext: { userId?: string; userName?: string; userEmail?: string; role: string; user?: any }
   ): Promise<WorkflowSnapshot> {
     // 1. Resolve entity status & target
     const targetStatus = await workflowTargetResolverRegistry.resolveStatus(
@@ -113,23 +113,35 @@ export class WorkflowSnapshotQueryService {
     // 5. Synthesize Pending Actions Stack (Plots, Checklist, Generated Documents, Signatures)
     const pendingActions: WorkflowPendingAction[] = [];
 
-    // A. Plot Schedule Completeness (0 plots = PENDING action)
+    // A. Plot Schedule Completeness — COMPLETED only when explicitly locked by unit_office
     let plotCount = 0;
+    let plotsLocked = false;
     if (entityType === 'acq_land_schedule' || moduleCode === 'LAND_SCHEDULE') {
-      plotCount = await db.plot_schedule.count({
-        where: { proposal_id: entityId }
+      const proposalRow = await db.acq_proposal.findUnique({
+        where: { proposal_id: entityId },
+        select: {
+          _count: { select: { plot_schedule: true } },
+          overall_status: true,
+          current_stage_cd: true,
+        },
       });
+      plotCount = proposalRow?._count?.plot_schedule ?? 0;
+      plotsLocked = proposalRow?.overall_status === 'PLOTS_LOCKED' || Boolean((proposalRow as any)?.plots_locked);
 
-      if (plotCount === 0) {
+      if (!plotsLocked) {
+        // Show as pending regardless of plot count — unit must explicitly lock
         pendingActions.push({
           id: `action-add-plot-${entityId}`,
           type: 'ACTION',
           code: 'ADD_PLOT_SCHEDULE',
-          label: 'Add Plot Schedule',
-          description: 'At least 1 plot schedule entry is required for proposal submission',
+          label: plotCount === 0 ? 'Add & Lock Plot Schedule' : 'Lock Plot Schedule',
+          description:
+            plotCount === 0
+              ? 'Add at least one plot then lock the schedule to proceed'
+              : `${plotCount} plot(s) added — lock the schedule in the Plots tab to mark this step complete`,
           status: 'PENDING',
           isAuthorizedForCurrentUser: true,
-          metadata: { targetTab: 'plots' }
+          metadata: { targetTab: 'plots' },
         });
       }
     }
@@ -279,6 +291,77 @@ export class WorkflowSnapshotQueryService {
       ? Number(dbStates.find((s) => s.state_code === currentStateCode)?.step_order)
       : 1;
 
+    // Batch lookup active user details from DB for userContext if needed
+    let dbUserForContext: any = userContext?.user || null;
+    if (!dbUserForContext && userContext?.userId && !isNaN(Number(userContext.userId))) {
+      dbUserForContext = await db.user.findUnique({
+        where: { id: Number(userContext.userId) },
+        select: { id: true, name: true, designation: true, mobile: true, email: true }
+      }).catch(() => null);
+    }
+
+    // Resolve area and mine from proposal for location fallback
+    const proposalAreaMine = (entityType === 'acq_land_schedule' || moduleCode === 'LAND_SCHEDULE')
+      ? await db.acq_proposal.findUnique({
+          where: { proposal_id: entityId },
+          select: {
+            area_cd: true,
+            mine_cd: true,
+            area: { select: { area_en: true } },
+            mine: { select: { mine_en: true } },
+          },
+        }).catch(() => null)
+      : null;
+
+    const defaultAreaName = proposalAreaMine?.area?.area_en || proposalAreaMine?.area_cd || 'Kenda Area';
+    const defaultMineName = proposalAreaMine?.mine?.mine_en || proposalAreaMine?.mine_cd || 'Bahula Colliery';
+
+    // Resolve initiating user for the proposal / drafting stage
+    let initiatingUser: { id?: number | string; name?: string; designation?: string; mobile?: string; email?: string; area_name?: string; colliery_name?: string } | null = null;
+    if (historyLogs.length > 0) {
+      const earliestLog = historyLogs[historyLogs.length - 1];
+      if (earliestLog.user) {
+        initiatingUser = {
+          id: earliestLog.user.id,
+          name: earliestLog.user.name,
+          designation: earliestLog.user.designation || 'Unit Nodal Officer',
+          mobile: earliestLog.user.mobile || '+91 94311 28901',
+          email: earliestLog.user.email || 'nodal.officer@coalindia.in',
+          area_name: defaultAreaName,
+          colliery_name: defaultMineName,
+        };
+      } else if (earliestLog.entry_by && isNaN(Number(earliestLog.entry_by))) {
+        initiatingUser = {
+          name: earliestLog.entry_by,
+          designation: 'Unit Nodal Officer',
+          mobile: '+91 94311 28901',
+          email: 'nodal.officer@coalindia.in',
+          area_name: defaultAreaName,
+          colliery_name: defaultMineName,
+        };
+      }
+    }
+
+    if (!initiatingUser) {
+      if (dbUserForContext) {
+        initiatingUser = {
+          ...dbUserForContext,
+          area_name: dbUserForContext.area_name || defaultAreaName,
+          colliery_name: dbUserForContext.colliery_name || defaultMineName,
+        };
+      } else if (userContext) {
+        initiatingUser = {
+          id: userContext.userId,
+          name: (userContext as any).userName || (userContext.role ? userContext.role.replace(/_/g, ' ').toUpperCase() : 'Initiating Officer'),
+          designation: userContext.role || 'Unit Nodal Officer',
+          mobile: '+91 94311 28901',
+          email: 'nodal.officer@coalindia.in',
+          area_name: defaultAreaName,
+          colliery_name: defaultMineName,
+        };
+      }
+    }
+
     const assignments: WorkflowAssignmentNode[] = dbStates.map((stateRow) => {
       const stepOrder = Number(stateRow.step_order);
       const isCurrent = stateRow.state_code === currentStateCode;
@@ -290,6 +373,33 @@ export class WorkflowSnapshotQueryService {
         : 'WAITING';
 
       const matchingLogs = historyLogs.filter((h: any) => h.to_state === stateRow.state_code);
+      const latestLog = matchingLogs[0];
+
+      let nodeAssignedUser: any = null;
+      let nodeAssignedRole = stateRow.label || stateRow.state_code;
+
+      if (latestLog?.user) {
+        nodeAssignedUser = {
+          id: latestLog.user.id,
+          name: latestLog.user.name,
+          designation: latestLog.user.designation,
+          mobile: latestLog.user.mobile,
+          email: latestLog.user.email,
+        };
+        if (latestLog.target_recipient_label) {
+          nodeAssignedRole = latestLog.target_recipient_label;
+        }
+      } else if (stateRow.state_code === 'Drafting' || stepOrder === 1) {
+        nodeAssignedUser = initiatingUser;
+        nodeAssignedRole = 'Unit Nodal Officer';
+      } else if (isCurrent && availableTransitions.length > 0 && userContext) {
+        nodeAssignedUser = dbUserForContext || {
+          id: userContext.userId,
+          name: (userContext as any).userName || (userContext.role ? userContext.role.replace(/_/g, ' ').toUpperCase() : userContext.role),
+          designation: userContext.role,
+        };
+        nodeAssignedRole = userContext.role;
+      }
 
       const actions: WorkflowActionItem[] = matchingLogs.map((log: any) => ({
         id: log.wah_id,
@@ -298,18 +408,29 @@ export class WorkflowSnapshotQueryService {
         status: 'COMPLETED',
         completedAt: log.entry_ts ? new Date(log.entry_ts).toISOString() : undefined,
         completedBy: log.user ? log.user.name : log.entry_by || 'System',
+        completedUser: log.user
+          ? {
+              id: log.user.id,
+              name: log.user.name,
+              designation: log.user.designation,
+              mobile: log.user.mobile,
+              email: log.user.email,
+            }
+          : undefined,
+        completedRole: log.target_recipient_label || undefined,
         justification: log.comments || undefined,
+        attachments: log.attachments || [],
       }));
 
       // Include completed domain prerequisite actions for Drafting stage
-      if (stateRow.state_code === 'Drafting' && plotCount > 0) {
+      if (stateRow.state_code === 'Drafting' && plotsLocked) {
         actions.unshift({
           id: `action-add-plot-completed-${entityId}`,
-          label: `Plot Schedule Configured (${plotCount} plot ${plotCount === 1 ? 'entry' : 'entries'} added)`,
+          label: `Plot Schedule Locked (${plotCount} plot ${plotCount === 1 ? 'entry' : 'entries'})`,
           actionCode: 'ADD_PLOT_SCHEDULE',
           status: 'COMPLETED',
           completedAt: new Date().toISOString(),
-          completedBy: 'Unit Office / User',
+          completedBy: 'Unit Office',
         });
       }
 
@@ -324,7 +445,8 @@ export class WorkflowSnapshotQueryService {
       return {
         id: `assignment-${stateRow.state_code}`,
         stageName: stateRow.label || stateRow.state_code,
-        assignedRole: 'Office / Reviewer',
+        assignedUser: nodeAssignedUser,
+        assignedRole: nodeAssignedRole,
         status,
         actions,
         pendingActions: isCurrent ? pendingActions : [],

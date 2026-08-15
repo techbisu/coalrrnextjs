@@ -4,9 +4,6 @@ import { NextResponse } from 'next/server';
 import { downloadFileUseCase } from '@/infrastructure/di/Container';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { authorizeApi } from '@/core/authorization/middleware/authorize';
-import fs from 'fs';
-import path from 'path';
 import { uploadConfig } from '@/core/config/upload.config';
 
 export async function GET(request: Request, { params }: { params: Promise<{ fileId: string }> }) {
@@ -17,11 +14,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
   const forcePdf = url.searchParams.get('format') === 'pdf';
 
   try {
-    // 1. permission Check
-    // If token exists, validate token signature and expiry.
-    // Otherwise, validate user session.
+    // 1. Permission Check
     let user_id = 'anonymous';
     let user_name = 'Anonymous User';
+    let userPermissions: string[] = [];
+    let userRoles: string[] = [];
+
     if (token) {
       // Validate token (mocked logic for Signed URLs)
       const payload = JSON.parse(Buffer.from(token, 'base64').toString('utf-8'));
@@ -36,6 +34,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
       if (!user) return new NextResponse('Unauthorized', { status: 401 });
       user_id = user.id;
       user_name = user.name;
+      userPermissions = user.permissions || [];
+      userRoles = user.roles || [];
     }
 
     // 2. Fetch File
@@ -45,9 +45,28 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
     }
     let { buffer, mimeType: mime_type, originalName: original_name } = result.value!;
 
-    
+    const isDocx = mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mime_type === 'application/msword';
+
+    // 2.2 Dual Format Download Security Guard: Raw .docx download permission check
+    const isRequestingRawDocx = isDocx && !forcePdf && !isPreview;
+    if (isRequestingRawDocx) {
+      const canDownloadDocx =
+        userPermissions.includes('document.download_docx') ||
+        userPermissions.includes('document.edit') ||
+        userPermissions.includes('document.generate') ||
+        userPermissions.includes('*') ||
+        userRoles.some((r: string) => {
+          const rl = r.toLowerCase();
+          return rl.includes('admin') || rl.includes('super') || rl.includes('officer') || rl.includes('cell');
+        });
+
+      if (!canDownloadDocx) {
+        return new NextResponse('Forbidden: Requires permission (document.download_docx or document.edit) to download editable DOCX files.', { status: 403 });
+      }
+    }
+
     // 2.5 Convert DOCX to PDF if requested as preview or forced PDF
-    if ((isPreview || forcePdf) && (mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mime_type === 'application/msword')) {
+    if ((isPreview || forcePdf) && isDocx) {
       try {
         buffer = await PdfService.convertToPdf(buffer);
         mime_type = 'application/pdf';
@@ -69,7 +88,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
         const qrUrl = `${uploadConfig.qrBaseUrl}/verify/${file_id}`;
         const qrCodeBuffer = await QRCode.toBuffer(qrUrl, { margin: 1, scale: 4 });
         const qrImage = await pdfDoc.embedPng(qrCodeBuffer);
-        const qrDims = qrImage.scale(0.28); // scale down the QR code more for safe area
+        const qrDims = qrImage.scale(0.28); // scale down the QR code
 
         // Use real user details if authenticated, fallback for tokens
         const downloaderName = user_name;
@@ -91,18 +110,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
           // Draw footer text at the bottom left with text wrapping
           page.drawText(footerText, {
             x: 40,
-            y: 35, // pushed up into safe area
+            y: 35,
             size: 8,
             font: helvetica,
             color: rgb(0.3, 0.3, 0.3),
-            maxWidth: width - qrDims.width - 100, // ensure text wraps before hitting QR code
+            maxWidth: width - qrDims.width - 100,
             lineHeight: 10,
           });
 
           // Draw actual QR code image at the bottom right
           page.drawImage(qrImage, {
             x: width - qrDims.width - 40,
-            y: 20, // pushed up into safe area
+            y: 20,
             width: qrDims.width,
             height: qrDims.height,
           });
@@ -123,7 +142,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
       }
     }
 
-    // 5. Stream response (no-store for preview so regenerated documents refresh instantly)
+    // 5. Stream response
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': mime_type,
@@ -136,5 +155,3 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
     return new NextResponse(error.message || 'Not Found', { status: 404 });
   }
 }
-
-// Trigger rebuild to clear Turbopack cache
