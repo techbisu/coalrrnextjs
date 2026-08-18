@@ -18,12 +18,16 @@ export async function POST(req: NextRequest) {
       return badRequest('nominee_aadhaar_hash, nominee_name, claimId, share_acres required')
     }
 
-    const claim = await db.form_i_claim.findUnique({ where: { id: body.claimId } })
+    const claim = await db.form_i_claim.findUnique({
+      where: { id: body.claimId },
+      include: { form_i_claim_plot: true },
+    })
     if (!claim) return badRequest('Claim not found')
 
+    const totalOwnShare = (claim.form_i_claim_plot || []).reduce((acc, p) => acc.add(new Decimal(p.own_share_acres ? String(p.own_share_acres) : '0')), new Decimal(0))
     const share_acres = new Decimal(body.share_acres)
     if (share_acres.lte(0)) return badRequest('Share acres must be greater than 0')
-    if (share_acres.gt(new Decimal(claim.own_share_acres as any))) return badRequest('Cannot contribute more than own share')
+    if (totalOwnShare.gt(0) && share_acres.gt(totalOwnShare)) return badRequest('Cannot contribute more than own share')
 
     // Start a transaction to create/update the pool and add contribution
     const result = await db.$transaction(async (tx) => {

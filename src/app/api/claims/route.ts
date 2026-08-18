@@ -20,15 +20,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await readJson<{
-      aadhaarNumber?: string
-      claimant_name?: string
-      plot_id?: string
-      own_share_acres?: string
-      opted_monetary_in_lieu_of_employment?: boolean
-      bank_account_number?: string
-      bank_ifsc?: string
-    }>(req)
+    const body = await readJson<any>(req)
 
     const result = await submitClaimUseCase.execute(body || {})
 

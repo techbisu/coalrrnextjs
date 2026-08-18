@@ -2,20 +2,63 @@ import fs from 'fs'
 import path from 'path'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
+import ImageModule from 'docxtemplater-image-module-free'
+
+function findFileById(dir: string, fileId: string): string | null {
+  if (!fs.existsSync(dir)) return null
+  const items = fs.readdirSync(dir)
+  for (const item of items) {
+    const fullPath = path.join(dir, item)
+    try {
+      const stat = fs.statSync(fullPath)
+      if (stat.isDirectory()) {
+        const res = findFileById(fullPath, fileId)
+        if (res) return res
+      } else if (item.includes(fileId)) {
+        return fullPath
+      }
+    } catch (_) {}
+  }
+  return null
+}
+
+function resolveImageBuffer(tagValue: any): Buffer | null {
+  if (!tagValue) return null
+  if (Buffer.isBuffer(tagValue)) return tagValue
+
+  if (typeof tagValue === 'string') {
+    if (fs.existsSync(tagValue)) {
+      return fs.readFileSync(tagValue)
+    }
+
+    const fileIdMatch = tagValue.match(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i) || tagValue.match(/[a-f0-9]{32}/i)
+    if (fileIdMatch) {
+      const fileId = fileIdMatch[0]
+      const uploadsDir = path.join(process.cwd(), 'uploads')
+      const foundPath = findFileById(uploadsDir, fileId)
+      if (foundPath && fs.existsSync(foundPath)) {
+        return fs.readFileSync(foundPath)
+      }
+    }
+  }
+
+  return null
+}
 
 export class DocxGeneratorEngine {
   /**
    * Generates a .docx file buffer by merging the template with the provided data.
+   * Supports dynamic image embedding via ImageModule.
    * @param storagePath The relative path to the template file in the uploads directory
    * @param data The resolved data/fields to inject into the template
    * @returns A Buffer containing the generated .docx file
    */
   static generate(storagePath: string, data: any): Buffer {
-    // 1. Try internal core engine templates directory first (e.g. for Form-XXII)
+    // 1. Try internal core engine templates directory first
     const baseName = path.basename(storagePath)
     let templatePath = path.join(process.cwd(), 'src', 'lib', 'engines', 'docx', 'templates', baseName)
     
-    // 2. Fallback to uploads/templates for legacy compatibility (for custom user-uploaded templates)
+    // 2. Fallback to uploads/templates for legacy compatibility
     if (!fs.existsSync(templatePath)) {
       templatePath = path.join(process.cwd(), 'uploads', 'templates', storagePath)
     }
@@ -34,17 +77,33 @@ export class DocxGeneratorEngine {
     
     const content = fs.readFileSync(templatePath, 'binary')
     const zip = new PizZip(content)
+
+    // Configure ImageModule for embedding photos in Word templates with zero top-offset & compact passport size
+    const imageOptions = {
+      centered: true,
+      fileType: 'docx',
+      getImage(tagValue: any) {
+        const buf = resolveImageBuffer(tagValue)
+        if (buf) return buf
+        // Fallback transparent 1x1 PNG if image file not found on disk
+        return Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')
+      },
+      getSize() {
+        // Compact passport photo dimensions to fit higher up inside the frame box
+        return [95, 118]
+      }
+    }
+
+    const imageModule = new ImageModule(imageOptions)
     
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
-      // Return empty string for any placeholder not present in data
-      // This prevents docxtemplater from rendering "undefined" for missing tags
+      modules: [imageModule],
       nullGetter() { return '' },
     })
     
-    // Sanitize: convert undefined / null / NaN to empty string so docxtemplater
-    // never renders the literal string "undefined" for any placeholder
+    // Sanitize: convert undefined / null / NaN to empty string
     const sanitized: Record<string, any> = {}
     for (const [key, value] of Object.entries(data as Record<string, any>)) {
       if (value === null || value === undefined) {

@@ -10,7 +10,19 @@ export async function GET(_req: NextRequest) {
   try {
     const apps = await db.employment_application.findMany({
       include: {
-        nominee_pool: { include: { nominee_pool_contribution: { include: { form_i_claim: true } } } },
+        nominee_pool: {
+          include: {
+            nominee_pool_contribution: {
+              include: {
+                form_i_claim: {
+                  include: {
+                    form_i_claim_plot: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
       orderBy: { entry_ts: 'desc' },
     })
@@ -43,7 +55,7 @@ export async function GET(_req: NextRequest) {
         contributions: a.nominee_pool.nominee_pool_contribution.map((c) => ({
           share_acres: dec(c.share_acres),
           claimant_name: c.form_i_claim.claimant_name,
-          plot_number: c.form_i_claim.plot_id,
+          plot_number: c.form_i_claim.form_i_claim_plot[0]?.plot_no || c.form_i_claim.form_i_claim_plot[0]?.plot_schedule_id || 'N/A',
         })),
       }
     })

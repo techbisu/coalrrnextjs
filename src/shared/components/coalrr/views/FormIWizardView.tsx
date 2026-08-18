@@ -10,6 +10,7 @@ import {
   DocumentUploader,
   LandLoserKycStep,
   FormIStatutoryDocumentView,
+  DocumentWorkspaceModal,
 } from "@/shared/components/coalrr";
 import type { Column, UploadedDoc } from "@/shared/components/coalrr";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,13 @@ import { Label } from "@/shared/components/ui/label";
 import { Badge } from "@/shared/components/ui/badge";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Dialog, DialogContent } from "@/shared/components/ui/dialog";
+import {
+  StateSelect,
+  DistrictSelect,
+  BlockSelect,
+  MouzaSelect,
+  CasteSelect,
+} from "@/shared/components/coalrr/selects";
 import { toast } from "sonner";
 import {
   FileText,
@@ -32,6 +40,7 @@ import {
   AlertCircle,
   Loader2,
   Eye,
+  PenTool,
   Plus,
   Trash2,
   Camera,
@@ -39,8 +48,9 @@ import {
   FileCheck,
   UploadCloud,
   X,
+  Pencil,
 } from "lucide-react";
-import { useMasterQuery } from "@/core/master-lookup";
+import { useMasterQuery, MasterLookup } from "@/core/master-lookup";
 
 interface Claim {
   id: string;
@@ -128,6 +138,9 @@ async function fetchPlots(): Promise<PlotItem[]> {
 export function FormIWizardView() {
   const [mode, setMode] = React.useState<"list" | "wizard">("list");
   const [viewingClaim, setViewingClaim] = React.useState<Claim | null>(null);
+  const [editingClaim, setEditingClaim] = React.useState<Claim | null>(null);
+  const [workspaceClaimId, setWorkspaceClaimId] = React.useState<string | null>(null);
+  const [isWorkspaceOpen, setIsWorkspaceOpen] = React.useState(false);
 
   const { data: claims, isLoading } = useQuery({
     queryKey: ["claims"],
@@ -139,7 +152,17 @@ export function FormIWizardView() {
   });
 
   if (mode === "wizard") {
-    return <Wizard plots={plots ?? []} onDone={() => setMode("list")} />;
+    return (
+      <Wizard
+        plots={plots ?? []}
+        onDone={() => setMode("list")}
+        onOpenWorkspace={(claimId) => {
+          setWorkspaceClaimId(claimId);
+          setIsWorkspaceOpen(true);
+          setMode("list");
+        }}
+      />
+    );
   }
 
   return (
@@ -165,7 +188,7 @@ export function FormIWizardView() {
       <SectionCard
         title="Submitted Claims"
         icon={FileText}
-        description="Landowner claims with workflow state + statutory Form-I sheet view"
+        description="Landowner claims with workflow state + statutory Form-I sheet & Document Workspace"
       >
         <DataTable
           loading={isLoading}
@@ -250,17 +273,30 @@ export function FormIWizardView() {
               },
               {
                 key: "actions",
-                header: "Official Sheet",
+                header: "Action",
                 align: "center",
                 render: (r) => (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setViewingClaim(r)}
-                    className="h-8 gap-1.5 text-xs border-emerald-600 text-emerald-700 hover:bg-emerald-50"
-                  >
-                    <Eye className="h-3.5 w-3.5" /> View Form-I
-                  </Button>
+                  <div className="flex items-center justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingClaim(r)}
+                      className="h-8 gap-1.5 text-xs border-amber-600 text-amber-700 hover:bg-amber-50 shadow-sm"
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setWorkspaceClaimId(r.id);
+                        setIsWorkspaceOpen(true);
+                      }}
+                      className="h-8 gap-1.5 text-xs border-blue-600 text-blue-700 hover:bg-blue-50 shadow-sm"
+                    >
+                      <PenTool className="h-3.5 w-3.5" /> Workspace
+                    </Button>
+                  </div>
                 ),
               },
             ] as Column<Claim>[]
@@ -285,6 +321,22 @@ export function FormIWizardView() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit Claim Dialog */}
+      <EditClaimModal
+        claim={editingClaim}
+        onClose={() => setEditingClaim(null)}
+      />
+
+      {/* Full-Screen Document Engine Workspace for Form-I Preview, Editing & Vetting Signatures */}
+      {workspaceClaimId && (
+        <DocumentWorkspaceModal
+          isOpen={isWorkspaceOpen}
+          onOpenChange={setIsWorkspaceOpen}
+          templateCode="FORM_I"
+          businessId={workspaceClaimId}
+        />
+      )}
     </div>
   );
 }
@@ -292,9 +344,11 @@ export function FormIWizardView() {
 function Wizard({
   plots,
   onDone,
+  onOpenWorkspace,
 }: {
   plots: PlotItem[];
   onDone: () => void;
+  onOpenWorkspace?: (claimId: string) => void;
 }) {
   const qc = useQueryClient();
   const [step, setStep] = React.useState(0);
@@ -379,56 +433,6 @@ function Wizard({
 
   // Master Data Lookup Hooks for Demographics
   const { data: casteMaster } = useMasterQuery({ master: "caste" });
-  const { data: stateMaster } = useMasterQuery({ master: "state" });
-  const { data: districtMaster } = useMasterQuery(
-    {
-      master: "district",
-      dependsOn: form.state_lgd ? { state_lgd: form.state_lgd } : undefined,
-    },
-    !!form.state_lgd
-  );
-  const { data: blockMaster } = useMasterQuery(
-    {
-      master: "block",
-      dependsOn: form.district_lgd
-        ? { district_lgd: form.district_lgd }
-        : undefined,
-    },
-    !!form.district_lgd
-  );
-  const { data: mouzaMaster } = useMasterQuery(
-    {
-      master: "mouza",
-      dependsOn: form.block_lgd ? { block_lgd: form.block_lgd } : undefined,
-    },
-    !!form.block_lgd
-  );
-
-  // Master Data Lookup Hooks for Plot Location Search Filter (State -> District -> Block -> Mouza)
-  const { data: plotFilterStateMaster } = useMasterQuery({ master: "state" });
-  const { data: plotFilterDistrictMaster } = useMasterQuery(
-    {
-      master: "district",
-      dependsOn: plotFilterState ? { state_lgd: plotFilterState } : undefined,
-    },
-    !!plotFilterState
-  );
-  const { data: plotFilterBlockMaster } = useMasterQuery(
-    {
-      master: "block",
-      dependsOn: plotFilterDistrict
-        ? { district_lgd: plotFilterDistrict }
-        : undefined,
-    },
-    !!plotFilterDistrict
-  );
-  const { data: plotFilterMouzaMaster } = useMasterQuery(
-    {
-      master: "mouza",
-      dependsOn: plotFilterBlock ? { block_lgd: plotFilterBlock } : undefined,
-    },
-    !!plotFilterBlock
-  );
 
   const [uploadedDocs, setUploadedDocs] = React.useState<
     Record<string, UploadedDoc[]>
@@ -580,12 +584,21 @@ function Wizard({
       return data;
     },
     onSuccess: (data) => {
+      const claimId = data.id || data.claim_code;
       toast.success(`Form-I Claim ${data.claim_code} Submitted Successfully!`, {
         description: `21-day statutory transparency window ends ${new Date(data.transparency_window_ends_at).toLocaleDateString("en-IN")}`,
+        action: {
+          label: "Open Workspace",
+          onClick: () => onOpenWorkspace?.(claimId),
+        },
       });
       qc.invalidateQueries({ queryKey: ["claims"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
-      onDone();
+      if (claimId && onOpenWorkspace) {
+        onOpenWorkspace(claimId);
+      } else {
+        onDone();
+      }
     },
     onError: (e: Error) =>
       toast.error("Submission failed", { description: e.message }),
@@ -686,89 +699,68 @@ function Wizard({
                   {/* Location Master Dropdowns: State ➔ District ➔ Block ➔ Mouza */}
                   <div className="col-span-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 bg-muted/20 p-3 rounded-lg border border-border/60">
                     <Field label="State (Master)">
-                      <select
+                      <StateSelect
                         value={form.state_lgd}
-                        onChange={(e) =>
+                        onChange={(val) => {
+                          const v = Array.isArray(val) ? val[0] || "" : val || "";
                           setForm({
                             ...form,
-                            state_lgd: e.target.value,
+                            state_lgd: v,
                             district_lgd: "",
                             block_lgd: "",
                             mouza_lgd: "",
-                          })
-                        }
-                        className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-                      >
-                        <option value="">— Select State —</option>
-                        {stateMaster?.options?.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                          });
+                        }}
+                        placeholder="— Select State —"
+                      />
                     </Field>
 
                     <Field label="District (Master)">
-                      <select
+                      <DistrictSelect
+                        stateLgd={form.state_lgd}
                         value={form.district_lgd}
                         disabled={!form.state_lgd}
-                        onChange={(e) =>
+                        onChange={(val) => {
+                          const v = Array.isArray(val) ? val[0] || "" : val || "";
                           setForm({
                             ...form,
-                            district_lgd: e.target.value,
+                            district_lgd: v,
                             block_lgd: "",
                             mouza_lgd: "",
-                          })
-                        }
-                        className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm disabled:opacity-50"
-                      >
-                        <option value="">— Select District —</option>
-                        {districtMaster?.options?.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                          });
+                        }}
+                        placeholder="— Select District —"
+                      />
                     </Field>
 
                     <Field label="Block (Master)">
-                      <select
+                      <BlockSelect
+                        districtLgd={form.district_lgd}
                         value={form.block_lgd}
                         disabled={!form.district_lgd}
-                        onChange={(e) =>
+                        onChange={(val) => {
+                          const v = Array.isArray(val) ? val[0] || "" : val || "";
                           setForm({
                             ...form,
-                            block_lgd: e.target.value,
+                            block_lgd: v,
                             mouza_lgd: "",
-                          })
-                        }
-                        className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm disabled:opacity-50"
-                      >
-                        <option value="">— Select Block —</option>
-                        {blockMaster?.options?.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                          });
+                        }}
+                        placeholder="— Select Block —"
+                      />
                     </Field>
 
                     <Field label="Mouza (Master)">
-                      <select
+                      <MouzaSelect
+                        blockLgd={form.block_lgd}
                         value={form.mouza_lgd}
                         disabled={!form.block_lgd}
-                        onChange={(e) =>
-                          setForm({ ...form, mouza_lgd: e.target.value })
-                        }
-                        className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm disabled:opacity-50"
-                      >
-                        <option value="">— Select Mouza —</option>
-                        {mouzaMaster?.options?.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(val) => {
+                          const v = Array.isArray(val) ? val[0] || "" : val || "";
+                          setForm({ ...form, mouza_lgd: v });
+                        }}
+                        placeholder="— Select Mouza —"
+                      />
                     </Field>
                   </div>
 
@@ -887,20 +879,14 @@ function Wizard({
                     </Field>
 
                     <Field label="7. Caste / Category (Master Fetched)">
-                      <select
+                      <CasteSelect
                         value={form.caste_category}
-                        onChange={(e) =>
-                          setForm({ ...form, caste_category: e.target.value })
+                        onChange={(val) =>
+                          setForm({ ...form, caste_category: Array.isArray(val) ? val[0] : (val || "") })
                         }
-                        className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm font-medium"
-                      >
-                        <option value="">— Select Caste (Master) —</option>
-                        {casteMaster?.options?.map((opt) => (
-                          <option key={opt.value} value={opt.label || opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder="— Select Caste Category —"
+                        className="w-full text-sm font-medium"
+                      />
                     </Field>
                   </div>
                 </div>
@@ -959,78 +945,63 @@ function Wizard({
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <Field label="State (Master)">
-                  <select
+                  <StateSelect
                     value={plotFilterState}
-                    onChange={(e) => {
-                      setPlotFilterState(e.target.value);
+                    showAllOption
+                    onChange={(val) => {
+                      const v = Array.isArray(val) ? val[0] || "" : val || "";
+                      setPlotFilterState(v === "ALL" ? "" : v);
                       setPlotFilterDistrict("");
                       setPlotFilterBlock("");
                       setPlotFilterMouza("");
                     }}
-                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs"
-                  >
-                    <option value="">— All States —</option>
-                    {plotFilterStateMaster?.options?.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="— All States —"
+                  />
                 </Field>
 
                 <Field label="District (Master)">
-                  <select
+                  <DistrictSelect
+                    stateLgd={plotFilterState}
                     value={plotFilterDistrict}
                     disabled={!plotFilterState}
-                    onChange={(e) => {
-                      setPlotFilterDistrict(e.target.value);
+                    showAllOption
+                    onChange={(val) => {
+                      const v = Array.isArray(val) ? val[0] || "" : val || "";
+                      setPlotFilterDistrict(v === "ALL" ? "" : v);
                       setPlotFilterBlock("");
                       setPlotFilterMouza("");
                     }}
-                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs disabled:opacity-50"
-                  >
-                    <option value="">— All Districts —</option>
-                    {plotFilterDistrictMaster?.options?.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="— All Districts —"
+                  />
                 </Field>
 
                 <Field label="Block (Master)">
-                  <select
+                  <BlockSelect
+                    districtLgd={plotFilterDistrict}
                     value={plotFilterBlock}
                     disabled={!plotFilterDistrict}
-                    onChange={(e) => {
-                      setPlotFilterBlock(e.target.value);
+                    showAllOption
+                    onChange={(val) => {
+                      const v = Array.isArray(val) ? val[0] || "" : val || "";
+                      setPlotFilterBlock(v === "ALL" ? "" : v);
                       setPlotFilterMouza("");
                     }}
-                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs disabled:opacity-50"
-                  >
-                    <option value="">— All Blocks —</option>
-                    {plotFilterBlockMaster?.options?.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="— All Blocks —"
+                  />
                 </Field>
 
                 <Field label="Mouza (Master)">
-                  <select
+                  <MouzaSelect
+                    blockLgd={plotFilterBlock}
                     value={plotFilterMouza}
                     disabled={!plotFilterBlock}
-                    onChange={(e) => setPlotFilterMouza(e.target.value)}
-                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs disabled:opacity-50 font-medium text-emerald-800"
-                  >
-                    <option value="">— All Mouzas —</option>
-                    {plotFilterMouzaMaster?.options?.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    showAllOption
+                    onChange={(val) => {
+                      const v = Array.isArray(val) ? val[0] || "" : val || "";
+                      setPlotFilterMouza(v === "ALL" ? "" : v);
+                    }}
+                    placeholder="— All Mouzas —"
+                  />
                 </Field>
 
                 <Field label="Search & Add Approved Plot">
@@ -2168,6 +2139,205 @@ function InfoTile({ label, value }: { label: string; value: string }) {
       </p>
       <p className="mt-0.5 text-sm font-medium">{value}</p>
     </div>
+  );
+}
+
+function EditClaimModal({ claim, onClose }: { claim: Claim | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [form, setForm] = React.useState<Partial<Claim>>({});
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (claim) {
+      setForm({
+        claimant_name: claim.claimant_name || "",
+        father_husband_name: claim.father_husband_name || "",
+        epic_no: claim.epic_no || "",
+        caste_category: claim.caste_category || "GENERAL",
+        occupation: claim.occupation || "",
+        gender: claim.gender || "Male",
+        religion: claim.religion || "",
+        present_address: claim.present_address || "",
+        permanent_address: claim.permanent_address || "",
+        bank_name: claim.bank_name || "",
+        bank_branch: claim.bank_branch || "",
+        bank_account_number: claim.bank_account_number || "",
+        bank_ifsc: claim.bank_ifsc || "",
+      });
+    }
+  }, [claim]);
+
+  if (!claim) return null;
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const res = await fetch(`/api/claims/${claim.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update claim");
+      toast.success(`Claim ${claim.claim_code} updated successfully!`);
+      qc.invalidateQueries({ queryKey: ["claims"] });
+      onClose();
+    } catch (err: any) {
+      toast.error("Failed to update claim: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!claim} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <div className="flex items-center justify-between border-b pb-3 mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">Edit Form-I Claim</h3>
+            <p className="text-xs text-muted-foreground font-mono mt-0.5">{claim.claim_code}</p>
+          </div>
+          <Badge variant="outline" className="font-mono text-xs">{claim.state}</Badge>
+        </div>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs font-semibold">Claimant Name *</Label>
+              <Input
+                value={form.claimant_name || ""}
+                onChange={(e) => setForm({ ...form, claimant_name: e.target.value })}
+                className="h-9 mt-1 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold">Father / Husband Name</Label>
+              <Input
+                value={form.father_husband_name || ""}
+                onChange={(e) => setForm({ ...form, father_husband_name: e.target.value })}
+                className="h-9 mt-1 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs font-semibold">Voter EPIC Number</Label>
+              <Input
+                value={form.epic_no || ""}
+                onChange={(e) => setForm({ ...form, epic_no: e.target.value.toUpperCase() })}
+                className="h-9 mt-1 text-sm font-mono"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold">Caste / Category (Master)</Label>
+              <div className="mt-1">
+                <CasteSelect
+                  value={form.caste_category}
+                  onChange={(val) => setForm({ ...form, caste_category: Array.isArray(val) ? val[0] : (val || "") })}
+                  placeholder="Select Caste Category"
+                  className="w-full text-sm font-medium"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label className="text-xs font-semibold">Gender</Label>
+              <Input
+                value={form.gender || ""}
+                onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                className="h-9 mt-1 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold">Religion</Label>
+              <Input
+                value={form.religion || ""}
+                onChange={(e) => setForm({ ...form, religion: e.target.value })}
+                className="h-9 mt-1 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold">Occupation</Label>
+              <Input
+                value={form.occupation || ""}
+                onChange={(e) => setForm({ ...form, occupation: e.target.value })}
+                className="h-9 mt-1 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs font-semibold">Present Address</Label>
+              <Input
+                value={form.present_address || ""}
+                onChange={(e) => setForm({ ...form, present_address: e.target.value })}
+                className="h-9 mt-1 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold">Permanent Address</Label>
+              <Input
+                value={form.permanent_address || ""}
+                onChange={(e) => setForm({ ...form, permanent_address: e.target.value })}
+                className="h-9 mt-1 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="border-t pt-3">
+            <h4 className="text-xs font-bold uppercase text-slate-500 mb-2">Bank Details</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-semibold">Bank Name</Label>
+                <Input
+                  value={form.bank_name || ""}
+                  onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
+                  className="h-9 mt-1 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Branch Name</Label>
+                <Input
+                  value={form.bank_branch || ""}
+                  onChange={(e) => setForm({ ...form, bank_branch: e.target.value })}
+                  className="h-9 mt-1 text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-2">
+              <div>
+                <Label className="text-xs font-semibold">Account Number</Label>
+                <Input
+                  value={form.bank_account_number || ""}
+                  onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })}
+                  className="h-9 mt-1 text-sm font-mono"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">IFSC Code</Label>
+                <Input
+                  value={form.bank_ifsc || ""}
+                  onChange={(e) => setForm({ ...form, bank_ifsc: e.target.value.toUpperCase() })}
+                  className="h-9 mt-1 text-sm font-mono"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t pt-4 mt-6">
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" onClick={handleSave} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium">
+            {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+            Save Changes
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

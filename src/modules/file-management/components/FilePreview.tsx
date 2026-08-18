@@ -99,8 +99,9 @@ function DocxPreviewContent({ downloadUrl, setLoading }: { downloadUrl: string; 
     let isMounted = true;
     setLoading(true);
 
-    fetch(`${downloadUrl}?preview=true`)
+    fetch(`${downloadUrl}?preview=true&format=pdf&t=${Date.now()}`, { cache: 'no-store' })
       .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load document preview`);
         const contentType = res.headers.get('Content-Type') || '';
         if (contentType.includes('application/pdf')) {
           setUseIframe(true);
@@ -111,6 +112,26 @@ function DocxPreviewContent({ downloadUrl, setLoading }: { downloadUrl: string; 
       })
       .then(async (arrayBuffer) => {
         if (!arrayBuffer || !isMounted) return;
+        
+        const bytes = new Uint8Array(arrayBuffer);
+        // Check for PDF signature (%PDF -> 0x25 0x50 0x44 0x46)
+        if (bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) {
+          if (isMounted) {
+            setUseIframe(true);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Check for valid DOCX / ZIP signature (PK -> 0x50 0x4B)
+        if (bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4B) {
+          if (isMounted) {
+            setDocxError('Document is updating or invalid. Please click "Regenerate Document" to refresh.');
+            setLoading(false);
+          }
+          return;
+        }
+
         try {
           const result = await mammoth.convertToHtml({ arrayBuffer });
           if (isMounted) {
@@ -140,7 +161,7 @@ function DocxPreviewContent({ downloadUrl, setLoading }: { downloadUrl: string; 
     return (
       <div className="w-full h-full p-2 md:p-4 bg-slate-100 flex flex-col items-center overflow-hidden">
         <iframe
-          src={`${downloadUrl}?preview=true#toolbar=0&navpanes=0&scrollbar=0`}
+          src={`${downloadUrl}?preview=true&format=pdf#toolbar=0&navpanes=0&scrollbar=0`}
           className="w-full max-w-5xl bg-white shadow-xl rounded-sm border border-slate-200 flex-1 mb-8"
           onLoad={() => setLoading(false)}
         />

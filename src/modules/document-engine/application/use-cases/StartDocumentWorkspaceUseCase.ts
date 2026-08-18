@@ -34,10 +34,9 @@ export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWork
           form_data: { ...(existingDraft.form_data as any), ...extraData }
         })
 
-        // Dispatch background docx generation via JobDispatcherService
-        const { jobDispatcher } = await import('@/infrastructure/di/Container')
-        await this.instanceRepository.update(existingDraft.id, { status: 'QUEUED' })
-        await jobDispatcher.dispatch('generateDocument', { instanceId: existingDraft.id })
+        // Execute generateDocumentUseCase synchronously so workspace always gets latest fields
+        const { generateDocumentUseCase } = await import('@/infrastructure/di/Container')
+        await generateDocumentUseCase.execute({ instanceId: existingDraft.id })
         
         const refreshedDraft = await this.instanceRepository.findById(existingDraft.id)
         return Ok(refreshedDraft || existingDraft)
@@ -119,4 +118,3 @@ export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWork
     }
   }
 }
-

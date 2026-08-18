@@ -180,7 +180,7 @@ export function FormIStatutoryDocumentView({
                 2. Name of the Father/Husband:
               </span>
               <span className="underline">
-                {claim.father_husband_name || "N/A"}
+                {claim.father_husband_name || (claim as any).land_loser_master?.father_husband_name || "N/A"}
               </span>
             </div>
 
@@ -189,8 +189,8 @@ export function FormIStatutoryDocumentView({
                 3. Present & Permanent Address:
               </span>
               <span className="underline leading-tight">
-                Present: {claim.present_address || "N/A"} | Permanent:{" "}
-                {claim.permanent_address || "N/A"}
+                Present: {claim.present_address || (claim as any).land_loser_master?.present_address || "N/A"} | Permanent:{" "}
+                {claim.permanent_address || (claim as any).land_loser_master?.permanent_address || "N/A"}
               </span>
             </div>
 
@@ -199,7 +199,12 @@ export function FormIStatutoryDocumentView({
                 4. Voter (EPIC) Card & Aadhaar No:
               </span>
               <span className="font-mono">
-                {claim.epic_no || "N/A"} & {claim.citizen_id_hash || "LOCKED"}
+                {(() => {
+                  const epic = claim.epic_no || (claim as any).land_loser_master?.epic_no || "N/A";
+                  const rawAadhaar = claim.aadhaar_number || (claim as any).land_loser_master?.citizen_id_hash || claim.citizen_id_hash || "";
+                  const masked = rawAadhaar && rawAadhaar.length >= 4 ? `XXXX-XXXX-${rawAadhaar.slice(-4).toUpperCase()}` : "XXXX-XXXX-LOCKED";
+                  return `${epic} & ${masked}`;
+                })()}
               </span>
             </div>
 
@@ -277,87 +282,50 @@ export function FormIStatutoryDocumentView({
                 </tr>
               </thead>
               <tbody>
-                {Array.isArray(claim.plot_entries) && claim.plot_entries.length > 0 ? (
-                  claim.plot_entries.map((p: any, i: number) => (
+                {(() => {
+                  const c = claim as any;
+                  const plotsList = Array.isArray(c.form_i_claim_plot) && c.form_i_claim_plot.length > 0
+                    ? c.form_i_claim_plot
+                    : (Array.isArray(claim.plot_entries) && claim.plot_entries.length > 0 ? claim.plot_entries : [claim]);
+
+                  return plotsList.map((p: any, i: number) => (
                     <tr key={i} className="text-center font-mono">
                       <td className="border border-slate-900 p-1 font-semibold font-sans">
-                        {p.mouza_name || claim.mouza || "Approved Mouza"}
+                        {p.mouza_name || claim.mouza || "N/A"}
                       </td>
                       <td className="border border-slate-900 p-1 font-bold text-slate-950">
                         {getDisplayPlotNo(p.plot_no || p.plot_number || claim.plot_number)}
                       </td>
                       <td className="border border-slate-900 p-1">
-                        {p.total_ror_area || p.own_share_acres} ac
+                        {p.total_ror_area || p.own_share_acres || "0.0000"} ac
                       </td>
                       <td className="border border-slate-900 p-1">
-                        {p.khatian_no || claim.khatian_no || "Kh-102"}
+                        {p.khatian_no || claim.khatian_no || "N/A"}
                       </td>
                       <td className="border border-slate-900 p-1 font-bold text-emerald-900 font-sans">
-                        {p.own_share_acres} ac
+                        {p.own_share_acres || "0.0000"} ac
                       </td>
                       <td className="border border-slate-900 p-1 font-sans">
-                        {claim.link_deed_no ? `Deed ${claim.link_deed_no}` : "Inherited Deed"}
+                        {p.link_deed_no ? `Deed ${p.link_deed_no}` : (claim.link_deed_no ? `Deed ${claim.link_deed_no}` : "N/A")}
                       </td>
                       <td className="border border-slate-900 p-1">
-                        {claim.ownership_date ? new Date(claim.ownership_date).toLocaleDateString("en-IN") : "N/A"}
+                        {p.ownership_date ? new Date(p.ownership_date).toLocaleDateString("en-IN") : (claim.ownership_date ? new Date(claim.ownership_date).toLocaleDateString("en-IN") : "N/A")}
                       </td>
                       <td className="border border-slate-900 p-1 font-sans">
-                        {claim.transferor_name || "Ancestral"}
+                        {p.transferor_name || claim.transferor_name || "N/A"}
                       </td>
                       <td className="border border-slate-900 p-1 font-sans">
-                        {isDirect ? `${p.own_share_acres} ac` : "0.0000"}
+                        {isDirect ? `${p.own_share_acres || claim.own_share_acres || "0.0000"} ac` : "0.0000"}
                       </td>
                       <td className="border border-slate-900 p-1 font-sans">
-                        {isCBA ? `${p.own_share_acres} ac` : "0.0000"}
+                        {isCBA ? `${p.own_share_acres || claim.own_share_acres || "0.0000"} ac` : "0.0000"}
                       </td>
                       <td className="border border-slate-900 p-1 font-sans">
-                        ECL/LA/2026/NOT-01
+                        {isDirect ? "ECL/LA/NOTICE" : (isCBA ? "ECL/LA/NOTICE" : "N/A")}
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr className="text-center font-mono">
-                    <td className="border border-slate-900 p-1 font-semibold font-sans">
-                      {claim.mouza || "Approved Mouza"}
-                    </td>
-                    <td className="border border-slate-900 p-1 font-bold text-slate-950">
-                      {getDisplayPlotNo(claim.plot_number)}
-                    </td>
-                    <td className="border border-slate-900 p-1">
-                      {claim.total_area_acres || claim.own_share_acres} ac
-                    </td>
-                    <td className="border border-slate-900 p-1">
-                      {claim.khatian_no || "Kh-102"}
-                    </td>
-                    <td className="border border-slate-900 p-1 font-bold text-emerald-900 font-sans">
-                      {claim.own_share_acres} ac
-                    </td>
-                    <td className="border border-slate-900 p-1 font-sans">
-                      {claim.link_deed_no
-                        ? `Deed ${claim.link_deed_no}`
-                        : "Inherited Deed"}
-                    </td>
-                    <td className="border border-slate-900 p-1">
-                      {claim.ownership_date
-                        ? new Date(claim.ownership_date).toLocaleDateString(
-                            "en-IN"
-                          )
-                        : "N/A"}
-                    </td>
-                    <td className="border border-slate-900 p-1 font-sans">
-                      {claim.transferor_name || "Ancestral"}
-                    </td>
-                    <td className="border border-slate-900 p-1 font-sans">
-                      {isDirect ? `${claim.own_share_acres} ac` : "0.0000"}
-                    </td>
-                    <td className="border border-slate-900 p-1 font-sans">
-                      {isCBA ? `${claim.own_share_acres} ac` : "0.0000"}
-                    </td>
-                    <td className="border border-slate-900 p-1 font-sans">
-                      ECL/LA/2026/NOT-01
-                    </td>
-                  </tr>
-                )}
+                  ));
+                })()}
               </tbody>
             </table>
           </div>

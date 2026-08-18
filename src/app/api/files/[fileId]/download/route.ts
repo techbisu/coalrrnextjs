@@ -46,14 +46,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
     let { buffer, mimeType: mime_type, originalName: original_name } = result.value!;
 
     
-    // 2.5 Convert DOCX to PDF if requested as preview or forced PDF
-    if ((isPreview || forcePdf) && (mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mime_type === 'application/msword')) {
+    // 2.5 Convert DOCX to PDF only if format=pdf (forcePdf)
+    if (forcePdf && (mime_type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mime_type === 'application/msword')) {
       try {
         buffer = await PdfService.convertToPdf(buffer);
         mime_type = 'application/pdf';
         original_name = original_name.replace(/\.docx?$/i, '.pdf');
-      } catch (e) {
-        console.error('DOCX to PDF conversion failed during preview:', e);
+      } catch (e: any) {
+        console.error('DOCX to PDF conversion error:', e);
       }
     }
 

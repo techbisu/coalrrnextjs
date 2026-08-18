@@ -70,6 +70,7 @@
     "date-fns": "^4.4.0",
     "decimal.js": "^10.6.0",
     "docxtemplater": "^3.69.0",
+    "docxtemplater-image-module-free": "^1.1.1",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.2",
     "input-otp": "^1.4.2",

@@ -41,6 +41,7 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [refreshKey, setRefreshKey] = useState<number>(Date.now());
 
   useEffect(() => {
     if (!isOpen) {
@@ -132,6 +133,7 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
       if (data.success) {
         if (data.fileId) {
           setFileId(data.fileId);
+          setRefreshKey(Date.now());
           toast.success("Document generated successfully");
         } else {
           toast.info("Document generation queued in background...");
@@ -177,12 +179,25 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
     }
   };
 
+  const handleDownloadDocx = () => {
+    if (!fileId) return;
+    window.open(`/api/files/${fileId}/download`, '_blank');
+    toast.success('Word document (.docx) download started');
+  };
+
   const handleDownloadPdf = async () => {
     if (!fileId) return;
     setIsDownloadingPdf(true);
     try {
       const response = await fetch(`/api/files/${fileId}/download?format=pdf`);
-      if (!response.ok) throw new Error('Download failed');
+      if (!response.ok) {
+        let errMessage = 'Failed to download PDF.';
+        try {
+          const errJson = await response.json();
+          if (errJson.error) errMessage = errJson.error;
+        } catch (_) {}
+        throw new Error(errMessage);
+      }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -192,9 +207,10 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (err) {
+      toast.success('PDF downloaded successfully');
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to download PDF.');
+      toast.error(err.message || 'Failed to download PDF.');
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -215,7 +231,7 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
       <DialogContent className="max-w-none sm:max-w-none md:max-w-none w-screen h-screen m-0 p-0 rounded-none overflow-hidden flex flex-col bg-slate-50 border-0">
         
         {/* Header */}
-        <header className="h-16 bg-white/95 backdrop-blur border-b flex items-center justify-between px-6 shrink-0 z-10 shadow-sm">
+        <header className="h-16 bg-white/95 backdrop-blur border-b flex items-center justify-between px-6 shrink-0 z-10 shadow-sm print:hidden">
           <div className="flex items-center gap-4">
             <div className="bg-primary/10 p-2 rounded-lg shadow-sm">
               <FileText className="w-5 h-5 text-primary" />
@@ -229,15 +245,19 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             {fileId && (
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="shadow-sm transition-all duration-200 bg-white text-blue-700 hover:text-blue-800 hover:bg-blue-50 border-blue-200">
-                  {isDownloadingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                <Button variant="outline" size="sm" onClick={handleDownloadDocx} className="shadow-sm transition-all duration-200 bg-white text-slate-700 hover:text-slate-900 border-slate-300 font-medium">
+                  <Download className="w-4 h-4 mr-1.5 text-blue-600" />
+                  Download Word (.docx)
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="shadow-sm transition-all duration-200 bg-white text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 border-emerald-300 font-medium">
+                  {isDownloadingPdf ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileText className="w-4 h-4 mr-1.5 text-emerald-600" />}
                   Download PDF
                 </Button>
-                <Button size="sm" onClick={() => handleGenerate()} disabled={isGenerating} className="shadow-sm transition-all duration-200">
-                  {isGenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PenTool className="w-4 h-4 mr-2" />}
+                <Button size="sm" onClick={() => handleGenerate()} disabled={isGenerating} className="shadow-sm transition-all duration-200 bg-primary text-primary-foreground font-medium">
+                  {isGenerating ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <PenTool className="w-4 h-4 mr-1.5" />}
                   Regenerate Document
                 </Button>
               </div>
@@ -292,6 +312,7 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
               </div>
             ) : fileId ? (
               <FilePreview 
+                key={`${fileId}_${refreshKey}`}
                 file_id={fileId} 
                 mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
                 original_name={`${templateCode}.docx`}
