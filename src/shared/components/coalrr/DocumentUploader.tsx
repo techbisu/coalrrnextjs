@@ -286,8 +286,12 @@ export function DocumentUploader({
         setOpen(v)
       }}>
         <DialogTrigger asChild>
-          <Button variant="outline" className="w-full justify-start text-muted-foreground" disabled={disabled}>
-            <UploadCloud className="mr-2 h-4 w-4" />
+          <Button
+            variant="outline"
+            className="h-8 border-emerald-600 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-sm hover:shadow gap-1.5 px-3.5 rounded-md transition-all active:scale-95 cursor-pointer"
+            disabled={disabled}
+          >
+            <UploadCloud className="h-3.5 w-3.5" />
             {t('btn_browse', 'Browse Files')}
           </Button>
         </DialogTrigger>

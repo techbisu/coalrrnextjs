@@ -65,6 +65,9 @@ export class FormIResolver implements IDocumentResolver {
       const isDirect = mode === 'DIRECT_PURCHASE'
       const isCBA = mode === 'CBA_ACT' || mode === 'LA_ACT'
 
+      const decls: any[] = Array.isArray(claim.statutory_declarations) ? (claim.statutory_declarations as any[]) : []
+      const getDecl = (qNo: number) => decls.find((d: any) => d.q_no === qNo)
+
       return {
         fields: {
           ClaimCode: claim.claim_code,
@@ -80,46 +83,64 @@ export class FormIResolver implements IDocumentResolver {
           Religion: claim.religion || 'Hindu',
           CommunityCategory: claim.caste_category || 'GENERAL',
 
-          CompensationReceived: claim.prior_compensation_received ? 'YES' : 'NO',
-          CompensationDetails: claim.prior_compensation_details || 'N/A',
+          CompensationReceived: getDecl(9)?.answer_boolean ? 'YES' : 'NO',
+          CompensationDetails: getDecl(9)?.details || 'N/A',
           BankName: claim.bank_name || 'State Bank of India',
           BranchName: claim.bank_branch || 'ECL Main Branch',
           BankAccountNumber: claim.bank_account_number || 'N/A',
           IFSCCode: claim.bank_ifsc || 'N/A',
-          PreviousEmploymentClaim: claim.prior_employment_linked ? 'YES' : 'NO',
-          EmploymentClaimDetails: claim.prior_employment_details || 'N/A',
-          LandDisputeStatus: claim.is_free_from_disputes !== false ? 'YES (Free from disputes)' : 'NO (Dispute Exists)',
-          DisputeDetails: claim.dispute_details || 'N/A',
-          EncumbranceFree: claim.is_free_from_encumbrances !== false ? 'YES (Free from encumbrances)' : 'NO (Encumbered)',
-          EncumbranceDetails: claim.encumbrance_details || 'N/A',
-          PeacefulPossession: claim.can_handover_possession !== false ? 'YES' : 'NO',
-          PossessionRemarks: claim.possession_reason || 'N/A',
-          OneTimeCompensationAccepted: claim.opted_monetary_in_lieu_of_employment ? 'YES (One-Time Cash)' : 'NO (Form-V Employment Required)',
-          CompensationRemarks: claim.monetary_opt_reason || 'N/A',
+          PreviousEmploymentClaim: getDecl(11)?.answer_boolean ? 'YES' : 'NO',
+          EmploymentClaimDetails: getDecl(11)?.details || 'N/A',
+          LandDisputeStatus: getDecl(12)?.answer_boolean !== false ? 'YES' : 'NO',
+          DisputeDetails: getDecl(12)?.details || 'N/A',
+          EncumbranceFree: getDecl(13)?.answer_boolean !== false ? 'YES' : 'NO',
+          EncumbranceDetails: getDecl(13)?.details || 'N/A',
+          PeacefulPossession: getDecl(14)?.answer_boolean !== false ? 'YES' : 'NO',
+          PossessionRemarks: getDecl(14)?.details || 'N/A',
+          OneTimeCompensationAccepted: getDecl(15)?.answer_boolean ? 'YES' : 'NO',
+          CompensationRemarks: getDecl(15)?.details || 'N/A',
           ApplicationDate: claim.submitted_at ? new Date(claim.submitted_at).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN'),
           ApplicantPhoto: claim.photo_doc_id ? `/api/files/download/${claim.photo_doc_id}` : '',
           ApplicantSignature: claim.claimant_name,
         },
         tables: {
-          LandParcels: [
-            {
-              MouzaName: mouzaName,
-              PlotNo: displayPlotNo,
-              TotalArea: totalArea,
-              KhatianNo: claim.khatian_no || 'Kh-102',
-              OwnShareArea: ownShareArea,
-              LegalInstrument: claim.link_deed_no ? `Link Deed ${claim.link_deed_no}` : 'Inherited / Ancestral Deed',
-              OwnershipDate: claim.ownership_date ? new Date(claim.ownership_date).toLocaleDateString('en-IN') : 'N/A',
-              PreviousOwnerName: claim.transferor_name || 'Ancestral',
-              PreviousOwnerFatherName: 'N/A',
-              PreviouslyTransferredArea: '0.0000',
-              SaleDeedArea: isDirect ? ownShareArea : '0.0000',
-              CBAArea: isCBA ? ownShareArea : '0.0000',
-              OfferedArea: ownShareArea,
-              DirectPurchaseNoticeNo: isDirect ? 'ECL/LA/2026/NOT-01' : 'N/A',
-              CBANoticeNo: isCBA ? 'ECL/LA/2026/NOT-01' : 'N/A',
-            },
-          ],
+          LandParcels: Array.isArray(claim.plot_entries) && claim.plot_entries.length > 0
+            ? claim.plot_entries.map((p: any) => ({
+                MouzaName: p.mouza_name || mouzaName,
+                PlotNo: getDisplayPlotNo(p.plot_no || p.plot_number || displayPlotNo),
+                TotalArea: p.total_ror_area || p.own_share_acres || totalArea,
+                KhatianNo: p.khatian_no || claim.khatian_no || 'Kh-102',
+                OwnShareArea: String(p.own_share_acres || ownShareArea),
+                LegalInstrument: claim.link_deed_no ? `Link Deed ${claim.link_deed_no}` : 'Inherited / Ancestral Deed',
+                OwnershipDate: claim.ownership_date ? new Date(claim.ownership_date).toLocaleDateString('en-IN') : 'N/A',
+                PreviousOwnerName: claim.transferor_name || 'Ancestral',
+                PreviousOwnerFatherName: 'N/A',
+                PreviouslyTransferredArea: '0.0000',
+                SaleDeedArea: isDirect ? String(p.own_share_acres || ownShareArea) : '0.0000',
+                CBAArea: isCBA ? String(p.own_share_acres || ownShareArea) : '0.0000',
+                OfferedArea: String(p.own_share_acres || ownShareArea),
+                DirectPurchaseNoticeNo: isDirect ? 'ECL/LA/2026/NOT-01' : 'N/A',
+                CBANoticeNo: isCBA ? 'ECL/LA/2026/NOT-01' : 'N/A',
+              }))
+            : [
+                {
+                  MouzaName: mouzaName,
+                  PlotNo: displayPlotNo,
+                  TotalArea: totalArea,
+                  KhatianNo: claim.khatian_no || 'Kh-102',
+                  OwnShareArea: ownShareArea,
+                  LegalInstrument: claim.link_deed_no ? `Link Deed ${claim.link_deed_no}` : 'Inherited / Ancestral Deed',
+                  OwnershipDate: claim.ownership_date ? new Date(claim.ownership_date).toLocaleDateString('en-IN') : 'N/A',
+                  PreviousOwnerName: claim.transferor_name || 'Ancestral',
+                  PreviousOwnerFatherName: 'N/A',
+                  PreviouslyTransferredArea: '0.0000',
+                  SaleDeedArea: isDirect ? ownShareArea : '0.0000',
+                  CBAArea: isCBA ? ownShareArea : '0.0000',
+                  OfferedArea: ownShareArea,
+                  DirectPurchaseNoticeNo: isDirect ? 'ECL/LA/2026/NOT-01' : 'N/A',
+                  CBANoticeNo: isCBA ? 'ECL/LA/2026/NOT-01' : 'N/A',
+                },
+              ],
         },
       }
     } catch (err) {

@@ -785,30 +785,19 @@ model form_i_claim {
   ownership_date                       DateTime?
   transferor_name                      String?
   acquisition_mode_offered             String?                     @default("CBA_ACT")
-  prior_compensation_received          Boolean                     @default(false)
-  prior_compensation_details           String?
   bank_name                            String?
   bank_branch                          String?
   bank_account_number                  String?
   bank_ifsc                            String?
   passbook_doc_id                      String?
-  prior_employment_linked              Boolean                     @default(false)
-  prior_employment_details             String?
-  is_free_from_disputes                Boolean                     @default(true)
-  dispute_details                      String?
-  is_free_from_encumbrances            Boolean                     @default(true)
-  encumbrance_details                  String?
-  can_handover_possession              Boolean                     @default(true)
-  possession_reason                    String?
-  opted_monetary_in_lieu_of_employment Boolean                     @default(false)
-  monetary_opt_reason                  String?
+  statutory_declarations               Json?
+  plot_entries                         Json?
   form_v_eligible                      Boolean                     @default(false)
   magistrate_affidavit_doc_id          String?
   title_deed_doc_id                    String?
   state                                String                      @default("Drafting")
   submitted_at                         DateTime?
   transparency_window_ends_at          DateTime?
-  meta                                 String?
   entry_ts                             DateTime                    @default(now())
   updt_ts                              DateTime                    @default(now())
   entry_by                             String?

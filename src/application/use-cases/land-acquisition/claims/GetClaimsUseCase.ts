@@ -23,6 +23,8 @@ export class GetClaimsUseCase implements IUseCase<void, any[]> {
           ? new Date(c.transparency_window_ends_at).getTime()
           : null
         const daysRemaining = twEnds ? Math.ceil((twEnds - now) / 86400000) : null
+        const decls = Array.isArray(c.statutory_declarations) ? (c.statutory_declarations as any[]) : []
+        const getDecl = (qNo: number) => decls.find((d: any) => d.q_no === qNo)
 
         return {
           id: c.id,
@@ -52,20 +54,20 @@ export class GetClaimsUseCase implements IUseCase<void, any[]> {
           ownership_date: iso(c.ownership_date),
           transferor_name: c.transferor_name,
           acquisition_mode_offered: c.acquisition_mode_offered,
-          opted_monetary_in_lieu_of_employment:
-            c.opted_monetary_in_lieu_of_employment ?? false,
-          bank_name: c.bank_name,
-          bank_branch: c.bank_branch,
-          bank_account_number: c.bank_account_number,
-          bank_ifsc: c.bank_ifsc,
-          prior_compensation_received: c.prior_compensation_received ?? false,
-          prior_compensation_details: c.prior_compensation_details,
-          prior_employment_linked: c.prior_employment_linked ?? false,
-          prior_employment_details: c.prior_employment_details,
-          is_free_from_disputes: c.is_free_from_disputes ?? true,
-          dispute_details: c.dispute_details,
-          is_free_from_encumbrances: c.is_free_from_encumbrances ?? true,
-          can_handover_possession: c.can_handover_possession ?? true,
+          statutory_declarations: decls,
+          plot_entries: c.plot_entries || [],
+          prior_compensation_received: getDecl(9)?.answer_boolean ?? false,
+          prior_compensation_details: getDecl(9)?.details || undefined,
+          prior_employment_linked: getDecl(11)?.answer_boolean ?? false,
+          prior_employment_details: getDecl(11)?.details || undefined,
+          is_free_from_disputes: getDecl(12)?.answer_boolean ?? true,
+          dispute_details: getDecl(12)?.details || undefined,
+          is_free_from_encumbrances: getDecl(13)?.answer_boolean ?? true,
+          encumbrance_details: getDecl(13)?.details || undefined,
+          can_handover_possession: getDecl(14)?.answer_boolean ?? true,
+          possession_reason: getDecl(14)?.details || undefined,
+          opted_monetary_in_lieu_of_employment: getDecl(15)?.answer_boolean ?? false,
+          monetary_opt_reason: getDecl(15)?.details || undefined,
           form_v_eligible: c.form_v_eligible ?? false,
           state: c.state,
           submitted_at: iso(c.submitted_at),

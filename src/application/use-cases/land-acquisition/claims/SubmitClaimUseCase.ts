@@ -28,6 +28,8 @@ export interface SubmitClaimDTO {
   plot_id?: string
   khatian_no?: string
   own_share_acres?: string
+  total_claim_share_acres?: string
+  plot_entries?: any[]
   link_deed_no?: string
   ownership_date?: string
   transferor_name?: string
@@ -140,7 +142,47 @@ export class SubmitClaimUseCase implements IUseCase<SubmitClaimDTO, any> {
       const claim_code = `FORM1-${new Date().getFullYear()}-${String(Math.floor(1000 + Math.random() * 9000))}`
       const submitted_at = new Date()
       const transparency_window_ends_at = new Date(submitted_at.getTime() + 21 * 86400000)
-      const form_v_eligible = ownShare >= 2.0
+      const totalClaimShare = req.total_claim_share_acres ? Number(req.total_claim_share_acres) : ownShare
+      const form_v_eligible = totalClaimShare >= 2.0
+
+      const statutoryDeclarations = [
+        {
+          q_no: 9,
+          question: "If any compensation has been received earlier for these plots of lands from ECL or any other Authority by him/her or his/her family? If so, give details:",
+          answer_boolean: req.prior_compensation_received ?? false,
+          details: req.prior_compensation_details || null,
+        },
+        {
+          q_no: 11,
+          question: "If any part of these plots was included in another employment in ECL? If so, give details:",
+          answer_boolean: req.prior_employment_linked ?? false,
+          details: req.prior_employment_details || null,
+        },
+        {
+          q_no: 12,
+          question: "Whether these plots/lands are presently free from any disputes or court case with the co-shares, bargadar or adjacent landowners? If not so, give detail:",
+          answer_boolean: req.is_free_from_disputes ?? true,
+          details: req.dispute_details || null,
+        },
+        {
+          q_no: 13,
+          question: "Whether these plots/lands are presently free from any encumbrances? If not, give details:",
+          answer_boolean: req.is_free_from_encumbrances ?? true,
+          details: req.encumbrance_details || null,
+        },
+        {
+          q_no: 14,
+          question: "Whether he/she has able to handover peaceful and encumbrance-free possession of above lands to the ECL? If not, give reasons:",
+          answer_boolean: req.can_handover_possession ?? true,
+          details: req.possession_reason || null,
+        },
+        {
+          q_no: 15,
+          question: "Has he/she agreed to accept 'One time Monetary compensation of CIL R&R Policy / One Time lumpsum / modified annuity scheme of ECL in lieu of employment' against above land? If not, give reason:",
+          answer_boolean: req.opted_monetary_in_lieu_of_employment ?? false,
+          details: req.monetary_opt_reason || null,
+        },
+      ]
 
       const claim = await this.claimRepository.create({
         id: randomUUID(),
@@ -166,29 +208,18 @@ export class SubmitClaimUseCase implements IUseCase<SubmitClaimDTO, any> {
         transferor_name: req.transferor_name,
         acquisition_mode_offered: req.acquisition_mode_offered || 'CBA_ACT',
 
-        prior_compensation_received: req.prior_compensation_received ?? false,
-        prior_compensation_details: req.prior_compensation_details,
         bank_name: req.bank_name,
         bank_branch: req.bank_branch,
         bank_account_number: req.bank_account_number,
         bank_ifsc: req.bank_ifsc,
         passbook_doc_id: req.passbook_doc_id,
 
-        prior_employment_linked: req.prior_employment_linked ?? false,
-        prior_employment_details: req.prior_employment_details,
-        is_free_from_disputes: req.is_free_from_disputes ?? true,
-        dispute_details: req.dispute_details,
-        is_free_from_encumbrances: req.is_free_from_encumbrances ?? true,
-        encumbrance_details: req.encumbrance_details,
-        can_handover_possession: req.can_handover_possession ?? true,
-        possession_reason: req.possession_reason,
-        opted_monetary_in_lieu_of_employment: req.opted_monetary_in_lieu_of_employment ?? false,
-        monetary_opt_reason: req.monetary_opt_reason,
         form_v_eligible,
-
         magistrate_affidavit_doc_id: req.magistrate_affidavit_doc_id,
         title_deed_doc_id: req.title_deed_doc_id,
 
+        statutory_declarations: statutoryDeclarations,
+        plot_entries: req.plot_entries || [],
         state: 'TitleScrutiny',
         submitted_at,
         transparency_window_ends_at,

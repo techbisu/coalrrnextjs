@@ -12,6 +12,7 @@ import {
   FormIStatutoryDocumentView,
 } from "@/shared/components/coalrr";
 import type { Column, UploadedDoc } from "@/shared/components/coalrr";
+import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/utils/formatters";
 import { getDisplayPlotNo } from "@/shared/utils/plot.utils";
 import { Button } from "@/shared/components/ui/button";
@@ -36,6 +37,7 @@ import {
   Camera,
   Search,
   FileCheck,
+  UploadCloud,
   X,
 } from "lucide-react";
 import { useMasterQuery } from "@/core/master-lookup";
@@ -431,6 +433,14 @@ function Wizard({
   const [uploadedDocs, setUploadedDocs] = React.useState<
     Record<string, UploadedDoc[]>
   >({});
+  const [selectedUploadDocType, setSelectedUploadDocType] = React.useState<string>("");
+
+  const DOC_TYPES = React.useMemo(() => [
+    { key: "LAND_LOSER_PHOTO", label: "Passport Size Photo", isMandatory: true },
+    { key: "MAG_AFFIDAVIT", label: "First-Class Magistrate Affidavit", isMandatory: true },
+    { key: "BANK_PASSBOOK", label: "Bank Passbook / Cheque", isMandatory: true },
+    { key: "LINK_DEED", label: "Parcha / Title Deed Proof", isMandatory: false },
+  ], []);
 
   const steps = [
     {
@@ -536,6 +546,7 @@ function Wizard({
     mutationFn: async () => {
       setSubmitting(true);
       const primaryPlot = plotEntries[0] || {};
+      const primaryOwnShare = Number(primaryPlot.own_share_acres) || 0;
       const totalOwnShareAcres = plotEntries
         .reduce((sum, p) => sum + (Number(p.own_share_acres) || 0), 0)
         .toFixed(4);
@@ -547,7 +558,9 @@ function Wizard({
         epicNo: authType === "epic" ? identifier : undefined,
         plot_id: primaryPlot.plot_id,
         khatian_no: primaryPlot.khatian_no,
-        own_share_acres: totalOwnShareAcres,
+        own_share_acres: (primaryOwnShare > 0 ? primaryOwnShare : Number(totalOwnShareAcres)).toFixed(4),
+        total_claim_share_acres: totalOwnShareAcres,
+        plot_entries: plotEntries,
         opted_monetary_in_lieu_of_employment:
           primaryPlot.opted_monetary_in_lieu_of_employment ||
           form.opted_monetary_in_lieu_of_employment,
@@ -1021,26 +1034,73 @@ function Wizard({
                 </Field>
 
                 <Field label="Search & Add Approved Plot">
-                  <select
-                    onChange={(e) => {
-                      const selectedVal = e.target.value;
-                      if (!selectedVal) return;
-                      const plot = plots.find((p) => p.id === selectedVal || p.plot_no === selectedVal);
-                      if (plot) handleSelectPlotFromSearch(plot);
-                      e.target.value = "";
-                    }}
-                    className="h-9 w-full rounded-md border border-emerald-600 bg-emerald-50/50 px-2 text-xs font-mono font-bold text-emerald-900"
-                  >
-                    <option value="">+ Choose Plot Number...</option>
-                    {filteredPlots.map((p) => {
-                      const displayNo = getDisplayPlotNo(p.plot_no || p.plot_number, p.state_lgd, p.mouza_lgd);
-                      return (
-                        <option key={p.id} value={p.id}>
-                          {displayNo} · {p.mouza} ({formatNumber(p.area_acres, 4)} ac)
-                        </option>
-                      );
-                    })}
-                  </select>
+                  <div className="relative w-full">
+                    <Input
+                      type="text"
+                      value={plotSearchQuery}
+                      onChange={(e) => setPlotSearchQuery(e.target.value)}
+                      placeholder="Type plot number or mouza to search..."
+                      className="h-9 w-full rounded-md border border-emerald-600 bg-emerald-50/50 px-3 text-xs font-mono font-medium text-emerald-900 placeholder:text-muted-foreground/50 placeholder:font-normal placeholder:font-sans focus:bg-background"
+                    />
+                    {plotSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setPlotSearchQuery("")}
+                        className="absolute right-2 top-2.5 text-xs text-muted-foreground hover:text-foreground font-bold"
+                        title="Clear search input"
+                      >
+                        ✕
+                      </button>
+                    )}
+
+                    {/* Auto-suggest dropdown when typing or focused */}
+                    {plotSearchQuery.trim() && (
+                      <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border border-emerald-600 bg-popover p-1 shadow-lg divide-y divide-border">
+                        {filteredPlots.length === 0 ? (
+                          <div className="p-2.5 text-center text-xs text-muted-foreground italic">
+                            No matching approved plot found for "{plotSearchQuery}"
+                          </div>
+                        ) : (
+                          filteredPlots.map((p) => {
+                            const displayNo = getDisplayPlotNo(p.plot_no || p.plot_number, p.state_lgd, p.mouza_lgd);
+                            const isAlreadySelected = plotEntries.some((entry) => entry.plot_id === p.id);
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                disabled={isAlreadySelected}
+                                onClick={() => {
+                                  handleSelectPlotFromSearch(p);
+                                  setPlotSearchQuery("");
+                                }}
+                                className={cn(
+                                  "w-full text-left p-2 text-xs flex items-center justify-between rounded transition-colors font-mono",
+                                  isAlreadySelected
+                                    ? "opacity-50 cursor-not-allowed bg-muted/40"
+                                    : "hover:bg-emerald-50 dark:hover:bg-emerald-950/60 cursor-pointer"
+                                )}
+                              >
+                                <div>
+                                  <span className="font-medium text-slate-900 dark:text-slate-100">{displayNo}</span>
+                                  <span className="text-[11px] text-muted-foreground ml-2 font-sans">({p.mouza || "Mouza"})</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="font-bold text-emerald-700 dark:text-emerald-300">
+                                    {formatNumber(p.area_acres, 4)} ac
+                                  </span>
+                                  {isAlreadySelected && (
+                                    <span className="text-[10px] text-amber-700 ml-1.5 font-sans italic">
+                                      (Added)
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </Field>
               </div>
 
@@ -1125,7 +1185,7 @@ function Wizard({
                               <Input
                                 disabled
                                 value={`${cleanNo} · ${entry.mouza_name || 'Approved Mouza'}`}
-                                className="h-8 bg-muted font-mono font-bold text-xs text-slate-800 dark:text-slate-200 border-slate-300"
+                                className="h-8 bg-muted font-mono font-medium text-xs text-slate-800 dark:text-slate-200 border-slate-300"
                               />
                             </td>
 
@@ -1293,7 +1353,7 @@ function Wizard({
               {/* Q9: Prior Compensation Received */}
               <div className="space-y-2 border-b pb-3">
                 <Label className="text-xs font-bold text-slate-800">
-                  9. Has any compensation been received earlier for these plots from ECL or any other Authority?
+                  9. If any compensation has been received earlier for these plots of lands from ECL or any other Authority by him/her or his/her family? If so, give details:
                 </Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
@@ -1330,7 +1390,7 @@ function Wizard({
               {/* Q11: Prior Employment Linked */}
               <div className="space-y-2 border-b pb-3">
                 <Label className="text-xs font-bold text-slate-800">
-                  11. Was any part of these plots included in another employment scheme in ECL?
+                  11. If any part of these plots was included in another employment in ECL? If so, give details:
                 </Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
@@ -1367,7 +1427,7 @@ function Wizard({
               {/* Q12: Free from Disputes */}
               <div className="space-y-2 border-b pb-3">
                 <Label className="text-xs font-bold text-slate-800">
-                  12. Are these plots presently free from any disputes or court cases with co-sharers, bargadars, or adjacent landowners?
+                  12. Whether these plots/lands are presently free from any disputes or court case with the co-shares, bargadar or adjacent landowners? If not so, give detail:
                 </Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
@@ -1378,7 +1438,7 @@ function Wizard({
                       onChange={() => setForm({ ...form, is_free_from_disputes: true, dispute_details: "" })}
                       className="accent-emerald-600"
                     />
-                    <span>YES (Free from disputes)</span>
+                    <span>YES</span>
                   </label>
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
                     <input
@@ -1388,7 +1448,7 @@ function Wizard({
                       onChange={() => setForm({ ...form, is_free_from_disputes: false })}
                       className="accent-emerald-600"
                     />
-                    <span>NO (Dispute exists)</span>
+                    <span>NO</span>
                   </label>
                 </div>
                 {!form.is_free_from_disputes && (
@@ -1404,7 +1464,7 @@ function Wizard({
               {/* Q13: Free from Encumbrances */}
               <div className="space-y-2 border-b pb-3">
                 <Label className="text-xs font-bold text-slate-800">
-                  13. Are these plots presently free from any encumbrances / mortgages?
+                  13. Whether these plots/lands are presently free from any encumbrances? If not, give details:
                 </Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
@@ -1415,7 +1475,7 @@ function Wizard({
                       onChange={() => setForm({ ...form, is_free_from_encumbrances: true, encumbrance_details: "" })}
                       className="accent-emerald-600"
                     />
-                    <span>YES (Free from encumbrances)</span>
+                    <span>YES</span>
                   </label>
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
                     <input
@@ -1425,7 +1485,7 @@ function Wizard({
                       onChange={() => setForm({ ...form, is_free_from_encumbrances: false })}
                       className="accent-emerald-600"
                     />
-                    <span>NO (Encumbrance exists)</span>
+                    <span>NO</span>
                   </label>
                 </div>
                 {!form.is_free_from_encumbrances && (
@@ -1441,7 +1501,7 @@ function Wizard({
               {/* Q14: Peaceful Handover Possession */}
               <div className="space-y-2 border-b pb-3">
                 <Label className="text-xs font-bold text-slate-800">
-                  14. Are you able to handover peaceful and encumbrance-free possession of lands to ECL?
+                  14. Whether he/she has able to handover peaceful and encumbrance-free possession of above lands to the ECL? If not, give reasons:
                 </Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
@@ -1478,7 +1538,7 @@ function Wizard({
               {/* Q15: Official Form-I Question 15 Wording */}
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-slate-800">
-                  15. Has he/she agreed to accept &lsquo;One Time Monetary compensation in lieu of employment&rsquo; against above land?
+                  15. Has he/she agreed to accept &lsquo;One time Monetary compensation of CIL R&R Policy / One Time lumpsum / modified annuity scheme of ECL in lieu of employment&rsquo; against above land? If not, give reason:
                 </Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
@@ -1489,7 +1549,7 @@ function Wizard({
                       onChange={() => setForm({ ...form, opted_monetary_in_lieu_of_employment: true, monetary_opt_reason: "" })}
                       className="accent-emerald-600"
                     />
-                    <span>YES (Accept One-Time Cash)</span>
+                    <span>YES</span>
                   </label>
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
                     <input
@@ -1499,7 +1559,7 @@ function Wizard({
                       onChange={() => setForm({ ...form, opted_monetary_in_lieu_of_employment: false })}
                       className="accent-emerald-600"
                     />
-                    <span>NO (Prefer Employment Nomination via Form-V)</span>
+                    <span>NO</span>
                   </label>
                 </div>
                 {!form.opted_monetary_in_lieu_of_employment && (
@@ -1513,101 +1573,239 @@ function Wizard({
               </div>
             </div>
 
-            {/* Mandatory Uploads Section */}
-            <div className="space-y-3">
+            {/* Dynamic Dropdown File Upload Selection & Uploaded Files List */}
+            <div className="space-y-4">
               <Alert className="border-sky-200 bg-sky-50 dark:bg-sky-950/30">
                 <ShieldCheck className="h-4 w-4 text-sky-600" />
                 <AlertDescription className="text-sky-800 dark:text-sky-300">
-                  Upload self-attested Passport Photo, First-Class Magistrate Affidavit (declaring land free from disputes/bargadars), Bank Passbook / Cheque, and link deeds/parcha.
+                  Select a document type from the dropdown below to open the file uploader. Upload self-attested Passport Photo, Magistrate Affidavit, Bank Passbook, and Title Deeds.
                 </AlertDescription>
               </Alert>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <DocumentUploader
-                  checklist_item_key="LAND_LOSER_PHOTO"
-                  label="Passport Size Photo (Mandatory)"
-                  documents={uploadedDocs.LAND_LOSER_PHOTO ?? []}
-                  onChange={(docs) => {
-                    const newDocs = Array.isArray(docs) ? docs : [docs];
-                    setUploadedDocs((prev) => ({
-                      ...prev,
-                      LAND_LOSER_PHOTO: [
-                        ...(prev.LAND_LOSER_PHOTO ?? []),
-                        ...newDocs,
-                      ],
-                    }));
-                  }}
-                  onRemove={(doc) =>
-                    setUploadedDocs((prev) => ({
-                      ...prev,
-                      LAND_LOSER_PHOTO: (prev.LAND_LOSER_PHOTO ?? []).filter(
-                        (d) => d.file_name !== doc.file_name
-                      ),
-                    }))
-                  }
-                />
-                <DocumentUploader
-                  checklist_item_key="MAG_AFFIDAVIT"
-                  label="First-Class Magistrate Affidavit (Mandatory)"
-                  documents={uploadedDocs.MAG_AFFIDAVIT ?? []}
-                  onChange={(docs) => {
-                    const newDocs = Array.isArray(docs) ? docs : [docs];
-                    setUploadedDocs((prev) => ({
-                      ...prev,
-                      MAG_AFFIDAVIT: [...(prev.MAG_AFFIDAVIT ?? []), ...newDocs],
-                    }));
-                  }}
-                  onRemove={(doc) =>
-                    setUploadedDocs((prev) => ({
-                      ...prev,
-                      MAG_AFFIDAVIT: (prev.MAG_AFFIDAVIT ?? []).filter(
-                        (d) => d.file_name !== doc.file_name
-                      ),
-                    }))
-                  }
-                />
-                <DocumentUploader
-                  checklist_item_key="BANK_PASSBOOK"
-                  label="Bank Passbook / Cheque (Mandatory)"
-                  documents={uploadedDocs.BANK_PASSBOOK ?? []}
-                  onChange={(docs) => {
-                    const newDocs = Array.isArray(docs) ? docs : [docs];
-                    setUploadedDocs((prev) => ({
-                      ...prev,
-                      BANK_PASSBOOK: [
-                        ...(prev.BANK_PASSBOOK ?? []),
-                        ...newDocs,
-                      ],
-                    }));
-                  }}
-                  onRemove={(doc) =>
-                    setUploadedDocs((prev) => ({
-                      ...prev,
-                      BANK_PASSBOOK: (prev.BANK_PASSBOOK ?? []).filter(
-                        (d) => d.file_name !== doc.file_name
-                      ),
-                    }))
-                  }
-                />
-                <DocumentUploader
-                  checklist_item_key="LINK_DEED"
-                  label="Parcha / Title Deed Proof"
-                  documents={uploadedDocs.LINK_DEED ?? []}
-                  onChange={(docs) => {
-                    const newDocs = Array.isArray(docs) ? docs : [docs];
-                    setUploadedDocs((prev) => ({
-                      ...prev,
-                      LINK_DEED: [...(prev.LINK_DEED ?? []), ...newDocs],
-                    }));
-                  }}
-                  onRemove={(doc) =>
-                    setUploadedDocs((prev) => ({
-                      ...prev,
-                      LINK_DEED: (prev.LINK_DEED ?? []).filter(
-                        (d) => d.file_name !== doc.file_name
-                      ),
-                    }))
-                  }
-                />
+
+              {/* Document Type Dropdown Selector */}
+              <div className="rounded-lg border bg-card p-4 space-y-4 shadow-sm border-border/80">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-3">
+                  <div>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-300">
+                      Select Document Category to Upload
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Choose document type to activate file browse box.
+                    </p>
+                  </div>
+
+                  <select
+                    value={selectedUploadDocType}
+                    onChange={(e) => setSelectedUploadDocType(e.target.value)}
+                    className="h-9 w-full sm:w-80 rounded-md border border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 px-3 text-xs font-bold text-emerald-900 dark:text-emerald-200"
+                  >
+                    <option value="">— Select Document Type to Upload —</option>
+                    {DOC_TYPES.map((type) => {
+                      const count = (uploadedDocs[type.key]?.length ?? 0);
+                      return (
+                        <option key={type.key} value={type.key}>
+                          {type.label} {type.isMandatory ? "(Mandatory)" : "(Optional)"} {count > 0 ? `✓ (${count} uploaded)` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Opened Compact & Aesthetic DocumentUploader Box for Selected Dropdown Item */}
+                {selectedUploadDocType ? (
+                  <div className="group relative overflow-hidden rounded-xl border-2 border-dashed border-emerald-400/80 dark:border-emerald-700/60 bg-gradient-to-r from-emerald-50/80 via-teal-50/40 to-background p-3 sm:p-3.5 shadow-sm hover:shadow-md transition-all duration-200">
+                    {(() => {
+                      const activeType = DOC_TYPES.find((d) => d.key === selectedUploadDocType);
+                      if (!activeType) return null;
+                      return (
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm group-hover:scale-105 transition-transform">
+                              <UploadCloud className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                  {activeType.label}
+                                </span>
+                                {activeType.isMandatory ? (
+                                  <Badge variant="outline" className="text-[10px] border-rose-300 bg-rose-50 text-rose-700 font-mono py-0 h-4">
+                                    Mandatory
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] border-slate-300 text-slate-600 font-mono py-0 h-4">
+                                    Optional
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                PDF, JPG, PNG, DOCX (Self-Attested Max 10MB)
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 w-full sm:w-auto">
+                            {(uploadedDocs[activeType.key]?.length ?? 0) > 0 ? (
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                                <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-3 py-1.5 rounded-md border border-emerald-300 dark:border-emerald-800 flex items-center gap-1.5 shadow-xs">
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                  1 File Uploaded
+                                </span>
+                                <span className="text-[10px] text-muted-foreground italic">
+                                  (Delete in table below to re-upload)
+                                </span>
+                              </div>
+                            ) : (
+                              <DocumentUploader
+                                checklist_item_key={activeType.key}
+                                label=""
+                                mode="single"
+                                documents={uploadedDocs[activeType.key] ?? []}
+                                onChange={(docs) => {
+                                  const newDocs = Array.isArray(docs) ? docs : [docs];
+                                  setUploadedDocs((prev) => ({
+                                    ...prev,
+                                    [activeType.key]: [newDocs[newDocs.length - 1]],
+                                  }));
+                                  toast.success(`${activeType.label} uploaded successfully`);
+                                }}
+                                onRemove={(doc) =>
+                                  setUploadedDocs((prev) => ({
+                                    ...prev,
+                                    [activeType.key]: (prev[activeType.key] ?? []).filter(
+                                      (d) => d.file_name !== doc.file_name
+                                    ),
+                                  }))
+                                }
+                              />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <div className="p-3 text-center text-xs italic text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
+                    Select a document category from the dropdown menu above to activate file browser.
+                  </div>
+                )}
+              </div>
+
+              {/* Uploaded Documents Row List / Table (With Green Tick, View, & Delete Cross Sign) */}
+              <div className="rounded-lg border bg-card p-4 space-y-3 shadow-sm border-border/80">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <FileCheck className="h-4 w-4 text-emerald-600" />
+                    Uploaded Documents Checklist Table
+                  </h4>
+                  <span className="text-xs font-mono text-muted-foreground">
+                    Total Files Uploaded:{" "}
+                    <strong className="text-emerald-700">
+                      {DOC_TYPES.reduce((sum, t) => sum + (uploadedDocs[t.key]?.length || 0), 0)} file(s)
+                    </strong>
+                  </span>
+                </div>
+
+                {DOC_TYPES.every((t) => (uploadedDocs[t.key]?.length || 0) === 0) ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground italic border border-dashed rounded-md bg-muted/20">
+                    No documents uploaded yet. Choose a document category from the dropdown above to upload.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-md border border-border">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="bg-muted/60 text-muted-foreground uppercase text-[10px] font-bold tracking-wider border-b border-border">
+                          <th className="p-2.5 text-center w-12">Status</th>
+                          <th className="p-2.5 min-w-[220px]">Document Type</th>
+                          <th className="p-2.5 min-w-[220px]">File Name & Size</th>
+                          <th className="p-2.5 text-center min-w-[100px]">View</th>
+                          <th className="p-2.5 text-center w-14">Remove</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {DOC_TYPES.map((type) => {
+                          const docs = uploadedDocs[type.key] || [];
+                          if (docs.length === 0) return null;
+                          return docs.map((doc, idx) => (
+                            <tr key={`${type.key}-${idx}`} className="hover:bg-muted/30 transition-colors">
+                              {/* Green Tick Status Icon */}
+                              <td className="p-2.5 text-center">
+                                <div className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600" title="Self-Attested Upload Verified">
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                </div>
+                              </td>
+
+                              {/* Document Type Label & Mandatory Badge */}
+                              <td className="p-2.5">
+                                <div className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                  {type.label}
+                                  {type.isMandatory ? (
+                                    <Badge variant="outline" className="text-[10px] border-rose-300 bg-rose-50 text-rose-700 font-mono">
+                                      Mandatory
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] border-slate-300 text-slate-600 font-mono">
+                                      Optional
+                                    </Badge>
+                                  )}
+                                </div>
+                                <span className="font-mono text-[10px] text-muted-foreground">{type.key}</span>
+                              </td>
+
+                              {/* File Name & Size */}
+                              <td className="p-2.5 font-mono text-xs">
+                                <div className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[240px]" title={doc.file_name}>
+                                  {doc.file_name}
+                                </div>
+                                <span className="text-[11px] text-muted-foreground">{doc.file_size_kb || 0} KB</span>
+                              </td>
+
+                              {/* View Button */}
+                              <td className="p-2.5 text-center">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (doc.id) {
+                                      window.open(`/api/files/${doc.id}/download`, "_blank");
+                                    } else {
+                                      window.open(`/api/files/download/${doc.file_name}`, "_blank");
+                                    }
+                                  }}
+                                  className="h-7 text-xs border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 gap-1 font-medium"
+                                >
+                                  <Eye className="h-3.5 w-3.5" /> View
+                                </Button>
+                              </td>
+
+                              {/* Remove / Delete Cross Sign Button */}
+                              <td className="p-2.5 text-center">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    setUploadedDocs((prev) => ({
+                                      ...prev,
+                                      [type.key]: (prev[type.key] ?? []).filter(
+                                        (d) => d.file_name !== doc.file_name
+                                      ),
+                                    }))
+                                  }
+                                  className="h-7 w-7 p-0 text-rose-600 hover:bg-rose-50 rounded"
+                                  title="Delete uploaded file"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          ));
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1626,46 +1824,292 @@ function Wizard({
 
         {/* Step 4: Final Review & Certification Agreement */}
         {step === 4 && (
-          <div className="space-y-4">
-            <Alert className="border-rose-200 bg-rose-50 dark:bg-rose-950/30">
-              <AlertCircle className="h-4 w-4 text-rose-600" />
-              <AlertDescription className="text-rose-800 dark:text-rose-300">
-                <strong>Final Submit:</strong> Locks digital Form-I in database
-                and starts 21-day statutory transparency window.
+          <div className="space-y-3">
+            <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 py-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-600" />
+              <AlertDescription className="text-emerald-900 dark:text-emerald-200 text-xs">
+                <strong>Final Review Before Submission:</strong> Please carefully review all entered particulars below from Step 1 through Step 4 before certifying & locking your digital Form-I claim.
               </AlertDescription>
             </Alert>
 
-            <div className="rounded-lg border border-border/60 bg-card p-4">
-              <p className="mb-3 text-sm font-medium">
-                Statutory Form-I Summary
-              </p>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <dt className="text-muted-foreground">Land Loser Name</dt>
-                <dd className="font-medium">{form.claimant_name}</dd>
-                <dt className="text-muted-foreground">Auth Instrument</dt>
-                <dd className="font-mono text-xs">
-                  {authType.toUpperCase()}: {identifier}
-                </dd>
-                <dt className="text-muted-foreground">Total Plots Claimed</dt>
-                <dd className="font-mono text-xs font-bold">
-                  {plotEntries.length} plot schedule line item(s)
-                </dd>
-                <dt className="text-muted-foreground">Total Own Share</dt>
-                <dd className="font-medium tabular-nums font-bold text-emerald-700">
-                  {plotEntries
-                    .reduce((sum, p) => sum + (Number(p.own_share_acres) || 0), 0)
-                    .toFixed(4)}{" "}
-                  acres
-                </dd>
-                <dt className="text-muted-foreground">RTGS Bank</dt>
-                <dd className="font-mono text-xs">
-                  {form.bank_account_number} ({form.bank_ifsc})
-                </dd>
-                <dt className="text-muted-foreground">Uploaded Documents</dt>
-                <dd>
-                  {Object.values(uploadedDocs).flat().length} files Attached
-                </dd>
-              </dl>
+            {/* 1. Land Loser Personal & Identity Details */}
+            <div className="rounded-lg border bg-card p-3 space-y-2 shadow-xs">
+              <div className="flex items-center justify-between border-b pb-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <FileText className="h-4 w-4 text-emerald-600" />
+                  1. Land Loser Personal & Identity Profile
+                </h4>
+                <Button variant="ghost" size="sm" onClick={() => onStepChange(0)} className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50">
+                  Edit Profile →
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Full Name</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{form.claimant_name || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Father / Husband Name</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200">{form.father_husband_name || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Identity Instrument</span>
+                  <span className="font-mono font-bold text-emerald-800 dark:text-emerald-300">{authType.toUpperCase()}: {identifier || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Occupation</span>
+                  <span className="font-medium">{form.occupation || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Gender / Caste Category</span>
+                  <span className="font-medium">{form.gender || "N/A"} ({form.caste_category || "General"})</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Nationality / Religion</span>
+                  <span className="font-medium">{form.nationality || "Indian"} / {form.religion || "N/A"}</span>
+                </div>
+                <div className="sm:col-span-2 md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-dashed">
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Present Address</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{form.present_address || "N/A"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Permanent Address</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{form.permanent_address || "N/A"}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Land Acquisition Plot Schedule Table */}
+            <div className="rounded-lg border bg-card p-3 space-y-2 shadow-xs">
+              <div className="flex items-center justify-between border-b pb-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4 text-emerald-600" />
+                  2. Land Acquisition Plot Schedule ({plotEntries.length} plot(s))
+                </h4>
+                <Button variant="ghost" size="sm" onClick={() => onStepChange(1)} className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50">
+                  Edit Plots →
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-emerald-50/60 dark:bg-emerald-950/40 rounded border border-emerald-200 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Total Claimed Land Share: </span>
+                  <strong className="font-mono text-emerald-800 dark:text-emerald-300 font-bold text-sm">
+                    {plotEntries.reduce((sum, p) => sum + (Number(p.own_share_acres) || 0), 0).toFixed(4)} acres
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">R&R Scheme Benefit: </span>
+                  <Badge variant="outline" className={cn(
+                    "text-xs font-bold font-mono ml-1",
+                    plotEntries.reduce((sum, p) => sum + (Number(p.own_share_acres) || 0), 0) >= 2.0
+                      ? "border-emerald-600 bg-emerald-100 text-emerald-800"
+                      : "border-amber-600 bg-amber-50 text-amber-900"
+                  )}>
+                    {plotEntries.reduce((sum, p) => sum + (Number(p.own_share_acres) || 0), 0) >= 2.0
+                      ? "Form-V Employment Eligible (2.0+ acres)"
+                      : "One-Time Cash Compensation (Under 2.0 acres)"}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded border border-border">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="bg-muted/60 text-muted-foreground uppercase text-[10px] font-bold tracking-wider border-b">
+                      <th className="p-2">Sl</th>
+                      <th className="p-2">Mouza / LGD</th>
+                      <th className="p-2">Plot No</th>
+                      <th className="p-2">Khatian No</th>
+                      <th className="p-2">Total ROR Area</th>
+                      <th className="p-2">Own Share (Acres)</th>
+                      <th className="p-2">Compensation Preference</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {plotEntries.map((p, idx) => (
+                      <tr key={idx} className="hover:bg-muted/20">
+                        <td className="p-2 font-mono text-center">{idx + 1}</td>
+                        <td className="p-2 font-medium">{p.mouza_name || "Mouza"}</td>
+                        <td className="p-2 font-bold font-mono text-slate-900 dark:text-slate-100">{getDisplayPlotNo(p.plot_no)}</td>
+                        <td className="p-2 font-mono">{p.khatian_no || "Kh-102"}</td>
+                        <td className="p-2 font-mono">{p.total_ror_area || p.own_share_acres} ac</td>
+                        <td className="p-2 font-mono font-bold text-emerald-700 dark:text-emerald-300">{p.own_share_acres} ac</td>
+                        <td className="p-2">
+                          {p.opted_monetary_in_lieu_of_employment ? (
+                            <span className="text-[11px] text-amber-800 font-medium">One-Time Cash Preferred</span>
+                          ) : (
+                            <span className="text-[11px] text-emerald-800 font-medium">Employment Nomination</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 3. Bank Account & Direct Disbursement Details */}
+            <div className="rounded-lg border bg-card p-3 space-y-2 shadow-xs">
+              <div className="flex items-center justify-between border-b pb-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <IndianRupee className="h-4 w-4 text-emerald-600" />
+                  3. Bank Account for Cash Compensation & Direct Payments
+                </h4>
+                <Button variant="ghost" size="sm" onClick={() => onStepChange(2)} className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50">
+                  Edit Bank →
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Bank Name</span>
+                  <span className="font-semibold">{form.bank_name || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Branch Name</span>
+                  <span className="font-medium">{form.bank_branch || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Account Number</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{form.bank_account_number || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">IFSC Code</span>
+                  <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">{form.bank_ifsc || "N/A"}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Statutory Declarations (Questions 9 - 15) */}
+            <div className="rounded-lg border bg-card p-3 space-y-2 shadow-xs">
+              <div className="flex items-center justify-between border-b pb-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                  4. Statutory Declarations & Answers (Questions 9 - 15)
+                </h4>
+                <Button variant="ghost" size="sm" onClick={() => onStepChange(3)} className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50">
+                  Edit Declarations →
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 text-xs">
+                <div className="p-2 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="font-medium">9. Prior compensation received from ECL or other Authority?</span>
+                  <div className="shrink-0 font-bold font-mono">
+                    {form.prior_compensation_received ? (
+                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">YES ({form.prior_compensation_details || "Details provided"})</span>
+                    ) : (
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">NO</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-2 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="font-medium">11. Any part of plots included in another employment in ECL?</span>
+                  <div className="shrink-0 font-bold font-mono">
+                    {form.prior_employment_linked ? (
+                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">YES ({form.prior_employment_details || "Details provided"})</span>
+                    ) : (
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">NO</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-2 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="font-medium">12. Plots free from any disputes / court cases with co-sharers or bargadars?</span>
+                  <div className="shrink-0 font-bold font-mono">
+                    {form.is_free_from_disputes !== false ? (
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">YES</span>
+                    ) : (
+                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">NO ({form.dispute_details || "Dispute exists"})</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-2 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="font-medium">13. Plots free from any encumbrances?</span>
+                  <div className="shrink-0 font-bold font-mono">
+                    {form.is_free_from_encumbrances !== false ? (
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">YES</span>
+                    ) : (
+                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">NO ({form.encumbrance_details || "Encumbrance exists"})</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-2 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="font-medium">14. Able to handover peaceful & encumbrance-free possession to ECL?</span>
+                  <div className="shrink-0 font-bold font-mono">
+                    {form.can_handover_possession !== false ? (
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">YES</span>
+                    ) : (
+                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">NO ({form.possession_handover_reasons || "Reason provided"})</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-2 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="font-medium">15. Agreed to accept One-Time Cash Compensation in lieu of employment?</span>
+                  <div className="shrink-0 font-bold font-mono">
+                    {form.opted_monetary_in_lieu_of_employment ? (
+                      <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">YES (Accept One-Time Cash)</span>
+                    ) : (
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">NO (Prefer Employment Nomination via Form-V)</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 5. Attached Self-Attested Documents */}
+            <div className="rounded-lg border bg-card p-3 space-y-2 shadow-xs">
+              <div className="flex items-center justify-between border-b pb-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <FileCheck className="h-4 w-4 text-emerald-600" />
+                  5. Attached Self-Attested Mandatory Documents ({DOC_TYPES.reduce((sum, t) => sum + (uploadedDocs[t.key]?.length || 0), 0)} file(s))
+                </h4>
+                <Button variant="ghost" size="sm" onClick={() => onStepChange(3)} className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50">
+                  Manage Files →
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {DOC_TYPES.map((type) => {
+                  const docs = uploadedDocs[type.key] || [];
+                  const doc = docs[0];
+                  return (
+                    <div key={type.key} className="p-2 rounded border bg-muted/20 flex items-center justify-between">
+                      <div className="flex items-center gap-2 truncate pr-2">
+                        <CheckCircle2 className={cn("h-4 w-4 shrink-0", doc ? "text-emerald-600" : "text-slate-300")} />
+                        <span className="font-medium truncate">{type.label}</span>
+                      </div>
+                      {doc ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (doc.id) {
+                              window.open(`/api/files/${doc.id}/download`, "_blank");
+                            } else {
+                              window.open(`/api/files/download/${doc.file_name}`, "_blank");
+                            }
+                          }}
+                          className="h-6 text-[10px] font-mono border-emerald-600 text-emerald-700 hover:bg-emerald-50 gap-1 px-2 shrink-0"
+                        >
+                          <Eye className="h-3 w-3" /> View
+                        </Button>
+                      ) : (
+                        <span className="text-[10px] text-rose-600 font-mono italic shrink-0">Not Attached</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Certification Agreement Checkbox */}

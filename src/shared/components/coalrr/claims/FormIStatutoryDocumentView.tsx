@@ -38,6 +38,7 @@ export interface FormIStatutoryDocumentViewProps {
     ownership_date?: string;
     transferor_name?: string;
     acquisition_mode_offered?: string;
+    plot_entries?: any[];
 
     // Q9-Q15
     prior_compensation_received?: boolean;
@@ -276,47 +277,87 @@ export function FormIStatutoryDocumentView({
                 </tr>
               </thead>
               <tbody>
-                <tr className="text-center font-mono">
-                  <td className="border border-slate-900 p-1 font-semibold font-sans">
-                    {claim.mouza || "Approved Mouza"}
-                  </td>
-                  <td className="border border-slate-900 p-1 font-bold text-slate-950">
-                    {getDisplayPlotNo(claim.plot_number)}
-                  </td>
-                  <td className="border border-slate-900 p-1">
-                    {claim.total_area_acres || claim.own_share_acres} ac
-                  </td>
-                  <td className="border border-slate-900 p-1">
-                    {claim.khatian_no || "Kh-102"}
-                  </td>
-                  <td className="border border-slate-900 p-1 font-bold text-emerald-900 font-sans">
-                    {claim.own_share_acres} ac
-                  </td>
-                  <td className="border border-slate-900 p-1 font-sans">
-                    {claim.link_deed_no
-                      ? `Deed ${claim.link_deed_no}`
-                      : "Inherited Deed"}
-                  </td>
-                  <td className="border border-slate-900 p-1">
-                    {claim.ownership_date
-                      ? new Date(claim.ownership_date).toLocaleDateString(
-                          "en-IN"
-                        )
-                      : "N/A"}
-                  </td>
-                  <td className="border border-slate-900 p-1 font-sans">
-                    {claim.transferor_name || "Ancestral"}
-                  </td>
-                  <td className="border border-slate-900 p-1 font-sans">
-                    {isDirect ? `${claim.own_share_acres} ac` : "0.0000"}
-                  </td>
-                  <td className="border border-slate-900 p-1 font-sans">
-                    {isCBA ? `${claim.own_share_acres} ac` : "0.0000"}
-                  </td>
-                  <td className="border border-slate-900 p-1 font-sans">
-                    ECL/LA/2026/NOT-01
-                  </td>
-                </tr>
+                {Array.isArray(claim.plot_entries) && claim.plot_entries.length > 0 ? (
+                  claim.plot_entries.map((p: any, i: number) => (
+                    <tr key={i} className="text-center font-mono">
+                      <td className="border border-slate-900 p-1 font-semibold font-sans">
+                        {p.mouza_name || claim.mouza || "Approved Mouza"}
+                      </td>
+                      <td className="border border-slate-900 p-1 font-bold text-slate-950">
+                        {getDisplayPlotNo(p.plot_no || p.plot_number || claim.plot_number)}
+                      </td>
+                      <td className="border border-slate-900 p-1">
+                        {p.total_ror_area || p.own_share_acres} ac
+                      </td>
+                      <td className="border border-slate-900 p-1">
+                        {p.khatian_no || claim.khatian_no || "Kh-102"}
+                      </td>
+                      <td className="border border-slate-900 p-1 font-bold text-emerald-900 font-sans">
+                        {p.own_share_acres} ac
+                      </td>
+                      <td className="border border-slate-900 p-1 font-sans">
+                        {claim.link_deed_no ? `Deed ${claim.link_deed_no}` : "Inherited Deed"}
+                      </td>
+                      <td className="border border-slate-900 p-1">
+                        {claim.ownership_date ? new Date(claim.ownership_date).toLocaleDateString("en-IN") : "N/A"}
+                      </td>
+                      <td className="border border-slate-900 p-1 font-sans">
+                        {claim.transferor_name || "Ancestral"}
+                      </td>
+                      <td className="border border-slate-900 p-1 font-sans">
+                        {isDirect ? `${p.own_share_acres} ac` : "0.0000"}
+                      </td>
+                      <td className="border border-slate-900 p-1 font-sans">
+                        {isCBA ? `${p.own_share_acres} ac` : "0.0000"}
+                      </td>
+                      <td className="border border-slate-900 p-1 font-sans">
+                        ECL/LA/2026/NOT-01
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr className="text-center font-mono">
+                    <td className="border border-slate-900 p-1 font-semibold font-sans">
+                      {claim.mouza || "Approved Mouza"}
+                    </td>
+                    <td className="border border-slate-900 p-1 font-bold text-slate-950">
+                      {getDisplayPlotNo(claim.plot_number)}
+                    </td>
+                    <td className="border border-slate-900 p-1">
+                      {claim.total_area_acres || claim.own_share_acres} ac
+                    </td>
+                    <td className="border border-slate-900 p-1">
+                      {claim.khatian_no || "Kh-102"}
+                    </td>
+                    <td className="border border-slate-900 p-1 font-bold text-emerald-900 font-sans">
+                      {claim.own_share_acres} ac
+                    </td>
+                    <td className="border border-slate-900 p-1 font-sans">
+                      {claim.link_deed_no
+                        ? `Deed ${claim.link_deed_no}`
+                        : "Inherited Deed"}
+                    </td>
+                    <td className="border border-slate-900 p-1">
+                      {claim.ownership_date
+                        ? new Date(claim.ownership_date).toLocaleDateString(
+                            "en-IN"
+                          )
+                        : "N/A"}
+                    </td>
+                    <td className="border border-slate-900 p-1 font-sans">
+                      {claim.transferor_name || "Ancestral"}
+                    </td>
+                    <td className="border border-slate-900 p-1 font-sans">
+                      {isDirect ? `${claim.own_share_acres} ac` : "0.0000"}
+                    </td>
+                    <td className="border border-slate-900 p-1 font-sans">
+                      {isCBA ? `${claim.own_share_acres} ac` : "0.0000"}
+                    </td>
+                    <td className="border border-slate-900 p-1 font-sans">
+                      ECL/LA/2026/NOT-01
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -369,7 +410,7 @@ export function FormIStatutoryDocumentView({
               12. Whether these plots/lands are presently free from any disputes or court case with the co-shares, bargadar or adjacent landowners? If not so, give detail:
             </span>
             <span className="ml-2 font-bold uppercase text-emerald-900">
-              {claim.is_free_from_disputes !== false ? "YES (Free from disputes)" : "NO (Dispute Exists)"}
+              {claim.is_free_from_disputes !== false ? "YES" : "NO"}
             </span>
             {claim.dispute_details && (
               <p className="text-slate-700 pl-4 mt-0.5 font-sans">
@@ -383,7 +424,7 @@ export function FormIStatutoryDocumentView({
               13. Whether these plots/lands are presently free from any encumbrances? If not, give details:
             </span>
             <span className="ml-2 font-bold uppercase text-emerald-900">
-              {claim.is_free_from_encumbrances !== false ? "YES (Free from encumbrances)" : "NO (Encumbered)"}
+              {claim.is_free_from_encumbrances !== false ? "YES" : "NO"}
             </span>
           </div>
 
@@ -398,12 +439,10 @@ export function FormIStatutoryDocumentView({
 
           <div className="p-2 border border-slate-400 rounded bg-slate-50/60">
             <span className="font-bold">
-              15. Has he/she agreed to accept ‘One Time Monetary compensation in lieu of employment’ against above land? If not, give reason:
+              15. Has he/she agreed to accept ‘One time Monetary compensation of CIL R&R Policy / One Time lumpsum / modified annuity scheme of ECL in lieu of employment’ against above land? If not, give reason:
             </span>
             <span className="ml-2 font-bold uppercase text-slate-950">
-              {claim.opted_monetary_in_lieu_of_employment
-                ? "YES (Accepted One-Time Cash)"
-                : "NO (Nominate Employment via Form-V)"}
+              {claim.opted_monetary_in_lieu_of_employment ? "YES" : "NO"}
             </span>
             {claim.form_v_eligible && (
               <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900 font-bold font-sans">
