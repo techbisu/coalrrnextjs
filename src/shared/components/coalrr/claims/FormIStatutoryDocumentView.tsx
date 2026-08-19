@@ -1,5 +1,6 @@
 import React from "react";
 import { Button } from "@/shared/components/ui/button";
+import { Badge } from "@/shared/components/ui/badge";
 import {
   Printer,
   FileText,
@@ -7,6 +8,8 @@ import {
   Building2,
   Download,
   FileDown,
+  Paperclip,
+  Eye,
 } from "lucide-react";
 import { getDisplayPlotNo } from "@/shared/utils/plot.utils";
 
@@ -27,6 +30,9 @@ export interface FormIStatutoryDocumentViewProps {
     religion?: string;
     caste_category?: string;
     photo_doc_id?: string;
+    magistrate_affidavit_doc_id?: string;
+    passbook_doc_id?: string;
+    title_deed_doc_id?: string;
 
     // Plot schedule Q8
     mouza?: string;
@@ -449,6 +455,45 @@ export function FormIStatutoryDocumentView({
                 ({claim.claimant_name})
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Attached Documents & Proof Files (Read-Only) */}
+        <div className="pt-4 border-t-2 border-slate-300 space-y-3 print:hidden">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+            <Paperclip className="h-4 w-4 text-emerald-600" />
+            Submitted Proof Documents (Read-Only File Viewer)
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { label: "1. Passport Size Photo", docId: claim.photo_doc_id },
+              { label: "2. Magistrate Affidavit", docId: claim.magistrate_affidavit_doc_id },
+              { label: "3. Bank Passbook / Cheque", docId: claim.passbook_doc_id },
+              { label: "4. Title Deed / Parcha", docId: claim.title_deed_doc_id },
+            ].map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between p-2.5 rounded-md border bg-slate-50 dark:bg-slate-900/40 text-xs">
+                <div>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{item.label}</span>
+                  <div className="text-[10px] text-muted-foreground font-mono">
+                    {item.docId ? `File ID: ${item.docId.slice(0, 16)}...` : "Not Uploaded"}
+                  </div>
+                </div>
+                {item.docId ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(`/api/files/${item.docId}/download`, "_blank")}
+                    className="h-7 text-[11px] gap-1 border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+                  >
+                    <Eye className="h-3 w-3" /> View / Download
+                  </Button>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] border-slate-300 text-slate-400">
+                    Missing
+                  </Badge>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>

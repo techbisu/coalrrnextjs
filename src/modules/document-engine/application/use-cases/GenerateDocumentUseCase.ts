@@ -87,7 +87,7 @@ export class GenerateDocumentUseCase implements IUseCase<GenerateDocumentDTO, an
           entityType: 'document_instance',
           entityId: instance.id,
           module: 'docxengine',
-          isActive: false
+          isActive: true
       })
       
       if (uploadResult.isFailure) {

@@ -103,6 +103,7 @@ export class GetClaimsUseCase implements IUseCase<void, any[]> {
           passbook_doc_id: c.passbook_doc_id,
           magistrate_affidavit_doc_id: c.magistrate_affidavit_doc_id,
           title_deed_doc_id: c.title_deed_doc_id,
+          signed_form_i_doc_id: c.signed_form_i_doc_id || null,
           plot_id: primarySchedId,
           plot_number: formattedPlotNumber,
           mouza: mouzaName,

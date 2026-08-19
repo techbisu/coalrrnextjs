@@ -56,6 +56,7 @@ export interface SubmitClaimDTO {
 
   magistrate_affidavit_doc_id?: string
   title_deed_doc_id?: string
+  signed_form_i_doc_id?: string
 }
 
 export class SubmitClaimUseCase implements IUseCase<SubmitClaimDTO, any> {
@@ -236,10 +237,11 @@ export class SubmitClaimUseCase implements IUseCase<SubmitClaimDTO, any> {
         form_v_eligible,
         magistrate_affidavit_doc_id: req.magistrate_affidavit_doc_id,
         title_deed_doc_id: req.title_deed_doc_id,
+        signed_form_i_doc_id: req.signed_form_i_doc_id,
 
         statutory_declarations: statutoryDeclarations,
         plots: plotEntries,
-        state: 'TitleScrutiny',
+        state: req.signed_form_i_doc_id ? "UnitSubmitted" : "Drafting",
         submitted_at,
         transparency_window_ends_at,
       })

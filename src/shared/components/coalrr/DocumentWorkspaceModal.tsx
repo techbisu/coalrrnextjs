@@ -1,16 +1,35 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/shared/components/ui/dialog';
-import { Button } from '@/shared/components/ui/button';
-import { Loader2, FileText, ChevronRight, ChevronLeft, PenTool, AlertCircle, X, Download, CheckCircle2, ChevronDown, ShieldCheck } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { Badge } from '@/shared/components/ui/badge';
-import { Separator } from '@/shared/components/ui/separator';
-import { DynamicForm } from './DynamicForm';
-import { FilePreview } from '@/modules/file-management/components/FilePreview';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import React, { useState, useEffect } from "react";
+import { Dialog, DialogContent } from "@/shared/components/ui/dialog";
+import { Button } from "@/shared/components/ui/button";
+import {
+  Loader2,
+  FileText,
+  ChevronRight,
+  ChevronLeft,
+  PenTool,
+  AlertCircle,
+  X,
+  Download,
+  CheckCircle2,
+  ChevronDown,
+  ShieldCheck,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/shared/components/ui/card";
+import { Badge } from "@/shared/components/ui/badge";
+import { Separator } from "@/shared/components/ui/separator";
+import { DynamicForm } from "./DynamicForm";
+import { FilePreview } from "@/modules/file-management/components/FilePreview";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface DocumentWorkspaceModalProps {
   isOpen: boolean;
@@ -20,21 +39,27 @@ interface DocumentWorkspaceModalProps {
   extraData?: Record<string, any>;
 }
 
-export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, businessId, extraData }: DocumentWorkspaceModalProps) {
+export function DocumentWorkspaceModal({
+  isOpen,
+  onOpenChange,
+  templateCode,
+  businessId,
+  extraData,
+}: DocumentWorkspaceModalProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [instanceId, setInstanceId] = useState<string | null>(null);
   const [fileId, setFileId] = useState<string | null>(null);
   const [fields, setFields] = useState<any[]>([]);
   const [savedValues, setSavedValues] = useState<Record<string, any>>({});
-  
+
   const [signatureRules, setSignatureRules] = useState<any[]>([]);
   const [appliedSignatures, setAppliedSignatures] = useState<any[]>([]);
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
-  const [userName, setUserName] = useState<string>('');
-  const [signatureInput, setSignatureInput] = useState<string>('');
+  const [userName, setUserName] = useState<string>("");
+  const [signatureInput, setSignatureInput] = useState<string>("");
   const [isSigning, setIsSigning] = useState<boolean>(false);
 
   const [isFormCollapsed, setIsFormCollapsed] = useState<boolean>(false);
@@ -53,7 +78,7 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
       setAppliedSignatures([]);
       setUserRoles([]);
       setUserPermissions([]);
-      setSignatureInput('');
+      setSignatureInput("");
       setIsFormCollapsed(false);
       setError(null);
     }
@@ -63,23 +88,29 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
     if (isOpen && templateCode && businessId) {
       setLoading(true);
       setError(null);
-      fetch('/api/document-engine/workspace', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ templateCode, applicationId: businessId, extraData })
+      fetch("/api/document-engine/workspace", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateCode,
+          applicationId: businessId,
+          extraData,
+        }),
       })
-        .then(res => res.json())
-        .then(res => {
+        .then((res) => res.json())
+        .then((res) => {
           if (res.success && res.instance) {
             setInstanceId(res.instance.id);
             setFileId(res.instance.generated_docx_path || null);
             setFields(res.fields || []);
-            setSavedValues((res.instance.form_data as Record<string, any>) || {});
+            setSavedValues(
+              (res.instance.form_data as Record<string, any>) || {},
+            );
             setSignatureRules(res.signatures || []);
             setAppliedSignatures(res.instance.signature_data || []);
             setUserRoles(res.userRoles || []);
             setUserPermissions(res.userPermissions || []);
-            setUserName(res.userName || res.userEmail || 'Authorized Signee');
+            setUserName(res.userName || res.userEmail || "Authorized Signee");
 
             const noFields = !res.fields || res.fields.length === 0;
             if (noFields) {
@@ -101,13 +132,17 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
   }, [isOpen, templateCode, businessId]);
 
   const pollWorkspace = (instId: string) => {
-    fetch('/api/document-engine/workspace', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ templateCode, applicationId: businessId, extraData })
+    fetch("/api/document-engine/workspace", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        templateCode,
+        applicationId: businessId,
+        extraData,
+      }),
     })
-      .then(res => res.json())
-      .then(res => {
+      .then((res) => res.json())
+      .then((res) => {
         if (res.success && res.instance) {
           if (res.instance.generated_docx_path) {
             setFileId(res.instance.generated_docx_path);
@@ -124,10 +159,10 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
     if (!idToUse) return;
     setIsGenerating(true);
     try {
-      const res = await fetch('/api/document-engine/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceId: idToUse })
+      const res = await fetch("/api/document-engine/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instanceId: idToUse }),
       });
       const data = await res.json();
       if (data.success) {
@@ -140,7 +175,9 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
           setTimeout(() => pollWorkspace(idToUse), 1000);
         }
       } else {
-        toast.error("Failed to generate document: " + (data.error || 'Unknown error'));
+        toast.error(
+          "Failed to generate document: " + (data.error || "Unknown error"),
+        );
       }
     } catch (err: any) {
       toast.error("Failed to generate document: " + err.message);
@@ -151,29 +188,33 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
 
   const handleSignDocument = async (roleToSign: string) => {
     if (!instanceId) return;
-    const signText = signatureInput.trim() || userName || 'Signed & Vetted';
+    const signText = signatureInput.trim() || userName || "Signed & Vetted";
     setIsSigning(true);
     try {
-      const res = await fetch('/api/document-engine/sign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceId, role: roleToSign, signatureText: signText })
+      const res = await fetch("/api/document-engine/sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instanceId,
+          role: roleToSign,
+          signatureText: signText,
+        }),
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(`Document signed as ${roleToSign.replace(/_/g, ' ')}`);
+        toast.success(`Document signed as ${roleToSign.replace(/_/g, " ")}`);
         setAppliedSignatures(data.signatures || []);
-        setSignatureInput('');
+        setSignatureInput("");
         if (data.fileId) {
           setFileId(data.fileId);
         } else {
           setTimeout(() => pollWorkspace(instanceId), 1000);
         }
       } else {
-        toast.error(data.error || 'Failed to sign document');
+        toast.error(data.error || "Failed to sign document");
       }
     } catch (err: any) {
-      toast.error('Failed to sign document: ' + err.message);
+      toast.error("Failed to sign document: " + err.message);
     } finally {
       setIsSigning(false);
     }
@@ -181,8 +222,8 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
 
   const handleDownloadDocx = () => {
     if (!fileId) return;
-    window.open(`/api/files/${fileId}/download`, '_blank');
-    toast.success('Word document (.docx) download started');
+    window.open(`/api/files/${fileId}/download`, "_blank");
+    toast.success("Word document (.docx) download started");
   };
 
   const handleDownloadPdf = async () => {
@@ -191,7 +232,7 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
     try {
       const response = await fetch(`/api/files/${fileId}/download?format=pdf`);
       if (!response.ok) {
-        let errMessage = 'Failed to download PDF.';
+        let errMessage = "Failed to download PDF.";
         try {
           const errJson = await response.json();
           if (errJson.error) errMessage = errJson.error;
@@ -200,36 +241,42 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
       }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `${templateCode}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success('PDF downloaded successfully');
+      toast.success("PDF downloaded successfully");
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || 'Failed to download PDF.');
+      toast.error(err.message || "Failed to download PDF.");
     } finally {
       setIsDownloadingPdf(false);
     }
   };
 
   // Check dynamic signature permission: document.sign OR workflow.approve OR proposal.approve OR officer/admin role
-  const hasSigningPermission = 
-    userPermissions.includes('document.sign') ||
-    userPermissions.includes('workflow.approve') ||
-    userPermissions.includes('proposal.approve') ||
-    userRoles.some(r => {
+  const hasSigningPermission =
+    userPermissions.includes("document.sign") ||
+    userPermissions.includes("workflow.approve") ||
+    userPermissions.includes("proposal.approve") ||
+    userRoles.some((r) => {
       const rl = r.toLowerCase();
-      return rl.includes('admin') || rl.includes('super') || rl.includes('officer') || rl.includes('clerk') || rl.includes('surveyor') || rl.includes('gm');
+      return (
+        rl.includes("admin") ||
+        rl.includes("super") ||
+        rl.includes("officer") ||
+        rl.includes("clerk") ||
+        rl.includes("surveyor") ||
+        rl.includes("gm")
+      );
     });
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-none sm:max-w-none md:max-w-none w-screen h-screen m-0 p-0 rounded-none overflow-hidden flex flex-col bg-slate-50 border-0">
-        
         {/* Header */}
         <header className="h-16 bg-white/95 backdrop-blur border-b flex items-center justify-between px-6 shrink-0 z-10 shadow-sm print:hidden">
           <div className="flex items-center gap-4">
@@ -237,49 +284,84 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
               <FileText className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="font-semibold text-lg tracking-tight text-slate-900 leading-tight">Document Workspace</h2>
+              <h2 className="font-semibold text-lg tracking-tight text-slate-900 leading-tight">
+                Document Workspace
+              </h2>
               <div className="flex items-center gap-1 mt-0.5">
                 <span className="text-xs text-muted-foreground">Editing</span>
-                <Badge variant="secondary" className="font-mono text-[9px] px-1.5 py-0 shadow-none h-4 bg-slate-100 text-slate-600">{templateCode}</Badge>
+                <Badge
+                  variant="secondary"
+                  className="font-mono text-[9px] px-1.5 py-0 shadow-none h-4 bg-slate-100 text-slate-600"
+                >
+                  {templateCode}
+                </Badge>
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {fileId && (
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleDownloadDocx} className="shadow-sm transition-all duration-200 bg-white text-slate-700 hover:text-slate-900 border-slate-300 font-medium">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadDocx}
+                  className="shadow-sm transition-all duration-200 bg-white text-slate-700 hover:text-slate-900 border-slate-300 font-medium"
+                >
                   <Download className="w-4 h-4 mr-1.5 text-blue-600" />
                   Download Word (.docx)
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isDownloadingPdf} className="shadow-sm transition-all duration-200 bg-white text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 border-emerald-300 font-medium">
-                  {isDownloadingPdf ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileText className="w-4 h-4 mr-1.5 text-emerald-600" />}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadPdf}
+                  disabled={isDownloadingPdf}
+                  className="shadow-sm transition-all duration-200 bg-white text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 border-emerald-300 font-medium"
+                >
+                  {isDownloadingPdf ? (
+                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4 mr-1.5 text-emerald-600" />
+                  )}
                   Download PDF
                 </Button>
-                <Button size="sm" onClick={() => handleGenerate()} disabled={isGenerating} className="shadow-sm transition-all duration-200 bg-primary text-primary-foreground font-medium">
-                  {isGenerating ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <PenTool className="w-4 h-4 mr-1.5" />}
+                <Button
+                  size="sm"
+                  onClick={() => handleGenerate()}
+                  disabled={isGenerating}
+                  className="shadow-sm transition-all duration-200 bg-primary text-primary-foreground font-medium"
+                >
+                  {isGenerating ? (
+                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <PenTool className="w-4 h-4 mr-1.5" />
+                  )}
                   Regenerate Document
                 </Button>
               </div>
             )}
-            
+
             <Separator orientation="vertical" className="h-8" />
-            
-            <Button 
-              variant="outline" 
-              size="icon" 
+
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               title={sidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
               className="text-slate-500 hover:text-slate-900 bg-slate-50"
             >
-              {sidebarOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              {sidebarOpen ? (
+                <ChevronRight className="w-4 h-4" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" />
+              )}
             </Button>
-            
+
             <Separator orientation="vertical" className="h-6 mx-1" />
-            
-            <Button 
-              variant="ghost" 
-              size="icon" 
+
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => onOpenChange(false)}
               title="Close"
               className="text-slate-500 hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -291,7 +373,6 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
 
         {/* Body */}
         <div className="flex-1 flex overflow-hidden relative">
-          
           {/* Left Area: Document Preview */}
           <div className="flex-1 h-full overflow-hidden bg-slate-100/50 flex flex-col relative">
             {loading ? (
@@ -305,16 +386,18 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
                     <div className="mx-auto bg-destructive/10 p-3 rounded-full w-12 h-12 flex items-center justify-center mb-2">
                       <AlertCircle className="w-6 h-6 text-destructive" />
                     </div>
-                    <CardTitle className="text-destructive">Workspace Error</CardTitle>
+                    <CardTitle className="text-destructive">
+                      Workspace Error
+                    </CardTitle>
                     <CardDescription>{error}</CardDescription>
                   </CardHeader>
                 </Card>
               </div>
             ) : fileId ? (
-              <FilePreview 
+              <FilePreview
                 key={`${fileId}_${refreshKey}`}
-                file_id={fileId} 
-                mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+                file_id={fileId}
+                mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 original_name={`${templateCode}.docx`}
                 className="flex-1 w-full h-full overflow-hidden"
               />
@@ -325,14 +408,24 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
                     <div className="bg-primary/5 p-4 rounded-full mb-4">
                       <FileText className="w-10 h-10 text-primary/40" />
                     </div>
-                    <h3 className="font-semibold text-xl mb-2 text-slate-800">No Document Generated Yet</h3>
+                    <h3 className="font-semibold text-xl mb-2 text-slate-800">
+                      No Document Generated Yet
+                    </h3>
                     <p className="text-sm text-muted-foreground mb-6">
-                      {fields.length > 0 
+                      {fields.length > 0
                         ? "Please fill out the required information in the sidebar and click Generate when ready."
                         : "Click the generate button below to create your document."}
                     </p>
-                    <Button onClick={() => handleGenerate()} disabled={isGenerating} className="shadow-sm">
-                      {isGenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PenTool className="w-4 h-4 mr-2" />}
+                    <Button
+                      onClick={() => handleGenerate()}
+                      disabled={isGenerating}
+                      className="shadow-sm"
+                    >
+                      {isGenerating ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <PenTool className="w-4 h-4 mr-2" />
+                      )}
                       Generate Document
                     </Button>
                   </CardContent>
@@ -342,46 +435,64 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
           </div>
 
           {/* Right Area: Form & Signatures */}
-          <div 
+          <div
             className={cn(
               "h-full bg-slate-50/30 border-l shadow-[inset_1px_0_0_0_rgba(0,0,0,0.05)] transition-all duration-300 ease-in-out shrink-0 z-10 flex flex-col relative overflow-hidden",
-              sidebarOpen ? "w-[450px]" : "w-0 overflow-hidden opacity-0"
+              sidebarOpen ? "w-[450px]" : "w-0 overflow-hidden opacity-0",
             )}
           >
             <div className="flex-1 overflow-y-auto p-6 space-y-6 max-h-full [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded">
-              
               {/* Dynamic Form Section (Collapsible) */}
               {fields.length > 0 && instanceId && (
                 <Card className="shadow-sm overflow-hidden border-slate-200/60 bg-white transition-all duration-200">
-                  <CardHeader 
+                  <CardHeader
                     className="p-4 bg-slate-50/80 border-b flex flex-row items-center justify-between cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
                     onClick={() => setIsFormCollapsed(!isFormCollapsed)}
                   >
                     <div>
                       <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
                         <span>Additional Information</span>
-                        {isFormCollapsed && <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200 font-normal">Submitted</Badge>}
+                        {isFormCollapsed && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200 font-normal"
+                          >
+                            Submitted
+                          </Badge>
+                        )}
                       </CardTitle>
                       <CardDescription className="text-xs mt-0.5">
-                        {isFormCollapsed ? "Click to expand and modify form fields" : "Required inputs for generating document placeholders"}
+                        {isFormCollapsed
+                          ? "Click to expand and modify form fields"
+                          : "Required inputs for generating document placeholders"}
                       </CardDescription>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 shrink-0">
-                      {isFormCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4 rotate-90" />}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-slate-500 shrink-0"
+                    >
+                      {isFormCollapsed ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 rotate-90" />
+                      )}
                     </Button>
                   </CardHeader>
-                  
+
                   {!isFormCollapsed && (
                     <CardContent className="p-5">
-                      <DynamicForm 
-                        instanceId={instanceId} 
+                      <DynamicForm
+                        instanceId={instanceId}
                         fields={fields}
                         defaultValues={savedValues}
                         onSuccess={() => {
-                          toast.success('Form saved successfully. Auto-collapsing section…');
+                          toast.success(
+                            "Form saved successfully. Auto-collapsing section…",
+                          );
                           setIsFormCollapsed(true);
                           handleGenerate();
-                        }} 
+                        }}
                       />
                     </CardContent>
                   )}
@@ -397,30 +508,48 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
                         <ShieldCheck className="w-4 h-4 text-blue-600" />
                         <span>Workflow Signatures</span>
                       </div>
-                      <Badge variant="outline" className="bg-white text-blue-800 border-blue-200 text-xs font-mono">
-                        {appliedSignatures.length}/{signatureRules.length} Signed
+                      <Badge
+                        variant="outline"
+                        className="bg-white text-blue-800 border-blue-200 text-xs font-mono"
+                      >
+                        {appliedSignatures.length}/{signatureRules.length}{" "}
+                        Signed
                       </Badge>
                     </CardTitle>
                     <CardDescription className="text-xs text-blue-800 mt-1">
-                      Sequential approval workflow ({templateCode}). Previous signatures must be completed before next role can sign.
+                      Sequential approval workflow ({templateCode}). Previous
+                      signatures must be completed before next role can sign.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-4 space-y-3">
                     {(() => {
                       // Sort rules by display_order sequentially
-                      const sortedRules = [...signatureRules].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-                      
+                      const sortedRules = [...signatureRules].sort(
+                        (a, b) =>
+                          (a.display_order || 0) - (b.display_order || 0),
+                      );
+
                       return sortedRules.map((rule: any, index: number) => {
-                        const isSigned = appliedSignatures.some((s: any) => s.role === rule.role);
-                        const signedEntry = appliedSignatures.find((s: any) => s.role === rule.role);
+                        const isSigned = appliedSignatures.some(
+                          (s: any) => s.role === rule.role,
+                        );
+                        const signedEntry = appliedSignatures.find(
+                          (s: any) => s.role === rule.role,
+                        );
 
                         // Check if all previous required steps are completed
                         let isUnlocked = true;
-                        let blockedByRole = '';
+                        let blockedByRole = "";
                         for (let k = 0; k < index; k++) {
                           const prev = sortedRules[k];
                           const prevPerm = prev.sig_permission || prev.role;
-                          if (prev.is_required && !appliedSignatures.some((s: any) => (s.sig_permission || s.role) === prevPerm)) {
+                          if (
+                            prev.is_required &&
+                            !appliedSignatures.some(
+                              (s: any) =>
+                                (s.sig_permission || s.role) === prevPerm,
+                            )
+                          ) {
                             isUnlocked = false;
                             blockedByRole = prevPerm;
                             break;
@@ -429,31 +558,36 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
 
                         // rule.sig_permission maintains the exact permission name (e.g. form_xxii.sign.area_land_cell_member)
                         const permName = rule.sig_permission || rule.role;
-                        const labelText = permName.includes('.sign.') 
-                          ? permName.split('.sign.')[1].replace(/_/g, ' ') 
-                          : permName.replace(/_/g, ' ');
-                        
-                        const canCurrentUserSign = 
+                        const labelText = permName.includes(".sign.")
+                          ? permName.split(".sign.")[1].replace(/_/g, " ")
+                          : permName.replace(/_/g, " ");
+
+                        const canCurrentUserSign =
                           userPermissions.includes(permName) ||
-                          userPermissions.includes('document.sign') ||
-                          userPermissions.includes('*') ||
+                          userPermissions.includes("document.sign") ||
+                          userPermissions.includes("*") ||
                           userRoles.some((ur: string) => {
-                            const urClean = ur.toLowerCase().replace(/[^a-z0-9]/g, '');
-                            return urClean.includes('admin') || urClean.includes('super');
+                            const urClean = ur
+                              .toLowerCase()
+                              .replace(/[^a-z0-9]/g, "");
+                            return (
+                              urClean.includes("admin") ||
+                              urClean.includes("super")
+                            );
                           });
 
                         return (
-                          <div 
-                            key={rule.id || rule.role} 
+                          <div
+                            key={rule.id || rule.role}
                             className={cn(
                               "p-3.5 rounded-lg border transition-all flex flex-col gap-2",
-                              isSigned 
-                                ? "border-emerald-200 bg-emerald-50/40" 
+                              isSigned
+                                ? "border-emerald-200 bg-emerald-50/40"
                                 : isUnlocked && canCurrentUserSign
                                   ? "border-blue-300 bg-blue-50/30 shadow-sm ring-1 ring-blue-400/20"
                                   : isUnlocked
                                     ? "border-slate-200 bg-slate-50/50"
-                                    : "border-slate-200 bg-slate-100/60 opacity-75"
+                                    : "border-slate-200 bg-slate-100/60 opacity-75",
                             )}
                           >
                             <div className="flex items-center justify-between">
@@ -468,10 +602,14 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
 
                               {isSigned ? (
                                 <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[10px] gap-1 font-normal border border-emerald-200">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Signed
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />{" "}
+                                  Signed
                                 </Badge>
                               ) : !isUnlocked ? (
-                                <Badge variant="outline" className="text-[10px] text-slate-500 border-slate-300 bg-slate-200/50 font-normal">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] text-slate-500 border-slate-300 bg-slate-200/50 font-normal"
+                                >
                                   Locked (Step {index} Pending)
                                 </Badge>
                               ) : canCurrentUserSign ? (
@@ -479,7 +617,10 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
                                   Action Required
                                 </Badge>
                               ) : (
-                                <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 bg-amber-50 font-normal">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] text-amber-700 border-amber-300 bg-amber-50 font-normal"
+                                >
                                   Awaiting Signee
                                 </Badge>
                               )}
@@ -488,32 +629,57 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
                             {/* Status Body */}
                             {isSigned && signedEntry ? (
                               <div className="text-[11px] text-slate-600 bg-white/80 p-2.5 rounded border border-emerald-100 mt-1">
-                                <div className="font-medium text-slate-900"><span className="text-slate-500 font-normal">Signed by:</span> {signedEntry.signatureText || signedEntry.userName}</div>
-                                <div className="text-[10px] text-muted-foreground mt-0.5">Timestamp: {new Date(signedEntry.signedAt).toLocaleString('en-IN')}</div>
+                                <div className="font-medium text-slate-900">
+                                  <span className="text-slate-500 font-normal">
+                                    Signed by:
+                                  </span>{" "}
+                                  {signedEntry.signatureText ||
+                                    signedEntry.userName}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  Timestamp:{" "}
+                                  {new Date(
+                                    signedEntry.signedAt,
+                                  ).toLocaleString("en-IN")}
+                                </div>
                               </div>
                             ) : !isUnlocked ? (
                               <p className="text-[11px] text-slate-500 italic mt-0.5 flex items-center gap-1">
-                                <span>🔒 Unlocks after step {index} signature.</span>
+                                <span>
+                                  🔒 Unlocks after step {index} signature.
+                                </span>
                               </p>
                             ) : canCurrentUserSign ? (
                               <div className="space-y-2 mt-1 pt-2 border-t border-blue-200/60">
                                 <div className="text-[11px] text-slate-600 bg-blue-50/70 p-2 rounded border border-blue-200/60 flex items-center justify-between">
-                                  <span className="text-slate-500 text-[10px]">Authenticated Signee:</span>
-                                  <span className="font-medium text-slate-900 text-xs">{userName}</span>
+                                  <span className="text-slate-500 text-[10px]">
+                                    Authenticated Signee:
+                                  </span>
+                                  <span className="font-medium text-slate-900 text-xs">
+                                    {userName}
+                                  </span>
                                 </div>
-                                <Button 
-                                  size="sm" 
+                                <Button
+                                  size="sm"
                                   className="w-full text-xs bg-blue-700 hover:bg-blue-800 text-white h-8 shadow-sm font-medium"
                                   disabled={isSigning}
                                   onClick={() => handleSignDocument(rule.role)}
                                 >
-                                  {isSigning ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <PenTool className="w-3.5 h-3.5 mr-1.5" />}
+                                  {isSigning ? (
+                                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                  ) : (
+                                    <PenTool className="w-3.5 h-3.5 mr-1.5" />
+                                  )}
                                   Sign Document as {labelText}
                                 </Button>
                               </div>
                             ) : (
                               <p className="text-[11px] text-slate-500 italic mt-0.5">
-                                Requires permission <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-[10px] text-slate-700">{permName}</code> to sign this step.
+                                Requires permission{" "}
+                                <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-[10px] text-slate-700">
+                                  {permName}
+                                </code>{" "}
+                                to sign this step.
                               </p>
                             )}
                           </div>
@@ -523,13 +689,10 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
                   </CardContent>
                 </Card>
               )}
-              
             </div>
           </div>
-          
         </div>
       </DialogContent>
     </Dialog>
   );
 }
-

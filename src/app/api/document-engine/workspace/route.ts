@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   // 1. Auth check
   const auth = await authorizeApi('project.view') // General access, specific checks can be added
   if ('error' in auth) {
-    return NextResponse.json({ error: auth.error }, { status: 403 })
+    return auth.error
   }
 
   try {
@@ -110,11 +110,24 @@ export async function POST(req: NextRequest) {
       placeholders: s.placeholders
     }));
 
+    let activeGeneratedFileId: string | null = null
+    if (instance.generated_docx_path) {
+      const activeFile = await db.file_record.findFirst({
+        where: {
+          id: instance.generated_docx_path,
+          is_active: true
+        }
+      })
+      if (activeFile) {
+        activeGeneratedFileId = instance.generated_docx_path
+      }
+    }
+
     return ok({
       success: true,
       instance: {
         id: instance.id,
-        generated_docx_path: instance.generated_docx_path,
+        generated_docx_path: activeGeneratedFileId,
         form_data: instance.form_data ?? {},
         signature_data: instance.signature_data_json ?? []
       },

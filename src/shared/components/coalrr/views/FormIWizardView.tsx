@@ -50,6 +50,10 @@ import {
   UploadCloud,
   X,
   Pencil,
+  ArrowLeft,
+  Paperclip,
+  Download,
+  Lock,
 } from "lucide-react";
 import { useMasterQuery, MasterLookup } from "@/core/master-lookup";
 
@@ -71,6 +75,7 @@ interface Claim {
   magistrate_affidavit_doc_id?: string;
   passbook_doc_id?: string;
   title_deed_doc_id?: string;
+  signed_form_i_doc_id?: string;
   plot_id: string;
   plot_number: string;
   mouza: string;
@@ -150,11 +155,48 @@ async function fetchPlots(): Promise<PlotItem[]> {
   return r.json();
 }
 
+export function ClaimStatusBadge({
+  claim,
+}: {
+  claim: { signed_form_i_doc_id?: string; state?: string };
+}) {
+  const isSignedUploaded = !!claim.signed_form_i_doc_id;
+
+  if (isSignedUploaded) {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-emerald-50 text-emerald-800 border-emerald-300 font-bold gap-1 text-[11px] shadow-2xs"
+        title="Statutory Form-I signed copy verified and submitted"
+      >
+        <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+        Submitted & Signed
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge
+      variant="outline"
+      className="bg-amber-50 text-amber-800 border-amber-300 font-semibold gap-1 text-[11px] shadow-2xs"
+      title="Form-I data recorded · Signed statutory copy pending upload"
+    >
+      <Clock className="h-3 w-3 text-amber-600 shrink-0 animate-pulse" />
+      Pending Signed Copy
+    </Badge>
+  );
+}
+
 export function FormIWizardView() {
-  const [mode, setMode] = React.useState<"list" | "wizard">("list");
+  const [mode, setMode] = React.useState<"list" | "wizard" | "view">("list");
   const [viewingClaim, setViewingClaim] = React.useState<Claim | null>(null);
   const [editingClaim, setEditingClaim] = React.useState<Claim | null>(null);
-  const [workspaceClaimId, setWorkspaceClaimId] = React.useState<string | null>(null);
+  const [uploadingClaim, setUploadingClaim] = React.useState<Claim | null>(
+    null,
+  );
+  const [workspaceClaimId, setWorkspaceClaimId] = React.useState<string | null>(
+    null,
+  );
   const [isWorkspaceOpen, setIsWorkspaceOpen] = React.useState(false);
 
   const { data: claims, isLoading } = useQuery({
@@ -165,6 +207,23 @@ export function FormIWizardView() {
     queryKey: ["plots"],
     queryFn: fetchPlots,
   });
+
+  if (mode === "view" && viewingClaim) {
+    return (
+      <ClaimNormalView
+        claim={viewingClaim}
+        onDone={() => {
+          setViewingClaim(null);
+          setMode("list");
+        }}
+        onEdit={() => {
+          setEditingClaim(viewingClaim);
+          setViewingClaim(null);
+          setMode("wizard");
+        }}
+      />
+    );
+  }
 
   if (mode === "wizard") {
     return (
@@ -263,8 +322,9 @@ export function FormIWizardView() {
               },
               {
                 key: "state",
-                header: "State",
-                render: (r) => <StateBadge state={r.state} />,
+                header: "Status",
+                sortable: true,
+                render: (r) => <ClaimStatusBadge claim={r} />,
               },
               {
                 key: "sla",
@@ -297,32 +357,61 @@ export function FormIWizardView() {
                 key: "actions",
                 header: "Action",
                 align: "center",
-                render: (r) => (
-                  <div className="flex items-center justify-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditingClaim(r);
-                        setMode("wizard");
-                      }}
-                      className="h-8 gap-1.5 text-xs border-amber-600 text-amber-700 hover:bg-amber-50 shadow-sm"
-                    >
-                      <Pencil className="h-3.5 w-3.5" /> Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setWorkspaceClaimId(r.id);
-                        setIsWorkspaceOpen(true);
-                      }}
-                      className="h-8 gap-1.5 text-xs border-blue-600 text-blue-700 hover:bg-blue-50 shadow-sm"
-                    >
-                      <PenTool className="h-3.5 w-3.5" /> Workspace
-                    </Button>
-                  </div>
-                ),
+                render: (r) => {
+                  const isSignedSubmitted = !!r.signed_form_i_doc_id;
+                  return (
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      {!isSignedSubmitted && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditingClaim(r);
+                              setMode("wizard");
+                            }}
+                            className="h-8 gap-1.5 text-xs border-amber-600 text-amber-700 hover:bg-amber-50 shadow-xs"
+                          >
+                            <Pencil className="h-3.5 w-3.5" /> Edit
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setUploadingClaim(r)}
+                            className="h-8 gap-1.5 text-xs border-emerald-600 text-emerald-700 hover:bg-emerald-50 shadow-xs"
+                          >
+                            <UploadCloud className="h-3.5 w-3.5" /> Upload
+                          </Button>
+                        </>
+                      )}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setViewingClaim(r);
+                          setMode("view");
+                        }}
+                        className="h-8 gap-1.5 text-xs border-indigo-600 text-indigo-700 hover:bg-indigo-50 shadow-xs"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setWorkspaceClaimId(r.id);
+                          setIsWorkspaceOpen(true);
+                        }}
+                        className="h-8 gap-1.5 text-xs border-blue-600 text-blue-700 hover:bg-blue-50 shadow-xs"
+                      >
+                        <PenTool className="h-3.5 w-3.5" /> Workspace
+                      </Button>
+                    </div>
+                  );
+                },
               },
             ] as Column<Claim>[]
           }
@@ -332,16 +421,16 @@ export function FormIWizardView() {
         />
       </SectionCard>
 
-      {/* Pre-filled Statutory Form-I Sheet Dialog */}
+      {/* Form-I Generation & Signature Upload Dialog */}
       <Dialog
-        open={!!viewingClaim}
-        onOpenChange={(open) => !open && setViewingClaim(null)}
+        open={!!uploadingClaim}
+        onOpenChange={(open) => !open && setUploadingClaim(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-4">
-          {viewingClaim && (
-            <FormIStatutoryDocumentView
-              claim={viewingClaim}
-              onClose={() => setViewingClaim(null)}
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-5">
+          {uploadingClaim && (
+            <FormIUploadWorkspaceModal
+              claim={uploadingClaim}
+              onClose={() => setUploadingClaim(null)}
             />
           )}
         </DialogContent>
@@ -362,6 +451,669 @@ export function FormIWizardView() {
           businessId={workspaceClaimId}
         />
       )}
+    </div>
+  );
+}
+
+function FormIUploadWorkspaceModal({
+  claim,
+  onClose,
+}: {
+  claim: Claim;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [isGenerating, setIsGenerating] = React.useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = React.useState(false);
+  const [instanceId, setInstanceId] = React.useState<string | null>(null);
+  const [fileId, setFileId] = React.useState<string | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [signedDoc, setSignedDoc] = React.useState<UploadedDoc[]>([]);
+
+  // Pre-populate signed doc if already uploaded
+  React.useEffect(() => {
+    if (claim.signed_form_i_doc_id) {
+      setSignedDoc([
+        {
+          id: claim.signed_form_i_doc_id,
+          file_name: `Signed_Form_I_${claim.claim_code}.pdf`,
+          file_size_kb: 512,
+          mime_type: "application/pdf",
+          virus_scan_status: "clean",
+        },
+      ]);
+    }
+  }, [claim.signed_form_i_doc_id, claim.claim_code]);
+
+  // Check on mount if a generated Form-I document already exists (READ-ONLY instance check)
+  React.useEffect(() => {
+    if (!claim.id) return;
+    fetch("/api/document-engine/workspace", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        templateCode: "FORM_I",
+        applicationId: claim.id,
+      }),
+    })
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success && res.instance) {
+          setInstanceId(res.instance.id);
+          if (res.instance.generated_docx_path) {
+            setFileId(res.instance.generated_docx_path);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [claim.id]);
+
+  // Real Document Engine Generation — ONLY on explicit user button click!
+  const handleRealGenerate = async () => {
+    try {
+      setIsGenerating(true);
+      let targetInstanceId = instanceId;
+
+      if (!targetInstanceId) {
+        const wsRes = await fetch("/api/document-engine/workspace", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            templateCode: "FORM_I",
+            applicationId: claim.id,
+          }),
+        });
+        const wsText = await wsRes.text();
+        let wsData: any = {};
+        try {
+          wsData = wsText ? JSON.parse(wsText) : {};
+        } catch {
+          throw new Error(`Workspace server error (${wsRes.status})`);
+        }
+        if (wsRes.ok && wsData.instance) {
+          targetInstanceId = wsData.instance.id;
+          setInstanceId(targetInstanceId);
+        } else {
+          throw new Error(
+            wsData.error ||
+              `Failed to initialize document engine (${wsRes.status})`,
+          );
+        }
+      }
+
+      const genRes = await fetch("/api/document-engine/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instanceId: targetInstanceId }),
+      });
+      const genText = await genRes.text();
+      let genData: any = {};
+      try {
+        genData = genText ? JSON.parse(genText) : {};
+      } catch {
+        throw new Error(`Generation server error (${genRes.status})`);
+      }
+
+      if (genRes.ok && (genData.success || genData.fileId)) {
+        const generatedFileId =
+          genData.fileId || genData.instance?.generated_docx_path;
+        setFileId(generatedFileId);
+        toast.success(
+          `Form-I Statutory Document ${fileId ? "Re-Generated" : "Generated"} for ${claim.claim_code}`,
+        );
+      } else {
+        throw new Error(
+          genData.error ||
+            genData.details ||
+            `Document generation failed (${genRes.status})`,
+        );
+      }
+    } catch (e: any) {
+      toast.error("Document Engine Generation failed: " + e.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Real PDF Download
+  const handleDownloadPdf = async () => {
+    if (!fileId) {
+      window.open(
+        `/api/claims/${claim.id || claim.claim_code}/download?format=pdf`,
+        "_blank",
+      );
+      return;
+    }
+    try {
+      setIsDownloadingPdf(true);
+      const response = await fetch(`/api/files/${fileId}/download?format=pdf`);
+      if (!response.ok) {
+        throw new Error("Failed to download PDF");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Form-I_${claim.claim_code}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("PDF downloaded successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to download PDF.");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  // Save/Submit Signed Document
+  const handleSaveSignedDocument = async () => {
+    const docIdToSave = signedDoc[0]?.id || signedDoc[0]?.file_name;
+    if (!docIdToSave) {
+      toast.error("Please upload the signed Form-I document first");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const payload = {
+        signed_form_i_doc_id: docIdToSave,
+      };
+
+      const res = await fetch(`/api/claims/${claim.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to save signed document");
+      }
+
+      toast.success(
+        `Signed Form-I document for ${claim.claim_code} saved successfully!`,
+      );
+      qc.invalidateQueries({ queryKey: ["claims"] });
+      onClose();
+    } catch (e: any) {
+      toast.error("Failed to save document", { description: e.message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="border-b pb-3">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+          <UploadCloud className="h-5 w-5 text-emerald-600" />
+          Form-I Document Generation & Signed File Upload
+        </h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Claim Code:{" "}
+          <code className="font-mono bg-emerald-100 text-emerald-950 px-1.5 py-0.5 rounded font-bold text-xs">
+            {claim.claim_code}
+          </code>{" "}
+          · Claimant:{" "}
+          <span className="font-semibold text-slate-800">
+            {claim.claimant_name}
+          </span>
+        </p>
+      </div>
+
+      {/* Step 1: Official Statutory Form-I Generation & Download */}
+      <div className="rounded-lg border bg-slate-50/70 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+              <FileText className="h-4 w-4 text-emerald-600" />
+              1. Official Statutory Form-I Generation
+            </h4>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Generate and download the official Form-I document for physical
+              signature.
+            </p>
+          </div>
+
+          <Button
+            onClick={handleRealGenerate}
+            disabled={isGenerating}
+            className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 font-bold shadow-xs"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating...
+              </>
+            ) : (
+              <>
+                <PenTool className="h-3.5 w-3.5" />{" "}
+                {fileId ? "Regenerate Form-I" : "Generate Form-I"}
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Action Status & Download Form-I Button */}
+        <div className="flex items-center justify-between bg-white p-3 rounded border border-slate-200 text-xs">
+          <span className="font-bold text-slate-900 flex items-center gap-1.5 text-[11px]">
+            {fileId ? (
+              <span className="text-emerald-700 font-bold flex items-center gap-1">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Form-I Ready
+                for Download
+              </span>
+            ) : (
+              <span className="text-slate-500">Document not generated yet</span>
+            )}
+          </span>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPdf}
+              disabled={!fileId || isDownloadingPdf}
+              className="h-8 text-xs gap-1.5 border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-bold shadow-xs"
+            >
+              {isDownloadingPdf ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5 text-emerald-600" />
+              )}
+              Download Form-I
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Step 2: Upload Signed & Self-Attested Form-I */}
+      <div className="rounded-lg border bg-card p-4 space-y-3">
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+            <Paperclip className="h-4 w-4 text-emerald-600" />
+            2. Upload Signed & Self-Attested Form-I Copy{" "}
+            <span className="text-red-500">*</span>
+          </h4>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Upload the physically signed & scanned copy of Form-I (PDF or Image).
+          </p>
+        </div>
+
+        {claim.signed_form_i_doc_id && (
+          <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-md text-xs font-semibold">
+            <Lock className="h-4 w-4 text-amber-600 shrink-0" />
+            Signed Form-I document has already been uploaded & submitted. Re-uploading is locked.
+          </div>
+        )}
+
+        <div className="rounded-lg border-2 border-dashed border-emerald-400 bg-emerald-50/40 p-3">
+          <DocumentUploader
+            checklist_item_key="SIGNED_FORM_I"
+            label="Signed Form-I Document (PDF/JPG)"
+            mode="single"
+            entity_type="form_i_claim"
+            entity_id={claim.id}
+            module="SIGNED_FORM_I"
+            disabled={!!claim.signed_form_i_doc_id}
+            documents={signedDoc}
+            onChange={(docs: any) => {
+              const docArr = Array.isArray(docs) ? docs : [docs];
+              setSignedDoc(docArr);
+              toast.success("Signed Form-I file uploaded & selected");
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Action Footer */}
+      <div className="flex justify-end gap-2 pt-3 border-t">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onClose}
+          disabled={submitting}
+        >
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={handleSaveSignedDocument}
+          disabled={submitting || !!claim.signed_form_i_doc_id}
+          className={cn(
+            "font-bold gap-1.5 text-xs shadow-xs",
+            claim.signed_form_i_doc_id
+              ? "bg-slate-200 text-slate-500 cursor-not-allowed hover:bg-slate-200"
+              : "bg-emerald-600 hover:bg-emerald-700 text-white"
+          )}
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...
+            </>
+          ) : claim.signed_form_i_doc_id ? (
+            <>
+              <Lock className="h-3.5 w-3.5" /> Signed Copy Submitted (Locked)
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-3.5 w-3.5" /> Submit Signed Document
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ClaimNormalView({
+  claim,
+  onDone,
+  onEdit,
+}: {
+  claim: Claim;
+  onDone: () => void;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Top Header Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDone}
+            className="gap-1.5 text-xs font-semibold"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Claims List
+          </Button>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              Claim Details —{" "}
+              <code className="font-mono bg-emerald-100 text-emerald-950 px-2 py-0.5 rounded text-sm">
+                {claim.claim_code}
+              </code>
+              <ClaimStatusBadge claim={claim} />
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Land Loser:{" "}
+              <span className="font-bold text-slate-900">
+                {claim.claimant_name}
+              </span>{" "}
+              · Submitted:{" "}
+              {claim.submitted_at
+                ? new Date(claim.submitted_at).toLocaleDateString("en-IN")
+                : "Draft"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {!claim.signed_form_i_doc_id && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onEdit}
+              className="h-8 gap-1.5 text-xs border-amber-600 text-amber-700 hover:bg-amber-50 font-semibold shadow-xs"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit Claim
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Section 1: Citizen Profile & Demographics */}
+      <SectionCard
+        title="1. Land Loser Profile & Demographics (Q1 - Q7)"
+        icon={ShieldCheck}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+          <div className="p-3 rounded-lg border bg-card">
+            <span className="text-muted-foreground font-medium block text-[11px]">
+              Full Name
+            </span>
+            <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+              {claim.claimant_name}
+            </span>
+          </div>
+          <div className="p-3 rounded-lg border bg-card">
+            <span className="text-muted-foreground font-medium block text-[11px]">
+              Father / Husband Name
+            </span>
+            <span className="font-bold text-slate-900 dark:text-slate-100">
+              {claim.father_husband_name || "—"}
+            </span>
+          </div>
+          <div className="p-3 rounded-lg border bg-card">
+            <span className="text-muted-foreground font-medium block text-[11px]">
+              EPIC / Aadhaar ID
+            </span>
+            <span className="font-mono font-bold text-emerald-700">
+              {claim.epic_no || claim.citizen_id_hash || "—"}
+            </span>
+          </div>
+          <div className="p-3 rounded-lg border bg-card">
+            <span className="text-muted-foreground font-medium block text-[11px]">
+              Gender & Category
+            </span>
+            <span className="font-semibold">
+              {claim.gender || "Male"} · {claim.caste_category || "General"}
+            </span>
+          </div>
+          <div className="p-3 rounded-lg border bg-card md:col-span-2">
+            <span className="text-muted-foreground font-medium block text-[11px]">
+              Present Address
+            </span>
+            <span className="font-medium text-slate-900">
+              {claim.present_address || "—"}
+            </span>
+          </div>
+          <div className="p-3 rounded-lg border bg-card md:col-span-2">
+            <span className="text-muted-foreground font-medium block text-[11px]">
+              Permanent Address
+            </span>
+            <span className="font-medium text-slate-900">
+              {claim.permanent_address || "—"}
+            </span>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Section 2: Land & Plot Schedule (Q8) */}
+      <SectionCard
+        title="2. Land & Plot Schedule (Q8 Multi-Plot Table)"
+        icon={MapPin}
+      >
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b font-bold">
+              <tr>
+                <th className="p-2.5 text-left">#</th>
+                <th className="p-2.5 text-left">Mouza</th>
+                <th className="p-2.5 text-left">LR Plot No</th>
+                <th className="p-2.5 text-left">Khatian No</th>
+                <th className="p-2.5 text-right">Own Share (Acres)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {(claim.plots || claim.form_i_claim_plot || []).map(
+                (p: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-muted/30">
+                    <td className="p-2.5 font-mono">{idx + 1}</td>
+                    <td className="p-2.5 font-semibold">
+                      {claim.mouza || "MADHAIPUR"}
+                    </td>
+                    <td className="p-2.5 font-mono font-bold text-emerald-800">
+                      {getDisplayPlotNo(
+                        p.plot_no || p.display_plot_no || claim.plot_number,
+                      )}
+                    </td>
+                    <td className="p-2.5 font-mono">
+                      {p.khatian_no || claim.khatian_no || "—"}
+                    </td>
+                    <td className="p-2.5 text-right font-mono font-bold text-slate-900">
+                      {p.own_share_acres || claim.own_share_acres} ac
+                    </td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
+
+      {/* Section 3: Financial & Bank Details */}
+      <SectionCard
+        title="3. Financial & Bank RTGS Details (Q10)"
+        icon={IndianRupee}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+          <div className="p-3 rounded-lg border bg-card">
+            <span className="text-muted-foreground font-medium block text-[11px]">
+              Bank Name
+            </span>
+            <span className="font-bold text-slate-900">
+              {claim.bank_name || "—"}
+            </span>
+          </div>
+          <div className="p-3 rounded-lg border bg-card">
+            <span className="text-muted-foreground font-medium block text-[11px]">
+              Branch Name
+            </span>
+            <span className="font-semibold">{claim.bank_branch || "—"}</span>
+          </div>
+          <div className="p-3 rounded-lg border bg-card">
+            <span className="text-muted-foreground font-medium block text-[11px]">
+              Account Number
+            </span>
+            <span className="font-mono font-bold text-slate-900">
+              {claim.bank_account_number || "—"}
+            </span>
+          </div>
+          <div className="p-3 rounded-lg border bg-card">
+            <span className="text-muted-foreground font-medium block text-[11px]">
+              IFSC Code
+            </span>
+            <span className="font-mono font-bold text-emerald-700">
+              {claim.bank_ifsc || "—"}
+            </span>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Section 4: Statutory Declarations */}
+      <SectionCard
+        title="4. Statutory Declarations (Questions 9, 11 - 15)"
+        icon={FileCheck}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div className="p-3 rounded-lg border bg-card">
+            <div className="font-semibold text-slate-800">
+              Q9. Prior Compensation Received
+            </div>
+            <div className="mt-1 font-bold text-emerald-800">
+              {claim.prior_compensation_received ? "YES" : "NO"}
+            </div>
+            {claim.prior_compensation_details && (
+              <p className="text-muted-foreground text-[11px] mt-1">
+                {claim.prior_compensation_details}
+              </p>
+            )}
+          </div>
+          <div className="p-3 rounded-lg border bg-card">
+            <div className="font-semibold text-slate-800">
+              Q11. Prior Employment Linked
+            </div>
+            <div className="mt-1 font-bold text-emerald-800">
+              {claim.prior_employment_linked ? "YES" : "NO"}
+            </div>
+          </div>
+          <div className="p-3 rounded-lg border bg-card">
+            <div className="font-semibold text-slate-800">
+              Q12. Free from Disputes
+            </div>
+            <div className="mt-1 font-bold text-emerald-800">
+              {claim.is_free_from_disputes !== false ? "YES" : "NO"}
+            </div>
+          </div>
+          <div className="p-3 rounded-lg border bg-card">
+            <div className="font-semibold text-slate-800">
+              Q13. Free from Encumbrances
+            </div>
+            <div className="mt-1 font-bold text-emerald-800">
+              {claim.is_free_from_encumbrances !== false ? "YES" : "NO"}
+            </div>
+          </div>
+          <div className="p-3 rounded-lg border bg-card">
+            <div className="font-semibold text-slate-800">
+              Q14. Peaceful Possession Handover
+            </div>
+            <div className="mt-1 font-bold text-emerald-800">
+              {claim.can_handover_possession !== false ? "YES" : "NO"}
+            </div>
+          </div>
+          <div className="p-3 rounded-lg border bg-card">
+            <div className="font-semibold text-slate-800">
+              Q15. Opted One-time Monetary Compensation
+            </div>
+            <div className="mt-1 font-bold text-emerald-800">
+              {claim.opted_monetary_in_lieu_of_employment ? "YES" : "NO"}
+            </div>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Section 5: Submitted Proof Documents */}
+      <SectionCard
+        title="5. Submitted Proof Documents (Read-Only File Viewer)"
+        icon={Paperclip}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          {[
+            { label: "Passport Size Photo", docId: claim.photo_doc_id },
+            {
+              label: "Magistrate Affidavit",
+              docId: claim.magistrate_affidavit_doc_id,
+            },
+            { label: "Bank Passbook / Cheque", docId: claim.passbook_doc_id },
+            { label: "Title Deed / Parcha", docId: claim.title_deed_doc_id },
+            { label: "Signed Form-I Copy", docId: claim.signed_form_i_doc_id },
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              className="p-3.5 rounded-xl border bg-card shadow-xs flex flex-col justify-between gap-3"
+            >
+              <div>
+                <span className="font-bold text-slate-900 block text-xs">
+                  {item.label}
+                </span>
+                <span className="text-[10px] font-mono text-muted-foreground block truncate mt-0.5">
+                  {item.docId ? `ID: ${item.docId}` : "Not Uploaded"}
+                </span>
+              </div>
+              {item.docId ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    window.open(`/api/files/${item.docId}/download`, "_blank")
+                  }
+                  className="h-8 text-xs gap-1.5 border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-medium w-full"
+                >
+                  <Eye className="h-3.5 w-3.5" /> View / Download File
+                </Button>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] text-slate-400 border-slate-300 w-fit"
+                >
+                  Missing File
+                </Badge>
+              )}
+            </div>
+          ))}
+        </div>
+      </SectionCard>
     </div>
   );
 }
@@ -388,7 +1140,8 @@ function Wizard({
   const [otpVerified, setOtpVerified] = React.useState(false);
 
   // Search by Notification & Location Filters (State ➔ District ➔ Block ➔ Mouza)
-  const [plotFilterNotification, setPlotFilterNotification] = React.useState("");
+  const [plotFilterNotification, setPlotFilterNotification] =
+    React.useState("");
   const [plotFilterState, setPlotFilterState] = React.useState("");
   const [plotFilterDistrict, setPlotFilterDistrict] = React.useState("");
   const [plotFilterBlock, setPlotFilterBlock] = React.useState("");
@@ -483,7 +1236,8 @@ function Wizard({
       bank_branch: initialClaim.bank_branch || "ECL Main Branch",
       bank_account_number: initialClaim.bank_account_number || "",
       bank_ifsc: initialClaim.bank_ifsc || "",
-      prior_compensation_received: initialClaim.prior_compensation_received ?? false,
+      prior_compensation_received:
+        initialClaim.prior_compensation_received ?? false,
       prior_compensation_details: initialClaim.prior_compensation_details || "",
       prior_employment_linked: initialClaim.prior_employment_linked ?? false,
       prior_employment_details: initialClaim.prior_employment_details || "",
@@ -493,7 +1247,8 @@ function Wizard({
       encumbrance_details: initialClaim.encumbrance_details || "",
       can_handover_possession: initialClaim.can_handover_possession ?? true,
       possession_handover_reasons: initialClaim.possession_reason || "",
-      opted_monetary_in_lieu_of_employment: initialClaim.opted_monetary_in_lieu_of_employment ?? false,
+      opted_monetary_in_lieu_of_employment:
+        initialClaim.opted_monetary_in_lieu_of_employment ?? false,
       monetary_opt_reason: initialClaim.monetary_opt_reason || "",
       certified_accurate: true,
     }));
@@ -508,17 +1263,23 @@ function Wizard({
       setIdentifier(initialClaim.citizen_id_hash);
     }
 
-    const existingPlots = initialClaim.plots || initialClaim.form_i_claim_plot || [];
+    const existingPlots =
+      initialClaim.plots || initialClaim.form_i_claim_plot || [];
     if (existingPlots.length > 0) {
       setPlotEntries(
         existingPlots.map((p: any) => ({
-          plot_id: String(p.plot_schedule_id || p.plot_id || initialClaim.plot_id),
+          plot_id: String(
+            p.plot_schedule_id || p.plot_id || initialClaim.plot_id,
+          ),
           plot_no: p.plot_no || p.display_plot_no || initialClaim.plot_number,
           khatian_no: p.khatian_no || initialClaim.khatian_no || "",
-          own_share_acres: String(p.own_share_acres ?? initialClaim.own_share_acres ?? "0"),
+          own_share_acres: String(
+            p.own_share_acres ?? initialClaim.own_share_acres ?? "0",
+          ),
           total_ror_area: String(p.total_ror_area ?? "0"),
-          opted_monetary_in_lieu_of_employment: initialClaim.opted_monetary_in_lieu_of_employment ?? false,
-        }))
+          opted_monetary_in_lieu_of_employment:
+            initialClaim.opted_monetary_in_lieu_of_employment ?? false,
+        })),
       );
     } else if (initialClaim.plot_id) {
       setPlotEntries([
@@ -528,7 +1289,8 @@ function Wizard({
           khatian_no: initialClaim.khatian_no || "",
           own_share_acres: String(initialClaim.own_share_acres || "0"),
           total_ror_area: String(initialClaim.own_share_acres || "0"),
-          opted_monetary_in_lieu_of_employment: initialClaim.opted_monetary_in_lieu_of_employment ?? false,
+          opted_monetary_in_lieu_of_employment:
+            initialClaim.opted_monetary_in_lieu_of_employment ?? false,
         },
       ]);
     }
@@ -557,14 +1319,34 @@ function Wizard({
   const [uploadedDocs, setUploadedDocs] = React.useState<
     Record<string, UploadedDoc[]>
   >({});
-  const [selectedUploadDocType, setSelectedUploadDocType] = React.useState<string>("");
+  const [selectedUploadDocType, setSelectedUploadDocType] =
+    React.useState<string>("");
 
-  const DOC_TYPES = React.useMemo(() => [
-    { key: "LAND_LOSER_PHOTO", label: "Passport Size Photo", isMandatory: true },
-    { key: "MAG_AFFIDAVIT", label: "First-Class Magistrate Affidavit", isMandatory: true },
-    { key: "BANK_PASSBOOK", label: "Bank Passbook / Cheque", isMandatory: true },
-    { key: "LINK_DEED", label: "Parcha / Title Deed Proof", isMandatory: false },
-  ], []);
+  const DOC_TYPES = React.useMemo(
+    () => [
+      {
+        key: "LAND_LOSER_PHOTO",
+        label: "Passport Size Photo",
+        isMandatory: true,
+      },
+      {
+        key: "MAG_AFFIDAVIT",
+        label: "First-Class Magistrate Affidavit",
+        isMandatory: true,
+      },
+      {
+        key: "BANK_PASSBOOK",
+        label: "Bank Passbook / Cheque",
+        isMandatory: true,
+      },
+      {
+        key: "LINK_DEED",
+        label: "Parcha / Title Deed Proof",
+        isMandatory: false,
+      },
+    ],
+    [],
+  );
 
   const steps = [
     {
@@ -623,7 +1405,11 @@ function Wizard({
     setPlotEntries((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const updatePlotEntry = (index: number, field: keyof PlotEntry, value: any) => {
+  const updatePlotEntry = (
+    index: number,
+    field: keyof PlotEntry,
+    value: any,
+  ) => {
     setPlotEntries((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
@@ -636,7 +1422,9 @@ function Wizard({
     const rawPlotNo = plot.plot_no || plot.plot_number;
     const cleanNo = getDisplayPlotNo(rawPlotNo, plot.state_lgd, plot.mouza_lgd);
 
-    if (plotEntries.some((p) => p.plot_id === plot.id || p.plot_no === rawPlotNo)) {
+    if (
+      plotEntries.some((p) => p.plot_id === plot.id || p.plot_no === rawPlotNo)
+    ) {
       toast.warning(`${cleanNo} is already added in the schedule table`);
       return;
     }
@@ -682,7 +1470,10 @@ function Wizard({
         epicNo: authType === "epic" ? identifier : undefined,
         plot_id: primaryPlot.plot_id,
         khatian_no: primaryPlot.khatian_no,
-        own_share_acres: (primaryOwnShare > 0 ? primaryOwnShare : Number(totalOwnShareAcres)).toFixed(4),
+        own_share_acres: (primaryOwnShare > 0
+          ? primaryOwnShare
+          : Number(totalOwnShareAcres)
+        ).toFixed(4),
         total_claim_share_acres: totalOwnShareAcres,
         plot_entries: plotEntries,
         plots: plotEntries.map((p) => ({
@@ -695,10 +1486,18 @@ function Wizard({
         opted_monetary_in_lieu_of_employment:
           primaryPlot.opted_monetary_in_lieu_of_employment ||
           form.opted_monetary_in_lieu_of_employment,
-        photo_doc_id: uploadedDocs.LAND_LOSER_PHOTO?.[0]?.id || uploadedDocs.LAND_LOSER_PHOTO?.[0]?.file_name,
-        magistrate_affidavit_doc_id: uploadedDocs.MAG_AFFIDAVIT?.[0]?.id || uploadedDocs.MAG_AFFIDAVIT?.[0]?.file_name,
-        title_deed_doc_id: uploadedDocs.LINK_DEED?.[0]?.id || uploadedDocs.LINK_DEED?.[0]?.file_name,
-        passbook_doc_id: uploadedDocs.BANK_PASSBOOK?.[0]?.id || uploadedDocs.BANK_PASSBOOK?.[0]?.file_name,
+        photo_doc_id:
+          uploadedDocs.LAND_LOSER_PHOTO?.[0]?.id ||
+          uploadedDocs.LAND_LOSER_PHOTO?.[0]?.file_name,
+        magistrate_affidavit_doc_id:
+          uploadedDocs.MAG_AFFIDAVIT?.[0]?.id ||
+          uploadedDocs.MAG_AFFIDAVIT?.[0]?.file_name,
+        title_deed_doc_id:
+          uploadedDocs.LINK_DEED?.[0]?.id ||
+          uploadedDocs.LINK_DEED?.[0]?.file_name,
+        passbook_doc_id:
+          uploadedDocs.BANK_PASSBOOK?.[0]?.id ||
+          uploadedDocs.BANK_PASSBOOK?.[0]?.file_name,
       };
 
       const isEdit = !!initialClaim?.id;
@@ -711,15 +1510,22 @@ function Wizard({
         body: JSON.stringify(payload),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error ?? (isEdit ? "Update failed" : "Submission failed"));
+      if (!r.ok)
+        throw new Error(
+          data.error ?? (isEdit ? "Update failed" : "Submission failed"),
+        );
       return { ...data, isEdit };
     },
     onSuccess: (data) => {
       const claimId = data.id || data.claim_code || initialClaim?.id;
       if (data.isEdit) {
-        toast.success(`Claim ${initialClaim?.claim_code || claimId} Updated Successfully!`);
+        toast.success(
+          `Claim ${initialClaim?.claim_code || claimId} Updated Successfully!`,
+        );
       } else {
-        toast.success(`Form-I Claim ${data.claim_code} Submitted Successfully!`);
+        toast.success(
+          `Form-I Claim ${data.claim_code} Submitted Successfully!`,
+        );
       }
       qc.invalidateQueries({ queryKey: ["claims"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -735,16 +1541,27 @@ function Wizard({
   });
 
   const isPlotStepValid =
-    plotEntries.length > 0 && plotEntries.every((p) => p.plot_id && p.own_share_acres);
+    plotEntries.length > 0 &&
+    plotEntries.every((p) => p.plot_id && p.own_share_acres);
 
   const filteredPlots = plots.filter((p) => {
-    if (plotFilterNotification && p.notification_no && !p.notification_no.toLowerCase().includes(plotFilterNotification.toLowerCase())) {
+    if (
+      plotFilterNotification &&
+      p.notification_no &&
+      !p.notification_no
+        .toLowerCase()
+        .includes(plotFilterNotification.toLowerCase())
+    ) {
       return false;
     }
     if (plotFilterState && p.state_lgd && p.state_lgd !== plotFilterState) {
       return false;
     }
-    if (plotFilterDistrict && p.district_lgd && p.district_lgd !== plotFilterDistrict) {
+    if (
+      plotFilterDistrict &&
+      p.district_lgd &&
+      p.district_lgd !== plotFilterDistrict
+    ) {
       return false;
     }
     if (plotFilterBlock && p.block_lgd && p.block_lgd !== plotFilterBlock) {
@@ -753,7 +1570,12 @@ function Wizard({
     if (plotFilterMouza && p.mouza_lgd && p.mouza_lgd !== plotFilterMouza) {
       return false;
     }
-    if (plotSearchQuery && !(p.plot_no || p.plot_number).toLowerCase().includes(plotSearchQuery.toLowerCase())) {
+    if (
+      plotSearchQuery &&
+      !(p.plot_no || p.plot_number)
+        .toLowerCase()
+        .includes(plotSearchQuery.toLowerCase())
+    ) {
       return false;
     }
     return true;
@@ -789,10 +1611,13 @@ function Wizard({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold tracking-tight">
-            {initialClaim ? `Edit Form-I Claim (${initialClaim.claim_code})` : "Form-I Claim Submission Wizard"}
+            {initialClaim
+              ? `Edit Form-I Claim (${initialClaim.claim_code})`
+              : "Form-I Claim Submission Wizard"}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Official Land Loser Application for Transfer of Land · Statutory 15-Question Flow
+            Official Land Loser Application for Transfer of Land · Statutory
+            15-Question Flow
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={onDone}>
@@ -807,7 +1632,11 @@ function Wizard({
         maxVisitedStep={maxVisited}
         onSubmit={() => submit.mutate()}
         submitting={submitting}
-        submitLabel={initialClaim ? `Update Claim (${initialClaim.claim_code})` : "Submit Form-I Claim"}
+        submitLabel={
+          initialClaim
+            ? `Update Claim (${initialClaim.claim_code})`
+            : "Submit Form-I Claim"
+        }
       >
         {/* Step 0: Radio Auth (Aadhaar / EPIC) + Demographics (Q1 - Q7) */}
         {step === 0 && (
@@ -833,13 +1662,20 @@ function Wizard({
                     </div>
                     <div>
                       <div className="text-xs font-semibold flex items-center gap-1.5">
-                        Verified via {authType === "epic" ? "EPIC Identity Card" : "Aadhaar e-KYC"}
-                        <Badge variant="outline" className="border-emerald-600 bg-emerald-100/90 text-emerald-800 text-[10px] py-0 px-1.5 font-bold">
+                        Verified via{" "}
+                        {authType === "epic"
+                          ? "EPIC Identity Card"
+                          : "Aadhaar e-KYC"}
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-600 bg-emerald-100/90 text-emerald-800 text-[10px] py-0 px-1.5 font-bold"
+                        >
                           Authenticated
                         </Badge>
                       </div>
                       <div className="text-[11px] text-emerald-800/90 dark:text-emerald-300">
-                        Citizen identity authenticated for land acquisition claim records.
+                        Citizen identity authenticated for land acquisition
+                        claim records.
                       </div>
                     </div>
                   </div>
@@ -877,7 +1713,9 @@ function Wizard({
                       <StateSelect
                         value={form.state_lgd}
                         onChange={(val) => {
-                          const v = Array.isArray(val) ? val[0] || "" : val || "";
+                          const v = Array.isArray(val)
+                            ? val[0] || ""
+                            : val || "";
                           setForm({
                             ...form,
                             state_lgd: v,
@@ -896,7 +1734,9 @@ function Wizard({
                         value={form.district_lgd}
                         disabled={!form.state_lgd}
                         onChange={(val) => {
-                          const v = Array.isArray(val) ? val[0] || "" : val || "";
+                          const v = Array.isArray(val)
+                            ? val[0] || ""
+                            : val || "";
                           setForm({
                             ...form,
                             district_lgd: v,
@@ -914,7 +1754,9 @@ function Wizard({
                         value={form.block_lgd}
                         disabled={!form.district_lgd}
                         onChange={(val) => {
-                          const v = Array.isArray(val) ? val[0] || "" : val || "";
+                          const v = Array.isArray(val)
+                            ? val[0] || ""
+                            : val || "";
                           setForm({
                             ...form,
                             block_lgd: v,
@@ -931,7 +1773,9 @@ function Wizard({
                         value={form.mouza_lgd}
                         disabled={!form.block_lgd}
                         onChange={(val) => {
-                          const v = Array.isArray(val) ? val[0] || "" : val || "";
+                          const v = Array.isArray(val)
+                            ? val[0] || ""
+                            : val || "";
                           setForm({ ...form, mouza_lgd: v });
                         }}
                         placeholder="— Select Mouza —"
@@ -1003,7 +1847,9 @@ function Wizard({
                     <div className="grid grid-cols-3 gap-2">
                       <select
                         value={form.gender}
-                        onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, gender: e.target.value })
+                        }
                         className="h-9 rounded-md border border-border bg-background px-2 text-xs"
                       >
                         <option value="Male">Male</option>
@@ -1012,13 +1858,17 @@ function Wizard({
                       </select>
                       <Input
                         value={form.nationality}
-                        onChange={(e) => setForm({ ...form, nationality: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, nationality: e.target.value })
+                        }
                         placeholder="Nationality"
                         className="text-xs"
                       />
                       <select
                         value={form.religion}
-                        onChange={(e) => setForm({ ...form, religion: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, religion: e.target.value })
+                        }
                         className="h-9 rounded-md border border-border bg-background px-2 text-xs"
                       >
                         <option value="Hindu">Hindu</option>
@@ -1057,7 +1907,12 @@ function Wizard({
                       <CasteSelect
                         value={form.caste_category}
                         onChange={(val) =>
-                          setForm({ ...form, caste_category: Array.isArray(val) ? val[0] : (val || "") })
+                          setForm({
+                            ...form,
+                            caste_category: Array.isArray(val)
+                              ? val[0]
+                              : val || "",
+                          })
                         }
                         placeholder="— Select Caste Category —"
                         className="w-full text-sm font-medium"
@@ -1087,7 +1942,8 @@ function Wizard({
                 Step 2: Multi-Plot Schedule Selection (Q8)
               </h3>
               <p className="text-xs text-muted-foreground">
-                Filter by location (State ➔ District ➔ Block ➔ Mouza) and search/select plot numbers to populate the schedule.
+                Filter by location (State ➔ District ➔ Block ➔ Mouza) and
+                search/select plot numbers to populate the schedule.
               </p>
             </div>
 
@@ -1098,7 +1954,12 @@ function Wizard({
                   <Search className="h-4 w-4 text-amber-600" />
                   Search & Select Approved Plots (Master Location Filter)
                 </div>
-                {(plotFilterNotification || plotFilterState || plotFilterDistrict || plotFilterBlock || plotFilterMouza || plotSearchQuery) && (
+                {(plotFilterNotification ||
+                  plotFilterState ||
+                  plotFilterDistrict ||
+                  plotFilterBlock ||
+                  plotFilterMouza ||
+                  plotSearchQuery) && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -1204,12 +2065,19 @@ function Wizard({
                       <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border border-emerald-600 bg-popover p-1 shadow-lg divide-y divide-border">
                         {filteredPlots.length === 0 ? (
                           <div className="p-2.5 text-center text-xs text-muted-foreground italic">
-                            No matching approved plot found for "{plotSearchQuery}"
+                            No matching approved plot found for "
+                            {plotSearchQuery}"
                           </div>
                         ) : (
                           filteredPlots.map((p) => {
-                            const displayNo = getDisplayPlotNo(p.plot_no || p.plot_number, p.state_lgd, p.mouza_lgd);
-                            const isAlreadySelected = plotEntries.some((entry) => entry.plot_id === p.id);
+                            const displayNo = getDisplayPlotNo(
+                              p.plot_no || p.plot_number,
+                              p.state_lgd,
+                              p.mouza_lgd,
+                            );
+                            const isAlreadySelected = plotEntries.some(
+                              (entry) => entry.plot_id === p.id,
+                            );
                             return (
                               <button
                                 key={p.id}
@@ -1223,12 +2091,16 @@ function Wizard({
                                   "w-full text-left p-2 text-xs flex items-center justify-between rounded transition-colors font-mono",
                                   isAlreadySelected
                                     ? "opacity-50 cursor-not-allowed bg-muted/40"
-                                    : "hover:bg-emerald-50 dark:hover:bg-emerald-950/60 cursor-pointer"
+                                    : "hover:bg-emerald-50 dark:hover:bg-emerald-950/60 cursor-pointer",
                                 )}
                               >
                                 <div>
-                                  <span className="font-medium text-slate-900 dark:text-slate-100">{displayNo}</span>
-                                  <span className="text-[11px] text-muted-foreground ml-2 font-sans">({p.mouza || "Mouza"})</span>
+                                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                                    {displayNo}
+                                  </span>
+                                  <span className="text-[11px] text-muted-foreground ml-2 font-sans">
+                                    ({p.mouza || "Mouza"})
+                                  </span>
                                 </div>
                                 <div className="text-right">
                                   <span className="font-bold text-emerald-700 dark:text-emerald-300">
@@ -1257,18 +2129,24 @@ function Wizard({
                 </span>
                 {plotEntries.length === 0 ? (
                   <span className="text-[11px] italic text-muted-foreground">
-                    No plot selected yet. Select a plot from the box above to generate schedule table.
+                    No plot selected yet. Select a plot from the box above to
+                    generate schedule table.
                   </span>
                 ) : (
                   plotEntries.map((entry, idx) => {
-                    const cleanNo = getDisplayPlotNo(entry.plot_no, entry.state_lgd, entry.mouza_lgd);
+                    const cleanNo = getDisplayPlotNo(
+                      entry.plot_no,
+                      entry.state_lgd,
+                      entry.mouza_lgd,
+                    );
                     return (
                       <Badge
                         key={idx}
                         variant="secondary"
                         className="bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-200 border-emerald-300 gap-1 font-mono text-xs py-1 px-2.5 rounded-full"
                       >
-                        {cleanNo} {entry.mouza_name ? `(${entry.mouza_name})` : ''}
+                        {cleanNo}{" "}
+                        {entry.mouza_name ? `(${entry.mouza_name})` : ""}
                         <button
                           type="button"
                           onClick={() => removePlotEntry(idx)}
@@ -1290,13 +2168,17 @@ function Wizard({
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-300 flex items-center gap-2">
                     <FileText className="h-4 w-4 text-emerald-600" />
-                    Q8 Selected Plot Schedule Table ({plotEntries.length} plot line items)
+                    Q8 Selected Plot Schedule Table ({plotEntries.length} plot
+                    line items)
                   </h4>
                   <span className="text-xs font-mono text-muted-foreground">
                     Total Share:{" "}
                     <strong className="text-emerald-700">
                       {plotEntries
-                        .reduce((sum, p) => sum + (Number(p.own_share_acres) || 0), 0)
+                        .reduce(
+                          (sum, p) => sum + (Number(p.own_share_acres) || 0),
+                          0,
+                        )
                         .toFixed(4)}{" "}
                       Acres
                     </strong>
@@ -1308,19 +2190,32 @@ function Wizard({
                     <thead>
                       <tr className="bg-muted/60 text-muted-foreground uppercase text-[10px] font-bold tracking-wider border-b border-border">
                         <th className="p-2.5 text-center w-10">#</th>
-                        <th className="p-2.5 min-w-[220px]">Plot No & Mouza (Selected)</th>
+                        <th className="p-2.5 min-w-[220px]">
+                          Plot No & Mouza (Selected)
+                        </th>
                         <th className="p-2.5 min-w-[140px]">Khatian Number</th>
-                        <th className="p-2.5 min-w-[140px]">Own Share (Acres)</th>
+                        <th className="p-2.5 min-w-[140px]">
+                          Own Share (Acres)
+                        </th>
                         <th className="p-2.5 min-w-[130px]">Total ROR Area</th>
-                        <th className="p-2.5 min-w-[320px]">Opted Monetary Compensation in Lieu of Employment</th>
+                        <th className="p-2.5 min-w-[320px]">
+                          Opted Monetary Compensation in Lieu of Employment
+                        </th>
                         <th className="p-2.5 text-center w-12">Remove</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {plotEntries.map((entry, idx) => {
-                        const cleanNo = getDisplayPlotNo(entry.plot_no, entry.state_lgd, entry.mouza_lgd);
+                        const cleanNo = getDisplayPlotNo(
+                          entry.plot_no,
+                          entry.state_lgd,
+                          entry.mouza_lgd,
+                        );
                         return (
-                          <tr key={idx} className="hover:bg-muted/30 transition-colors">
+                          <tr
+                            key={idx}
+                            className="hover:bg-muted/30 transition-colors"
+                          >
                             {/* Sl No */}
                             <td className="p-2.5 text-center font-mono font-bold text-muted-foreground">
                               {idx + 1}
@@ -1330,7 +2225,7 @@ function Wizard({
                             <td className="p-2.5">
                               <Input
                                 disabled
-                                value={`${cleanNo} · ${entry.mouza_name || 'Approved Mouza'}`}
+                                value={`${cleanNo} · ${entry.mouza_name || "Approved Mouza"}`}
                                 className="h-8 bg-muted font-mono font-medium text-xs text-slate-800 dark:text-slate-200 border-slate-300"
                               />
                             </td>
@@ -1340,7 +2235,11 @@ function Wizard({
                               <Input
                                 value={entry.khatian_no}
                                 onChange={(e) =>
-                                  updatePlotEntry(idx, "khatian_no", e.target.value)
+                                  updatePlotEntry(
+                                    idx,
+                                    "khatian_no",
+                                    e.target.value,
+                                  )
                                 }
                                 placeholder="e.g. Kh-104/A"
                                 className="h-8 text-xs"
@@ -1354,7 +2253,11 @@ function Wizard({
                                 step="0.0001"
                                 value={entry.own_share_acres}
                                 onChange={(e) =>
-                                  updatePlotEntry(idx, "own_share_acres", e.target.value)
+                                  updatePlotEntry(
+                                    idx,
+                                    "own_share_acres",
+                                    e.target.value,
+                                  )
                                 }
                                 placeholder="e.g. 0.5000"
                                 className="h-8 text-xs font-mono font-bold text-emerald-800"
@@ -1363,7 +2266,9 @@ function Wizard({
 
                             {/* Total ROR Area (Disabled Display) */}
                             <td className="p-2.5 font-mono text-xs text-muted-foreground font-semibold">
-                              {entry.total_ror_area ? `${entry.total_ror_area} ac` : "—"}
+                              {entry.total_ror_area
+                                ? `${entry.total_ror_area} ac`
+                                : "—"}
                             </td>
 
                             {/* Side Checkbox / Tic */}
@@ -1371,14 +2276,22 @@ function Wizard({
                               <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer text-emerald-900 dark:text-emerald-300">
                                 <input
                                   type="checkbox"
-                                  checked={entry.opted_monetary_in_lieu_of_employment}
+                                  checked={
+                                    entry.opted_monetary_in_lieu_of_employment
+                                  }
                                   onChange={(e) =>
-                                    updatePlotEntry(idx, "opted_monetary_in_lieu_of_employment", e.target.checked)
+                                    updatePlotEntry(
+                                      idx,
+                                      "opted_monetary_in_lieu_of_employment",
+                                      e.target.checked,
+                                    )
                                   }
                                   className="h-4 w-4 rounded border-border text-emerald-600 accent-emerald-600"
                                 />
                                 <span className="font-semibold text-emerald-800 dark:text-emerald-300 leading-tight">
-                                  Agreed to accept &lsquo;One Time Monetary Compensation in lieu of employment&rsquo; against this land
+                                  Agreed to accept &lsquo;One Time Monetary
+                                  Compensation in lieu of employment&rsquo;
+                                  against this land
                                 </span>
                               </label>
                             </td>
@@ -1431,34 +2344,49 @@ function Wizard({
             <div className="space-y-4 rounded-lg border p-4 bg-card shadow-sm">
               <div className="space-y-3">
                 <Label className="text-xs font-bold text-slate-800">
-                  10. Details of Bank Account for Direct RTGS Compensation Payout
+                  10. Details of Bank Account for Direct RTGS Compensation
+                  Payout
                 </Label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Bank Name">
                     <Input
                       value={form.bank_name}
-                      onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, bank_name: e.target.value })
+                      }
                       placeholder="e.g. State Bank of India"
                     />
                   </Field>
                   <Field label="Bank Branch Name">
                     <Input
                       value={form.bank_branch}
-                      onChange={(e) => setForm({ ...form, bank_branch: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, bank_branch: e.target.value })
+                      }
                       placeholder="e.g. ECL Area Branch"
                     />
                   </Field>
                   <Field label="Account Number">
                     <Input
                       value={form.bank_account_number}
-                      onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          bank_account_number: e.target.value,
+                        })
+                      }
                       placeholder="Enter Bank Account number"
                     />
                   </Field>
                   <Field label="IFSC Code (11 characters)">
                     <Input
                       value={form.bank_ifsc}
-                      onChange={(e) => setForm({ ...form, bank_ifsc: e.target.value.toUpperCase() })}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          bank_ifsc: e.target.value.toUpperCase(),
+                        })
+                      }
                       placeholder="e.g. SBIN0001234"
                       maxLength={11}
                     />
@@ -1486,7 +2414,8 @@ function Wizard({
                 Step 4: Statutory Declarations & Mandatory Document Uploads
               </h3>
               <p className="text-xs text-muted-foreground">
-                Answer statutory declarations (Questions 9, 11-15) and upload mandatory self-attested documents.
+                Answer statutory declarations (Questions 9, 11-15) and upload
+                mandatory self-attested documents.
               </p>
             </div>
 
@@ -1499,7 +2428,9 @@ function Wizard({
               {/* Q9: Prior Compensation Received */}
               <div className="space-y-2 border-b pb-3">
                 <Label className="text-xs font-bold text-slate-800">
-                  9. If any compensation has been received earlier for these plots of lands from ECL or any other Authority by him/her or his/her family? If so, give details:
+                  9. If any compensation has been received earlier for these
+                  plots of lands from ECL or any other Authority by him/her or
+                  his/her family? If so, give details:
                 </Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
@@ -1507,7 +2438,9 @@ function Wizard({
                       type="radio"
                       name="q9"
                       checked={form.prior_compensation_received === true}
-                      onChange={() => setForm({ ...form, prior_compensation_received: true })}
+                      onChange={() =>
+                        setForm({ ...form, prior_compensation_received: true })
+                      }
                       className="accent-emerald-600"
                     />
                     <span>YES</span>
@@ -1517,7 +2450,13 @@ function Wizard({
                       type="radio"
                       name="q9"
                       checked={form.prior_compensation_received === false}
-                      onChange={() => setForm({ ...form, prior_compensation_received: false, prior_compensation_details: "" })}
+                      onChange={() =>
+                        setForm({
+                          ...form,
+                          prior_compensation_received: false,
+                          prior_compensation_details: "",
+                        })
+                      }
                       className="accent-emerald-600"
                     />
                     <span>NO</span>
@@ -1526,7 +2465,12 @@ function Wizard({
                 {form.prior_compensation_received && (
                   <Input
                     value={form.prior_compensation_details}
-                    onChange={(e) => setForm({ ...form, prior_compensation_details: e.target.value })}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        prior_compensation_details: e.target.value,
+                      })
+                    }
                     placeholder="Provide details of prior compensation received..."
                     className="text-xs mt-1"
                   />
@@ -1536,7 +2480,8 @@ function Wizard({
               {/* Q11: Prior Employment Linked */}
               <div className="space-y-2 border-b pb-3">
                 <Label className="text-xs font-bold text-slate-800">
-                  11. If any part of these plots was included in another employment in ECL? If so, give details:
+                  11. If any part of these plots was included in another
+                  employment in ECL? If so, give details:
                 </Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
@@ -1544,7 +2489,9 @@ function Wizard({
                       type="radio"
                       name="q11"
                       checked={form.prior_employment_linked === true}
-                      onChange={() => setForm({ ...form, prior_employment_linked: true })}
+                      onChange={() =>
+                        setForm({ ...form, prior_employment_linked: true })
+                      }
                       className="accent-emerald-600"
                     />
                     <span>YES</span>
@@ -1554,7 +2501,13 @@ function Wizard({
                       type="radio"
                       name="q11"
                       checked={form.prior_employment_linked === false}
-                      onChange={() => setForm({ ...form, prior_employment_linked: false, prior_employment_details: "" })}
+                      onChange={() =>
+                        setForm({
+                          ...form,
+                          prior_employment_linked: false,
+                          prior_employment_details: "",
+                        })
+                      }
                       className="accent-emerald-600"
                     />
                     <span>NO</span>
@@ -1563,7 +2516,12 @@ function Wizard({
                 {form.prior_employment_linked && (
                   <Input
                     value={form.prior_employment_details}
-                    onChange={(e) => setForm({ ...form, prior_employment_details: e.target.value })}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        prior_employment_details: e.target.value,
+                      })
+                    }
                     placeholder="Provide details of prior employment..."
                     className="text-xs mt-1"
                   />
@@ -1573,7 +2531,9 @@ function Wizard({
               {/* Q12: Free from Disputes */}
               <div className="space-y-2 border-b pb-3">
                 <Label className="text-xs font-bold text-slate-800">
-                  12. Whether these plots/lands are presently free from any disputes or court case with the co-shares, bargadar or adjacent landowners? If not so, give detail:
+                  12. Whether these plots/lands are presently free from any
+                  disputes or court case with the co-shares, bargadar or
+                  adjacent landowners? If not so, give detail:
                 </Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
@@ -1581,7 +2541,13 @@ function Wizard({
                       type="radio"
                       name="q12"
                       checked={form.is_free_from_disputes === true}
-                      onChange={() => setForm({ ...form, is_free_from_disputes: true, dispute_details: "" })}
+                      onChange={() =>
+                        setForm({
+                          ...form,
+                          is_free_from_disputes: true,
+                          dispute_details: "",
+                        })
+                      }
                       className="accent-emerald-600"
                     />
                     <span>YES</span>
@@ -1591,7 +2557,9 @@ function Wizard({
                       type="radio"
                       name="q12"
                       checked={form.is_free_from_disputes === false}
-                      onChange={() => setForm({ ...form, is_free_from_disputes: false })}
+                      onChange={() =>
+                        setForm({ ...form, is_free_from_disputes: false })
+                      }
                       className="accent-emerald-600"
                     />
                     <span>NO</span>
@@ -1600,7 +2568,9 @@ function Wizard({
                 {!form.is_free_from_disputes && (
                   <Input
                     value={form.dispute_details}
-                    onChange={(e) => setForm({ ...form, dispute_details: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, dispute_details: e.target.value })
+                    }
                     placeholder="Describe dispute or court case details..."
                     className="text-xs mt-1"
                   />
@@ -1610,7 +2580,8 @@ function Wizard({
               {/* Q13: Free from Encumbrances */}
               <div className="space-y-2 border-b pb-3">
                 <Label className="text-xs font-bold text-slate-800">
-                  13. Whether these plots/lands are presently free from any encumbrances? If not, give details:
+                  13. Whether these plots/lands are presently free from any
+                  encumbrances? If not, give details:
                 </Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
@@ -1618,7 +2589,13 @@ function Wizard({
                       type="radio"
                       name="q13"
                       checked={form.is_free_from_encumbrances === true}
-                      onChange={() => setForm({ ...form, is_free_from_encumbrances: true, encumbrance_details: "" })}
+                      onChange={() =>
+                        setForm({
+                          ...form,
+                          is_free_from_encumbrances: true,
+                          encumbrance_details: "",
+                        })
+                      }
                       className="accent-emerald-600"
                     />
                     <span>YES</span>
@@ -1628,7 +2605,9 @@ function Wizard({
                       type="radio"
                       name="q13"
                       checked={form.is_free_from_encumbrances === false}
-                      onChange={() => setForm({ ...form, is_free_from_encumbrances: false })}
+                      onChange={() =>
+                        setForm({ ...form, is_free_from_encumbrances: false })
+                      }
                       className="accent-emerald-600"
                     />
                     <span>NO</span>
@@ -1637,7 +2616,9 @@ function Wizard({
                 {!form.is_free_from_encumbrances && (
                   <Input
                     value={form.encumbrance_details}
-                    onChange={(e) => setForm({ ...form, encumbrance_details: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, encumbrance_details: e.target.value })
+                    }
                     placeholder="Describe encumbrance details..."
                     className="text-xs mt-1"
                   />
@@ -1647,7 +2628,9 @@ function Wizard({
               {/* Q14: Peaceful Handover Possession */}
               <div className="space-y-2 border-b pb-3">
                 <Label className="text-xs font-bold text-slate-800">
-                  14. Whether he/she has able to handover peaceful and encumbrance-free possession of above lands to the ECL? If not, give reasons:
+                  14. Whether he/she has able to handover peaceful and
+                  encumbrance-free possession of above lands to the ECL? If not,
+                  give reasons:
                 </Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
@@ -1655,7 +2638,13 @@ function Wizard({
                       type="radio"
                       name="q14"
                       checked={form.can_handover_possession === true}
-                      onChange={() => setForm({ ...form, can_handover_possession: true, possession_handover_reasons: "" })}
+                      onChange={() =>
+                        setForm({
+                          ...form,
+                          can_handover_possession: true,
+                          possession_handover_reasons: "",
+                        })
+                      }
                       className="accent-emerald-600"
                     />
                     <span>YES</span>
@@ -1665,7 +2654,9 @@ function Wizard({
                       type="radio"
                       name="q14"
                       checked={form.can_handover_possession === false}
-                      onChange={() => setForm({ ...form, can_handover_possession: false })}
+                      onChange={() =>
+                        setForm({ ...form, can_handover_possession: false })
+                      }
                       className="accent-emerald-600"
                     />
                     <span>NO</span>
@@ -1674,7 +2665,12 @@ function Wizard({
                 {!form.can_handover_possession && (
                   <Input
                     value={form.possession_handover_reasons}
-                    onChange={(e) => setForm({ ...form, possession_handover_reasons: e.target.value })}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        possession_handover_reasons: e.target.value,
+                      })
+                    }
                     placeholder="Provide reasons if unable to handover possession..."
                     className="text-xs mt-1"
                   />
@@ -1684,15 +2680,26 @@ function Wizard({
               {/* Q15: Official Form-I Question 15 Wording */}
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-slate-800">
-                  15. Has he/she agreed to accept &lsquo;One time Monetary compensation of CIL R&R Policy / One Time lumpsum / modified annuity scheme of ECL in lieu of employment&rsquo; against above land? If not, give reason:
+                  15. Has he/she agreed to accept &lsquo;One time Monetary
+                  compensation of CIL R&R Policy / One Time lumpsum / modified
+                  annuity scheme of ECL in lieu of employment&rsquo; against
+                  above land? If not, give reason:
                 </Label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
                     <input
                       type="radio"
                       name="q15"
-                      checked={form.opted_monetary_in_lieu_of_employment === true}
-                      onChange={() => setForm({ ...form, opted_monetary_in_lieu_of_employment: true, monetary_opt_reason: "" })}
+                      checked={
+                        form.opted_monetary_in_lieu_of_employment === true
+                      }
+                      onChange={() =>
+                        setForm({
+                          ...form,
+                          opted_monetary_in_lieu_of_employment: true,
+                          monetary_opt_reason: "",
+                        })
+                      }
                       className="accent-emerald-600"
                     />
                     <span>YES</span>
@@ -1701,8 +2708,15 @@ function Wizard({
                     <input
                       type="radio"
                       name="q15"
-                      checked={form.opted_monetary_in_lieu_of_employment === false}
-                      onChange={() => setForm({ ...form, opted_monetary_in_lieu_of_employment: false })}
+                      checked={
+                        form.opted_monetary_in_lieu_of_employment === false
+                      }
+                      onChange={() =>
+                        setForm({
+                          ...form,
+                          opted_monetary_in_lieu_of_employment: false,
+                        })
+                      }
                       className="accent-emerald-600"
                     />
                     <span>NO</span>
@@ -1711,7 +2725,9 @@ function Wizard({
                 {!form.opted_monetary_in_lieu_of_employment && (
                   <Input
                     value={form.monetary_opt_reason}
-                    onChange={(e) => setForm({ ...form, monetary_opt_reason: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, monetary_opt_reason: e.target.value })
+                    }
                     placeholder="Reason for preferring employment over cash..."
                     className="text-xs mt-1"
                   />
@@ -1724,7 +2740,9 @@ function Wizard({
               <Alert className="border-sky-200 bg-sky-50 dark:bg-sky-950/30">
                 <ShieldCheck className="h-4 w-4 text-sky-600" />
                 <AlertDescription className="text-sky-800 dark:text-sky-300">
-                  Select a document type from the dropdown below to open the file uploader. Upload self-attested Passport Photo, Magistrate Affidavit, Bank Passbook, and Title Deeds.
+                  Select a document type from the dropdown below to open the
+                  file uploader. Upload self-attested Passport Photo, Magistrate
+                  Affidavit, Bank Passbook, and Title Deeds.
                 </AlertDescription>
               </Alert>
 
@@ -1747,10 +2765,12 @@ function Wizard({
                   >
                     <option value="">— Select Document Type to Upload —</option>
                     {DOC_TYPES.map((type) => {
-                      const count = (uploadedDocs[type.key]?.length ?? 0);
+                      const count = uploadedDocs[type.key]?.length ?? 0;
                       return (
                         <option key={type.key} value={type.key}>
-                          {type.label} {type.isMandatory ? "(Mandatory)" : "(Optional)"} {count > 0 ? `✓ (${count} uploaded)` : ""}
+                          {type.label}{" "}
+                          {type.isMandatory ? "(Mandatory)" : "(Optional)"}{" "}
+                          {count > 0 ? `✓ (${count} uploaded)` : ""}
                         </option>
                       );
                     })}
@@ -1761,7 +2781,9 @@ function Wizard({
                 {selectedUploadDocType ? (
                   <div className="group relative overflow-hidden rounded-xl border-2 border-dashed border-emerald-400/80 dark:border-emerald-700/60 bg-gradient-to-r from-emerald-50/80 via-teal-50/40 to-background p-3 sm:p-3.5 shadow-sm hover:shadow-md transition-all duration-200">
                     {(() => {
-                      const activeType = DOC_TYPES.find((d) => d.key === selectedUploadDocType);
+                      const activeType = DOC_TYPES.find(
+                        (d) => d.key === selectedUploadDocType,
+                      );
                       if (!activeType) return null;
                       return (
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -1775,11 +2797,17 @@ function Wizard({
                                   {activeType.label}
                                 </span>
                                 {activeType.isMandatory ? (
-                                  <Badge variant="outline" className="text-[10px] border-rose-300 bg-rose-50 text-rose-700 font-mono py-0 h-4">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] border-rose-300 bg-rose-50 text-rose-700 font-mono py-0 h-4"
+                                  >
                                     Mandatory
                                   </Badge>
                                 ) : (
-                                  <Badge variant="outline" className="text-[10px] border-slate-300 text-slate-600 font-mono py-0 h-4">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] border-slate-300 text-slate-600 font-mono py-0 h-4"
+                                  >
                                     Optional
                                   </Badge>
                                 )}
@@ -1808,18 +2836,26 @@ function Wizard({
                                 mode="single"
                                 documents={uploadedDocs[activeType.key] ?? []}
                                 onChange={(docs) => {
-                                  const newDocs = Array.isArray(docs) ? docs : [docs];
+                                  const newDocs = Array.isArray(docs)
+                                    ? docs
+                                    : [docs];
                                   setUploadedDocs((prev) => ({
                                     ...prev,
-                                    [activeType.key]: [newDocs[newDocs.length - 1]],
+                                    [activeType.key]: [
+                                      newDocs[newDocs.length - 1],
+                                    ],
                                   }));
-                                  toast.success(`${activeType.label} uploaded successfully`);
+                                  toast.success(
+                                    `${activeType.label} uploaded successfully`,
+                                  );
                                 }}
                                 onRemove={(doc) =>
                                   setUploadedDocs((prev) => ({
                                     ...prev,
-                                    [activeType.key]: (prev[activeType.key] ?? []).filter(
-                                      (d) => d.file_name !== doc.file_name
+                                    [activeType.key]: (
+                                      prev[activeType.key] ?? []
+                                    ).filter(
+                                      (d) => d.file_name !== doc.file_name,
                                     ),
                                   }))
                                 }
@@ -1832,7 +2868,8 @@ function Wizard({
                   </div>
                 ) : (
                   <div className="p-3 text-center text-xs italic text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
-                    Select a document category from the dropdown menu above to activate file browser.
+                    Select a document category from the dropdown menu above to
+                    activate file browser.
                   </div>
                 )}
               </div>
@@ -1847,14 +2884,21 @@ function Wizard({
                   <span className="text-xs font-mono text-muted-foreground">
                     Total Files Uploaded:{" "}
                     <strong className="text-emerald-700">
-                      {DOC_TYPES.reduce((sum, t) => sum + (uploadedDocs[t.key]?.length || 0), 0)} file(s)
+                      {DOC_TYPES.reduce(
+                        (sum, t) => sum + (uploadedDocs[t.key]?.length || 0),
+                        0,
+                      )}{" "}
+                      file(s)
                     </strong>
                   </span>
                 </div>
 
-                {DOC_TYPES.every((t) => (uploadedDocs[t.key]?.length || 0) === 0) ? (
+                {DOC_TYPES.every(
+                  (t) => (uploadedDocs[t.key]?.length || 0) === 0,
+                ) ? (
                   <div className="p-4 text-center text-xs text-muted-foreground italic border border-dashed rounded-md bg-muted/20">
-                    No documents uploaded yet. Choose a document category from the dropdown above to upload.
+                    No documents uploaded yet. Choose a document category from
+                    the dropdown above to upload.
                   </div>
                 ) : (
                   <div className="overflow-x-auto rounded-md border border-border">
@@ -1863,8 +2907,12 @@ function Wizard({
                         <tr className="bg-muted/60 text-muted-foreground uppercase text-[10px] font-bold tracking-wider border-b border-border">
                           <th className="p-2.5 text-center w-12">Status</th>
                           <th className="p-2.5 min-w-[220px]">Document Type</th>
-                          <th className="p-2.5 min-w-[220px]">File Name & Size</th>
-                          <th className="p-2.5 text-center min-w-[100px]">View</th>
+                          <th className="p-2.5 min-w-[220px]">
+                            File Name & Size
+                          </th>
+                          <th className="p-2.5 text-center min-w-[100px]">
+                            View
+                          </th>
                           <th className="p-2.5 text-center w-14">Remove</th>
                         </tr>
                       </thead>
@@ -1873,10 +2921,16 @@ function Wizard({
                           const docs = uploadedDocs[type.key] || [];
                           if (docs.length === 0) return null;
                           return docs.map((doc, idx) => (
-                            <tr key={`${type.key}-${idx}`} className="hover:bg-muted/30 transition-colors">
+                            <tr
+                              key={`${type.key}-${idx}`}
+                              className="hover:bg-muted/30 transition-colors"
+                            >
                               {/* Green Tick Status Icon */}
                               <td className="p-2.5 text-center">
-                                <div className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600" title="Self-Attested Upload Verified">
+                                <div
+                                  className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600"
+                                  title="Self-Attested Upload Verified"
+                                >
                                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                                 </div>
                               </td>
@@ -1886,24 +2940,37 @@ function Wizard({
                                 <div className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                                   {type.label}
                                   {type.isMandatory ? (
-                                    <Badge variant="outline" className="text-[10px] border-rose-300 bg-rose-50 text-rose-700 font-mono">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] border-rose-300 bg-rose-50 text-rose-700 font-mono"
+                                    >
                                       Mandatory
                                     </Badge>
                                   ) : (
-                                    <Badge variant="outline" className="text-[10px] border-slate-300 text-slate-600 font-mono">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] border-slate-300 text-slate-600 font-mono"
+                                    >
                                       Optional
                                     </Badge>
                                   )}
                                 </div>
-                                <span className="font-mono text-[10px] text-muted-foreground">{type.key}</span>
+                                <span className="font-mono text-[10px] text-muted-foreground">
+                                  {type.key}
+                                </span>
                               </td>
 
                               {/* File Name & Size */}
                               <td className="p-2.5 font-mono text-xs">
-                                <div className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[240px]" title={doc.file_name}>
+                                <div
+                                  className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[240px]"
+                                  title={doc.file_name}
+                                >
                                   {doc.file_name}
                                 </div>
-                                <span className="text-[11px] text-muted-foreground">{doc.file_size_kb || 0} KB</span>
+                                <span className="text-[11px] text-muted-foreground">
+                                  {doc.file_size_kb || 0} KB
+                                </span>
                               </td>
 
                               {/* View Button */}
@@ -1914,9 +2981,15 @@ function Wizard({
                                   size="sm"
                                   onClick={() => {
                                     if (doc.id) {
-                                      window.open(`/api/files/${doc.id}/download`, "_blank");
+                                      window.open(
+                                        `/api/files/${doc.id}/download`,
+                                        "_blank",
+                                      );
                                     } else {
-                                      window.open(`/api/files/download/${doc.file_name}`, "_blank");
+                                      window.open(
+                                        `/api/files/download/${doc.file_name}`,
+                                        "_blank",
+                                      );
                                     }
                                   }}
                                   className="h-7 text-xs border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 gap-1 font-medium"
@@ -1935,7 +3008,7 @@ function Wizard({
                                     setUploadedDocs((prev) => ({
                                       ...prev,
                                       [type.key]: (prev[type.key] ?? []).filter(
-                                        (d) => d.file_name !== doc.file_name
+                                        (d) => d.file_name !== doc.file_name,
                                       ),
                                     }))
                                   }
@@ -1974,7 +3047,10 @@ function Wizard({
             <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 py-2">
               <ShieldCheck className="h-4 w-4 text-emerald-600" />
               <AlertDescription className="text-emerald-900 dark:text-emerald-200 text-xs">
-                <strong>Final Review Before Submission:</strong> Please carefully review all entered particulars below from Step 1 through Step 4 before certifying & locking your digital Form-I claim.
+                <strong>Final Review Before Submission:</strong> Please
+                carefully review all entered particulars below from Step 1
+                through Step 4 before certifying & locking your digital Form-I
+                claim.
               </AlertDescription>
             </Alert>
 
@@ -1985,44 +3061,81 @@ function Wizard({
                   <FileText className="h-4 w-4 text-emerald-600" />
                   1. Land Loser Personal & Identity Profile
                 </h4>
-                <Button variant="ghost" size="sm" onClick={() => onStepChange(0)} className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onStepChange(0)}
+                  className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50"
+                >
                   Edit Profile →
                 </Button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Full Name</span>
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">{form.claimant_name || "N/A"}</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Full Name
+                  </span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                    {form.claimant_name || "N/A"}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Father / Husband Name</span>
-                  <span className="font-medium text-slate-800 dark:text-slate-200">{form.father_husband_name || "N/A"}</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Father / Husband Name
+                  </span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200">
+                    {form.father_husband_name || "N/A"}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Identity Instrument</span>
-                  <span className="font-mono font-bold text-emerald-800 dark:text-emerald-300">{authType.toUpperCase()}: {identifier || "N/A"}</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Identity Instrument
+                  </span>
+                  <span className="font-mono font-bold text-emerald-800 dark:text-emerald-300">
+                    {authType.toUpperCase()}: {identifier || "N/A"}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Occupation</span>
-                  <span className="font-medium">{form.occupation || "N/A"}</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Occupation
+                  </span>
+                  <span className="font-medium">
+                    {form.occupation || "N/A"}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Gender / Caste Category</span>
-                  <span className="font-medium">{form.gender || "N/A"} ({form.caste_category || "General"})</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Gender / Caste Category
+                  </span>
+                  <span className="font-medium">
+                    {form.gender || "N/A"} ({form.caste_category || "General"})
+                  </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Nationality / Religion</span>
-                  <span className="font-medium">{form.nationality || "Indian"} / {form.religion || "N/A"}</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Nationality / Religion
+                  </span>
+                  <span className="font-medium">
+                    {form.nationality || "Indian"} / {form.religion || "N/A"}
+                  </span>
                 </div>
                 <div className="sm:col-span-2 md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-dashed">
                   <div>
-                    <span className="text-muted-foreground block text-[11px]">Present Address</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{form.present_address || "N/A"}</span>
+                    <span className="text-muted-foreground block text-[11px]">
+                      Present Address
+                    </span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {form.present_address || "N/A"}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground block text-[11px]">Permanent Address</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{form.permanent_address || "N/A"}</span>
+                    <span className="text-muted-foreground block text-[11px]">
+                      Permanent Address
+                    </span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {form.permanent_address || "N/A"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -2033,29 +3146,54 @@ function Wizard({
               <div className="flex items-center justify-between border-b pb-1.5">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                   <MapPin className="h-4 w-4 text-emerald-600" />
-                  2. Land Acquisition Plot Schedule ({plotEntries.length} plot(s))
+                  2. Land Acquisition Plot Schedule ({plotEntries.length}{" "}
+                  plot(s))
                 </h4>
-                <Button variant="ghost" size="sm" onClick={() => onStepChange(1)} className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onStepChange(1)}
+                  className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50"
+                >
                   Edit Plots →
                 </Button>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-emerald-50/60 dark:bg-emerald-950/40 rounded border border-emerald-200 text-xs">
                 <div>
-                  <span className="text-muted-foreground">Total Claimed Land Share: </span>
+                  <span className="text-muted-foreground">
+                    Total Claimed Land Share:{" "}
+                  </span>
                   <strong className="font-mono text-emerald-800 dark:text-emerald-300 font-bold text-sm">
-                    {plotEntries.reduce((sum, p) => sum + (Number(p.own_share_acres) || 0), 0).toFixed(4)} acres
+                    {plotEntries
+                      .reduce(
+                        (sum, p) => sum + (Number(p.own_share_acres) || 0),
+                        0,
+                      )
+                      .toFixed(4)}{" "}
+                    acres
                   </strong>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">R&R Scheme Benefit: </span>
-                  <Badge variant="outline" className={cn(
-                    "text-xs font-bold font-mono ml-1",
-                    plotEntries.reduce((sum, p) => sum + (Number(p.own_share_acres) || 0), 0) >= 2.0
-                      ? "border-emerald-600 bg-emerald-100 text-emerald-800"
-                      : "border-amber-600 bg-amber-50 text-amber-900"
-                  )}>
-                    {plotEntries.reduce((sum, p) => sum + (Number(p.own_share_acres) || 0), 0) >= 2.0
+                  <span className="text-muted-foreground">
+                    R&R Scheme Benefit:{" "}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-xs font-bold font-mono ml-1",
+                      plotEntries.reduce(
+                        (sum, p) => sum + (Number(p.own_share_acres) || 0),
+                        0,
+                      ) >= 2.0
+                        ? "border-emerald-600 bg-emerald-100 text-emerald-800"
+                        : "border-amber-600 bg-amber-50 text-amber-900",
+                    )}
+                  >
+                    {plotEntries.reduce(
+                      (sum, p) => sum + (Number(p.own_share_acres) || 0),
+                      0,
+                    ) >= 2.0
                       ? "Form-V Employment Eligible (2.0+ acres)"
                       : "One-Time Cash Compensation (Under 2.0 acres)"}
                   </Badge>
@@ -2079,16 +3217,30 @@ function Wizard({
                     {plotEntries.map((p, idx) => (
                       <tr key={idx} className="hover:bg-muted/20">
                         <td className="p-2 font-mono text-center">{idx + 1}</td>
-                        <td className="p-2 font-medium">{p.mouza_name || "Mouza"}</td>
-                        <td className="p-2 font-bold font-mono text-slate-900 dark:text-slate-100">{getDisplayPlotNo(p.plot_no)}</td>
-                        <td className="p-2 font-mono">{p.khatian_no || "Kh-102"}</td>
-                        <td className="p-2 font-mono">{p.total_ror_area || p.own_share_acres} ac</td>
-                        <td className="p-2 font-mono font-bold text-emerald-700 dark:text-emerald-300">{p.own_share_acres} ac</td>
+                        <td className="p-2 font-medium">
+                          {p.mouza_name || "Mouza"}
+                        </td>
+                        <td className="p-2 font-bold font-mono text-slate-900 dark:text-slate-100">
+                          {getDisplayPlotNo(p.plot_no)}
+                        </td>
+                        <td className="p-2 font-mono">
+                          {p.khatian_no || "Kh-102"}
+                        </td>
+                        <td className="p-2 font-mono">
+                          {p.total_ror_area || p.own_share_acres} ac
+                        </td>
+                        <td className="p-2 font-mono font-bold text-emerald-700 dark:text-emerald-300">
+                          {p.own_share_acres} ac
+                        </td>
                         <td className="p-2">
                           {p.opted_monetary_in_lieu_of_employment ? (
-                            <span className="text-[11px] text-amber-800 font-medium">One-Time Cash Preferred</span>
+                            <span className="text-[11px] text-amber-800 font-medium">
+                              One-Time Cash Preferred
+                            </span>
                           ) : (
-                            <span className="text-[11px] text-emerald-800 font-medium">Employment Nomination</span>
+                            <span className="text-[11px] text-emerald-800 font-medium">
+                              Employment Nomination
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -2105,27 +3257,48 @@ function Wizard({
                   <IndianRupee className="h-4 w-4 text-emerald-600" />
                   3. Bank Account for Cash Compensation & Direct Payments
                 </h4>
-                <Button variant="ghost" size="sm" onClick={() => onStepChange(2)} className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onStepChange(2)}
+                  className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50"
+                >
                   Edit Bank →
                 </Button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Bank Name</span>
-                  <span className="font-semibold">{form.bank_name || "N/A"}</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Bank Name
+                  </span>
+                  <span className="font-semibold">
+                    {form.bank_name || "N/A"}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Branch Name</span>
-                  <span className="font-medium">{form.bank_branch || "N/A"}</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Branch Name
+                  </span>
+                  <span className="font-medium">
+                    {form.bank_branch || "N/A"}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Account Number</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{form.bank_account_number || "N/A"}</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Account Number
+                  </span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                    {form.bank_account_number || "N/A"}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">IFSC Code</span>
-                  <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">{form.bank_ifsc || "N/A"}</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    IFSC Code
+                  </span>
+                  <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">
+                    {form.bank_ifsc || "N/A"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -2137,74 +3310,121 @@ function Wizard({
                   <ShieldCheck className="h-4 w-4 text-emerald-600" />
                   4. Statutory Declarations & Answers (Questions 9 - 15)
                 </h4>
-                <Button variant="ghost" size="sm" onClick={() => onStepChange(3)} className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onStepChange(3)}
+                  className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50"
+                >
                   Edit Declarations →
                 </Button>
               </div>
 
               <div className="grid grid-cols-1 gap-2 text-xs">
                 <div className="p-2 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span className="font-medium">9. Prior compensation received from ECL or other Authority?</span>
+                  <span className="font-medium">
+                    9. Prior compensation received from ECL or other Authority?
+                  </span>
                   <div className="shrink-0 font-bold font-mono">
                     {form.prior_compensation_received ? (
-                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">YES ({form.prior_compensation_details || "Details provided"})</span>
+                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                        YES (
+                        {form.prior_compensation_details || "Details provided"})
+                      </span>
                     ) : (
-                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">NO</span>
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        NO
+                      </span>
                     )}
                   </div>
                 </div>
 
                 <div className="p-2 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span className="font-medium">11. Any part of plots included in another employment in ECL?</span>
+                  <span className="font-medium">
+                    11. Any part of plots included in another employment in ECL?
+                  </span>
                   <div className="shrink-0 font-bold font-mono">
                     {form.prior_employment_linked ? (
-                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">YES ({form.prior_employment_details || "Details provided"})</span>
+                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                        YES (
+                        {form.prior_employment_details || "Details provided"})
+                      </span>
                     ) : (
-                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">NO</span>
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        NO
+                      </span>
                     )}
                   </div>
                 </div>
 
                 <div className="p-2 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span className="font-medium">12. Plots free from any disputes / court cases with co-sharers or bargadars?</span>
+                  <span className="font-medium">
+                    12. Plots free from any disputes / court cases with
+                    co-sharers or bargadars?
+                  </span>
                   <div className="shrink-0 font-bold font-mono">
                     {form.is_free_from_disputes !== false ? (
-                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">YES</span>
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        YES
+                      </span>
                     ) : (
-                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">NO ({form.dispute_details || "Dispute exists"})</span>
+                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                        NO ({form.dispute_details || "Dispute exists"})
+                      </span>
                     )}
                   </div>
                 </div>
 
                 <div className="p-2 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span className="font-medium">13. Plots free from any encumbrances?</span>
+                  <span className="font-medium">
+                    13. Plots free from any encumbrances?
+                  </span>
                   <div className="shrink-0 font-bold font-mono">
                     {form.is_free_from_encumbrances !== false ? (
-                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">YES</span>
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        YES
+                      </span>
                     ) : (
-                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">NO ({form.encumbrance_details || "Encumbrance exists"})</span>
+                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                        NO ({form.encumbrance_details || "Encumbrance exists"})
+                      </span>
                     )}
                   </div>
                 </div>
 
                 <div className="p-2 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span className="font-medium">14. Able to handover peaceful & encumbrance-free possession to ECL?</span>
+                  <span className="font-medium">
+                    14. Able to handover peaceful & encumbrance-free possession
+                    to ECL?
+                  </span>
                   <div className="shrink-0 font-bold font-mono">
                     {form.can_handover_possession !== false ? (
-                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">YES</span>
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        YES
+                      </span>
                     ) : (
-                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">NO ({form.possession_handover_reasons || "Reason provided"})</span>
+                      <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                        NO (
+                        {form.possession_handover_reasons || "Reason provided"})
+                      </span>
                     )}
                   </div>
                 </div>
 
                 <div className="p-2 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span className="font-medium">15. Agreed to accept One-Time Cash Compensation in lieu of employment?</span>
+                  <span className="font-medium">
+                    15. Agreed to accept One-Time Cash Compensation in lieu of
+                    employment?
+                  </span>
                   <div className="shrink-0 font-bold font-mono">
                     {form.opted_monetary_in_lieu_of_employment ? (
-                      <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">YES (Accept One-Time Cash)</span>
+                      <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                        YES (Accept One-Time Cash)
+                      </span>
                     ) : (
-                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">NO (Prefer Employment Nomination via Form-V)</span>
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        NO (Prefer Employment Nomination via Form-V)
+                      </span>
                     )}
                   </div>
                 </div>
@@ -2216,9 +3436,19 @@ function Wizard({
               <div className="flex items-center justify-between border-b pb-1.5">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                   <FileCheck className="h-4 w-4 text-emerald-600" />
-                  5. Attached Self-Attested Mandatory Documents ({DOC_TYPES.reduce((sum, t) => sum + (uploadedDocs[t.key]?.length || 0), 0)} file(s))
+                  5. Attached Self-Attested Mandatory Documents (
+                  {DOC_TYPES.reduce(
+                    (sum, t) => sum + (uploadedDocs[t.key]?.length || 0),
+                    0,
+                  )}{" "}
+                  file(s))
                 </h4>
-                <Button variant="ghost" size="sm" onClick={() => onStepChange(3)} className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onStepChange(3)}
+                  className="h-6 text-[11px] text-emerald-700 hover:bg-emerald-50"
+                >
                   Manage Files →
                 </Button>
               </div>
@@ -2228,10 +3458,20 @@ function Wizard({
                   const docs = uploadedDocs[type.key] || [];
                   const doc = docs[0];
                   return (
-                    <div key={type.key} className="p-2 rounded border bg-muted/20 flex items-center justify-between">
+                    <div
+                      key={type.key}
+                      className="p-2 rounded border bg-muted/20 flex items-center justify-between"
+                    >
                       <div className="flex items-center gap-2 truncate pr-2">
-                        <CheckCircle2 className={cn("h-4 w-4 shrink-0", doc ? "text-emerald-600" : "text-slate-300")} />
-                        <span className="font-medium truncate">{type.label}</span>
+                        <CheckCircle2
+                          className={cn(
+                            "h-4 w-4 shrink-0",
+                            doc ? "text-emerald-600" : "text-slate-300",
+                          )}
+                        />
+                        <span className="font-medium truncate">
+                          {type.label}
+                        </span>
                       </div>
                       {doc ? (
                         <Button
@@ -2240,9 +3480,15 @@ function Wizard({
                           size="sm"
                           onClick={() => {
                             if (doc.id) {
-                              window.open(`/api/files/${doc.id}/download`, "_blank");
+                              window.open(
+                                `/api/files/${doc.id}/download`,
+                                "_blank",
+                              );
                             } else {
-                              window.open(`/api/files/download/${doc.file_name}`, "_blank");
+                              window.open(
+                                `/api/files/download/${doc.file_name}`,
+                                "_blank",
+                              );
                             }
                           }}
                           className="h-6 text-[10px] font-mono border-emerald-600 text-emerald-700 hover:bg-emerald-50 gap-1 px-2 shrink-0"
@@ -2250,7 +3496,9 @@ function Wizard({
                           <Eye className="h-3 w-3" /> View
                         </Button>
                       ) : (
-                        <span className="text-[10px] text-rose-600 font-mono italic shrink-0">Not Attached</span>
+                        <span className="text-[10px] text-rose-600 font-mono italic shrink-0">
+                          Not Attached
+                        </span>
                       )}
                     </div>
                   );
@@ -2264,11 +3512,18 @@ function Wizard({
                 <input
                   type="checkbox"
                   checked={form.certified_accurate}
-                  onChange={(e) => setForm({ ...form, certified_accurate: e.target.checked })}
+                  onChange={(e) =>
+                    setForm({ ...form, certified_accurate: e.target.checked })
+                  }
                   className="mt-1 h-4 w-4 rounded border-border text-emerald-600 accent-emerald-600"
                 />
                 <span className="text-xs text-slate-800 leading-relaxed font-medium">
-                  <strong>Statutory Certification:</strong> I certify to the best of my knowledge and belief that the particulars mentioned above by me are genuine & authentic. Moreover, if any of the particulars is found incorrect or suppressed at any time, my nominee, if appointed, may be dismissed as per your company's norms and regulation.
+                  <strong>Statutory Certification:</strong> I certify to the
+                  best of my knowledge and belief that the particulars mentioned
+                  above by me are genuine & authentic. Moreover, if any of the
+                  particulars is found incorrect or suppressed at any time, my
+                  nominee, if appointed, may be dismissed as per your company's
+                  norms and regulation.
                 </span>
               </label>
             </div>
@@ -2317,7 +3572,13 @@ function InfoTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function EditClaimModal({ claim, onClose }: { claim: Claim | null; onClose: () => void }) {
+function EditClaimModal({
+  claim,
+  onClose,
+}: {
+  claim: Claim | null;
+  onClose: () => void;
+}) {
   const qc = useQueryClient();
   const [form, setForm] = React.useState<Partial<Claim>>({});
   const [isSaving, setIsSaving] = React.useState(false);
@@ -2369,10 +3630,16 @@ function EditClaimModal({ claim, onClose }: { claim: Claim | null; onClose: () =
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between border-b pb-3 mb-4">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Edit Form-I Claim</h3>
-            <p className="text-xs text-muted-foreground font-mono mt-0.5">{claim.claim_code}</p>
+            <h3 className="text-lg font-bold text-slate-900">
+              Edit Form-I Claim
+            </h3>
+            <p className="text-xs text-muted-foreground font-mono mt-0.5">
+              {claim.claim_code}
+            </p>
           </div>
-          <Badge variant="outline" className="font-mono text-xs">{claim.state}</Badge>
+          <Badge variant="outline" className="font-mono text-xs">
+            {claim.state}
+          </Badge>
         </div>
 
         <div className="space-y-4">
@@ -2381,15 +3648,21 @@ function EditClaimModal({ claim, onClose }: { claim: Claim | null; onClose: () =
               <Label className="text-xs font-semibold">Claimant Name *</Label>
               <Input
                 value={form.claimant_name || ""}
-                onChange={(e) => setForm({ ...form, claimant_name: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, claimant_name: e.target.value })
+                }
                 className="h-9 mt-1 text-sm"
               />
             </div>
             <div>
-              <Label className="text-xs font-semibold">Father / Husband Name</Label>
+              <Label className="text-xs font-semibold">
+                Father / Husband Name
+              </Label>
               <Input
                 value={form.father_husband_name || ""}
-                onChange={(e) => setForm({ ...form, father_husband_name: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, father_husband_name: e.target.value })
+                }
                 className="h-9 mt-1 text-sm"
               />
             </div>
@@ -2400,16 +3673,25 @@ function EditClaimModal({ claim, onClose }: { claim: Claim | null; onClose: () =
               <Label className="text-xs font-semibold">Voter EPIC Number</Label>
               <Input
                 value={form.epic_no || ""}
-                onChange={(e) => setForm({ ...form, epic_no: e.target.value.toUpperCase() })}
+                onChange={(e) =>
+                  setForm({ ...form, epic_no: e.target.value.toUpperCase() })
+                }
                 className="h-9 mt-1 text-sm font-mono"
               />
             </div>
             <div>
-              <Label className="text-xs font-semibold">Caste / Category (Master)</Label>
+              <Label className="text-xs font-semibold">
+                Caste / Category (Master)
+              </Label>
               <div className="mt-1">
                 <CasteSelect
                   value={form.caste_category}
-                  onChange={(val) => setForm({ ...form, caste_category: Array.isArray(val) ? val[0] : (val || "") })}
+                  onChange={(val) =>
+                    setForm({
+                      ...form,
+                      caste_category: Array.isArray(val) ? val[0] : val || "",
+                    })
+                  }
                   placeholder="Select Caste Category"
                   className="w-full text-sm font-medium"
                 />
@@ -2438,7 +3720,9 @@ function EditClaimModal({ claim, onClose }: { claim: Claim | null; onClose: () =
               <Label className="text-xs font-semibold">Occupation</Label>
               <Input
                 value={form.occupation || ""}
-                onChange={(e) => setForm({ ...form, occupation: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, occupation: e.target.value })
+                }
                 className="h-9 mt-1 text-sm"
               />
             </div>
@@ -2449,7 +3733,9 @@ function EditClaimModal({ claim, onClose }: { claim: Claim | null; onClose: () =
               <Label className="text-xs font-semibold">Present Address</Label>
               <Input
                 value={form.present_address || ""}
-                onChange={(e) => setForm({ ...form, present_address: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, present_address: e.target.value })
+                }
                 className="h-9 mt-1 text-sm"
               />
             </div>
@@ -2457,20 +3743,26 @@ function EditClaimModal({ claim, onClose }: { claim: Claim | null; onClose: () =
               <Label className="text-xs font-semibold">Permanent Address</Label>
               <Input
                 value={form.permanent_address || ""}
-                onChange={(e) => setForm({ ...form, permanent_address: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, permanent_address: e.target.value })
+                }
                 className="h-9 mt-1 text-sm"
               />
             </div>
           </div>
 
           <div className="border-t pt-3">
-            <h4 className="text-xs font-bold uppercase text-slate-500 mb-2">Bank Details</h4>
+            <h4 className="text-xs font-bold uppercase text-slate-500 mb-2">
+              Bank Details
+            </h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs font-semibold">Bank Name</Label>
                 <Input
                   value={form.bank_name || ""}
-                  onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, bank_name: e.target.value })
+                  }
                   className="h-9 mt-1 text-sm"
                 />
               </div>
@@ -2478,7 +3770,9 @@ function EditClaimModal({ claim, onClose }: { claim: Claim | null; onClose: () =
                 <Label className="text-xs font-semibold">Branch Name</Label>
                 <Input
                   value={form.bank_branch || ""}
-                  onChange={(e) => setForm({ ...form, bank_branch: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, bank_branch: e.target.value })
+                  }
                   className="h-9 mt-1 text-sm"
                 />
               </div>
@@ -2488,7 +3782,9 @@ function EditClaimModal({ claim, onClose }: { claim: Claim | null; onClose: () =
                 <Label className="text-xs font-semibold">Account Number</Label>
                 <Input
                   value={form.bank_account_number || ""}
-                  onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, bank_account_number: e.target.value })
+                  }
                   className="h-9 mt-1 text-sm font-mono"
                 />
               </div>
@@ -2496,7 +3792,12 @@ function EditClaimModal({ claim, onClose }: { claim: Claim | null; onClose: () =
                 <Label className="text-xs font-semibold">IFSC Code</Label>
                 <Input
                   value={form.bank_ifsc || ""}
-                  onChange={(e) => setForm({ ...form, bank_ifsc: e.target.value.toUpperCase() })}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      bank_ifsc: e.target.value.toUpperCase(),
+                    })
+                  }
                   className="h-9 mt-1 text-sm font-mono"
                 />
               </div>
@@ -2504,11 +3805,36 @@ function EditClaimModal({ claim, onClose }: { claim: Claim | null; onClose: () =
           </div>
         </div>
 
+        {claim.signed_form_i_doc_id && (
+          <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-900 text-xs font-semibold mb-4">
+            <Lock className="h-4 w-4 text-amber-600 shrink-0" />
+            Signed Form-I document has already been uploaded & submitted for this claim. Editing is locked.
+          </div>
+        )}
+
         <div className="flex items-center justify-end gap-3 border-t pt-4 mt-6">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={handleSave} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium">
-            {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-            Save Changes
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={isSaving || !!claim.signed_form_i_doc_id}
+            className={cn(
+              "font-medium",
+              claim.signed_form_i_doc_id
+                ? "bg-slate-200 text-slate-500 cursor-not-allowed hover:bg-slate-200"
+                : "bg-emerald-600 hover:bg-emerald-700 text-white"
+            )}
+          >
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : claim.signed_form_i_doc_id ? (
+              <>
+                <Lock className="w-3.5 h-3.5 mr-1.5" /> Editing Locked
+              </>
+            ) : null}
+            {!claim.signed_form_i_doc_id && "Save Changes"}
           </Button>
         </div>
       </DialogContent>

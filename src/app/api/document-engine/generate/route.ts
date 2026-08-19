@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 export async function POST(req: NextRequest) {
   const auth = await authorizeApi('project.view')
   if ('error' in auth) {
-    return NextResponse.json({ error: auth.error }, { status: 403 })
+    return auth.error
   }
 
   try {

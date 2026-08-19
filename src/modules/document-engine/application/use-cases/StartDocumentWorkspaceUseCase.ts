@@ -34,10 +34,6 @@ export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWork
           form_data: { ...(existingDraft.form_data as any), ...extraData }
         })
 
-        // Execute generateDocumentUseCase synchronously so workspace always gets latest fields
-        const { generateDocumentUseCase } = await import('@/infrastructure/di/Container')
-        await generateDocumentUseCase.execute({ instanceId: existingDraft.id })
-        
         const refreshedDraft = await this.instanceRepository.findById(existingDraft.id)
         return Ok(refreshedDraft || existingDraft)
       }
@@ -106,13 +102,7 @@ export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWork
         })
       }
 
-      // Auto-generate docx on new instance creation so preview is immediately ready
-      const { generateDocumentUseCase } = await import('@/infrastructure/di/Container')
-      await generateDocumentUseCase.execute({ instanceId: instance.id })
-      
-      const refreshedInstance = await this.instanceRepository.findById(instance.id)
-
-      return Ok(refreshedInstance || instance)
+      return Ok(instance)
     } catch (error: any) {
       return Fail(error.message)
     }
