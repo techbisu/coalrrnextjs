@@ -74,8 +74,15 @@ interface Claim {
   plot_id: string;
   plot_number: string;
   mouza: string;
+  state_lgd?: string;
+  district_lgd?: string;
+  block_lgd?: string;
+  mouza_lgd?: string;
+  pincode?: string;
   land_type: string;
-  own_share_acres: string;
+  own_share_acres: number | string;
+  plots?: any[];
+  form_i_claim_plot?: any[];
   khatian_no?: string;
   link_deed_no?: string;
   ownership_date?: string;
@@ -93,7 +100,10 @@ interface Claim {
   is_free_from_disputes?: boolean;
   dispute_details?: string;
   is_free_from_encumbrances?: boolean;
+  encumbrance_details?: string;
   can_handover_possession?: boolean;
+  possession_reason?: string;
+  monetary_opt_reason?: string;
   form_v_eligible?: boolean;
   state: string;
   submitted_at: string | null;
@@ -160,7 +170,11 @@ export function FormIWizardView() {
     return (
       <Wizard
         plots={plots ?? []}
-        onDone={() => setMode("list")}
+        initialClaim={editingClaim}
+        onDone={() => {
+          setEditingClaim(null);
+          setMode("list");
+        }}
         onOpenWorkspace={(claimId) => {
           setWorkspaceClaimId(claimId);
           setIsWorkspaceOpen(true);
@@ -183,7 +197,10 @@ export function FormIWizardView() {
           </p>
         </div>
         <Button
-          onClick={() => setMode("wizard")}
+          onClick={() => {
+            setEditingClaim(null);
+            setMode("wizard");
+          }}
           className="bg-emerald-600 hover:bg-emerald-700"
         >
           <FileText className="h-4 w-4 mr-2" /> New Form-I Claim
@@ -285,7 +302,10 @@ export function FormIWizardView() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setEditingClaim(r)}
+                      onClick={() => {
+                        setEditingClaim(r);
+                        setMode("wizard");
+                      }}
                       className="h-8 gap-1.5 text-xs border-amber-600 text-amber-700 hover:bg-amber-50 shadow-sm"
                     >
                       <Pencil className="h-3.5 w-3.5" /> Edit
@@ -348,10 +368,12 @@ export function FormIWizardView() {
 
 function Wizard({
   plots,
+  initialClaim,
   onDone,
   onOpenWorkspace,
 }: {
   plots: PlotItem[];
+  initialClaim?: Claim | null;
   onDone: () => void;
   onOpenWorkspace?: (claimId: string) => void;
 }) {
@@ -435,6 +457,99 @@ function Wizard({
     // Certification Signature Agreement
     certified_accurate: false,
   });
+
+  // Pre-fill form state when initialClaim is provided for inline editing
+  React.useEffect(() => {
+    if (!initialClaim) return;
+
+    setForm((prev) => ({
+      ...prev,
+      claimant_name: initialClaim.claimant_name || "",
+      father_husband_name: initialClaim.father_husband_name || "",
+      state_lgd: initialClaim.state_lgd || "19",
+      district_lgd: initialClaim.district_lgd || "704",
+      block_lgd: initialClaim.block_lgd || "2802",
+      mouza_lgd: initialClaim.mouza_lgd || "2802004",
+      pincode: initialClaim.pincode || "713363",
+      present_address: initialClaim.present_address || "",
+      permanent_address: initialClaim.permanent_address || "",
+      epic_no: initialClaim.epic_no || "",
+      occupation: initialClaim.occupation || "Agriculture",
+      gender: initialClaim.gender || "Male",
+      nationality: initialClaim.nationality || "Indian",
+      religion: initialClaim.religion || "Hindu",
+      caste_category: initialClaim.caste_category || "GENERAL",
+      bank_name: initialClaim.bank_name || "State Bank of India",
+      bank_branch: initialClaim.bank_branch || "ECL Main Branch",
+      bank_account_number: initialClaim.bank_account_number || "",
+      bank_ifsc: initialClaim.bank_ifsc || "",
+      prior_compensation_received: initialClaim.prior_compensation_received ?? false,
+      prior_compensation_details: initialClaim.prior_compensation_details || "",
+      prior_employment_linked: initialClaim.prior_employment_linked ?? false,
+      prior_employment_details: initialClaim.prior_employment_details || "",
+      is_free_from_disputes: initialClaim.is_free_from_disputes ?? true,
+      dispute_details: initialClaim.dispute_details || "",
+      is_free_from_encumbrances: initialClaim.is_free_from_encumbrances ?? true,
+      encumbrance_details: initialClaim.encumbrance_details || "",
+      can_handover_possession: initialClaim.can_handover_possession ?? true,
+      possession_handover_reasons: initialClaim.possession_reason || "",
+      opted_monetary_in_lieu_of_employment: initialClaim.opted_monetary_in_lieu_of_employment ?? false,
+      monetary_opt_reason: initialClaim.monetary_opt_reason || "",
+      certified_accurate: true,
+    }));
+
+    setOtpVerified(true);
+
+    if (initialClaim.epic_no) {
+      setAuthType("epic");
+      setIdentifier(initialClaim.epic_no);
+    } else if (initialClaim.citizen_id_hash) {
+      setAuthType("aadhaar");
+      setIdentifier(initialClaim.citizen_id_hash);
+    }
+
+    const existingPlots = initialClaim.plots || initialClaim.form_i_claim_plot || [];
+    if (existingPlots.length > 0) {
+      setPlotEntries(
+        existingPlots.map((p: any) => ({
+          plot_id: String(p.plot_schedule_id || p.plot_id || initialClaim.plot_id),
+          plot_no: p.plot_no || p.display_plot_no || initialClaim.plot_number,
+          khatian_no: p.khatian_no || initialClaim.khatian_no || "",
+          own_share_acres: String(p.own_share_acres ?? initialClaim.own_share_acres ?? "0"),
+          total_ror_area: String(p.total_ror_area ?? "0"),
+          opted_monetary_in_lieu_of_employment: initialClaim.opted_monetary_in_lieu_of_employment ?? false,
+        }))
+      );
+    } else if (initialClaim.plot_id) {
+      setPlotEntries([
+        {
+          plot_id: String(initialClaim.plot_id),
+          plot_no: initialClaim.plot_number,
+          khatian_no: initialClaim.khatian_no || "",
+          own_share_acres: String(initialClaim.own_share_acres || "0"),
+          total_ror_area: String(initialClaim.own_share_acres || "0"),
+          opted_monetary_in_lieu_of_employment: initialClaim.opted_monetary_in_lieu_of_employment ?? false,
+        },
+      ]);
+    }
+
+    if (initialClaim.photo_doc_id) {
+      setUploadedDocs((prev) => ({
+        ...prev,
+        LAND_LOSER_PHOTO: [
+          {
+            id: initialClaim.photo_doc_id!,
+            file_name: initialClaim.photo_doc_id!,
+            size_bytes: 1024,
+            file_size_kb: 1,
+            mime_type: "image/jpeg",
+            uploaded_at: new Date().toISOString(),
+            virus_scan_status: "clean",
+          },
+        ],
+      }));
+    }
+  }, [initialClaim]);
 
   // Master Data Lookup Hooks for Demographics
   const { data: casteMaster } = useMasterQuery({ master: "caste" });
@@ -570,6 +685,13 @@ function Wizard({
         own_share_acres: (primaryOwnShare > 0 ? primaryOwnShare : Number(totalOwnShareAcres)).toFixed(4),
         total_claim_share_acres: totalOwnShareAcres,
         plot_entries: plotEntries,
+        plots: plotEntries.map((p) => ({
+          plot_schedule_id: p.plot_id,
+          plot_no: p.plot_no,
+          khatian_no: p.khatian_no,
+          own_share_acres: p.own_share_acres,
+          total_ror_area: p.total_ror_area,
+        })),
         opted_monetary_in_lieu_of_employment:
           primaryPlot.opted_monetary_in_lieu_of_employment ||
           form.opted_monetary_in_lieu_of_employment,
@@ -579,34 +701,36 @@ function Wizard({
         passbook_doc_id: uploadedDocs.BANK_PASSBOOK?.[0]?.id || uploadedDocs.BANK_PASSBOOK?.[0]?.file_name,
       };
 
-      const r = await fetch("/api/claims", {
-        method: "POST",
+      const isEdit = !!initialClaim?.id;
+      const url = isEdit ? `/api/claims/${initialClaim.id}` : "/api/claims";
+      const method = isEdit ? "PUT" : "POST";
+
+      const r = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error ?? "Submission failed");
-      return data;
+      if (!r.ok) throw new Error(data.error ?? (isEdit ? "Update failed" : "Submission failed"));
+      return { ...data, isEdit };
     },
     onSuccess: (data) => {
-      const claimId = data.id || data.claim_code;
-      toast.success(`Form-I Claim ${data.claim_code} Submitted Successfully!`, {
-        description: `21-day statutory transparency window ends ${new Date(data.transparency_window_ends_at).toLocaleDateString("en-IN")}`,
-        action: {
-          label: "Open Workspace",
-          onClick: () => onOpenWorkspace?.(claimId),
-        },
-      });
+      const claimId = data.id || data.claim_code || initialClaim?.id;
+      if (data.isEdit) {
+        toast.success(`Claim ${initialClaim?.claim_code || claimId} Updated Successfully!`);
+      } else {
+        toast.success(`Form-I Claim ${data.claim_code} Submitted Successfully!`);
+      }
       qc.invalidateQueries({ queryKey: ["claims"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
-      if (claimId && onOpenWorkspace) {
+      if (claimId && onOpenWorkspace && !data.isEdit) {
         onOpenWorkspace(claimId);
       } else {
         onDone();
       }
     },
     onError: (e: Error) =>
-      toast.error("Submission failed", { description: e.message }),
+      toast.error("Save failed", { description: e.message }),
     onSettled: () => setSubmitting(false),
   });
 
@@ -637,10 +761,35 @@ function Wizard({
 
   return (
     <div className="space-y-4">
+      {initialClaim && (
+        <Alert className="bg-amber-50 border-amber-300 text-amber-900 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <PenTool className="h-5 w-5 text-amber-600 animate-pulse" />
+            <div>
+              <span className="font-bold text-sm">Editing Existing Claim:</span>{" "}
+              <code className="font-mono bg-amber-200/80 text-amber-950 font-bold px-2 py-0.5 rounded text-xs">
+                {initialClaim.claim_code}
+              </code>{" "}
+              <span className="text-xs text-amber-800 ml-1">
+                (Form pre-filled. Update any fields and click 'Update Claim'.)
+              </span>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDone}
+            className="h-8 border-amber-600 text-amber-700 hover:bg-amber-100 font-semibold"
+          >
+            Cancel Edit & Return to List
+          </Button>
+        </Alert>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold tracking-tight">
-            Form-I Claim Submission Wizard
+            {initialClaim ? `Edit Form-I Claim (${initialClaim.claim_code})` : "Form-I Claim Submission Wizard"}
           </h2>
           <p className="text-sm text-muted-foreground">
             Official Land Loser Application for Transfer of Land · Statutory 15-Question Flow
@@ -658,23 +807,44 @@ function Wizard({
         maxVisitedStep={maxVisited}
         onSubmit={() => submit.mutate()}
         submitting={submitting}
-        submitLabel="Submit Form-I Claim"
+        submitLabel={initialClaim ? `Update Claim (${initialClaim.claim_code})` : "Submit Form-I Claim"}
       >
         {/* Step 0: Radio Auth (Aadhaar / EPIC) + Demographics (Q1 - Q7) */}
         {step === 0 && (
           <div className="space-y-4">
-            <LandLoserKycStep
-              authType={authType}
-              setAuthType={setAuthType}
-              identifier={identifier}
-              setIdentifier={setIdentifier}
-              onProfileDetected={handleProfileDetected}
-              otpVerified={otpVerified}
-              setOtpVerified={setOtpVerified}
-            />
+            {!initialClaim && (
+              <LandLoserKycStep
+                authType={authType}
+                setAuthType={setAuthType}
+                identifier={identifier}
+                setIdentifier={setIdentifier}
+                onProfileDetected={handleProfileDetected}
+                otpVerified={otpVerified}
+                setOtpVerified={setOtpVerified}
+              />
+            )}
 
-            {otpVerified && (
+            {(otpVerified || !!initialClaim) && (
               <div className="space-y-4 rounded-lg border p-4 bg-card">
+                <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200 shadow-xs mb-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
+                      <ShieldCheck className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold flex items-center gap-1.5">
+                        Verified via {authType === "epic" ? "EPIC Identity Card" : "Aadhaar e-KYC"}
+                        <Badge variant="outline" className="border-emerald-600 bg-emerald-100/90 text-emerald-800 text-[10px] py-0 px-1.5 font-bold">
+                          Authenticated
+                        </Badge>
+                      </div>
+                      <div className="text-[11px] text-emerald-800/90 dark:text-emerald-300">
+                        Citizen identity authenticated for land acquisition claim records.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <h4 className="text-sm font-semibold border-b pb-2">
                   Step 1.2: Land Loser Demographic Details (Questions 1 - 7)
                 </h4>

@@ -32,7 +32,7 @@ export interface FormIStatutoryDocumentViewProps {
     mouza?: string;
     plot_number?: string;
     total_area_acres?: string;
-    own_share_acres: string;
+    own_share_acres: number | string;
     khatian_no?: string;
     link_deed_no?: string;
     ownership_date?: string;
