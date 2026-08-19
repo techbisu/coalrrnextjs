@@ -1,4 +1,5 @@
 "use client";
+/** FormIWizardView — Citizen Intake & Statutory Registry */
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -66,6 +67,10 @@ interface Claim {
   nationality?: string;
   religion?: string;
   caste_category?: string;
+  photo_doc_id?: string;
+  magistrate_affidavit_doc_id?: string;
+  passbook_doc_id?: string;
+  title_deed_doc_id?: string;
   plot_id: string;
   plot_number: string;
   mouza: string;
@@ -568,10 +573,10 @@ function Wizard({
         opted_monetary_in_lieu_of_employment:
           primaryPlot.opted_monetary_in_lieu_of_employment ||
           form.opted_monetary_in_lieu_of_employment,
-        photo_doc_id: uploadedDocs.LAND_LOSER_PHOTO?.[0]?.file_name,
-        magistrate_affidavit_doc_id: uploadedDocs.MAG_AFFIDAVIT?.[0]?.file_name,
-        title_deed_doc_id: uploadedDocs.LINK_DEED?.[0]?.file_name,
-        passbook_doc_id: uploadedDocs.BANK_PASSBOOK?.[0]?.file_name,
+        photo_doc_id: uploadedDocs.LAND_LOSER_PHOTO?.[0]?.id || uploadedDocs.LAND_LOSER_PHOTO?.[0]?.file_name,
+        magistrate_affidavit_doc_id: uploadedDocs.MAG_AFFIDAVIT?.[0]?.id || uploadedDocs.MAG_AFFIDAVIT?.[0]?.file_name,
+        title_deed_doc_id: uploadedDocs.LINK_DEED?.[0]?.id || uploadedDocs.LINK_DEED?.[0]?.file_name,
+        passbook_doc_id: uploadedDocs.BANK_PASSBOOK?.[0]?.id || uploadedDocs.BANK_PASSBOOK?.[0]?.file_name,
       };
 
       const r = await fetch("/api/claims", {

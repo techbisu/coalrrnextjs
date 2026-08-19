@@ -1,3 +1,4 @@
+/** Dependency Injection container for File Management module */
 import { PrismaFileRepository } from '@/modules/file-management/infrastructure/persistence/PrismaFileRepository'
 import { UploadFileUseCase } from '@/modules/file-management/application/use-cases/UploadFileUseCase'
 import { DeleteFileUseCase } from '@/modules/file-management/application/use-cases/DeleteFileUseCase'

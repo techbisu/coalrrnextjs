@@ -17,24 +17,18 @@ const documentTemplateRepository = new PrismaDocumentTemplateRepository()
 const documentQueryService = new PrismaDocumentQueryService()
 const resolverRegistry = new ResolverRegistry(documentQueryService)
 
-export const startDocumentWorkspaceUseCase = globalForDocEngineDI.startDocumentWorkspaceUseCase ?? new StartDocumentWorkspaceUseCase(
+export const startDocumentWorkspaceUseCase = new StartDocumentWorkspaceUseCase(
   documentInstanceRepository,
   documentTemplateRepository,
   resolverRegistry
 )
 
-export const saveDocumentFormUseCase = globalForDocEngineDI.saveDocumentFormUseCase ?? new SaveDocumentFormUseCase(
+export const saveDocumentFormUseCase = new SaveDocumentFormUseCase(
   documentInstanceRepository
 )
 
-export const generateDocumentUseCase = globalForDocEngineDI.generateDocumentUseCase ?? new GenerateDocumentUseCase(
+export const generateDocumentUseCase = new GenerateDocumentUseCase(
   documentInstanceRepository,
   documentTemplateRepository,
   resolverRegistry
 )
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForDocEngineDI.startDocumentWorkspaceUseCase = startDocumentWorkspaceUseCase
-  globalForDocEngineDI.saveDocumentFormUseCase = saveDocumentFormUseCase
-  globalForDocEngineDI.generateDocumentUseCase = generateDocumentUseCase
-}

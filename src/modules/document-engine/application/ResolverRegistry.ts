@@ -23,11 +23,19 @@ export class ResolverRegistry {
   }
 
   getResolver(templateCode: string): IDocumentResolver {
-    const resolver = this.resolvers.get(templateCode)
-    if (!resolver) {
-      // Fallback resolver for custom / unknown template codes
-      return this.resolvers.get('FORM_VII') || (this.queryService ? new FormVIIResolver(this.queryService) : new FormVIIResolver())
+    switch (templateCode) {
+      case 'FORM_I':
+        return new FormIResolver()
+      case 'FORM_XXII':
+        return this.queryService ? new FormXXIIResolver(this.queryService) : new FormXXIIResolver()
+      case 'FORM_VII':
+        return this.queryService ? new FormVIIResolver(this.queryService) : new FormVIIResolver()
+      default:
+        const resolver = this.resolvers.get(templateCode)
+        if (!resolver) {
+          return this.queryService ? new FormVIIResolver(this.queryService) : new FormVIIResolver()
+        }
+        return resolver
     }
-    return resolver
   }
 }

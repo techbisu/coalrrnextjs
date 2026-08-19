@@ -1,6 +1,8 @@
 import { IDocumentResolver, DocumentResolverResult } from '../../domain/IDocumentResolver'
 import { db } from '@/lib/db'
 import { getDisplayPlotNo } from '@/shared/utils/plot.utils'
+import fs from 'fs'
+import path from 'path'
 
 /**
  * FormIResolver — Citizen Land/Employment Intake (Form-I)
@@ -75,6 +77,20 @@ export class FormIResolver implements IDocumentResolver {
       const ifsc = c.bank_ifsc || masterProfile?.bank_ifsc || 'N/A'
       const photoDocId = c.photo_doc_id || masterProfile?.photo_doc_id || ''
 
+      let photoPath = ''
+      if (photoDocId) {
+        const fileRec = await db.file_record.findFirst({
+          where: { OR: [{ id: photoDocId }, { original_name: photoDocId }] },
+          include: { file_version: { orderBy: { version_number: 'desc' }, take: 1 } },
+        })
+        if (fileRec?.file_version[0]?.storage_path) {
+          const fullPath = path.join(process.cwd(), 'uploads', fileRec.file_version[0].storage_path)
+          if (fs.existsSync(fullPath)) {
+            photoPath = fullPath
+          }
+        }
+      }
+
       const decls: any[] = Array.isArray(c.statutory_declarations) ? (c.statutory_declarations as any[]) : []
       const getDecl = (qNo: number) => decls.find((d: any) => d.q_no === qNo)
 
@@ -145,8 +161,11 @@ export class FormIResolver implements IDocumentResolver {
             OwnShareArea: ownShareArea,
             LegalInstrument: p.link_deed_no ? `Deed ${p.link_deed_no}` : 'N/A',
             OwnershipDate: p.ownership_date ? new Date(p.ownership_date).toLocaleDateString('en-IN') : 'N/A',
-            PreviousOwnerName: p.transferor_name || 'N/A',
-            PreviousOwnerFatherName: 'N/A',
+            PreviousOwnerName: p.transferor_name || ownerName || 'N/A',
+            PreviousOwnerFatherName: p.transferor_father_name || p.transferor_father_husband_name || fatherName || 'N/A',
+            TransferorName: p.transferor_name || ownerName || 'N/A',
+            TransferorFatherName: p.transferor_father_name || p.transferor_father_husband_name || fatherName || 'N/A',
+            TransferorFatherHusbandName: p.transferor_father_name || p.transferor_father_husband_name || fatherName || 'N/A',
             PreviouslyTransferredArea: '0.0000',
             SaleDeedArea: isDirect ? ownShareArea : '0.0000',
             CBAArea: isCBA ? ownShareArea : '0.0000',
@@ -196,6 +215,9 @@ export class FormIResolver implements IDocumentResolver {
           father_husband_name: fatherName,
           Father_Husband_Name: fatherName,
           FatherHusbandName: fatherName,
+          NameOfTheFatherHusband: fatherName,
+          NameOfFatherHusband: fatherName,
+          Name_of_the_Father_Husband: fatherName,
 
           // Address
           PresentAddress: presentAddr,
@@ -245,6 +267,9 @@ export class FormIResolver implements IDocumentResolver {
           OwnershipDate: primaryParcel.OwnershipDate,
           PreviousOwnerName: primaryParcel.PreviousOwnerName,
           PreviousOwnerFatherName: primaryParcel.PreviousOwnerFatherName,
+          TransferorName: primaryParcel.PreviousOwnerName,
+          TransferorFatherName: primaryParcel.PreviousOwnerFatherName,
+          TransferorFatherHusbandName: primaryParcel.PreviousOwnerFatherName,
           PreviouslyTransferredArea: primaryParcel.PreviouslyTransferredArea,
           SaleDeedArea: primaryParcel.SaleDeedArea,
           CBAArea: primaryParcel.CBAArea,
@@ -299,7 +324,7 @@ export class FormIResolver implements IDocumentResolver {
           Q15_Details: q15Details,
 
           ApplicationDate: claim.submitted_at ? new Date(claim.submitted_at).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN'),
-          ApplicantPhoto: photoDocId ? `/api/files/download/${photoDocId}` : '',
+          ApplicantPhoto: photoPath || (photoDocId ? `/api/files/${photoDocId}/download` : ''),
           ApplicantSignature: ownerName,
         },
         tables: {

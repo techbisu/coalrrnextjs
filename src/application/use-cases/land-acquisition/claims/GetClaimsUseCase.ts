@@ -40,6 +40,14 @@ export class GetClaimsUseCase implements IUseCase<void, any[]> {
           nationality: c.nationality,
           religion: c.religion,
           caste_category: c.caste_category,
+          photo_doc_id: c.photo_doc_id,
+          bank_name: c.bank_name,
+          bank_branch: c.bank_branch,
+          bank_account_number: c.bank_account_number,
+          bank_ifsc: c.bank_ifsc,
+          passbook_doc_id: c.passbook_doc_id,
+          magistrate_affidavit_doc_id: c.magistrate_affidavit_doc_id,
+          title_deed_doc_id: c.title_deed_doc_id,
           plot_id: c.plot_id,
           plot_number: p
             ? p.plot_no || p.plot_number || `Plot #${p.schedule_id}`

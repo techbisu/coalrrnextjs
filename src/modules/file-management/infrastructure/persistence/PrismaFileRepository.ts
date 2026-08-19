@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { IFileRepository } from '../../domain/repositories/IFileRepository'
 import { FileRecord, FileVersion } from '../../domain/entities/FileRecord'
 
+/** PrismaFileRepository — Persistent storage implementation for file_record */
 export class PrismaFileRepository implements IFileRepository {
   async findByChecksum(checksum: string): Promise<{ file: FileRecord, activeVersionNumber: number } | null> {
     const existing = await db.file_record.findUnique({
@@ -27,8 +28,13 @@ export class PrismaFileRepository implements IFileRepository {
   }
 
   async findById(id: string): Promise<{ file: FileRecord, activeVersion: FileVersion } | null> {
-    const existing = await db.file_record.findUnique({
-      where: { id },
+    const existing = await db.file_record.findFirst({
+      where: {
+        OR: [
+          { id },
+          { original_name: id },
+        ],
+      },
       include: { file_version: { orderBy: { version_number: 'desc' }, take: 1 } },
     })
 

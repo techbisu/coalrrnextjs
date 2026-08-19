@@ -241,7 +241,7 @@ export function FormIStatutoryDocumentView({
           <div className="border-2 border-slate-900 p-1 text-center h-36 w-28 mx-auto flex flex-col items-center justify-center bg-slate-50 rounded relative shadow-inner">
             {claim.photo_doc_id ? (
               <img
-                src={`/api/files/download/${claim.photo_doc_id}`}
+                src={`/api/files/${claim.photo_doc_id}/download`}
                 alt="Land Loser Passport Photo"
                 className="h-full w-full object-cover rounded"
                 onError={(e) => {
@@ -275,7 +275,7 @@ export function FormIStatutoryDocumentView({
                   <th className="border border-slate-900 p-1">Own Share (ac)</th>
                   <th className="border border-slate-900 p-1">Legal Instrument / Deed</th>
                   <th className="border border-slate-900 p-1">Ownership Date</th>
-                  <th className="border border-slate-900 p-1">Transferor Name</th>
+                  <th className="border border-slate-900 p-1">Name &amp; Father/Husband Name of Transferor / Seller</th>
                   <th className="border border-slate-900 p-1">Direct Purchase (ac)</th>
                   <th className="border border-slate-900 p-1">CBA/LA Act (ac)</th>
                   <th className="border border-slate-900 p-1">Ref Notice No</th>
@@ -312,7 +312,9 @@ export function FormIStatutoryDocumentView({
                         {p.ownership_date ? new Date(p.ownership_date).toLocaleDateString("en-IN") : (claim.ownership_date ? new Date(claim.ownership_date).toLocaleDateString("en-IN") : "N/A")}
                       </td>
                       <td className="border border-slate-900 p-1 font-sans">
-                        {p.transferor_name || claim.transferor_name || "N/A"}
+                        {p.transferor_name
+                          ? (p.transferor_father_name ? `${p.transferor_name} (F/H: ${p.transferor_father_name})` : p.transferor_name)
+                          : (claim.transferor_name || "N/A")}
                       </td>
                       <td className="border border-slate-900 p-1 font-sans">
                         {isDirect ? `${p.own_share_acres || claim.own_share_acres || "0.0000"} ac` : "0.0000"}

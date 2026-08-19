@@ -172,7 +172,7 @@ export function LandLoserKycStep({
                 Returning Land Loser Master Profile Detected!
               </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                Name: <span className="font-medium text-foreground">{detectedProfile.full_name}</span> | Father/Husband:{' '}
+                Name: <span className="font-medium text-foreground">{detectedProfile.full_name}</span> | Name of the Father/Husband:{' '}
                 <span className="font-medium text-foreground">{detectedProfile.father_husband_name}</span>
                 <br />
                 Demographics & Bank RTGS details will be auto-filled for plot selection.

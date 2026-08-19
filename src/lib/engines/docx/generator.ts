@@ -31,11 +31,23 @@ function resolveImageBuffer(tagValue: any): Buffer | null {
       return fs.readFileSync(tagValue)
     }
 
+    const uploadsDir = path.join(process.cwd(), 'uploads')
+
+    // 1. Try file ID match in uploads dir
     const fileIdMatch = tagValue.match(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i) || tagValue.match(/[a-f0-9]{32}/i)
     if (fileIdMatch) {
       const fileId = fileIdMatch[0]
-      const uploadsDir = path.join(process.cwd(), 'uploads')
       const foundPath = findFileById(uploadsDir, fileId)
+      if (foundPath && fs.existsSync(foundPath)) {
+        return fs.readFileSync(foundPath)
+      }
+    }
+
+    // 2. Try cleaned filename or path segment
+    const cleanTag = tagValue.replace(/^\/api\/files\/(download\/)?/, '').replace(/\/download$/, '')
+    const baseTag = path.basename(cleanTag)
+    if (baseTag && baseTag.length > 3) {
+      const foundPath = findFileById(uploadsDir, baseTag)
       if (foundPath && fs.existsSync(foundPath)) {
         return fs.readFileSync(foundPath)
       }
@@ -89,8 +101,8 @@ export class DocxGeneratorEngine {
         return Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')
       },
       getSize() {
-        // Compact passport photo dimensions to fit higher up inside the frame box
-        return [95, 118]
+        // Photo dimensions (119px x 159px) for refined, sleek, thin 2pt (~3.5px) micro-gap on all 4 sides
+        return [119, 159]
       }
     }
 
