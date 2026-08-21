@@ -88,6 +88,7 @@ interface Claim {
   own_share_acres: number | string;
   plots?: any[];
   form_i_claim_plot?: any[];
+  plot_count?: number;
   khatian_no?: string;
   link_deed_no?: string;
   ownership_date?: string;
@@ -111,6 +112,8 @@ interface Claim {
   monetary_opt_reason?: string;
   form_v_eligible?: boolean;
   state: string;
+  ecl_approval_status?: string;
+  ecl_approved_at?: string | null;
   submitted_at: string | null;
   transparency_window_ends_at: string | null;
   daysRemaining: number | null;
@@ -155,22 +158,120 @@ async function fetchPlots(): Promise<PlotItem[]> {
   return r.json();
 }
 
+export function getCleanOnlyPlotNo(
+  plotItem?: any,
+  stateLgd?: string | number | null,
+  mouzaLgd?: string | number | null
+): string {
+  if (!plotItem) return "—";
+
+  let rawStr = "";
+  let plotTy = "";
+  if (typeof plotItem === "object") {
+    rawStr = String(
+      plotItem.plot_number || plotItem.plot_no || plotItem.display_plot_no || ""
+    ).trim();
+    plotTy = String(plotItem.plot_ty || plotItem.land_type || "").trim();
+    if (!stateLgd) stateLgd = plotItem.state_lgd || plotItem.district_lgd;
+    if (!mouzaLgd) mouzaLgd = plotItem.mouza_lgd;
+  } else {
+    rawStr = String(plotItem).trim();
+  }
+
+  if (!rawStr) return "—";
+
+  let str = rawStr;
+
+  // 1. Strip "Plot #" or "PlotNo" or "Plot " prefixes
+  str = str.replace(/^Plot\s*(#|No\.?|Number)?\s*/i, "").trim();
+
+  // 2. Strip explicit State LGD & Mouza LGD prefixes if provided
+  const sLgd = stateLgd ? String(stateLgd) : "";
+  const mLgd = mouzaLgd ? String(mouzaLgd) : "";
+
+  if (sLgd && mLgd && str.startsWith(`${sLgd}${mLgd}`)) {
+    str = str.slice(`${sLgd}${mLgd}`.length);
+  } else if (mLgd && str.startsWith(mLgd)) {
+    str = str.slice(mLgd.length);
+  } else if (sLgd && str.startsWith(sLgd)) {
+    str = str.slice(sLgd.length);
+  }
+
+  // 3. Handle slash, underscore, or hyphen delimited formats e.g. "19/101/1/12" or "19_101_1_12" or "19-101-1-12"
+  if (str.includes("/")) {
+    const parts = str.split("/").map((p) => p.trim()).filter(Boolean);
+    str = parts[parts.length - 1];
+  } else if (str.includes("_")) {
+    const parts = str.split("_").map((p) => p.trim()).filter(Boolean);
+    str = parts[parts.length - 1];
+  } else if (str.includes("-")) {
+    const parts = str.split("-").map((p) => p.trim()).filter(Boolean);
+    str = parts[parts.length - 1];
+  }
+
+  // Determine Plot Type Tag (LR, RS, CS)
+  let tag = "LR";
+
+  if (plotTy) {
+    if (plotTy === "1" || plotTy.toUpperCase().includes("LR")) tag = "LR";
+    else if (plotTy === "2" || plotTy.toUpperCase().includes("RS")) tag = "RS";
+    else if (plotTy === "3" || plotTy.toUpperCase().includes("CS")) tag = "CS";
+  }
+
+  // 4. Check if text starts with explicit LR, RS, CS
+  const matchTag = str.match(/^(LR|RS|CS)[\s_\-]*0*(\d+.*)$/i);
+  if (matchTag) {
+    tag = matchTag[1].toUpperCase();
+    str = matchTag[2];
+  } else if (/^[123]\d+$/.test(str) && str.length >= 3) {
+    // 5. Embedded numeric plot_ty prefix (1 = LR, 2 = RS, 3 = CS)
+    const code = str[0];
+    if (code === "1") tag = "LR";
+    else if (code === "2") tag = "RS";
+    else if (code === "3") tag = "CS";
+    str = str.slice(1);
+  }
+
+  // 6. Strip leading zeros if purely numeric (e.g. 0012 -> 12)
+  if (/^0+\d+$/.test(str)) {
+    str = str.replace(/^0+/, "");
+  }
+
+  const cleanNum = str || rawStr;
+  return `${tag} ${cleanNum}`;
+}
+
 export function ClaimStatusBadge({
   claim,
 }: {
-  claim: { signed_form_i_doc_id?: string; state?: string };
+  claim: { signed_form_i_doc_id?: string; state?: string; ecl_approval_status?: string };
 }) {
+  const isApproved =
+    claim.ecl_approval_status === "APPROVED" || claim.state === "APPROVED";
   const isSignedUploaded = !!claim.signed_form_i_doc_id;
+
+  if (isApproved) {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-emerald-100 text-emerald-950 border-emerald-400 font-bold gap-1 text-[11px] shadow-2xs"
+        title="Form-I Claim Title Approved & Finalized under CBA Act 1957"
+      >
+        <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+        Approved
+      </Badge>
+    );
+  }
 
   if (isSignedUploaded) {
     return (
       <Badge
         variant="outline"
-        className="bg-emerald-50 text-emerald-800 border-emerald-300 font-bold gap-1 text-[11px] shadow-2xs"
-        title="Statutory Form-I signed copy verified and submitted"
+        className="bg-blue-50 text-blue-800 border-blue-300 font-bold gap-1 text-[11px] shadow-2xs"
+        title="Signed Form-I Submitted · Under Legal Title Scrutiny & Approval"
       >
-        <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
-        Submitted & Signed
+        <CheckCircle2 className="h-3 w-3 text-blue-600 shrink-0" />
+        Submitted
       </Badge>
     );
   }
@@ -179,7 +280,7 @@ export function ClaimStatusBadge({
     <Badge
       variant="outline"
       className="bg-amber-50 text-amber-800 border-amber-300 font-semibold gap-1 text-[11px] shadow-2xs"
-      title="Form-I data recorded · Signed statutory copy pending upload"
+      title="Form-I Data Recorded · Pending Physical Signed Copy Upload"
     >
       <Clock className="h-3 w-3 text-amber-600 shrink-0 animate-pulse" />
       Pending Signed Copy
@@ -188,7 +289,7 @@ export function ClaimStatusBadge({
 }
 
 export function FormIWizardView() {
-  const [mode, setMode] = React.useState<"list" | "wizard" | "view">("list");
+  const [mode, setMode] = React.useState<"list" | "wizard" | "view" | "ecl_view">("list");
   const [viewingClaim, setViewingClaim] = React.useState<Claim | null>(null);
   const [editingClaim, setEditingClaim] = React.useState<Claim | null>(null);
   const [uploadingClaim, setUploadingClaim] = React.useState<Claim | null>(
@@ -210,7 +311,24 @@ export function FormIWizardView() {
 
   if (mode === "view" && viewingClaim) {
     return (
-      <ClaimNormalView
+      <ClaimReviewCertifyView
+        claim={viewingClaim}
+        onDone={() => {
+          setViewingClaim(null);
+          setMode("list");
+        }}
+        onEdit={() => {
+          setEditingClaim(viewingClaim);
+          setViewingClaim(null);
+          setMode("wizard");
+        }}
+      />
+    );
+  }
+
+  if (mode === "ecl_view" && viewingClaim) {
+    return (
+      <ClaimECLView
         claim={viewingClaim}
         onDone={() => {
           setViewingClaim(null);
@@ -301,13 +419,27 @@ export function FormIWizardView() {
                 ),
               },
               {
-                key: "plot_number",
-                header: "Plot Schedule",
-                render: (r) => (
-                  <span className="font-mono text-xs font-semibold">
-                    {getDisplayPlotNo(r.plot_number)} · {r.mouza}
-                  </span>
-                ),
+                key: "plot_count",
+                header: "Plot Count",
+                align: "center",
+                sortable: true,
+                render: (r) => {
+                  const count =
+                    r.plot_count ||
+                    (Array.isArray(r.plots) && r.plots.length > 0
+                      ? r.plots.length
+                      : Array.isArray(r.form_i_claim_plot) && r.form_i_claim_plot.length > 0
+                      ? r.form_i_claim_plot.length
+                      : 1);
+                  return (
+                    <Badge
+                      variant="outline"
+                      className="font-mono font-bold text-xs bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-300"
+                    >
+                      {count} plot(s)
+                    </Badge>
+                  );
+                },
               },
               {
                 key: "own_share_acres",
@@ -393,9 +525,23 @@ export function FormIWizardView() {
                           setViewingClaim(r);
                           setMode("view");
                         }}
-                        className="h-8 gap-1.5 text-xs border-indigo-600 text-indigo-700 hover:bg-indigo-50 shadow-xs"
+                        className="h-8 gap-1.5 text-xs border-indigo-600 text-indigo-700 hover:bg-indigo-50 shadow-xs font-medium"
+                        title="Normal View (Review & Certify Summary)"
                       >
                         <Eye className="h-3.5 w-3.5" /> View
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setViewingClaim(r);
+                          setMode("ecl_view");
+                        }}
+                        className="h-8 gap-1.5 text-xs border-purple-600 text-purple-700 hover:bg-purple-50 shadow-xs font-medium"
+                        title="ECL View (Detailed 5-Section Profile)"
+                      >
+                        <FileText className="h-3.5 w-3.5" /> ECL View
                       </Button>
 
                       <Button
@@ -645,21 +791,24 @@ function FormIUploadWorkspaceModal({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="border-b pb-3">
-        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <UploadCloud className="h-5 w-5 text-emerald-600" />
-          Form-I Document Generation & Signed File Upload
-        </h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Claim Code:{" "}
-          <code className="font-mono bg-emerald-100 text-emerald-950 px-1.5 py-0.5 rounded font-bold text-xs">
-            {claim.claim_code}
-          </code>{" "}
-          · Claimant:{" "}
-          <span className="font-semibold text-slate-800">
-            {claim.claimant_name}
-          </span>
-        </p>
+      <div className="border-b pb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <UploadCloud className="h-5 w-5 text-emerald-600" />
+            Form-I Document Generation & Signed File Upload
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Claim Code:{" "}
+            <code className="font-mono bg-emerald-100 text-emerald-950 px-1.5 py-0.5 rounded font-bold text-xs">
+              {claim.claim_code}
+            </code>{" "}
+            · Claimant:{" "}
+            <span className="font-semibold text-slate-800">
+              {claim.claimant_name}
+            </span>
+          </p>
+        </div>
+        <ClaimStatusBadge claim={claim} />
       </div>
 
       {/* Step 1: Official Statutory Form-I Generation & Download */}
@@ -805,7 +954,7 @@ function FormIUploadWorkspaceModal({
   );
 }
 
-function ClaimNormalView({
+function ClaimReviewCertifyView({
   claim,
   onDone,
   onEdit,
@@ -814,6 +963,37 @@ function ClaimNormalView({
   onDone: () => void;
   onEdit: () => void;
 }) {
+  const plotsList =
+    claim.plots && claim.plots.length > 0
+      ? claim.plots
+      : claim.form_i_claim_plot && claim.form_i_claim_plot.length > 0
+      ? claim.form_i_claim_plot
+      : [
+          {
+            plot_id: claim.plot_id,
+            plot_no: claim.plot_number,
+            mouza_name: claim.mouza,
+            khatian_no: claim.khatian_no,
+            own_share_acres: claim.own_share_acres,
+            total_ror_area: claim.own_share_acres,
+            opted_monetary_in_lieu_of_employment:
+              claim.opted_monetary_in_lieu_of_employment,
+          },
+        ];
+
+  const totalAcres = plotsList.reduce(
+    (sum: number, p: any) => sum + (Number(p.own_share_acres) || 0),
+    0
+  );
+
+  const docItems = [
+    { label: "Passport Size Photograph", docId: claim.photo_doc_id },
+    { label: "Magistrate Affidavit", docId: claim.magistrate_affidavit_doc_id },
+    { label: "Bank Passbook / Cancelled Cheque", docId: claim.passbook_doc_id },
+    { label: "Title Deed / ROR Parcha", docId: claim.title_deed_doc_id },
+    { label: "Signed Form-I Copy", docId: claim.signed_form_i_doc_id },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Top Header Bar */}
@@ -829,7 +1009,7 @@ function ClaimNormalView({
           </Button>
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              Claim Details —{" "}
+              Form-I Summary View —{" "}
               <code className="font-mono bg-emerald-100 text-emerald-950 px-2 py-0.5 rounded text-sm">
                 {claim.claim_code}
               </code>
@@ -862,229 +1042,1096 @@ function ClaimNormalView({
         </div>
       </div>
 
-      {/* Section 1: Citizen Profile & Demographics */}
-      <SectionCard
-        title="1. Land Loser Profile & Demographics (Q1 - Q7)"
-        icon={ShieldCheck}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-          <div className="p-3 rounded-lg border bg-card">
-            <span className="text-muted-foreground font-medium block text-[11px]">
-              Full Name
-            </span>
-            <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-              {claim.claimant_name}
-            </span>
-          </div>
-          <div className="p-3 rounded-lg border bg-card">
-            <span className="text-muted-foreground font-medium block text-[11px]">
-              Father / Husband Name
-            </span>
-            <span className="font-bold text-slate-900 dark:text-slate-100">
-              {claim.father_husband_name || "—"}
-            </span>
-          </div>
-          <div className="p-3 rounded-lg border bg-card">
-            <span className="text-muted-foreground font-medium block text-[11px]">
-              EPIC / Aadhaar ID
-            </span>
-            <span className="font-mono font-bold text-emerald-700">
-              {claim.epic_no || claim.citizen_id_hash || "—"}
+      <Alert className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 py-2">
+        <ShieldCheck className="h-4 w-4 text-emerald-600" />
+        <AlertDescription className="text-emerald-900 dark:text-emerald-200 text-xs">
+          <strong>Review & Statutory Certification:</strong> Particulars recorded below for Form-I claim code <strong>{claim.claim_code}</strong>.
+        </AlertDescription>
+      </Alert>
+
+      {/* 1. Land Loser Personal & Identity Profile */}
+      <div className="rounded-lg border bg-card p-4 space-y-3 shadow-xs">
+        <div className="flex items-center justify-between border-b pb-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+            <FileText className="h-4 w-4 text-emerald-600" />
+            1. Land Loser Personal & Identity Profile
+          </h4>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+          <div>
+            <span className="text-muted-foreground block text-[11px]">Full Name</span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
+              {claim.claimant_name || "N/A"}
             </span>
           </div>
-          <div className="p-3 rounded-lg border bg-card">
-            <span className="text-muted-foreground font-medium block text-[11px]">
-              Gender & Category
-            </span>
-            <span className="font-semibold">
-              {claim.gender || "Male"} · {claim.caste_category || "General"}
+          <div>
+            <span className="text-muted-foreground block text-[11px]">Father / Husband Name</span>
+            <span className="font-medium text-slate-800 dark:text-slate-200">
+              {claim.father_husband_name || "N/A"}
             </span>
           </div>
-          <div className="p-3 rounded-lg border bg-card md:col-span-2">
-            <span className="text-muted-foreground font-medium block text-[11px]">
-              Present Address
-            </span>
-            <span className="font-medium text-slate-900">
-              {claim.present_address || "—"}
+          <div>
+            <span className="text-muted-foreground block text-[11px]">Identity Instrument</span>
+            <span className="font-mono font-bold text-emerald-800 dark:text-emerald-300">
+              EPIC / Aadhaar: {claim.epic_no || claim.citizen_id_hash || "N/A"}
             </span>
           </div>
-          <div className="p-3 rounded-lg border bg-card md:col-span-2">
-            <span className="text-muted-foreground font-medium block text-[11px]">
-              Permanent Address
+          <div>
+            <span className="text-muted-foreground block text-[11px]">Occupation</span>
+            <span className="font-medium">{claim.occupation || "N/A"}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground block text-[11px]">Gender / Caste Category</span>
+            <span className="font-medium">
+              {claim.gender || "Male"} ({claim.caste_category || "General"})
             </span>
-            <span className="font-medium text-slate-900">
-              {claim.permanent_address || "—"}
+          </div>
+          <div>
+            <span className="text-muted-foreground block text-[11px]">Nationality / Religion</span>
+            <span className="font-medium">
+              {claim.nationality || "Indian"} / {claim.religion || "N/A"}
             </span>
+          </div>
+          <div className="sm:col-span-2 md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-dashed">
+            <div>
+              <span className="text-muted-foreground block text-[11px]">Present Address</span>
+              <span className="font-medium text-slate-800 dark:text-slate-200">
+                {claim.present_address || "N/A"}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block text-[11px]">Permanent Address</span>
+              <span className="font-medium text-slate-800 dark:text-slate-200">
+                {claim.permanent_address || "N/A"}
+              </span>
+            </div>
           </div>
         </div>
-      </SectionCard>
+      </div>
 
-      {/* Section 2: Land & Plot Schedule (Q8) */}
-      <SectionCard
-        title="2. Land & Plot Schedule (Q8 Multi-Plot Table)"
-        icon={MapPin}
-      >
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-xs">
-            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b font-bold">
-              <tr>
-                <th className="p-2.5 text-left">#</th>
-                <th className="p-2.5 text-left">Mouza</th>
-                <th className="p-2.5 text-left">LR Plot No</th>
-                <th className="p-2.5 text-left">Khatian No</th>
-                <th className="p-2.5 text-right">Own Share (Acres)</th>
+      {/* 2. Land Acquisition Plot Schedule Table */}
+      <div className="rounded-lg border bg-card p-4 space-y-3 shadow-xs">
+        <div className="flex items-center justify-between border-b pb-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+            <MapPin className="h-4 w-4 text-emerald-600" />
+            2. Land Acquisition Plot Schedule ({plotsList.length} plot(s))
+          </h4>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-emerald-50/60 dark:bg-emerald-950/40 rounded border border-emerald-200 text-xs">
+          <div>
+            <span className="text-muted-foreground">Total Claimed Land Share: </span>
+            <strong className="font-mono text-emerald-800 dark:text-emerald-300 font-bold text-sm">
+              {totalAcres.toFixed(4)} acres
+            </strong>
+          </div>
+          <div>
+            <span className="text-muted-foreground">R&R Scheme Benefit: </span>
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-xs font-bold font-mono ml-1",
+                totalAcres >= 2.0
+                  ? "border-emerald-600 bg-emerald-100 text-emerald-800"
+                  : "border-amber-600 bg-amber-50 text-amber-900"
+              )}
+            >
+              {totalAcres >= 2.0
+                ? "Form-V Employment Eligible (2.0+ acres)"
+                : "One-Time Cash Compensation (Under 2.0 acres)"}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto rounded border border-border">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr className="bg-muted/60 text-muted-foreground uppercase text-[10px] font-bold tracking-wider border-b">
+                <th className="p-2">Sl</th>
+                <th className="p-2">Mouza / LGD</th>
+                <th className="p-2">Plot No</th>
+                <th className="p-2">Khatian No</th>
+                <th className="p-2">Total ROR Area</th>
+                <th className="p-2">Own Share (Acres)</th>
+                <th className="p-2">Compensation Preference</th>
+                <th className="p-2 text-center">Title Scrutiny Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {(claim.plots || claim.form_i_claim_plot || []).map(
-                (p: any, idx: number) => (
-                  <tr key={idx} className="hover:bg-muted/30">
-                    <td className="p-2.5 font-mono">{idx + 1}</td>
-                    <td className="p-2.5 font-semibold">
-                      {claim.mouza || "MADHAIPUR"}
+              {plotsList.map((p: any, idx: number) => {
+                const status = p.title_approval_status || "PENDING";
+                return (
+                  <tr key={idx} className="hover:bg-muted/20">
+                    <td className="p-2 font-mono text-center">{idx + 1}</td>
+                    <td className="p-2 font-medium">
+                      {p.mouza_name || p.mouza || claim.mouza || "MADHAIPUR"}
                     </td>
-                    <td className="p-2.5 font-mono font-bold text-emerald-800">
-                      {getDisplayPlotNo(
-                        p.plot_no || p.display_plot_no || claim.plot_number,
+                    <td className="p-2 font-bold font-mono text-slate-900 dark:text-slate-100">
+                      {getCleanOnlyPlotNo(
+                        p.plot_no || p.plot_number || claim.plot_number,
+                        p.state_lgd || claim.state_lgd,
+                        p.mouza_lgd || claim.mouza_lgd
                       )}
                     </td>
-                    <td className="p-2.5 font-mono">
-                      {p.khatian_no || claim.khatian_no || "—"}
+                    <td className="p-2 font-mono">
+                      {p.khatian_no || claim.khatian_no || "Kh-102"}
                     </td>
-                    <td className="p-2.5 text-right font-mono font-bold text-slate-900">
+                    <td className="p-2 font-mono">
+                      {p.total_ror_area || p.own_share_acres || claim.own_share_acres} ac
+                    </td>
+                    <td className="p-2 font-mono font-bold text-emerald-700 dark:text-emerald-300">
                       {p.own_share_acres || claim.own_share_acres} ac
                     </td>
+                    <td className="p-2">
+                      {(p.opted_monetary_in_lieu_of_employment ?? claim.opted_monetary_in_lieu_of_employment) ? (
+                        <span className="text-[11px] text-amber-800 font-medium">
+                          One-Time Cash Preferred
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-emerald-800 font-medium">
+                          Employment Nomination
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-2 text-center">
+                      {status === "APPROVED" ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-100 text-emerald-800 border-emerald-300 font-bold gap-1 text-[10px]"
+                        >
+                          <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Approved
+                        </Badge>
+                      ) : status === "MODIFY_REQUIRED" ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-amber-100 text-amber-900 border-amber-300 font-bold gap-1 text-[10px]"
+                          title={p.scrutiny_remarks}
+                        >
+                          <AlertCircle className="h-3 w-3 text-amber-600" /> Modify Required
+                        </Badge>
+                      ) : status === "REJECTED" ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-rose-100 text-rose-800 border-rose-300 font-bold gap-1 text-[10px]"
+                          title={p.scrutiny_remarks}
+                        >
+                          <X className="h-3 w-3 text-rose-600" /> Rejected
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-50 text-blue-800 border-blue-200 font-semibold text-[10px]"
+                        >
+                          <Clock className="h-3 w-3 text-blue-600" /> Under Review
+                        </Badge>
+                      )}
+                    </td>
                   </tr>
-                ),
-              )}
+                );
+              })}
             </tbody>
           </table>
         </div>
-      </SectionCard>
+      </div>
+
+      {/* 3. Bank Account & Direct Disbursement Details */}
+      <div className="rounded-lg border bg-card p-4 space-y-3 shadow-xs">
+        <div className="flex items-center justify-between border-b pb-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+            <IndianRupee className="h-4 w-4 text-emerald-600" />
+            3. Bank Account for Cash Compensation & Direct Payments
+          </h4>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div>
+            <span className="text-muted-foreground block text-[11px]">Bank Name</span>
+            <span className="font-semibold">{claim.bank_name || "N/A"}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground block text-[11px]">Branch Name</span>
+            <span className="font-medium">{claim.bank_branch || "N/A"}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground block text-[11px]">Account Number</span>
+            <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+              {claim.bank_account_number || "N/A"}
+            </span>
+          </div>
+          <div>
+            <span className="text-muted-foreground block text-[11px]">IFSC Code</span>
+            <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">
+              {claim.bank_ifsc || "N/A"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Statutory Declarations (Questions 9 - 15) */}
+      <div className="rounded-lg border bg-card p-4 space-y-3 shadow-xs">
+        <div className="flex items-center justify-between border-b pb-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            4. Statutory Declarations & Answers (Questions 9 - 15)
+          </h4>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 text-xs">
+          <div className="p-2.5 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="font-medium">
+              9. Prior compensation received from ECL or other Authority?
+            </span>
+            <div className="shrink-0 font-bold font-mono">
+              {claim.prior_compensation_received ? (
+                <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                  YES ({claim.prior_compensation_details || "Details provided"})
+                </span>
+              ) : (
+                <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  NO
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="p-2.5 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="font-medium">
+              11. Any part of plots included in another employment in ECL?
+            </span>
+            <div className="shrink-0 font-bold font-mono">
+              {claim.prior_employment_linked ? (
+                <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                  YES ({claim.prior_employment_details || "Details provided"})
+                </span>
+              ) : (
+                <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  NO
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="p-2.5 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="font-medium">
+              12. Plots free from any disputes / court cases with co-sharers or bargadars?
+            </span>
+            <div className="shrink-0 font-bold font-mono">
+              {claim.is_free_from_disputes !== false ? (
+                <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  YES
+                </span>
+              ) : (
+                <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                  NO ({claim.dispute_details || "Dispute exists"})
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="p-2.5 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="font-medium">
+              13. Plots free from any encumbrances?
+            </span>
+            <div className="shrink-0 font-bold font-mono">
+              {claim.is_free_from_encumbrances !== false ? (
+                <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  YES
+                </span>
+              ) : (
+                <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                  NO ({claim.encumbrance_details || "Encumbrance exists"})
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="p-2.5 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="font-medium">
+              14. Able to handover peaceful & encumbrance-free possession to ECL?
+            </span>
+            <div className="shrink-0 font-bold font-mono">
+              {claim.can_handover_possession !== false ? (
+                <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  YES
+                </span>
+              ) : (
+                <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                  NO ({claim.possession_reason || "Reason provided"})
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="p-2.5 rounded bg-muted/30 border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="font-medium">
+              15. Agreed to accept One-Time Cash Compensation in lieu of employment?
+            </span>
+            <div className="shrink-0 font-bold font-mono">
+              {claim.opted_monetary_in_lieu_of_employment ? (
+                <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  YES (Accept One-Time Cash)
+                </span>
+              ) : (
+                <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  NO (Prefer Employment Nomination via Form-V)
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Attached Self-Attested Mandatory Documents */}
+      <div className="rounded-lg border bg-card p-4 space-y-3 shadow-xs">
+        <div className="flex items-center justify-between border-b pb-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+            <FileCheck className="h-4 w-4 text-emerald-600" />
+            5. Attached Self-Attested Mandatory Documents
+          </h4>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+          {docItems.map((item, idx) => (
+            <div
+              key={idx}
+              className="p-3 rounded border bg-muted/20 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2 truncate pr-2">
+                <CheckCircle2
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    item.docId ? "text-emerald-600" : "text-slate-300"
+                  )}
+                />
+                <span className="font-medium truncate">{item.label}</span>
+              </div>
+              {item.docId ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    window.open(`/api/files/${item.docId}/download`, "_blank")
+                  }
+                  className="h-6 text-[10px] font-mono border-emerald-600 text-emerald-700 hover:bg-emerald-50 gap-1 px-2 shrink-0"
+                >
+                  <Eye className="h-3 w-3" /> View
+                </Button>
+              ) : (
+                <span className="text-[10px] text-rose-600 font-mono italic shrink-0">
+                  Not Attached
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Statutory Certification Box */}
+      <div className="rounded-lg border-2 border-emerald-600/40 bg-emerald-50/40 p-4 space-y-2">
+        <div className="flex items-start gap-2.5">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600 shrink-0" />
+          <span className="text-xs text-slate-800 leading-relaxed font-medium">
+            <strong>Statutory Certification Verified:</strong> The particulars mentioned above for Form-I claim code <strong>{claim.claim_code}</strong> have been certified as genuine & authentic under Coal Bearer's Areas (Acquisition and Development) Act 1957 and Coal India Ltd R&R Policy.
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClaimECLView({
+  claim,
+  onDone,
+  onEdit,
+}: {
+  claim: Claim;
+  onDone: () => void;
+  onEdit: () => void;
+}) {
+  const qc = useQueryClient();
+  const [selectedPlotIds, setSelectedPlotIds] = React.useState<string[]>([]);
+  const [certifyingPlots, setCertifyingPlots] = React.useState<any[] | null>(null);
+  const [decision, setDecision] = React.useState<"Approved" | "Modify Required" | "Rejected">("Approved");
+  const [remarks, setRemarks] = React.useState("");
+  const [legalSearchingDocs, setLegalSearchingDocs] = React.useState<UploadedDoc[]>([]);
+  const [savingCert, setSavingCert] = React.useState(false);
+
+  const initialPlotsList = React.useMemo(() => {
+    return Array.isArray(claim.plots) && claim.plots.length > 0
+      ? claim.plots
+      : Array.isArray(claim.form_i_claim_plot) && claim.form_i_claim_plot.length > 0
+      ? claim.form_i_claim_plot
+      : [
+          {
+            id: claim.id + "_plot",
+            plot_id: claim.plot_id,
+            plot_no: claim.plot_number,
+            mouza: claim.mouza,
+            khatian_no: claim.khatian_no,
+            own_share_acres: claim.own_share_acres,
+            title_approval_status: "PENDING",
+          },
+        ];
+  }, [claim]);
+
+  const [rawPlotsList, setRawPlotsList] = React.useState<any[]>(initialPlotsList);
+
+  React.useEffect(() => {
+    setRawPlotsList(initialPlotsList);
+  }, [initialPlotsList]);
+
+  const toggleSelectAll = () => {
+    if (selectedPlotIds.length === rawPlotsList.length) {
+      setSelectedPlotIds([]);
+    } else {
+      setSelectedPlotIds(rawPlotsList.map((p: any) => p.id || p.plot_id));
+    }
+  };
+
+  const toggleSelectPlot = (id: string) => {
+    setSelectedPlotIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleOpenBatchCertification = () => {
+    const selectedPlots = rawPlotsList.filter((p: any) =>
+      selectedPlotIds.includes(p.id || p.plot_id)
+    );
+    if (selectedPlots.length === 0) {
+      toast.error("Please select at least one plot using the checkboxes");
+      return;
+    }
+    setCertifyingPlots(selectedPlots);
+    setDecision("Approved");
+    setRemarks("");
+    setLegalSearchingDocs([]);
+  };
+
+  const handleOpenSingleCertification = (plot: any) => {
+    setCertifyingPlots([plot]);
+    const rawStatus = plot.title_approval_status || "APPROVED";
+    const mappedDecision =
+      rawStatus === "APPROVED"
+        ? "Approved"
+        : rawStatus === "MODIFY_REQUIRED"
+        ? "Modify Required"
+        : rawStatus === "REJECTED"
+        ? "Rejected"
+        : "Approved";
+
+    setDecision(mappedDecision);
+    setRemarks(plot.scrutiny_remarks || "");
+    if (plot.legal_searching_doc_id) {
+      setLegalSearchingDocs([
+        {
+          id: plot.legal_searching_doc_id,
+          file_name: `Legal_Searching_Certificate_${plot.plot_no || "Plot"}.pdf`,
+          file_size_kb: 1024,
+          mime_type: "application/pdf",
+          virus_scan_status: "clean",
+        },
+      ]);
+    } else {
+      setLegalSearchingDocs([]);
+    }
+  };
+
+  const handleSaveCertification = async () => {
+    if (!certifyingPlots || certifyingPlots.length === 0) return;
+    if (decision === "Approved" && legalSearchingDocs.length === 0) {
+      toast.error("Please upload the Legal Searching Certificate (PDF) before approving.");
+      return;
+    }
+    if ((decision === "Modify Required" || decision === "Rejected") && !remarks.trim()) {
+      toast.error(`Please enter ${decision === "Modify Required" ? "modification remarks" : "rejection reasons"}.`);
+      return;
+    }
+
+    setSavingCert(true);
+    try {
+      const plotIds = certifyingPlots.map((p) => p.id || p.plot_id);
+      const newStatus = decision === "Approved" ? "APPROVED" : decision === "Modify Required" ? "MODIFY_REQUIRED" : "REJECTED";
+      const docId = legalSearchingDocs[0]?.id || legalSearchingDocs[0]?.file_name || null;
+
+      const res = await fetch(`/api/claims/${claim.id}/certify-plot`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plot_ids: plotIds,
+          title_approval_status: newStatus,
+          legal_searching_doc_id: docId,
+          scrutiny_remarks: remarks,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to update title certification");
+      }
+
+      toast.success(`Title Certification updated to ${decision} for ${plotIds.length} plot(s)!`);
+
+      // Update local state immediately so badge and action update instantly
+      setRawPlotsList((prev) =>
+        prev.map((p: any) =>
+          plotIds.includes(p.id || p.plot_id)
+            ? {
+                ...p,
+                title_approval_status: newStatus,
+                legal_searching_doc_id: docId,
+                scrutiny_remarks: remarks,
+              }
+            : p
+        )
+      );
+
+      qc.invalidateQueries({ queryKey: ["claims"] });
+      setCertifyingPlots(null);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save title certification");
+    } finally {
+      setSavingCert(false);
+    }
+  };
+
+  const [approvingClaim, setApprovingClaim] = React.useState(false);
+  const [claimApproved, setClaimApproved] = React.useState(
+    claim.ecl_approval_status === "APPROVED" || claim.state === "APPROVED"
+  );
+
+  const allPlotsApproved =
+    rawPlotsList.length > 0 &&
+    rawPlotsList.every((p: any) => p.title_approval_status === "APPROVED");
+
+  const handleApproveEntireClaim = async () => {
+    setApprovingClaim(true);
+    try {
+      const res = await fetch(`/api/claims/${claim.id}/approve-claim`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to approve Form-I claim");
+      }
+      toast.success(`Form-I Claim ${claim.claim_code} has been successfully APPROVED!`);
+      setClaimApproved(true);
+      qc.invalidateQueries({ queryKey: ["claims"] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to approve claim");
+    } finally {
+      setApprovingClaim(false);
+    }
+  };
+
+  const totalAcres = rawPlotsList.reduce(
+    (sum: number, p: any) => sum + (Number(p.own_share_acres) || 0),
+    0
+  );
+
+  const approvedCount = rawPlotsList.filter(
+    (p: any) => p.title_approval_status === "APPROVED"
+  ).length;
+
+  return (
+    <div className="space-y-3">
+      {/* Top Navigation Bar (Outside Card) */}
+      <div className="flex items-center justify-between">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onDone}
+          className="gap-1.5 text-xs font-semibold h-8 cursor-pointer"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to Claims List
+        </Button>
+      </div>
+
+      {/* Header Info & Stats Summary Card */}
+      <div className="rounded-lg border bg-card p-3 shadow-2xs space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2.5">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                ECL Scrutiny View —{" "}
+                <code className="font-mono bg-emerald-100 dark:bg-emerald-950 text-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded text-xs font-bold">
+                  {claim.claim_code}
+                </code>
+              </h2>
+              <ClaimStatusBadge claim={claim} />
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+              <span>Land Loser: <strong className="text-slate-900 dark:text-slate-100">{claim.claimant_name}</strong></span>
+              <span>·</span>
+              <span>Submitted: {claim.submitted_at ? new Date(claim.submitted_at).toLocaleDateString("en-IN") : "Draft"}</span>
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onEdit}
+              className="h-7 gap-1.5 text-xs border-amber-600 text-amber-700 hover:bg-amber-50 font-semibold cursor-pointer shadow-2xs"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit Claim
+            </Button>
+          </div>
+        </div>
+
+        {/* Quick Executive Metric Chips (Tight Gap) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <div className="p-2 rounded border bg-muted/20">
+            <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Total Schedule Plots</span>
+            <span className="text-sm font-bold font-mono text-emerald-800 dark:text-emerald-300">{rawPlotsList.length} plot(s)</span>
+          </div>
+          <div className="p-2 rounded border bg-muted/20">
+            <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Total Claim Share</span>
+            <span className="text-sm font-bold font-mono text-emerald-800 dark:text-emerald-300">{totalAcres.toFixed(4)} acres</span>
+          </div>
+          <div className="p-2 rounded border bg-muted/20">
+            <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Title Certification</span>
+            <span className="text-sm font-bold font-mono text-amber-800 dark:text-amber-300">
+              {approvedCount} / {rawPlotsList.length} Approved
+            </span>
+          </div>
+          <div className="p-2 rounded border bg-muted/20">
+            <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">R&R Policy Benefit</span>
+            <span className={cn("text-xs font-bold block mt-0.5", totalAcres >= 2.0 ? "text-emerald-700 dark:text-emerald-300" : "text-amber-800 dark:text-amber-300")}>
+              {totalAcres >= 2.0 ? "Form-V Employment Eligible" : "Cash Compensation"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 1: Citizen Profile & Demographics */}
+      <div className="rounded-lg border border-border bg-card p-3 space-y-2.5 shadow-2xs border-l-4 border-l-emerald-600">
+        <div className="flex items-center justify-between border-b pb-1.5">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <div className="p-1 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+              <ShieldCheck className="h-3.5 w-3.5" />
+            </div>
+            1. Land Loser Profile & Demographics (Q1 - Q7)
+          </h4>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+          <div className="p-2 rounded border bg-muted/20">
+            <span className="text-muted-foreground font-medium block text-[10px]">Full Name</span>
+            <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">{claim.claimant_name}</span>
+          </div>
+          <div className="p-2 rounded border bg-muted/20">
+            <span className="text-muted-foreground font-medium block text-[10px]">Father / Husband Name</span>
+            <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">{claim.father_husband_name || "—"}</span>
+          </div>
+          <div className="p-2 rounded border bg-muted/20">
+            <span className="text-muted-foreground font-medium block text-[10px]">EPIC / Aadhaar ID</span>
+            <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 text-xs">{claim.epic_no || claim.citizen_id_hash || "—"}</span>
+          </div>
+          <div className="p-2 rounded border bg-muted/20">
+            <span className="text-muted-foreground font-medium block text-[10px]">Gender & Category</span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs">{claim.gender || "Male"} · {claim.caste_category || "General"}</span>
+          </div>
+          <div className="p-2 rounded border bg-muted/20 md:col-span-2">
+            <span className="text-muted-foreground font-medium block text-[10px]">Present Address</span>
+            <span className="font-medium text-slate-900 dark:text-slate-100 text-xs">{claim.present_address || "—"}</span>
+          </div>
+          <div className="p-2 rounded border bg-muted/20 md:col-span-2">
+            <span className="text-muted-foreground font-medium block text-[10px]">Permanent Address</span>
+            <span className="font-medium text-slate-900 dark:text-slate-100 text-xs">{claim.permanent_address || "—"}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 2: Land & Plot Schedule (Q8 Multi-Plot Table) */}
+      <div className="rounded-lg border border-border bg-card p-3 space-y-2.5 shadow-2xs border-l-4 border-l-blue-600">
+        <div className="flex items-center justify-between border-b pb-1.5">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <div className="p-1 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+              <MapPin className="h-3.5 w-3.5" />
+            </div>
+            2. Land & Plot Schedule (Q8 Multi-Plot Table)
+          </h4>
+        </div>
+
+        <div className="space-y-3">
+          {/* Selection Action Bar (Shown ONLY when 2 or more plots are selected) */}
+          {selectedPlotIds.length >= 2 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 rounded-lg shadow-2xs">
+              <div className="flex items-center gap-2 text-xs text-emerald-950 dark:text-emerald-200 font-semibold">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>{selectedPlotIds.length} Plot(s) Selected for Title Certification</span>
+              </div>
+              <Button
+                size="sm"
+                onClick={handleOpenBatchCertification}
+                className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs cursor-pointer"
+              >
+                <UploadCloud className="h-3.5 w-3.5" /> Upload Legal Searching & Certification →
+              </Button>
+            </div>
+          )}
+
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b font-bold">
+                <tr>
+                  <th className="p-2.5 text-center w-10">
+                    <input
+                      type="checkbox"
+                      checked={
+                        rawPlotsList.length > 0 &&
+                        selectedPlotIds.length === rawPlotsList.length
+                      }
+                      onChange={toggleSelectAll}
+                      className="h-3.5 w-3.5 rounded border-border text-emerald-600 accent-emerald-600 cursor-pointer"
+                    />
+                  </th>
+                  <th className="p-2.5 text-left">#</th>
+                  <th className="p-2.5 text-left">Mouza</th>
+                  <th className="p-2.5 text-left">Plot No</th>
+                  <th className="p-2.5 text-left">Khatian No</th>
+                  <th className="p-2.5 text-right">Own Share (Acres)</th>
+                  <th className="p-2.5 text-center">Title Scrutiny Status</th>
+                  <th className="p-2.5 text-center">Title Certification</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rawPlotsList.map((p: any, idx: number) => {
+                  const pId = p.id || p.plot_id || `plot_${idx}`;
+                  const isChecked = selectedPlotIds.includes(pId);
+                  const status = p.title_approval_status || "PENDING";
+                  return (
+                    <tr
+                      key={idx}
+                      className={cn(
+                        "hover:bg-muted/30 transition-colors",
+                        isChecked && "bg-emerald-50/40"
+                      )}
+                    >
+                      <td className="p-2.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleSelectPlot(pId)}
+                          className="h-3.5 w-3.5 rounded border-border text-emerald-600 accent-emerald-600 cursor-pointer"
+                        />
+                      </td>
+                      <td className="p-2.5 font-mono">{idx + 1}</td>
+                      <td className="p-2.5 font-semibold">
+                        {p.mouza || claim.mouza || "MADHAIPUR"}
+                      </td>
+                      <td className="p-2.5 font-mono font-bold text-emerald-800 dark:text-emerald-300">
+                        {getCleanOnlyPlotNo(
+                          p.plot_no || p.display_plot_no || claim.plot_number,
+                          p.state_lgd || claim.state_lgd,
+                          p.mouza_lgd || claim.mouza_lgd
+                        )}
+                      </td>
+                      <td className="p-2.5 font-mono">
+                        {p.khatian_no || claim.khatian_no || "—"}
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
+                        {p.own_share_acres || claim.own_share_acres} ac
+                      </td>
+                      <td className="p-2.5 text-center">
+                        {status === "APPROVED" ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-emerald-100 text-emerald-800 border-emerald-300 font-bold gap-1 text-[10px]"
+                          >
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Approved
+                          </Badge>
+                        ) : status === "MODIFY_REQUIRED" ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-amber-100 text-amber-900 border-amber-300 font-bold gap-1 text-[10px]"
+                            title={p.scrutiny_remarks}
+                          >
+                            <AlertCircle className="h-3 w-3 text-amber-600" /> Modify Required
+                          </Badge>
+                        ) : status === "REJECTED" ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-rose-100 text-rose-800 border-rose-300 font-bold gap-1 text-[10px]"
+                            title={p.scrutiny_remarks}
+                          >
+                            <X className="h-3 w-3 text-rose-600" /> Rejected
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="bg-blue-50 text-blue-800 border-blue-200 font-semibold text-[10px]"
+                          >
+                            <Clock className="h-3 w-3 text-blue-600" /> Under Review
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="p-2.5 text-center">
+                        {p.legal_searching_doc_id || status === "APPROVED" ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (p.legal_searching_doc_id) {
+                                  window.open(`/api/files/${p.legal_searching_doc_id}/download`, "_blank");
+                                } else {
+                                  toast.info("No certificate file attached.");
+                                }
+                              }}
+                              className="h-7 text-[11px] gap-1 border-blue-600 text-blue-700 hover:bg-blue-50 font-semibold cursor-pointer"
+                            >
+                              <Download className="h-3.5 w-3.5" /> Download
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Edit Certification / Re-upload"
+                              onClick={() => handleOpenSingleCertification(p)}
+                              className="h-7 w-7 p-0 text-slate-500 hover:text-slate-900 cursor-pointer"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenSingleCertification(p)}
+                            className="h-7 text-[11px] gap-1 border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-semibold cursor-pointer"
+                          >
+                            <UploadCloud className="h-3.5 w-3.5" /> Upload
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Step 2.2 Title Certification Dialog Workspace */}
+      <Dialog
+        open={!!certifyingPlots}
+        onOpenChange={(open) => !open && setCertifyingPlots(null)}
+      >
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto p-5 space-y-4">
+          {certifyingPlots && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                  <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                  Title Certification & Legal Searching
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Certifying {certifyingPlots.length} plot(s) for Claim Code{" "}
+                  <strong>{claim.claim_code}</strong>
+                </p>
+              </div>
+
+              {/* Selected Plots List */}
+              <div className="p-2.5 bg-muted/30 border rounded-md text-xs space-y-1">
+                <span className="font-semibold text-slate-700 block">Plots to Certify:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {certifyingPlots.map((p, idx) => (
+                    <Badge key={idx} variant="secondary" className="font-mono text-[11px]">
+                      {getCleanOnlyPlotNo(
+                        p.plot_no || p.display_plot_no || claim.plot_number,
+                        p.state_lgd || claim.state_lgd,
+                        p.mouza_lgd || claim.mouza_lgd
+                      )}{" "}
+                      ({p.mouza || claim.mouza})
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {/* Decision Selection Dropdown */}
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-slate-900 block">
+                  Select Title Certification Decision:
+                </Label>
+                <select
+                  value={decision}
+                  onChange={(e) => setDecision(e.target.value as any)}
+                  className="w-full text-xs font-semibold p-2.5 rounded-lg border-2 border-slate-300 bg-background text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                >
+                  <option value="Approved">🟢 Approved (Clear Title & Upload Legal Searching Certificate)</option>
+                  <option value="Modify Required">🟠 Modify Required (Request Correction / Additional Documents)</option>
+                  <option value="Rejected">🔴 Rejected (Legal Title Encumbered / Dispute Found)</option>
+                </select>
+              </div>
+
+              {/* Dynamic Content based on Decision */}
+              {decision === "Approved" ? (
+                <div className="space-y-2 p-3 bg-emerald-50/50 border border-emerald-200 rounded-lg">
+                  <Label className="text-xs font-bold text-emerald-950 block">
+                    Upload Legal Searching Certificate (PDF):
+                  </Label>
+                  <DocumentUploader
+                    checklist_item_key="LEGAL_SEARCHING_CERT"
+                    label="Legal Searching Certificate (PDF)"
+                    module="LEGAL_SEARCHING_CERT"
+                    documents={legalSearchingDocs}
+                    onChange={(docs: any) => {
+                      const docArr = Array.isArray(docs) ? docs : [docs];
+                      setLegalSearchingDocs(docArr);
+                    }}
+                  />
+                  <p className="text-[11px] text-emerald-800 italic">
+                    Upload the formally signed Legal Searching Certificate issued by the advocate clearing the title.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 p-3 bg-amber-50/50 border border-amber-200 rounded-lg">
+                  <Label className="text-xs font-bold text-slate-900 block">
+                    {decision === "Modify Required" ? "Modification Remarks / Rectification Instructions:" : "Rejection Reasons:"}
+                  </Label>
+                  <textarea
+                    rows={3}
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    placeholder={
+                      decision === "Modify Required"
+                        ? "Specify missing documents or unrecorded mutation required from applicant..."
+                        : "Specify legal title encumbrance or dispute rationale..."
+                    }
+                    className="w-full text-xs p-2 rounded-md border border-slate-300 bg-background font-sans focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 border-t pt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCertifyingPlots(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSaveCertification}
+                  disabled={savingCert}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                >
+                  {savingCert ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Saving...
+                    </>
+                  ) : (
+                    "Save & Update Title Certification"
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Section 3: Financial & Bank Details */}
-      <SectionCard
-        title="3. Financial & Bank RTGS Details (Q10)"
-        icon={IndianRupee}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
-          <div className="p-3 rounded-lg border bg-card">
-            <span className="text-muted-foreground font-medium block text-[11px]">
-              Bank Name
-            </span>
-            <span className="font-bold text-slate-900">
-              {claim.bank_name || "—"}
-            </span>
+      <div className="rounded-lg border border-border bg-card p-3 space-y-2.5 shadow-2xs border-l-4 border-l-amber-600">
+        <div className="flex items-center justify-between border-b pb-1.5">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <div className="p-1 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300">
+              <IndianRupee className="h-3.5 w-3.5" />
+            </div>
+            3. Financial & Bank RTGS Details (Q10)
+          </h4>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-xs">
+          <div className="p-2 rounded border bg-muted/20">
+            <span className="text-muted-foreground font-medium block text-[10px]">Bank Name</span>
+            <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">{claim.bank_name || "—"}</span>
           </div>
-          <div className="p-3 rounded-lg border bg-card">
-            <span className="text-muted-foreground font-medium block text-[11px]">
-              Branch Name
-            </span>
-            <span className="font-semibold">{claim.bank_branch || "—"}</span>
+          <div className="p-2 rounded border bg-muted/20">
+            <span className="text-muted-foreground font-medium block text-[10px]">Branch Name</span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs">{claim.bank_branch || "—"}</span>
           </div>
-          <div className="p-3 rounded-lg border bg-card">
-            <span className="text-muted-foreground font-medium block text-[11px]">
-              Account Number
-            </span>
-            <span className="font-mono font-bold text-slate-900">
-              {claim.bank_account_number || "—"}
-            </span>
+          <div className="p-2 rounded border bg-muted/20">
+            <span className="text-muted-foreground font-medium block text-[10px]">Account Number</span>
+            <span className="font-mono font-bold text-slate-900 dark:text-slate-100 text-xs">{claim.bank_account_number || "—"}</span>
           </div>
-          <div className="p-3 rounded-lg border bg-card">
-            <span className="text-muted-foreground font-medium block text-[11px]">
-              IFSC Code
-            </span>
-            <span className="font-mono font-bold text-emerald-700">
-              {claim.bank_ifsc || "—"}
-            </span>
+          <div className="p-2 rounded border bg-muted/20">
+            <span className="text-muted-foreground font-medium block text-[10px]">IFSC Code</span>
+            <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 text-xs">{claim.bank_ifsc || "—"}</span>
           </div>
         </div>
-      </SectionCard>
+      </div>
 
       {/* Section 4: Statutory Declarations */}
-      <SectionCard
-        title="4. Statutory Declarations (Questions 9, 11 - 15)"
-        icon={FileCheck}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-          <div className="p-3 rounded-lg border bg-card">
-            <div className="font-semibold text-slate-800">
-              Q9. Prior Compensation Received
+      <div className="rounded-lg border border-border bg-card p-3 space-y-2.5 shadow-2xs border-l-4 border-l-purple-600">
+        <div className="flex items-center justify-between border-b pb-1.5">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <div className="p-1 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
+              <FileCheck className="h-3.5 w-3.5" />
             </div>
-            <div className="mt-1 font-bold text-emerald-800">
-              {claim.prior_compensation_received ? "YES" : "NO"}
-            </div>
-            {claim.prior_compensation_details && (
-              <p className="text-muted-foreground text-[11px] mt-1">
-                {claim.prior_compensation_details}
-              </p>
-            )}
+            4. Statutory Declarations (Questions 9, 11 - 15)
+          </h4>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
+          <div className="p-2 rounded border bg-muted/20 flex flex-col justify-between">
+            <div className="font-semibold text-slate-800 dark:text-slate-200 text-[11px]">Q9. Prior Compensation Received</div>
+            <div className="mt-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs">{claim.prior_compensation_received ? "YES" : "NO"}</div>
+            {claim.prior_compensation_details && <p className="text-muted-foreground text-[10px] mt-0.5">{claim.prior_compensation_details}</p>}
           </div>
-          <div className="p-3 rounded-lg border bg-card">
-            <div className="font-semibold text-slate-800">
-              Q11. Prior Employment Linked
-            </div>
-            <div className="mt-1 font-bold text-emerald-800">
-              {claim.prior_employment_linked ? "YES" : "NO"}
-            </div>
+          <div className="p-2 rounded border bg-muted/20 flex flex-col justify-between">
+            <div className="font-semibold text-slate-800 dark:text-slate-200 text-[11px]">Q11. Prior Employment Linked</div>
+            <div className="mt-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs">{claim.prior_employment_linked ? "YES" : "NO"}</div>
           </div>
-          <div className="p-3 rounded-lg border bg-card">
-            <div className="font-semibold text-slate-800">
-              Q12. Free from Disputes
-            </div>
-            <div className="mt-1 font-bold text-emerald-800">
-              {claim.is_free_from_disputes !== false ? "YES" : "NO"}
-            </div>
+          <div className="p-2 rounded border bg-muted/20 flex flex-col justify-between">
+            <div className="font-semibold text-slate-800 dark:text-slate-200 text-[11px]">Q12. Free from Disputes</div>
+            <div className="mt-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs">{claim.is_free_from_disputes !== false ? "YES" : "NO"}</div>
           </div>
-          <div className="p-3 rounded-lg border bg-card">
-            <div className="font-semibold text-slate-800">
-              Q13. Free from Encumbrances
-            </div>
-            <div className="mt-1 font-bold text-emerald-800">
-              {claim.is_free_from_encumbrances !== false ? "YES" : "NO"}
-            </div>
+          <div className="p-2 rounded border bg-muted/20 flex flex-col justify-between">
+            <div className="font-semibold text-slate-800 dark:text-slate-200 text-[11px]">Q13. Free from Encumbrances</div>
+            <div className="mt-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs">{claim.is_free_from_encumbrances !== false ? "YES" : "NO"}</div>
           </div>
-          <div className="p-3 rounded-lg border bg-card">
-            <div className="font-semibold text-slate-800">
-              Q14. Peaceful Possession Handover
-            </div>
-            <div className="mt-1 font-bold text-emerald-800">
-              {claim.can_handover_possession !== false ? "YES" : "NO"}
-            </div>
+          <div className="p-2 rounded border bg-muted/20 flex flex-col justify-between">
+            <div className="font-semibold text-slate-800 dark:text-slate-200 text-[11px]">Q14. Peaceful Possession Handover</div>
+            <div className="mt-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs">{claim.can_handover_possession !== false ? "YES" : "NO"}</div>
           </div>
-          <div className="p-3 rounded-lg border bg-card">
-            <div className="font-semibold text-slate-800">
-              Q15. Opted One-time Monetary Compensation
-            </div>
-            <div className="mt-1 font-bold text-emerald-800">
-              {claim.opted_monetary_in_lieu_of_employment ? "YES" : "NO"}
-            </div>
+          <div className="p-2 rounded border bg-muted/20 flex flex-col justify-between">
+            <div className="font-semibold text-slate-800 dark:text-slate-200 text-[11px]">Q15. Opted Monetary Compensation</div>
+            <div className="mt-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs">{claim.opted_monetary_in_lieu_of_employment ? "YES" : "NO"}</div>
           </div>
         </div>
-      </SectionCard>
+      </div>
 
       {/* Section 5: Submitted Proof Documents */}
-      <SectionCard
-        title="5. Submitted Proof Documents (Read-Only File Viewer)"
-        icon={Paperclip}
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+      <div className="rounded-lg border border-border bg-card p-3 space-y-2.5 shadow-2xs border-l-4 border-l-rose-600">
+        <div className="flex items-center justify-between border-b pb-1.5">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <div className="p-1 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">
+              <Paperclip className="h-3.5 w-3.5" />
+            </div>
+            5. Submitted Proof Documents (Read-Only File Viewer)
+          </h4>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-xs">
           {[
             { label: "Passport Size Photo", docId: claim.photo_doc_id },
-            {
-              label: "Magistrate Affidavit",
-              docId: claim.magistrate_affidavit_doc_id,
-            },
+            { label: "Magistrate Affidavit", docId: claim.magistrate_affidavit_doc_id },
             { label: "Bank Passbook / Cheque", docId: claim.passbook_doc_id },
             { label: "Title Deed / Parcha", docId: claim.title_deed_doc_id },
             { label: "Signed Form-I Copy", docId: claim.signed_form_i_doc_id },
           ].map((item, idx) => (
             <div
               key={idx}
-              className="p-3.5 rounded-xl border bg-card shadow-xs flex flex-col justify-between gap-3"
+              className="p-2.5 rounded-lg border bg-muted/20 shadow-2xs flex flex-col justify-between gap-2"
             >
               <div>
-                <span className="font-bold text-slate-900 block text-xs">
+                <span className="font-bold text-slate-900 dark:text-slate-100 block text-xs truncate">
                   {item.label}
                 </span>
                 <span className="text-[10px] font-mono text-muted-foreground block truncate mt-0.5">
@@ -1098,9 +2145,9 @@ function ClaimNormalView({
                   onClick={() =>
                     window.open(`/api/files/${item.docId}/download`, "_blank")
                   }
-                  className="h-8 text-xs gap-1.5 border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-medium w-full"
+                  className="h-7 text-[11px] gap-1 border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-semibold w-full cursor-pointer"
                 >
-                  <Eye className="h-3.5 w-3.5" /> View / Download File
+                  <Eye className="h-3.5 w-3.5" /> View / Download
                 </Button>
               ) : (
                 <Badge
@@ -1113,7 +2160,56 @@ function ClaimNormalView({
             </div>
           ))}
         </div>
-      </SectionCard>
+      </div>
+
+      {/* Section 6: Overall ECL Claim Final Approval */}
+      <div className="rounded-lg border border-border bg-card p-3.5 space-y-3 shadow-xs border-l-4 border-l-emerald-600">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <div className="p-1 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                <ShieldCheck className="h-4 w-4" />
+              </div>
+              6. Overall Form-I Claim Approval & Legal Finalization
+            </h4>
+            <p className="text-xs text-muted-foreground mt-1">
+              {claimApproved
+                ? `Form-I Claim Code ${claim.claim_code} is APPROVED & finalized in public.form_i_claim database table.`
+                : allPlotsApproved
+                ? `All ${rawPlotsList.length} plot(s) have been verified & Title-Certified. Click below to approve the entire claim.`
+                : `Currently ${approvedCount} of ${rawPlotsList.length} plot(s) are Title-Approved. Approve all plots to unlock overall claim approval.`}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {claimApproved ? (
+              <Badge variant="outline" className="bg-emerald-100 text-emerald-950 border-emerald-300 font-bold px-3 py-1.5 text-xs gap-1.5 shadow-2xs">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Form-I Claim Approved
+              </Badge>
+            ) : allPlotsApproved ? (
+              <Button
+                onClick={handleApproveEntireClaim}
+                disabled={approvingClaim}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-2 px-4 py-2 shadow-xs cursor-pointer"
+              >
+                {approvingClaim ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Approving Claim...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" /> Approve & Finalize Form-I Claim
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Badge variant="outline" className="bg-amber-50 text-amber-900 border-amber-300 font-semibold px-3 py-1 text-xs gap-1">
+                <Clock className="h-3.5 w-3.5 text-amber-600 animate-pulse" /> Pending All Plot Title Certifications ({approvedCount}/{rawPlotsList.length})
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

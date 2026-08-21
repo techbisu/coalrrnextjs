@@ -17,6 +17,6 @@ function createExtendedClient() {
   }).$extends(withAuditExtension);
 }
 
-export const db = createExtendedClient();
+export const db = globalForPrisma.prisma ?? createExtendedClient();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;

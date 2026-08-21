@@ -41,6 +41,9 @@ export class GetClaimsUseCase implements IUseCase<void, any[]> {
             total_ror_area: Number(cp.total_ror_area ?? 0),
             mouza: plotInfo?.mouza?.mouza_en || (plotInfo?.jl_no ? `JL-${plotInfo.jl_no} Mouza` : "MADHAIPUR"),
             land_type: plotInfo?.plot_ty === '1' || plotInfo?.plot_ty === 'LR' ? 'Agricultural' : (plotInfo?.plot_ty || "Agricultural"),
+            title_approval_status: cp.title_approval_status || 'PENDING',
+            legal_searching_doc_id: cp.legal_searching_doc_id || null,
+            scrutiny_remarks: cp.scrutiny_remarks || null,
           }
         })
 
@@ -117,6 +120,7 @@ export class GetClaimsUseCase implements IUseCase<void, any[]> {
           khatian_no: khatianNoStr,
           plots: mappedPlots,
           form_i_claim_plot: mappedPlots,
+          plot_count: mappedPlots.length > 0 ? mappedPlots.length : 1,
           link_deed_no: c.link_deed_no,
           ownership_date: iso(c.ownership_date),
           transferor_name: c.transferor_name,
@@ -136,7 +140,8 @@ export class GetClaimsUseCase implements IUseCase<void, any[]> {
           opted_monetary_in_lieu_of_employment: getDecl(15)?.answer_boolean ?? false,
           monetary_opt_reason: getDecl(15)?.details || undefined,
           form_v_eligible: c.form_v_eligible ?? false,
-          state: c.state,
+          state: c.ecl_approval_status === "APPROVED" ? "APPROVED" : c.state || "Drafting",
+          ecl_approval_status: c.ecl_approval_status || "PENDING",
           submitted_at: iso(c.submitted_at),
           transparency_window_ends_at: iso(c.transparency_window_ends_at),
           daysRemaining,
