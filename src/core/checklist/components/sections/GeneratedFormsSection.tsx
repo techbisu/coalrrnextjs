@@ -8,19 +8,15 @@ import { GeneratedDocumentField } from '../fields/GeneratedDocumentField'
 
 interface GeneratedFormsSectionProps {
   items: any[];
-  onOpenWorkspace: (templateCode: string) => void;
+  onOpenWorkspace: (templateCode: string, contextId?: string) => void;
   readonly?: boolean;
 }
 
 export function GeneratedFormsSection({ items, onOpenWorkspace, readonly = false }: GeneratedFormsSectionProps) {
   if (items.length === 0) return null;
 
-  const completedCount = items.filter(item => 
-    item.generatedDocInfo?.status === 'COMPLETED' || 
-    item.submission?.status === 'SUBMITTED' || 
-    item.submission?.status === 'AUTO_SATISFIED' || 
-    item.submission?.status === 'APPROVED'
-  ).length;
+  // Use the authoritative `isSatisfied` field from the checklist DTO — single source of truth
+  const completedCount = items.filter(item => item.isSatisfied === true).length;
 
   return (
     <Card className="border-purple-200/80 dark:border-purple-900/40 bg-gradient-to-br from-purple-50/20 via-card to-card shadow-sm overflow-hidden">
@@ -58,8 +54,9 @@ export function GeneratedFormsSection({ items, onOpenWorkspace, readonly = false
               inputSchema={item.inputSchema}
               generatedDocInfo={item.generatedDocInfo}
               submission={item.submission}
-              onOpenWorkspace={onOpenWorkspace}
+              onOpenWorkspace={(templateCode) => onOpenWorkspace(templateCode, item.contextId)}
               readonly={readonly}
+              isSatisfied={item.isSatisfied}
             />
           ))}
         </div>

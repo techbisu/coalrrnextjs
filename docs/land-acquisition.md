@@ -87,11 +87,16 @@ Direct Purchase (Mode 6): Drafting → UnitSubmitted → CrossCollieryVerificati
 Standard LAP:           Drafting → UnitSubmitted → AreaVetting → HqParallelVetting → BoardEscalation → Published
 ```
 
-### Form-VII Joint Reconciliation Signature Flow (12 Signatures: 6+6 Flow)
+### Form-VII Joint Reconciliation Signature Flow & Cross-Colliery Routing
 Form-VII requires a 12-signature joint reconciliation across colliery boundaries:
 1. **Purchasing Colliery (Steps 1–6)**: Land Clerk, Survey Officer, Project Manager, Project Agent, Area Land Officer, Area General Manager.
 2. **Adjacent Colliery (Steps 7–12)**: Adjacent Land Clerk, Adjacent Survey Officer, Adjacent Project Manager, Adjacent Project Agent, Adjacent Area Land Officer, Adjacent Area General Manager.
 3. Seeding rule: `document_template_signature.seed.ts` seeds all 12 signature rules. Computed dynamically in `FormVIIResolver.ts`.
+
+#### Multi-Target Routing & Form-VII Cloning
+- When a proposal is forwarded to the `CrossCollieryVerification` stage, the workflow engine uses `MULTI_TARGET` routing, sending action assignments to all mines listed in the `cross_colliery_cds` array.
+- The **Checklist Service** dynamically spawns "virtual" rules for Form-VII by reading the same array (e.g., generating 3 virtual Form-VII slots if 3 adjacent mines are involved).
+- If an adjacent mine rejects the proposal, the system automatically voids all associated target-specific Form-VII instances via the `PROPOSAL_RETURNED` domain event, ensuring a complete reset of the joint measurement process.
 
 ## Business Logic Rules & Categorization
 

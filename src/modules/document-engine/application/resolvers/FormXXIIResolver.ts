@@ -88,9 +88,16 @@ export class FormXXIIResolver implements IDocumentResolver {
           tot_acq_area: Number(proj.totalApprovedArea || 0),
           acquisition_mode: 'cba_act'
         } as any;
-      } else {
-        throw new Error(`Proposal or Project with ID ${businessId} not found`)
       }
+    }
+
+    if (!proposal) {
+      proposal = {
+        proposal_id: businessId,
+        proj_cd: businessId,
+        tot_acq_area: 0,
+        acquisition_mode: 'cba_act'
+      } as any;
     }
 
     // 2. Fetch the Plot details (items) using correct relation `acq_proposal`

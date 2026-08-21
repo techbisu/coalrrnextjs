@@ -83,3 +83,12 @@ export type { EntityFileManagerModalProps, EntityFileManagerTriggerProps, Entity
 export { UserInfoBadge } from './UserInfoBadge'
 export type { UserInfoBadgeProps } from './UserInfoBadge'
 
+export { StepTrackingPanel } from './StepTrackingPanel'
+export type { StepTrackingPanelProps, StepItem } from './StepTrackingPanel'
+
+export { ForwardDialog } from './ForwardDialog'
+export type { ForwardDialogProps, RecipientOption } from './ForwardDialog'
+
+export { ReturnDialog } from './ReturnDialog'
+export type { ReturnDialogProps } from './ReturnDialog'
+

@@ -20,6 +20,13 @@ export type WorkflowPendingActionType =
   | 'ACTION'
   | 'MILESTONE';
 
+export type PendingActionClassification =
+  | 'ACTIONABLE_BY_ME'
+  | 'WAITING_ON_ASSIGNEE'
+  | 'BLOCKED_BY_PREREQUISITE'
+  | 'NOT_AUTHORIZED'
+  | 'COMPLETED';
+
 export interface WorkflowPendingAction {
   readonly id: string;
   readonly type: WorkflowPendingActionType;
@@ -27,6 +34,9 @@ export interface WorkflowPendingAction {
   readonly label: string;
   readonly description?: string;
   readonly status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED';
+  readonly classification?: PendingActionClassification;
+  readonly requiredRole?: string;
+  readonly requiredPermission?: string;
   readonly isAuthorizedForCurrentUser: boolean;
   readonly metadata?: Record<string, unknown>;
 }
@@ -45,6 +55,15 @@ export interface WorkflowActionItem {
   readonly status: 'PENDING' | 'COMPLETED';
   readonly completedAt?: string;
   readonly completedBy?: string;
+  readonly completedUser?: {
+    readonly id?: string | number;
+    readonly name?: string;
+    readonly designation?: string;
+    readonly mobile?: string;
+    readonly email?: string;
+  };
+  readonly completedRole?: string;
+  readonly targetRecipientLabel?: string;
   readonly justification?: string;
   readonly attachments?: readonly WorkflowActionItemAttachment[];
   readonly documentRefId?: string;
@@ -103,6 +122,13 @@ export interface CurrentUserCapabilities {
   readonly activeRole?: string;
 }
 
+export interface PendingWorkSummary {
+  readonly actionableByMeCount: number;
+  readonly waitingOnOthersCount: number;
+  readonly completedCount: number;
+  readonly blockedCount: number;
+}
+
 export interface WorkflowSnapshot {
   readonly context: WorkflowContextReference;
   readonly currentState: {
@@ -125,5 +151,6 @@ export interface WorkflowSnapshot {
   readonly assignments: readonly WorkflowAssignmentNode[];
   readonly availableTransitions: readonly WorkflowTransitionOption[];
   readonly currentUserCapabilities: CurrentUserCapabilities;
+  readonly pendingWorkSummary?: PendingWorkSummary;
   readonly updatedAt: string;
 }

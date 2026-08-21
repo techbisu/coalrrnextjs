@@ -13,7 +13,7 @@ export interface UpdateProposalRequest {
   proposalTitle?: string
   description?: string
   area_office?: string
-  adjacent_colliery?: string
+  adjacent_collieries?: string[]
   notification_date?: Date
   user_id: string
 }
@@ -41,7 +41,7 @@ export class UpdateProposalUseCase implements IUseCase<UpdateProposalRequest, Up
       proposalTitle: request.proposalTitle,
       description: request.description,
       areaOffice: request.area_office,
-      adjacentColliery: request.adjacent_colliery,
+      adjacentCollieries: request.adjacent_collieries,
       notificationDate: request.notification_date,
     })
 

@@ -1,24 +1,39 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { ok, serverError, badRequest } from '@/app/api/_lib'
-import { db } from '@/lib/db'
+import { Container } from '@/infrastructure/di/Container'
+import { workflowTargetResolverRegistry } from '@/core/workflow/resolvers/WorkflowTargetResolverRegistry'
+import { MODULE_CODES, CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
 
 export async function POST(req: NextRequest) {
-  const auth = await authorizeApi('project.view')
+  const auth = await authorizeApi([
+    'document.sign',
+    'proposal.sign',
+    'proposal.view',
+    'acquisition.view',
+    'project.view',
+  ])
   if ('error' in auth) {
     return NextResponse.json({ error: auth.error }, { status: 403 })
   }
 
   try {
     const body = await req.json()
-    const { instanceId, role: providedRole, sig_permission, signatureText } = body
+    const {
+      instanceId,
+      role: providedRole,
+      sig_permission,
+      signatureText,
+      moduleCode,
+      entityType,
+    } = body
     const targetPerm = sig_permission || providedRole
     
     if (!instanceId || !targetPerm || !signatureText) {
       return badRequest('instanceId, sig_permission (or role), and signatureText are required')
     }
 
-    const instance = await db.document_instance.findUnique({ where: { id: instanceId } })
+    const instance = await Container.documentInstanceRepository.findById(instanceId)
     if (!instance) return badRequest('Document instance not found')
 
     // 1. Server-side Permission Validation (Strict Security Guard)
@@ -38,54 +53,76 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Forbidden: Missing signature permission ${targetPerm}` }, { status: 403 })
     }
 
-    // 2. Sequential Step Validation
-    const sigRules = Array.isArray(instance.resolver_signatures_json)
-      ? (instance.resolver_signatures_json as any[])
-      : []
-    const sortedRules = [...sigRules].sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+    // 2. Resolve current workflow state for the entity (generic — uses moduleCode + entityType from caller)
+    const currentState = await resolveCurrentWorkflowState(
+      moduleCode || MODULE_CODES.LAND_SCHEDULE,
+      entityType || CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
+      instance.application_id
+    )
+
+    // 3. Resolve signature rules from the AUTHORITATIVE document_template_signature table
+    //    (not from the stale resolver_signatures_json stored on the instance)
+    const sigReq = await Container.documentSignatureRequirementResolver.resolve(
+      instance.template_code,
+      instance.signature_data_json,
+      currentState
+    )
+
+    if (!sigReq.hasSignatureRules) {
+      return badRequest('No signature rules configured for this document template')
+    }
+
+    const sortedRules = [...sigReq.allRules].sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
     const existingSigs = Array.isArray(instance.signature_data_json) ? (instance.signature_data_json as any[]) : []
 
-    const targetRuleIndex = sortedRules.findIndex(r => (r.sig_permission || r.role) === targetPerm)
+    // 4. Validate that the requested signature is actually required for the current workflow state
+    const isRequiredForCurrentState = sigReq.currentStageRequiredRules.some(
+      rule => rule.sig_permission === targetPerm
+    )
+    if (!isRequiredForCurrentState && !sigReq.fullyCompleted) {
+      return badRequest(`Signature '${targetPerm}' is not required for the current workflow state`)
+    }
+
+    // 5. Sequential Step Validation — enforce display_order ordering
+    const targetRuleIndex = sortedRules.findIndex(r => r.sig_permission === targetPerm)
     if (targetRuleIndex > 0) {
       for (let k = 0; k < targetRuleIndex; k++) {
         const prev = sortedRules[k]
-        const prevPerm = prev.sig_permission || prev.role
-        if (prev.is_required && !existingSigs.some(s => (s.sig_permission || s.role) === prevPerm)) {
-          return badRequest(`Sequential error: Step ${k + 1} (${prevPerm}) must be signed before step ${targetRuleIndex + 1}`)
+        if (prev.is_required && !existingSigs.some(s => s.sig_permission === prev.sig_permission)) {
+          return badRequest(`Sequential error: Step ${k + 1} (${prev.sig_permission}) must be signed before step ${targetRuleIndex + 1}`)
         }
       }
     }
 
+    const userName = auth.user.name || auth.user.email || 'Authorized Signee'
+    const designation = auth.user.designation || (auth.user.roles?.[0] ? auth.user.roles[0].replace(/_/g, ' ') : 'Officer')
+    const signedAtIso = new Date().toISOString()
+    const formattedSignatureText = `Digitally Signed By\n${userName}\n${designation}, ECL\n${signedAtIso}`
+
     const updatedSigs = [
-      ...existingSigs.filter((s: any) => (s.sig_permission || s.role) !== targetPerm),
+      ...existingSigs.filter((s: any) => s.sig_permission !== targetPerm),
       {
         role: targetPerm,
         sig_permission: targetPerm,
-        signatureText,
-        signedAt: new Date().toISOString(),
+        signatureText: formattedSignatureText,
+        signedAt: signedAtIso,
         userId: auth.user.id,
-        userName: auth.user.name || auth.user.email
+        userName,
+        userDesignation: designation,
       }
     ]
 
-    await db.document_instance.update({
-      where: { id: instanceId },
-      data: {
-        signature_data_json: updatedSigs,
-        status: 'QUEUED',
-      }
-    })
+    await Container.documentInstanceRepository.update(instanceId, {
+      signature_data_json: updatedSigs,
+      status: 'QUEUED',
+    } as any)
 
     // Queue background generation job via JobDispatcherService
     try {
-      const { jobDispatcher } = await import('@/infrastructure/di/Container')
-      await jobDispatcher.dispatch('generateDocument', { instanceId })
+      await Container.jobDispatcher.dispatch('generateDocument', { instanceId })
     } catch (dispatchErr: any) {
       console.error(`[POST /api/document-engine/sign] Dispatch failed for ${instanceId}:`, dispatchErr)
-      await db.document_instance.updateMany({
-        where: { id: instanceId, status: 'QUEUED' },
-        data: { status: 'DRAFT' },
-      })
+      await Container.documentInstanceRepository.update(instanceId, { status: 'DRAFT' } as any)
       throw dispatchErr
     }
 
@@ -93,5 +130,27 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Error signing document:', error)
     return serverError('Failed to apply signature to document', error.message)
+  }
+}
+
+/**
+ * Resolve the current workflow state for an entity.
+ * Uses the generic workflowTargetResolverRegistry — no module-specific logic.
+ * Falls back to 'Drafting' if resolution fails.
+ */
+async function resolveCurrentWorkflowState(
+  moduleCode: string,
+  entityType: string,
+  applicationId: string
+): Promise<string> {
+  try {
+    const status = await workflowTargetResolverRegistry.resolveStatus(
+      moduleCode,
+      entityType,
+      applicationId
+    )
+    return status?.currentStateCode || 'Drafting'
+  } catch {
+    return 'Drafting'
   }
 }

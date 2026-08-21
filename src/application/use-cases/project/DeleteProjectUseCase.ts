@@ -6,7 +6,6 @@ import { IUseCase, Result, Fail, Ok } from '@/core'
 import { IProjectRepository } from '@/domain'
 import { EventBus } from '@/core/notifications/EventBus'
 import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di'
-import { db } from '@/lib/db'
 
 export interface DeleteProjectRequest {
   id: string
@@ -56,24 +55,6 @@ export class DeleteProjectUseCase implements IUseCase<DeleteProjectRequest, Dele
       user_id: request.user_id,
       remarks: `Deleted Project: ${project.projNm}`,
     })
-
-    // 5. In-App Notification
-    try {
-      await db.notification_log.create({
-        data: {
-          id: crypto.randomUUID(),
-          recipient_id: request.user_id,
-          recipient_contact: 'system',
-          channel: 'IN_APP',
-          payload: `The project "${project.projNm}" was successfully deleted.`,
-          status: 'SENT',
-          entry_ts: new Date(),
-          updt_ts: new Date()
-        }
-      })
-    } catch (err) {
-      console.error('Failed to create in-app notification for project deletion', err)
-    }
 
     // 6. Return response
     return Ok({

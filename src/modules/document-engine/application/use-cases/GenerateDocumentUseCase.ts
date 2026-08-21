@@ -29,32 +29,33 @@ export class GenerateDocumentUseCase implements IUseCase<GenerateDocumentDTO, an
 
       // 1. Resolve fields
       const resolver = this.resolverRegistry.getResolver(template.template_code)
-      const resolvedData = await resolver.resolve(instance.application_id!, { form_data: instance.form_data || {} })
+      const resolvedData = await resolver.resolve(instance.application_id!, { 
+        form_data: instance.form_data || {},
+        context_id: instance.context_id
+      })
       
-      // 2. Inject Signatures into resolvedData.fields
+      // 2. Inject Signatures into resolvedData.fields via Template Repository Rules (100% Generic)
       const signatures = Array.isArray(instance.signature_data_json) ? instance.signature_data_json : []
-      const pendingQueue = Array.isArray(instance.resolver_signatures_json) ? instance.resolver_signatures_json : []
-      
+      const sigRules = await this.templateRepository.findSignatureRules(template.template_code)
+
       for (const sig of signatures as { role?: string; sig_permission?: string; signatureText: string; signedAt?: string }[]) {
-        const sigPerm = sig.sig_permission || sig.role
-        const rule = pendingQueue.find((q: any) => (q.sig_permission || q.role) === sigPerm) as any
+        const sigPerm = (sig.sig_permission || sig.role || '').toLowerCase()
+        const rule = sigRules.find((r: any) =>
+          r.sig_permission?.toLowerCase() === sigPerm ||
+          r.sig_permission?.toLowerCase().endsWith(sigPerm) ||
+          sigPerm.endsWith(r.sig_permission?.toLowerCase())
+        )
+
         if (rule && rule.placeholders) {
+          let matchedKeys: string[] = []
           if (Array.isArray(rule.placeholders)) {
-            for (const placeholder of rule.placeholders) {
-              const cleanKey = String(placeholder).replace(/[\{\}]/g, '').trim()
-              ;(resolvedData.fields as any)[cleanKey] = sig.signatureText
-            }
+            matchedKeys = rule.placeholders.map((p: any) => String(p).replace(/[\{\}]/g, '').trim())
           } else if (typeof rule.placeholders === 'object') {
-            for (const [k, ph] of Object.entries(rule.placeholders)) {
-              if (typeof ph === 'string') {
-                const cleanKey = ph.replace(/[\{\}]/g, '').trim()
-                if (k.toLowerCase().includes('date')) {
-                  (resolvedData.fields as any)[cleanKey] = sig.signedAt ? new Date(sig.signedAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')
-                } else {
-                  (resolvedData.fields as any)[cleanKey] = sig.signatureText
-                }
-              }
-            }
+            matchedKeys = Object.values(rule.placeholders).map((p: any) => String(p).replace(/[\{\}]/g, '').trim())
+          }
+
+          for (const cleanKey of matchedKeys) {
+            (resolvedData.fields as any)[cleanKey] = sig.signatureText
           }
         }
       }

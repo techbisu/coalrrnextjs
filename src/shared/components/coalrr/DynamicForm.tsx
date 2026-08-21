@@ -94,9 +94,15 @@ export function DynamicForm({ instanceId, fields, onSuccess, defaultValues = {} 
                 className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">Select option...</option>
-                {Array.isArray(field.options) && field.options.map((opt: string) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
+                {Array.isArray(field.options) && field.options.map((opt: any, idx: number) => {
+                  const val = typeof opt === 'object' && opt !== null ? (opt.value ?? opt.label ?? String(idx)) : String(opt);
+                  const lbl = typeof opt === 'object' && opt !== null ? (opt.label ?? opt.value ?? String(opt)) : String(opt);
+                  return (
+                    <option key={`${val}-${idx}`} value={val}>
+                      {lbl}
+                    </option>
+                  );
+                })}
               </select>
             ) : isTextarea ? (
               <textarea

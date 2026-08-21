@@ -49,6 +49,48 @@ User visibility and operational permissions are dynamically scoped via `UserScop
 
 ---
 
+## Canonical 14 Enterprise Roles (`prisma/seed/role.seed.ts`)
+
+The system defines 14 specific statutory roles across 4 organizational tiers:
+
+| Tier | Role Code | Role Name | Primary Responsibilities & Permissions |
+| :--- | :--- | :--- | :--- |
+| **Unit** | `land_clerk` | Land Clerk / Revenue Inspector | `proposal.create`, `proposal.edit`, `form_vii.sign.purchasing_land_clerk` |
+| **Unit** | `surveyor` | Unit Surveyor | `proposal.view`, `form_xvi.sign.surveyor`, `form_vii.sign.purchasing_survey_officer` |
+| **Unit** | `colliery_manager` | Colliery / Project Manager | `proposal.view`, `form_xvi.sign.manager`, `form_vii.sign.purchasing_project_manager` |
+| **Unit** | `project_agent` | Project / Colliery Agent | `proposal.view`, `form_xvi.sign.agent`, `form_vii.sign.purchasing_project_agent`, forward to Area |
+| **Area** | `area_land_officer` | Area Land Dealing Officer (ALDO) | `proposal.view`, `form_xxii.sign.area_land_officer`, `form_vii.sign.purchasing_area_land_officer` |
+| **Area** | `area_land_cell_member`| Area Land Cell Committee Member | `proposal.view`, `form_xxii.sign.area_land_cell_member` |
+| **Area** | `area_gm` | Area General Manager (AGM) | `proposal.view`, `form_xxii.sign.area_gm`, `form_vii.sign.purchasing_area_gm`, forward to HQ |
+| **HQ** | `land_officer_lre` | Land Officer (L&RE HQ) | `proposal.view`, `workflow.approve`, HQ technical verification |
+| **HQ** | `gm_lre` | General Manager (L&RE HQ) | `proposal.view`, `workflow.approve`, recommendation to Apex |
+| **HQ** | `gm_planning` | General Manager (Planning HQ) | `proposal.view`, `workflow.approve`, mining panel clearance |
+| **HQ** | `gm_finance` | General Manager (Finance HQ) | `proposal.view`, `workflow.approve`, Form-XXIII financial concurrence |
+| **HQ** | `gm_safety` | General Manager (Safety HQ) | `proposal.view`, `workflow.approve`, Form-XVII DGMS clearance |
+| **Apex** | `director` | Director Technical / CMD | `*` (Full administrative & approval authority) |
+| **System**| `super_admin` | System Super Administrator | `*` (Full system configuration & user management) |
+
+---
+
+## Standard Test User Accounts (`prisma/seed/user.seed.ts`)
+
+| Email | Role Code | Scope Level | Scope Assignment |
+| :--- | :--- | :--- | :--- |
+| `clerk@coalrr.gov.in` | `land_clerk` | `UNIT` | `mine_cd: 'MINE001'`, `area_cd: 'AREA01'` |
+| `unit@coalrr.gov.in` | `surveyor` | `UNIT` | `mine_cd: 'MINE001'`, `area_cd: 'AREA01'` |
+| `manager@coalrr.gov.in`| `colliery_manager` | `UNIT` | `mine_cd: 'MINE001'`, `area_cd: 'AREA01'` |
+| `agent@coalrr.gov.in` | `project_agent` | `UNIT` | `mine_cd: 'MINE001'`, `area_cd: 'AREA01'` |
+| `area@coalrr.gov.in` | `area_land_officer` | `AREA` | `area_cd: 'AREA01'` |
+| `areagm@coalrr.gov.in`| `area_gm` | `AREA` | `area_cd: 'AREA01'` |
+| `gm.lre@coalrr.gov.in`| `gm_lre` | `HQ` | Company-wide |
+| `gm.planning@coalrr.gov.in`| `gm_planning` | `HQ` | Company-wide |
+| `gm.finance@coalrr.gov.in`| `gm_finance` | `HQ` | Company-wide |
+| `gm.safety@coalrr.gov.in`| `gm_safety` | `HQ` | Company-wide |
+| `cmd@coalrr.gov.in` | `director` | `HQ` | Company-wide |
+| `admin@coalrr.gov.in` | `super_admin` | `HQ` | Company-wide |
+
+---
+
 ## API Endpoints
 
 | Method | Route | Permission | Description |
@@ -66,5 +108,7 @@ User visibility and operational permissions are dynamically scoped via `UserScop
 ## Security & Audit Logging
 
 - **Server-Side Authorization**: Every API route and Server Action enforces authorization via `authorizeApi(permissionKey)`. Client-side UI checks are strictly UX indicators.
+- **Password Hashes**: Password hashes are re-computed and refreshed in the database on every successful login to ensure salts and algorithms remain up-to-date.
 - **Session Tokens**: Stored exclusively in `httpOnly + secure + sameSite` cookies.
 - **Audit Logging**: User scope assignments, role updates, authentication events, and sensitive data access write structured entries to `public.audit_log` with actor `user_id`, timestamps, and before/after values.
+

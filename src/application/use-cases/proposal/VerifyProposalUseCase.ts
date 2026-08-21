@@ -44,30 +44,10 @@ export class VerifyProposalUseCase implements IUseCase<VerifyProposalRequest, Ve
          return Fail('Anti-Duplication Engine detected overlaps with adjacent collieries.');
       }
 
-      // 1. Auto-generate Form-VII (Reconciliation Certificate)
-      const form7Result = await startDocumentWorkspaceUseCase.execute({
-        templateCode: 'FORM_VII',
-        applicationId: request.proposalId,
-        userId: request.userId,
-        extraData: {},
-      });
+      // Document generation (e.g. Form-VII, Form-XVI) should NOT be hardcoded here.
+      // The Checklist Engine and Document Engine handle these requirements generically based on configuration.
 
-      if (form7Result.isFailure) {
-         console.warn(`Failed to auto-generate Form-VII: ${form7Result.error}`);
-         // We might not want to fail the whole process if template doesn't exist yet, but let's log it.
-      }
-
-      // 2. Auto-draft Form-XVI (Five-Point Certificate)
-      const form16Result = await startDocumentWorkspaceUseCase.execute({
-        templateCode: 'FORM_XVI',
-        applicationId: request.proposalId,
-        userId: request.userId,
-        extraData: {},
-      });
-
-      if (form16Result.isFailure) {
-         console.warn(`Failed to auto-generate Form-XVI: ${form16Result.error}`);
-      }
+      // End of verification.
 
       // Audit log
       AuditQueue.push({

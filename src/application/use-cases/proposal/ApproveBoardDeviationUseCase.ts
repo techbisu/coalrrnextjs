@@ -8,7 +8,6 @@ import { IProjectRepository } from '@/domain/entities/project'
 import { EventBus } from '@/core/notifications/EventBus'
 import { randomUUID } from 'crypto'
 import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di'
-import { db } from '@/lib/db'
 
 export interface ApproveBoardDeviationRequest {
   proposalId: string
@@ -66,29 +65,24 @@ export class ApproveBoardDeviationUseCase implements IUseCase<ApproveBoardDeviat
 
     // 4. Link signed document if provided
     if (request.signedDocumentFileId) {
-      await db.file_attachment.createMany({
-        skipDuplicates: true,
-        data: [
+      if ('createFileAttachments' in this.proposalRepository) {
+        await (this.proposalRepository as any).createFileAttachments([
           {
-            id: randomUUID(),
             file_id: request.signedDocumentFileId,
             entity_type: ACQ_LAND_SCHEDULE,
             entity_id: proposal.id,
             module: 'land-acquisition',
             attached_by: request.user_id,
-            updt_ts: new Date(),
           },
           {
-            id: randomUUID(),
             file_id: request.signedDocumentFileId,
             entity_type: 'mst_project',
             entity_id: project.id,
             module: 'project-master',
             attached_by: request.user_id,
-            updt_ts: new Date(),
           }
-        ]
-      })
+        ])
+      }
     }
 
     // 5. Execute proposal behavior

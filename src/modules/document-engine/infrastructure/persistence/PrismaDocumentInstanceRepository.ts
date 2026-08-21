@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { randomUUID } from 'crypto'
-import { IDocumentInstanceRepository, DocumentInstanceWithTemplate } from '../../domain/IDocumentInstanceRepository'
+import { IDocumentInstanceRepository, DocumentInstanceWithTemplate, DocumentInstanceLight } from '../../domain/IDocumentInstanceRepository'
 import { document_instance, Prisma } from '@prisma/client'
 import { Audit } from '@/core/audit/services/AuditService'
 
@@ -12,24 +12,43 @@ export class PrismaDocumentInstanceRepository implements IDocumentInstanceReposi
     })
   }
 
-  async findDraft(templateCode: string, applicationId: string): Promise<document_instance | null> {
+  async findDraft(templateCode: string, applicationId: string, contextId?: string): Promise<document_instance | null> {
     return db.document_instance.findFirst({
       where: {
         template_code: templateCode,
         application_id: applicationId,
-        status: 'DRAFT'
-      }
+        status: { in: ['DRAFT', 'QUEUED'] },
+        context_id: contextId || null
+      },
+      orderBy: { updt_ts: 'desc' }
     })
   }
 
-  async findLatestByTemplateAndApplication(templateCode: string, applicationId: string): Promise<DocumentInstanceWithTemplate | null> {
+  async findLatestByTemplateAndApplication(templateCode: string, applicationId: string, contextId?: string): Promise<DocumentInstanceWithTemplate | null> {
     return db.document_instance.findFirst({
       where: {
         template_code: templateCode,
-        application_id: applicationId
+        application_id: applicationId,
+        context_id: contextId || null
       },
       include: { document_template: true },
       orderBy: { entry_ts: 'desc' }
+    })
+  }
+
+  async findManyByApplicationId(applicationId: string): Promise<DocumentInstanceLight[]> {
+    return db.document_instance.findMany({
+      where: { application_id: applicationId },
+      select: {
+        id: true,
+        template_code: true,
+        signature_data_json: true,
+        generated_docx_path: true,
+        document_template: {
+          select: { template_name: true }
+        }
+      },
+      orderBy: { updt_ts: 'desc' }
     })
   }
 
@@ -59,4 +78,3 @@ export class PrismaDocumentInstanceRepository implements IDocumentInstanceReposi
     return log
   }
 }
-

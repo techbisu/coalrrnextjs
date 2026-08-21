@@ -53,6 +53,9 @@ The Checklist Service interacts directly with the **Workflow Engine** to gate st
 
 2. **Dynamic Rule Evaluation (`GetChecklistStatusUseCase.ts`)**:
    Evaluates `show_if` rules against the context map on every render to ensure only relevant statutory requirements are presented to the user.
+   
+3. **Virtual Context Cloning (`context_source`)**:
+   If a requirement rule configures `input_schema.context_source = "adjacent_mine_cds"`, the engine dynamically reads the array from the entity's context and spawns cloned virtual rules for each target (e.g., `Form-VII (Mine A)`, `Form-VII (Mine B)`). These virtual rules carry a `contextId` which is securely passed to the Document Engine.
 
 ---
 

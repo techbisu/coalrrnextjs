@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { MODULE_CODES } from '@/core/config/module-codes.config'
+import { MODULE_CODES, CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
 import { authorizeApi } from '@/authorization/middleware/authorize'
 import { ok, badRequest, serverError, notFound } from '../../../_lib'
 import { db } from '@/lib/db'
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const { workflowSnapshotQueryService } = await import('@/core/workflow/services/WorkflowSnapshotQueryService')
     const currentSnapshot = await workflowSnapshotQueryService.getSnapshot(
       MODULE_CODES.LAND_SCHEDULE,
-      'acq_land_schedule',
+      CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
       id,
       { role: actorRole, userId: auth.user?.id }
     )
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const guardCtx = {
       recordId: id,
       recordType: MODULE_CODES.LAND_SCHEDULE,
-      entityType: 'acq_land_schedule',
+      entityType: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
       currentState: normalizedState as any,
       actorRole: actorRole as any,
       userId: auth.user?.id,
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
       await workflowActionHistoryService.recordAction({
         moduleCode: MODULE_CODES.LAND_SCHEDULE,
-        entityType: 'acq_land_schedule',
+        entityType: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
         entityId: id,
         action: normalizedAction,
         fromState: normalizedState,
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           module: MODULE_CODES.LAND_SCHEDULE,
           payload: {
             entityId: id,
-            entityType: 'acq_land_schedule',
+            entityType: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
             fromState: normalizedState,
             toState: newState,
             actorRole,

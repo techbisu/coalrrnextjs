@@ -18,9 +18,10 @@ interface DocumentWorkspaceModalProps {
   templateCode: string;
   businessId: string;
   extraData?: Record<string, any>;
+  contextId?: string;
 }
 
-export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, businessId, extraData }: DocumentWorkspaceModalProps) {
+export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, businessId, extraData, contextId }: DocumentWorkspaceModalProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -34,6 +35,7 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [userName, setUserName] = useState<string>('');
+  const [currentState, setCurrentState] = useState<string>('Drafting');
   const [signatureInput, setSignatureInput] = useState<string>('');
   const [isSigning, setIsSigning] = useState<boolean>(false);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -56,6 +58,7 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
       setUserRoles([]);
       setUserPermissions([]);
       setSignatureInput('');
+      setCurrentState('Drafting');
       setIsFormCollapsed(false);
       setError(null);
     }
@@ -68,10 +71,22 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
       fetch('/api/document-engine/workspace', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ templateCode, applicationId: businessId, extraData })
+        body: JSON.stringify({ templateCode, applicationId: businessId, extraData, contextId })
       })
-        .then(res => res.json())
-        .then(res => {
+        .then(async (res) => {
+          if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            let parsedErr = '';
+            try {
+              parsedErr = JSON.parse(errText)?.error || errText;
+            } catch {
+              parsedErr = errText;
+            }
+            throw new Error(parsedErr || `Failed to fetch workspace (HTTP ${res.status})`);
+          }
+          return res.json();
+        })
+        .then((res) => {
           if (res.success && res.instance) {
             setInstanceId(res.instance.id);
             setFileId(res.instance.generated_docx_path || null);
@@ -82,6 +97,7 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
             setUserRoles(res.userRoles || []);
             setUserPermissions(res.userPermissions || []);
             setUserName(res.userName || res.userEmail || 'Authorized Signee');
+            setCurrentState(res.currentState || 'Drafting');
             setReviews(res.instance.review_data || []);
 
             const noFields = !res.fields || res.fields.length === 0;
@@ -97,13 +113,17 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
             setError(res.error || "Failed to start workspace");
           }
         })
+        .catch((err) => {
+          console.error('[DocumentWorkspaceModal] Fetch error:', err);
+          setError(err.message || 'Failed to connect to workspace API');
+        })
         .finally(() => {
           setLoading(false);
         });
     }
   }, [isOpen, templateCode, businessId]);
 
-  const pollWorkspace = (instId: string) => {
+  const pollWorkspace = (instId: string, attempt = 1, maxAttempts = 10) => {
     fetch('/api/document-engine/workspace', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -112,15 +132,37 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
       .then(res => res.json())
       .then(res => {
         if (res.success && res.instance) {
-          if (res.instance.generated_docx_path) {
-            setFileId(res.instance.generated_docx_path);
+          if (res.instance.status === 'FAILED') {
+            setIsGenerating(false);
+            toast.error("Document generation failed. Please check proposal data and try again.");
+            return;
+          }
+          const docPath = res.instance.generated_docx_path || res.instance.file_id;
+          if (docPath) {
+            setFileId(docPath);
+            setIsGenerating(false);
+            toast.success("Document generated successfully!");
+            return;
           }
           if (res.instance.signature_data) {
             setAppliedSignatures(res.instance.signature_data);
           }
         }
+        if (attempt < maxAttempts) {
+          setTimeout(() => pollWorkspace(instId, attempt + 1, maxAttempts), 1500);
+        } else {
+          setIsGenerating(false);
+          toast.error("Document generation is taking longer than expected. Please refresh or try again.");
+        }
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error('[pollWorkspace] Error:', err);
+        if (attempt < maxAttempts) {
+          setTimeout(() => pollWorkspace(instId, attempt + 1, maxAttempts), 1500);
+        } else {
+          setIsGenerating(false);
+        }
+      });
   };
 
   const handleGenerate = async (idToUse = instanceId) => {
@@ -136,18 +178,19 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
       if (data.success) {
         if (data.fileId) {
           setFileId(data.fileId);
+          setIsGenerating(false);
           toast.success("Document generated successfully");
         } else {
-          toast.info("Document generation queued in background...");
-          setTimeout(() => pollWorkspace(idToUse), 1000);
+          toast.info("Document generation in progress...");
+          setTimeout(() => pollWorkspace(idToUse, 1, 10), 1000);
         }
       } else {
+        setIsGenerating(false);
         toast.error("Failed to generate document: " + (data.error || 'Unknown error'));
       }
     } catch (err: any) {
-      toast.error("Failed to generate document: " + err.message);
-    } finally {
       setIsGenerating(false);
+      toast.error("Failed to generate document: " + err.message);
     }
   };
 
@@ -571,8 +614,11 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
                       const sortedRules = [...signatureRules].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
                       
                       return sortedRules.map((rule: any, index: number) => {
-                        const isSigned = appliedSignatures.some((s: any) => s.role === rule.role);
-                        const signedEntry = appliedSignatures.find((s: any) => s.role === rule.role);
+                        const isSigned = appliedSignatures.some((s: any) => s.role === rule.role || s.sig_permission === rule.sig_permission);
+                        const signedEntry = appliedSignatures.find((s: any) => s.role === rule.role || s.sig_permission === rule.sig_permission);
+
+                        // Check if this signature belongs to the current workflow stage
+                        const isRuleForCurrentStage = !rule.workflow_state || !currentState || rule.workflow_state.toLowerCase() === currentState.toLowerCase();
 
                         // Check if all previous required steps are completed
                         let isUnlocked = true;
@@ -594,13 +640,15 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
                           : permName.replace(/_/g, ' ');
                         
                         const canCurrentUserSign = 
-                          userPermissions.includes(permName) ||
-                          userPermissions.includes('document.sign') ||
-                          userPermissions.includes('*') ||
-                          userRoles.some((ur: string) => {
-                            const urClean = ur.toLowerCase().replace(/[^a-z0-9]/g, '');
-                            return urClean.includes('admin') || urClean.includes('super');
-                          });
+                          isRuleForCurrentStage && (
+                            userPermissions.includes(permName) ||
+                            userPermissions.includes('document.sign') ||
+                            userPermissions.includes('*') ||
+                            userRoles.some((ur: string) => {
+                              const urClean = ur.toLowerCase().replace(/[^a-z0-9]/g, '');
+                              return urClean.includes('admin') || urClean.includes('super');
+                            })
+                          );
 
                         return (
                           <div 
@@ -609,11 +657,13 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
                               "p-3.5 rounded-lg border transition-all flex flex-col gap-2",
                               isSigned 
                                 ? "border-emerald-200 bg-emerald-50/40" 
-                                : isUnlocked && canCurrentUserSign
-                                  ? "border-blue-300 bg-blue-50/30 shadow-sm ring-1 ring-blue-400/20"
-                                  : isUnlocked
-                                    ? "border-slate-200 bg-slate-50/50"
-                                    : "border-slate-200 bg-slate-100/60 opacity-75"
+                                : !isRuleForCurrentStage
+                                  ? "border-slate-200 bg-slate-100/50 opacity-80"
+                                  : isUnlocked && canCurrentUserSign
+                                    ? "border-blue-300 bg-blue-50/30 shadow-sm ring-1 ring-blue-400/20"
+                                    : isUnlocked
+                                      ? "border-slate-200 bg-slate-50/50"
+                                      : "border-slate-200 bg-slate-100/60 opacity-75"
                             )}
                           >
                             <div className="flex items-center justify-between">
@@ -629,6 +679,10 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
                               {isSigned ? (
                                 <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[10px] gap-1 font-normal border border-emerald-200">
                                   <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Signed
+                                </Badge>
+                              ) : !isRuleForCurrentStage ? (
+                                <Badge variant="outline" className="text-[10px] text-slate-600 border-slate-300 bg-slate-100 font-normal">
+                                  Stage: {rule.workflow_state}
                                 </Badge>
                               ) : !isUnlocked ? (
                                 <Badge variant="outline" className="text-[10px] text-slate-500 border-slate-300 bg-slate-200/50 font-normal">
@@ -647,10 +701,13 @@ export function DocumentWorkspaceModal({ isOpen, onOpenChange, templateCode, bus
 
                             {/* Status Body */}
                             {isSigned && signedEntry ? (
-                              <div className="text-[11px] text-slate-600 bg-white/80 p-2.5 rounded border border-emerald-100 mt-1">
-                                <div className="font-medium text-slate-900"><span className="text-slate-500 font-normal">Signed by:</span> {signedEntry.signatureText || signedEntry.userName}</div>
-                                <div className="text-[10px] text-muted-foreground mt-0.5">Timestamp: {new Date(signedEntry.signedAt).toLocaleString('en-IN')}</div>
+                              <div className="text-[11px] text-slate-700 bg-white/90 p-2.5 rounded border border-emerald-200 mt-1 whitespace-pre-line font-medium leading-relaxed shadow-xs">
+                                {signedEntry.signatureText || `Digitally Signed By\n${signedEntry.userName}\n${signedEntry.userDesignation || 'Officer'}, ECL\n${new Date(signedEntry.signedAt).toISOString()}`}
                               </div>
+                            ) : !isRuleForCurrentStage ? (
+                              <p className="text-[11px] text-slate-500 italic mt-0.5">
+                                This signature is configured for the stage <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-[10px] text-slate-700">{rule.workflow_state}</code> (Current stage: {currentState}).
+                              </p>
                             ) : !isUnlocked ? (
                               <p className="text-[11px] text-slate-500 italic mt-0.5 flex items-center gap-1">
                                 <span>🔒 Unlocks after step {index} signature.</span>

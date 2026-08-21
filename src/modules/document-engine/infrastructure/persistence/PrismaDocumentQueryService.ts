@@ -9,6 +9,7 @@ export class PrismaDocumentQueryService implements IDocumentQueryService {
         acqu_mode: true,
         mine: true,
         area: true,
+        project: true,
         plot_schedule: {
           include: { mouza: true },
           orderBy: { schedule_id: 'asc' }
@@ -23,6 +24,7 @@ export class PrismaDocumentQueryService implements IDocumentQueryService {
       include: includeRelations ? {
         mine: true,
         area: true,
+        project: true,
         plot_schedule: {
           include: { mouza: true },
           orderBy: { schedule_id: 'asc' }

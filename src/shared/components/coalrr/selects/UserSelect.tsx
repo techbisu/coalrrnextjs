@@ -36,7 +36,9 @@ export function UserSelect({
   const dependencies = React.useMemo(() => {
     const deps: Record<string, any> = {}
     if (ignoreScope) deps.ignore_scope = 'true'
-    if (roleFilter) deps.role = roleFilter
+    if (roleFilter && typeof roleFilter === 'string' && roleFilter.trim() !== '') {
+      deps.role = roleFilter
+    }
     if (areaCd) deps.area_cd = areaCd
     if (mineCd) deps.mine_cd = mineCd
     return deps
@@ -52,12 +54,31 @@ export function UserSelect({
       (opt) => !excludeValues.includes(String(opt.value))
     )
 
+    if (roleFilter && typeof roleFilter === 'string' && roleFilter.trim() !== '') {
+      const filterLower = roleFilter.toLowerCase()
+      const term = filterLower.includes('manager')
+        ? 'manager'
+        : filterLower.includes('agent')
+        ? 'agent'
+        : filterLower.includes('surveyor')
+        ? 'surveyor'
+        : filterLower.includes('officer')
+        ? 'officer'
+        : filterLower
+
+      raw = raw.filter((opt: any) => {
+        const designation = (opt.data?.designation || '').toLowerCase()
+        const label = (opt.label || '').toLowerCase()
+        return designation.includes(term) || label.includes(term)
+      })
+    }
+
     if (showAllOption && !isMulti) {
       return [{ value: 'ALL', label: 'All System Users' }, ...raw]
     }
 
     return raw
-  }, [data?.options, excludeValues, showAllOption, isMulti])
+  }, [data?.options, excludeValues, roleFilter, showAllOption, isMulti])
 
   return (
     <Combobox

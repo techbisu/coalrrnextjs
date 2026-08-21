@@ -13,7 +13,7 @@ If codebase-memory-mcp is unavailable, state explicitly: "codebase-memory-mcp un
 
 ## Hard Rules (full detail in .agents/rules/)
 - Architecture: SOLID + Clean Architecture layering — architecture.md
-- Database: seeding checklist, no raw SQL outside repositories — database.md
+- Database: DO NOT trust seeder files for real configuration. ALWAYS check the actual DB tables for records (e.g., via script or Prisma Studio). No raw SQL outside repositories — database.md
 - Security: input validation, auth, secrets — security.md
 - Package-first: use a maintained package before building custom — package-first.md
 - UI consistency: reuse components, enterprise standards, no forced custom UI — ui-consistency.md
@@ -22,7 +22,9 @@ If codebase-memory-mcp is unavailable, state explicitly: "codebase-memory-mcp un
 - Service layer: no direct Prisma calls outside repositories — service-layer.md
 - Validation: one zod schema per entity, shared client+server — validation.md
 - Optimization: think structure/perf before coding — optimization.md
+- No Hardcoding: absolutely NOTHING should be hardcoded statically in the code (magic strings, IDs, UI labels, limits) — always use DB, env, or config.
 - Translations: every page/module must use i18n, seeded module-wise — translations.md
+- Naming Conventions: strict snake_case for payloads/DB, no camelCase aliases — naming-conventions.md
 
 ## Do not touch
 - old_schema.prisma (deprecated)

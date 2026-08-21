@@ -4,7 +4,7 @@ import { IChecklistRepository } from '../interfaces/IChecklistRepository'
 import { ChecklistContextRegistry } from '../registry/ChecklistContextRegistry'
 import { GeneratedDocumentChecklistAdapter } from '../services/GeneratedDocumentChecklistAdapter'
 import { workflowTargetResolverRegistry } from '@/core/workflow/resolvers/WorkflowTargetResolverRegistry'
-import { db } from '@/lib/db'
+import type { IWorkflowStateRepository } from '@/core/workflow/interfaces/IWorkflowStateRepository'
 
 export interface GetChecklistStatusRequest {
   moduleCode: string;
@@ -22,28 +22,26 @@ export interface ChecklistStageDTO {
 }
 
 /**
- * Helper: Resolve field aliases across camelCase and snake_case representations
+ * Helper: Normalizes a string by converting it to lowercase and removing all underscores.
+ * This bridges camelCase, snake_case, and other casing variations.
+ */
+function normalizeString(str: string): string {
+  return str.replace(/_/g, '').toLowerCase();
+}
+
+/**
+ * Helper: Resolve field aliases across camelCase, snake_case, and semantic representations
  */
 function getContextFieldValue(context: Record<string, any>, field: string): any {
   if (context[field] !== undefined) return context[field];
   
-  if (field === 'acq_mode' || field === 'acq_mode_id' || field === 'acqModeId') {
-    return context.acq_mode ?? context.acq_mode_id ?? context.acqModeId;
-  }
-  if (field === 'current_stage_cd' || field === 'stage_code' || field === 'stage' || field === 'workflowState') {
-    return context.current_stage_cd ?? context.stage ?? context.stage_code ?? context.currentStateCode;
-  }
-  if (field === 'has_forest_land' || field === 'hasForestLand') {
-    return context.has_forest_land ?? context.hasForestLand ?? false;
-  }
-  if (field === 'has_tenancy_land' || field === 'hasTenancyLand') {
-    return context.has_tenancy_land ?? context.hasTenancyLand ?? false;
-  }
-  if (field === 'has_government_or_patta_land' || field === 'hasGovernmentOrPattaLand') {
-    return context.has_government_or_patta_land ?? context.hasGovernmentOrPattaLand ?? false;
-  }
-  if (field === 'reconciliation_required' || field === 'reconciliationRequired') {
-    return context.reconciliation_required ?? context.reconciliationRequired ?? context.has_adjacent_mines ?? true;
+  const normalizedField = normalizeString(field);
+  
+  // 1. Check for exact match under normalized casing
+  for (const [key, value] of Object.entries(context)) {
+    if (normalizeString(key) === normalizedField) {
+      return value;
+    }
   }
 
   return undefined;
@@ -111,11 +109,11 @@ function extractTargetStageCode(node: any): string | null {
       if (res) return res;
     }
   }
-  if (node.field === 'current_stage_cd' || node.field === 'stage_code' || node.field === 'stage') {
+  if (node.field === 'current_stage_cd' || node.field === 'stage_code' || node.field === 'stage' || node.field === 'current_state') {
     return Array.isArray(node.value) ? String(node.value[0]) : String(node.value);
   }
-  if (node.current_stage_cd || node.stage_code || node.stage) {
-    const val = node.current_stage_cd || node.stage_code || node.stage;
+  if (node.current_stage_cd || node.stage_code || node.stage || node.current_state) {
+    const val = node.current_stage_cd || node.stage_code || node.stage || node.current_state;
     return Array.isArray(val) ? String(val[0]) : String(val);
   }
   return null;
@@ -125,7 +123,8 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
   constructor(
     private repo: IChecklistRepository,
     private registry: ChecklistContextRegistry,
-    private documentAdapter?: GeneratedDocumentChecklistAdapter
+    private documentAdapter?: GeneratedDocumentChecklistAdapter,
+    private workflowStateRepo?: IWorkflowStateRepository
   ) {}
 
   async execute(req: GetChecklistStatusRequest): Promise<Result<any>> {
@@ -148,11 +147,11 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
       const workflowCode = entityStatus?.workflowCode || req.moduleCode;
       let dbStates: any[] = [];
       try {
-        if ((db as any)?.workflow_states?.findMany) {
-          dbStates = await (db as any).workflow_states.findMany({
-            where: { workflow_code: workflowCode },
-            orderBy: { step_order: 'asc' }
-          });
+        if (this.workflowStateRepo) {
+          dbStates = await this.workflowStateRepo.findActiveByWorkflowCode(workflowCode);
+        } else {
+          const { PrismaWorkflowStateRepository } = await import('@/infrastructure/persistence/repositories/PrismaWorkflowStateRepository');
+          dbStates = await new PrismaWorkflowStateRepository().findActiveByWorkflowCode(workflowCode);
         }
       } catch {
         dbStates = [];
@@ -231,51 +230,90 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
           }
         }
 
-        let isSatisfied = submission?.status === 'SUBMITTED' || submission?.status === 'AUTO_SATISFIED' || submission?.status === 'APPROVED';
-        let generatedDocInfo: any = undefined;
-
         // 6. Generated Document Type override
-        if (rule.input_schema?.type === 'generated_document' && this.documentAdapter) {
-          const docResult = await this.documentAdapter.resolveStatus(rule, req.checkableType, req.checkableId, submission, (req as any).userPermissions || []);
-          if (docResult.newlySubmitted) {
-            submission = { status: 'SUBMITTED', document_id: docResult.generatedDocInfo.generatedDocId };
-            isSatisfied = true;
-          } else {
-            isSatisfied = docResult.status === 'complete';
+        const isGeneratedDocument =
+          rule.requirement_type === 'generated_document' ||
+          rule.requirement_type === 'GENERATED_DOCUMENT' ||
+          rule.input_schema?.type === 'generated_document' ||
+          Boolean(rule.input_schema?.template_code || rule.input_schema?.templateCode || rule.input_schema?.document_code);
+
+        // Gap 3.3: Contextual cloning for MULTI_TARGET
+        let virtualRules = [ { rule, contextId: undefined, suffix: '' } ];
+        
+        if (isGeneratedDocument && rule.input_schema?.context_source === 'adjacent_mine_cds') {
+          const cds = context.cross_colliery_cds || context.adjacent_mine_cds || [];
+          if (Array.isArray(cds) && cds.length > 0) {
+            virtualRules = cds.map(cd => ({
+              rule: { ...rule, id: `${rule.id}_${cd}`, chk_id: `${(rule as any).chk_id || rule.id}_${cd}` },
+              contextId: cd,
+              suffix: ` (Mine: ${cd})`
+            }));
           }
-          generatedDocInfo = docResult.generatedDocInfo;
         }
 
-        if (rule.is_mandatory && !isSatisfied) {
-          isComplete = false;
-        }
+        for (const { rule: vRule, contextId, suffix } of virtualRules) {
+          let vSubmission = submissionsByReqId.get((vRule as any).chk_id || vRule.id) || submission;
+          let vIsSatisfied = vSubmission?.status === 'SUBMITTED' || vSubmission?.status === 'AUTO_SATISFIED' || vSubmission?.status === 'APPROVED';
+          let generatedDocInfo: any = undefined;
 
-        const itemDTO = {
-          ruleId: (rule as any).chk_id || rule.id,
-          chkCode: rule.chk_code,
-          title: rule.title,
-          description: rule.description,
-          type: rule.requirement_type,
-          inputSchema: rule.input_schema,
-          isMandatory: rule.is_mandatory,
-          stageCode: ruleTargetStageCode || currentStateCode,
-          generatedDocInfo,
-          submission: submission ? {
-            status: submission.status,
-            documentId: submission.document_id,
-            userInput: submission.user_input,
-            updtTs: submission.updt_ts
-          } : null
-        };
+          if (isGeneratedDocument && this.documentAdapter) {
+            // Support passing contextId to adapter
+            const docResult = await (this.documentAdapter as any).resolveStatusWithContext(
+              vRule, req.checkableType, req.checkableId, vSubmission, (req as any).userPermissions || [], currentStateCode, contextId
+            ).catch(() => this.documentAdapter!.resolveStatus(vRule, req.checkableType, req.checkableId, vSubmission, (req as any).userPermissions || [], currentStateCode));
+            
+            if (docResult.newlySubmitted) {
+              vSubmission = { status: 'SUBMITTED', document_id: docResult.generatedDocInfo.generatedDocId };
+              vIsSatisfied = true;
+            } else {
+              vIsSatisfied = docResult.status === 'complete';
+            }
+            generatedDocInfo = docResult.generatedDocInfo;
+          }
 
-        items.push(itemDTO);
+          if (vRule.is_required && !vIsSatisfied) {
+            isComplete = false;
+          }
 
-        // Group into visible stage if available
-        const targetStageCode = ruleTargetStageCode || currentStateCode;
-        if (visibleStageMap.has(targetStageCode)) {
-          visibleStageMap.get(targetStageCode)!.items.push(itemDTO);
-        } else if (visibleStageMap.has(currentStateCode)) {
-          visibleStageMap.get(currentStateCode)!.items.push(itemDTO);
+          // Compute satisfaction reason
+          const satisfactionReason: string | undefined = (() => {
+            if (!vIsSatisfied) return undefined;
+            if (generatedDocInfo?.status === 'COMPLETED') return 'DOC_COMPLETED';
+            const s = vSubmission?.status;
+            if (s === 'AUTO_SATISFIED') return 'AUTO_SATISFIED';
+            if (s === 'SUBMITTED') return 'SUBMITTED';
+            if (s === 'APPROVED') return 'APPROVED';
+            return 'SATISFIED';
+          })();
+
+          const itemDTO = {
+            ruleId: (vRule as any).chk_id || vRule.id,
+            chkCode: vRule.chk_code,
+            label: (vRule.label || vRule.chk_name) + suffix,
+            description: vRule.description || '',
+            type: vRule.requirement_type || rule.input_schema?.type || 'user_input',
+            inputSchema: vRule.input_schema,
+            isMandatory: vRule.is_required || vRule.is_mandatory,
+            stageCode: ruleTargetStageCode || currentStateCode,
+            isSatisfied: vIsSatisfied,
+            satisfactionReason,
+            generatedDocInfo,
+            contextId,
+            submission: vSubmission ? {
+              status: vSubmission.status,
+              documentId: vSubmission.document_id,
+              userInput: vSubmission.user_input,
+              rejectionReason: vSubmission.rejection_reason
+            } : null
+          };
+
+          items.push(itemDTO);
+          
+          if (ruleTargetStageCode && visibleStageMap.has(ruleTargetStageCode)) {
+            visibleStageMap.get(ruleTargetStageCode)!.items.push(itemDTO);
+          } else if (visibleStageMap.has(currentStateCode)) {
+            visibleStageMap.get(currentStateCode)!.items.push(itemDTO);
+          }
         }
       }
 

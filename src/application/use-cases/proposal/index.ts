@@ -31,3 +31,9 @@ export type { RemovePlotFromProposalRequest } from './RemovePlotFromProposalUseC
 
 export { ReclassifyPlotUseCase } from './ReclassifyPlotUseCase'
 export type { ReclassifyPlotRequest } from './ReclassifyPlotUseCase'
+
+export { GetMouzaAbstractUseCase } from './GetMouzaAbstractUseCase'
+export type { GetMouzaAbstractRequest, GetMouzaAbstractResponse } from './GetMouzaAbstractUseCase'
+
+export { UpdateProposalCostSheetUseCase } from './UpdateProposalCostSheetUseCase'
+

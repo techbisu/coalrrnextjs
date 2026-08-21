@@ -43,8 +43,8 @@ export class AssignUserScopeUseCase implements IUseCase<AssignUserScopeDTO, user
         created_by: dto.assignerId,
         entry_by: dto.assignerId,
         updt_by: dto.assignerId,
-        entry_ts: null,
-        updt_ts: null
+        entry_ts: BigInt(Math.floor(Date.now() / 1000)),
+        updt_ts: BigInt(Math.floor(Date.now() / 1000))
       });
 
       return Result.ok(newScope);

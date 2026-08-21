@@ -127,7 +127,8 @@ export function WorkflowTimelineFeed({
               const isCurrent = assignment.status === 'CURRENT';
               const isCompleted = assignment.status === 'COMPLETED';
               const isWaiting = assignment.status === 'WAITING';
-              const isCollapsed = !isCurrent && collapsedNodes[assignment.id] === true;
+              // Collapse all past/future timeline stages by default; only expand current assignment
+              const isCollapsed = !isCurrent && (collapsedNodes[assignment.id] ?? true);
 
               return (
                 <div key={assignment.id} className="relative group space-y-2.5">
@@ -188,146 +189,205 @@ export function WorkflowTimelineFeed({
                         <UserInfoBadge user={assignment.assignedUser} role={assignment.assignedRole} />
                       </div>
 
-                      {/* 1. COMPLETED ACTIONS HISTORY (FORWARD & RETURN LOGS) */}
-                      {assignment.actions && assignment.actions.length > 0 && (
-                        <div className="space-y-2">
-                          {assignment.actions.map((act) => {
-                            const isReturnAction =
-                              (act.label && (act.label.toLowerCase().includes('return') || act.label.toLowerCase().includes('reject'))) ||
-                              ((act as any).action && ((act as any).action.toLowerCase().includes('return') || (act as any).action.toLowerCase().includes('reject')));
+                      {/* 1. STAGE PREREQUISITES & COMPLETED TASKS STACK (ALWAYS TOP OF STAGE) */}
+                      {assignment.pendingActions && assignment.pendingActions.length > 0 && (() => {
+                        const remainingCount = assignment.pendingActions.filter((p) => p.status !== 'COMPLETED').length;
+                        const hasActionableByMe = assignment.pendingActions.some((p) => p.classification === 'ACTIONABLE_BY_ME');
+                        const isStageTasksDoneByYou = !hasActionableByMe && assignment.pendingActions.some((p) => p.description?.includes('Signed by you'));
+                        const allSatisfied = remainingCount === 0 || isCompleted;
+                        
+                        const containerBg = allSatisfied ? 'bg-emerald-50/40 dark:bg-emerald-950/20' : (hasActionableByMe ? 'bg-amber-50/40 dark:bg-amber-950/20' : 'bg-blue-50/40 dark:bg-blue-950/20');
+                        const headerColor = allSatisfied ? 'text-emerald-900 dark:text-emerald-200' : (hasActionableByMe ? 'text-amber-900 dark:text-amber-200' : 'text-blue-900 dark:text-blue-200');
 
-                            return (
-                              <div
-                                key={act.id}
-                                className={cn(
-                                  'p-3 rounded-xl border space-y-2 text-xs transition-all',
-                                  isReturnAction
-                                    ? 'bg-amber-50/60 border-amber-200/90 dark:bg-amber-950/30 dark:border-amber-900'
-                                    : 'bg-emerald-50/60 border-emerald-200/90 dark:bg-emerald-950/30 dark:border-emerald-900'
-                                )}
-                              >
-                                <div className="flex items-center justify-between flex-wrap gap-2">
-                                  <span
+                        return (
+                          <div className={`p-3 rounded-lg space-y-2.5 ${containerBg}`}>
+                            <div className={`text-xs font-bold flex items-center gap-1.5 uppercase tracking-wide ${headerColor}`}>
+                              {allSatisfied ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : hasActionableByMe ? (
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                              ) : (
+                                <User className="w-3.5 h-3.5 text-blue-600" />
+                              )}
+                              {allSatisfied
+                                ? 'Stage Prerequisites & Tasks (All Completed)'
+                                : hasActionableByMe
+                                ? `Pending Stage Prerequisites (${remainingCount} Remaining)`
+                                : isStageTasksDoneByYou
+                                ? 'Stage Tasks Completed by You (Awaiting Next Signatory)'
+                                : `Pending Stage Tasks (Awaiting Assignee)`}
+                            </div>
+
+                            <div className="space-y-2 pl-1">
+                              {assignment.pendingActions.map((pending) => {
+                                const isDone = pending.classification === 'COMPLETED' || pending.status === 'COMPLETED';
+                                const isActionable = pending.classification === 'ACTIONABLE_BY_ME';
+                                const isWaitingOnAssignee = pending.classification === 'WAITING_ON_ASSIGNEE';
+                                const isBlocked = pending.classification === 'BLOCKED_BY_PREREQUISITE' || pending.status === 'BLOCKED';
+
+                                return (
+                                  <div
+                                    key={pending.id}
                                     className={cn(
-                                      'font-bold flex items-center gap-1.5 text-xs',
-                                      isReturnAction ? 'text-amber-950 dark:text-amber-200' : 'text-emerald-950 dark:text-emerald-200'
+                                      'space-y-0.5 text-xs transition-colors py-0.5',
+                                      isDone
+                                        ? 'text-emerald-800 dark:text-emerald-300'
+                                        : isActionable
+                                        ? 'text-slate-900 font-medium dark:text-slate-100'
+                                        : isWaitingOnAssignee
+                                        ? 'text-slate-600 dark:text-slate-400'
+                                        : 'text-slate-400 dark:text-slate-500'
                                     )}
                                   >
-                                    {isReturnAction ? (
-                                      <Undo className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                    ) : (
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                    )}
-                                    {act.label || (act as any).action || 'Workflow Action Executed'}
-                                  </span>
-                                  {act.completedAt && (
-                                    <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                                      {new Date(act.completedAt).toLocaleString('en-IN', {
-                                        day: '2-digit',
-                                        month: 'short',
-                                        year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                      })}
-                                    </span>
-                                  )}
-                                </div>
+                                    <div className="flex items-center justify-between min-w-0 flex-wrap gap-1.5">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        {isDone ? (
+                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                        ) : isActionable ? (
+                                          <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0 animate-pulse" />
+                                        ) : isWaitingOnAssignee ? (
+                                          <User className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                        ) : (
+                                          <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        )}
+                                        <span
+                                          className={cn(
+                                            'italic font-semibold truncate',
+                                            isDone
+                                              ? 'text-emerald-800 dark:text-emerald-300'
+                                              : isActionable
+                                              ? 'text-slate-900 dark:text-slate-100'
+                                              : isWaitingOnAssignee
+                                              ? 'text-slate-700 dark:text-slate-300'
+                                              : 'text-slate-400 dark:text-slate-500'
+                                          )}
+                                        >
+                                          {pending.label}
+                                        </span>
+                                      </div>
 
-                                {((act as any).completedUser || act.completedBy || (act as any).completedRole) && (
-                                  <div className="text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-medium text-slate-500">Performed by:</span>
-                                    {(act as any).completedUser ? (
-                                      <UserInfoBadge user={(act as any).completedUser} role={(act as any).completedRole} />
-                                    ) : (
-                                      <span className="font-semibold text-slate-800 dark:text-slate-200">{act.completedBy || (act as any).completedRole}</span>
-                                    )}
-                                  </div>
-                                )}
-
-                                {act.justification && (
-                                  <div className="p-2.5 rounded-md bg-white/90 border border-slate-200/80 dark:bg-slate-900 dark:border-slate-800 text-slate-700 dark:text-slate-300 italic flex items-start gap-2">
-                                    <MessageSquare className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                                    <div className="leading-relaxed">
-                                      <span className="font-bold not-italic text-slate-900 dark:text-slate-100 mr-1.5">
-                                        Justification / Remarks:
-                                      </span>
-                                      &ldquo;{act.justification}&rdquo;
+                                      {!isDone && isWaitingOnAssignee && pending.requiredPermission && (
+                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-mono text-muted-foreground">
+                                          Awaiting {pending.requiredPermission.split('.').pop()?.replace(/[-_]/g, ' ')}
+                                        </Badge>
+                                      )}
+                                      {!isDone && isActionable && (
+                                        <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[9px] px-1.5 py-0 font-semibold dark:bg-amber-950/60 dark:text-amber-300">
+                                          Action Required by You
+                                        </Badge>
+                                      )}
                                     </div>
-                                  </div>
-                                )}
 
-                                {act.attachments && act.attachments.length > 0 && (
-                                  <div className="flex flex-wrap gap-2 pt-1">
-                                    {act.attachments.map((att: any) => (
-                                      <a
-                                        key={att.id}
-                                        href={`/api/documents/${att.id}/download`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white text-emerald-800 border border-emerald-300 hover:bg-emerald-50 dark:bg-slate-900 dark:text-emerald-300 dark:border-emerald-800 text-[11px] font-semibold transition-colors shadow-2xs"
+                                    {pending.description && (
+                                      <p
+                                        className={cn(
+                                          'text-[11px] pl-5.5 leading-snug',
+                                          isDone
+                                            ? 'text-emerald-700/80 dark:text-emerald-400 font-normal'
+                                            : isActionable
+                                            ? 'text-slate-600 dark:text-slate-300'
+                                            : 'text-slate-500 dark:text-slate-400'
+                                        )}
                                       >
-                                        <Paperclip className="w-3 h-3 text-emerald-600 shrink-0" />
-                                        <span className="truncate max-w-[180px]">{att.fileName}</span>
-                                        <Download className="w-3 h-3 text-emerald-600 shrink-0 ml-0.5" />
-                                      </a>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* 2. CURRENT ASSIGNMENT PENDING ACTIONS (MINIMAL LIST ONLY) */}
-                      {isCurrent && assignment.pendingActions && assignment.pendingActions.length > 0 && (
-                        <div className="p-3 rounded-lg bg-amber-50/40 dark:bg-amber-950/20 space-y-2.5">
-                          <div className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5 uppercase tracking-wide">
-                            <Clock className="w-3.5 h-3.5 text-amber-600" />
-                            Pending Stage Prerequisites ({assignment.pendingActions.filter((p) => p.status !== 'COMPLETED').length} Remaining)
-                          </div>
-
-                          <div className="space-y-2 pl-1">
-                            {assignment.pendingActions.map((pending) => {
-                              const isCompleted = pending.status === 'COMPLETED';
-
-                              return (
-                                <div
-                                  key={pending.id}
-                                  className={cn(
-                                    'space-y-0.5 text-xs transition-colors py-0.5',
-                                    isCompleted ? 'text-slate-500 opacity-75' : 'text-slate-800 dark:text-slate-200'
-                                  )}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    {isCompleted ? (
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                    ) : (
-                                      <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0 italic" />
+                                        {pending.description}
+                                      </p>
                                     )}
-                                    <span
-                                      className={cn(
-                                        'italic font-semibold truncate',
-                                        isCompleted ? 'text-slate-500 line-through' : 'text-slate-800 dark:text-slate-200'
-                                      )}
-                                    >
-                                      {pending.label}
-                                    </span>
                                   </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
 
-                                  {pending.description && (
-                                    <p
-                                      className={cn(
-                                        'text-[11px] pl-5.5 leading-snug',
-                                        isCompleted ? 'text-slate-400 line-through' : 'text-slate-600 dark:text-slate-400'
+                      {/* 2. COMPLETED ACTIONS & FORWARD HISTORY (BELOW STAGE TASKS) */}
+                      {assignment.actions && assignment.actions.length > 0 && (
+                        <div className="space-y-2 pt-1 border-t border-border/40">
+                          <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground pl-1">
+                            Action History &amp; Forward Logs ({assignment.actions.length})
+                          </div>
+                          <div className="space-y-2.5 pl-1">
+                            {[...assignment.actions]
+                              .sort((a, b) => (a.completedAt && b.completedAt ? new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime() : 0))
+                              .map((act) => {
+                                const isReturnAction =
+                                  (act.label && (act.label.toLowerCase().includes('return') || act.label.toLowerCase().includes('reject'))) ||
+                                  ((act as any).action && ((act as any).action.toLowerCase().includes('return') || (act as any).action.toLowerCase().includes('reject')));
+
+                                return (
+                                  <div
+                                    key={act.id}
+                                    className="space-y-1 text-xs transition-colors py-1 px-2.5 rounded-md bg-muted/20 border border-border/40"
+                                  >
+                                    <div className="flex items-center justify-between min-w-0 flex-wrap gap-1.5">
+                                      <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                                        {isReturnAction ? (
+                                          <Undo className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                        ) : (
+                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                        )}
+                                        <span
+                                          className={cn(
+                                            'font-semibold truncate text-xs capitalize',
+                                            isReturnAction ? 'text-amber-800 dark:text-amber-300' : 'text-emerald-800 dark:text-emerald-300'
+                                          )}
+                                        >
+                                          {act.label || (act as any).action || 'Workflow Action Executed'}
+                                        </span>
+
+                                        {act.completedUser && (
+                                          <span className="text-[11px] font-normal text-muted-foreground">
+                                            by <strong className="font-semibold text-slate-800 dark:text-slate-200">{act.completedUser.name}</strong> ({act.completedUser.designation || 'Unit Surveyor'})
+                                          </span>
+                                        )}
+
+                                        {(act.targetRecipientLabel || act.completedRole) && (
+                                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
+                                            ➔ Forwarded to: {act.targetRecipientLabel || act.completedRole}
+                                          </Badge>
+                                        )}
+                                      </div>
+
+                                      {act.completedAt && (
+                                        <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                                          {new Date(act.completedAt).toLocaleString('en-IN', {
+                                            day: '2-digit',
+                                            month: 'short',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                          })}
+                                        </span>
                                       )}
-                                    >
-                                      {pending.description}
-                                    </p>
-                                  )}
-                                </div>
-                              );
-                            })}
+                                    </div>
+
+                                    {act.justification && (
+                                      <div className="pl-5 text-[11px] text-slate-600 dark:text-slate-400 italic flex items-start gap-1.5 bg-background/50 p-1.5 rounded border border-border/30">
+                                        <MessageSquare className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+                                        <span>&ldquo;{act.justification}&rdquo;</span>
+                                      </div>
+                                    )}
+
+                                    {act.attachments && act.attachments.length > 0 && (
+                                      <div className="flex flex-wrap gap-2 pl-5 pt-1">
+                                        {act.attachments.map((att: any) => (
+                                          <a
+                                            key={att.id}
+                                            href={`/api/documents/${att.id}/download`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white text-emerald-800 border border-emerald-300 hover:bg-emerald-50 dark:bg-slate-900 dark:text-emerald-300 dark:border-emerald-800 text-[11px] font-semibold transition-colors shadow-2xs"
+                                          >
+                                            <Paperclip className="w-3 h-3 text-emerald-600 shrink-0" />
+                                            <span className="truncate max-w-[180px]">{att.fileName}</span>
+                                            <Download className="w-3 h-3 text-emerald-600 shrink-0 ml-0.5" />
+                                          </a>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                           </div>
                         </div>
                       )}

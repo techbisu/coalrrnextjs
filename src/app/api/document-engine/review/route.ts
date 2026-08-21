@@ -2,15 +2,10 @@ import { NextResponse, NextRequest } from 'next/server'
 import { authorizeApi } from '@/core/authorization/middleware/authorize'
 import { ok, serverError, badRequest } from '@/app/api/_lib'
 import { db } from '@/lib/db'
+import { Container } from '@/infrastructure/di/Container'
 import { Audit } from '@/core/audit/services/AuditService'
 
 export async function POST(req: NextRequest) {
-  // 1. Auth check
-  const auth = await authorizeApi('project.view')
-  if ('error' in auth) {
-    return NextResponse.json({ error: auth.error }, { status: 403 })
-  }
-
   try {
     const body = await req.json()
     const { instanceId, decision, comment } = body
@@ -23,14 +18,19 @@ export async function POST(req: NextRequest) {
       return badRequest('decision must be APPROVED or REVISION_REQUESTED')
     }
 
-    // 2. Fetch document instance
-    const instance = await db.document_instance.findUnique({ where: { id: instanceId } })
+    // 1. Fetch document instance using Container
+    const instance = await Container.documentInstanceRepository.findById(instanceId)
     if (!instance) {
       return badRequest('Document instance not found')
     }
 
-    // 3. Server-side Permission Check
+    // 2. Server-side Auth and Permission Check
     const reqPerm = `${instance.template_code.toLowerCase()}.review`
+    const auth = await authorizeApi([reqPerm, 'document.review', 'workflow.approve', 'proposal.approve', 'acquisition.approve', 'project.view'])
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: 403 })
+    }
+
     const userPerms = auth.user.permissions || []
     const hasPermission =
       userPerms.includes(reqPerm) ||
@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
       userPerms.includes('workflow.approve') ||
       userPerms.includes('*') ||
       (auth.user.roles || []).some(r => {
-        const rl = r.toLowerCase()
-        return rl.includes('admin') || rl.includes('super') || rl.includes('officer') || rl.includes('cell')
+        const rl = r.toLowerCase().replace(/[^a-z0-9]/g, '')
+        return rl.includes('admin') || rl.includes('super') || rl.includes('officer') || rl.includes('cell') || rl.includes('manager') || rl.includes('gm')
       })
 
     if (!hasPermission) {

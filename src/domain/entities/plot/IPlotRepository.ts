@@ -13,4 +13,6 @@ export interface PlotData {
 export interface IPlotRepository {
   findById(id: string): Promise<PlotData | null>
   findAllPlots(where?: any): Promise<any[]>
+  /** Count plot schedule entries for a specific proposal */
+  countByProposalId(proposalId: string): Promise<number>
 }

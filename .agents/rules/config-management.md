@@ -4,11 +4,12 @@ trigger: always_on
 
 # Configuration Management Rule
 
-## Core requirement
-NEVER hardcode a configurable value directly in business logic, components, or
-UseCases (magic numbers, limits, feature flags, thresholds, default values, URLs,
-timeouts, retry counts, file size limits, pagination sizes, etc.). Every such value
-MUST live in a config file or env variable — never inline.
+## Core requirement (ABSOLUTE BAN ON HARDCODING)
+NEVER hardcode ANYTHING statically in the code. This includes:
+- Magic strings, IDs, template codes, or statuses.
+- Business rule limits, feature flags, default values, thresholds, URLs, timeouts, retry counts, pagination sizes.
+- UI Labels and text (which must go through i18n/translations).
+Every such value MUST live in a database table, a module config file, or an env variable — absolutely zero inline hardcoding.
 
 ## Module-wise config files (mandatory structure)
 `src/core/config/<module>.config.ts` — one config file per module/domain, not one

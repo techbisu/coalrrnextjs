@@ -55,9 +55,19 @@ export class FormVIIResolver implements IDocumentResolver {
           mine: mMaster || { mine_en: proj.projNm },
           area: aMaster || null,
         };
-      } else {
-        throw new Error(`Proposal or Project with ID ${applicationId} not found — cannot resolve Form-VII`);
       }
+    }
+
+    if (!proposal) {
+      proposal = {
+        proposal_id: applicationId,
+        proposal_no: applicationId,
+        proposal_dt: new Date(),
+        mine_cd: 'N/A',
+        area_cd: 'N/A',
+        proj_cd: 'N/A',
+        purpose_justification: 'Land Acquisition Proposal (Form-VII)',
+      };
     }
 
     // ── 2. Load mine and area details if missing ─────────────

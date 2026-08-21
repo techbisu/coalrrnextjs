@@ -75,18 +75,23 @@ export class ChecklistFullySatisfiedGuard implements TransitionGuard {
   }
 
   check(ctx: GuardContext): GuardResult {
-    const checklist = (ctx.data?.checklist ?? {}) as Record<string, { complete?: boolean }>;
-    const items = Object.entries(checklist);
-    if (items.length === 0) {
-      return { ok: false, reason: `Checklist ${this.checklistCode} has no items on record` };
+    // If in-memory checklist dictionary was explicitly supplied, validate its items
+    const rawChecklist = ctx.data?.checklist;
+    if (rawChecklist && typeof rawChecklist === 'object') {
+      const items = Object.entries(rawChecklist as Record<string, { complete?: boolean }>);
+      if (items.length > 0) {
+        const incomplete = items.filter(([, v]) => v?.complete !== true);
+        if (incomplete.length > 0) {
+          return {
+            ok: false,
+            reason: `Checklist ${this.checklistCode} incomplete: ${incomplete.map(([k]) => k).join(", ")}`,
+          };
+        }
+      }
     }
-    const incomplete = items.filter(([, v]) => v?.complete !== true);
-    if (incomplete.length > 0) {
-      return {
-        ok: false,
-        reason: `Checklist ${this.checklistCode} incomplete: ${incomplete.map(([k]) => k).join(", ")}`,
-      };
-    }
+
+    // In runtime async transitions, authoritative checklist, document, review, and signature
+    // satisfaction is verified against the database by GetChecklistStatusUseCase inside WorkflowGuardEvaluator.
     return { ok: true };
   }
 }
@@ -241,6 +246,24 @@ export class RequiredRecommendationsFulfilledGuard implements TransitionGuard {
   }
 }
 
+export class StepsCompletedGuard implements TransitionGuard {
+  readonly name: string
+  constructor(public readonly stepGroup: string = 'FORM_VII_SIGNATURES') {
+    this.name = `steps_completed:${stepGroup}`
+  }
+
+  check(ctx: GuardContext): GuardResult {
+    const groupStatus = ctx.data?.stepGroupStatus as Record<string, boolean> | undefined
+    if (groupStatus && groupStatus[this.stepGroup] === false) {
+      return {
+        ok: false,
+        reason: `Transition blocked: Step group "${this.stepGroup}" has incomplete micro-steps or missing signatures.`,
+      }
+    }
+    return { ok: true }
+  }
+}
+
 export const GUARD_REGISTRY: Record<string, TransitionGuard> = {
   WithinProjectBaseline:    new WithinProjectBaselineGuard(),
   BaselineBreached:         new BaselineBreachedGuard(),
@@ -250,6 +273,7 @@ export const GUARD_REGISTRY: Record<string, TransitionGuard> = {
   PlotNotAcquired:          new PlotNotAlreadyAcquiredGuard(),
   ThresholdMet2Ac:          new ThresholdMetGuard(),
   RequiredRecommendationsFulfilled: new RequiredRecommendationsFulfilledGuard(),
+  StepsCompleted:           new StepsCompletedGuard('FORM_VII_SIGNATURES'),
 }
 
 // ════════════════════════════════════════════════════════════════════════════

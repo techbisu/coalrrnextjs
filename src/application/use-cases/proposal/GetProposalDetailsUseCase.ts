@@ -5,7 +5,6 @@ import { IUseCase, Result, Fail, Ok } from '@/core'
 import { PrismaAcqProposalRepository } from '@/infrastructure/persistence/repositories/PrismaAcqProposalRepository'
 import { NotFoundException } from '@/core/errors'
 import { formatPlotHumanReadable } from '@/shared/utils/plot.utils'
-import { db } from '@/lib/db'
 
 export interface GetProposalDetailsRequest {
   proposalId: string
@@ -66,14 +65,18 @@ export class GetProposalDetailsUseCase implements IUseCase<GetProposalDetailsReq
       return Fail('Proposal')
     }
 
-    let adjacentCollieryName = data.pr_scheme_ref_no || ''
-    if (adjacentCollieryName) {
-      const areaMatch = await db.area.findFirst({
-        where: { OR: [{ area_cd: adjacentCollieryName }, { area_en: adjacentCollieryName }] }
-      })
-      if (areaMatch) {
-        adjacentCollieryName = areaMatch.area_en
-      }
+    const adjacentCollieries: string[] = Array.isArray(data.cross_colliery_cds) 
+      ? data.cross_colliery_cds 
+      : [];
+    let adjacentCollieryName = adjacentCollieries.join(', ');
+    
+    // Attempt to resolve names (simplified for now)
+    if (adjacentCollieries.length > 0) {
+      const names = await Promise.all(adjacentCollieries.map(async cd => {
+        const areaName = await this.proposalRepository.findAreaNameByCode(cd);
+        return areaName || cd;
+      }));
+      adjacentCollieryName = names.join(', ');
     }
 
     let totalArea = 0;

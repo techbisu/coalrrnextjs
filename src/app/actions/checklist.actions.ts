@@ -11,7 +11,13 @@ export async function getChecklistStatus(moduleCode: string, checkableType: stri
       throw new Error(`Validation failed: ${parseResult.error.message}`);
     }
 
-    const result = await Container.getChecklistStatusUseCase!.execute(parseResult.data);
+    const user = await getCurrentUser().catch(() => null);
+    const userPermissions = user?.permissions || [];
+
+    const result = await Container.getChecklistStatusUseCase!.execute({
+      ...parseResult.data,
+      userPermissions,
+    } as any);
 
     if (result.isFailure) {
       console.log(`[SERVER ACTION] getChecklistStatus failed:`, result.error);

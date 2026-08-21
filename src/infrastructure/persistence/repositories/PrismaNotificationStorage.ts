@@ -9,6 +9,7 @@ import {
 
 export class PrismaNotificationStorage implements INotificationStorage {
   async getEventRegistryWithRules(event_name: string): Promise<EventRegistryData | null> {
+    if (!event_name) return null;
     const event = await db.event_registry.findUnique({
       where: { event_name },
       include: {

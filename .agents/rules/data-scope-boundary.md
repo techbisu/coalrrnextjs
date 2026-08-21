@@ -13,4 +13,4 @@
    - NEVER construct raw inline `where: { area_cd: ... }` checks inside UseCases or API routes.
    - ALWAYS delegate to `UserScopeService`.
 5. **Bidirectional Mine Adjacency**:
-   - Adjacency is stored in `mine_master.adjacent_mine_ids`. Modifying an adjacent mine relationship syncs the array bidirectionally across both colliery master records.
+   - Adjacency is stored in `master.mine.adjacent_mine_ids`. Modifying an adjacent mine relationship syncs the array bidirectionally across both colliery master records.

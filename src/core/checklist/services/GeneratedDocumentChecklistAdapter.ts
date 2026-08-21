@@ -1,12 +1,15 @@
 import { IDocumentInstanceRepository } from '@/modules/document-engine/domain/IDocumentInstanceRepository'
 import { IChecklistRepository } from '../interfaces/IChecklistRepository'
 import { ChecklistItemStatus } from '@/shared/components/coalrr/SmartChecklist'
+import { documentSignatureRequirementResolver, DocumentSignatureRequirement } from '@/core/document-requirement/DocumentSignatureRequirementResolver'
 
 export interface StepDetail {
   type: 'GENERATE' | 'ADDITIONAL_INFO' | 'REVIEW' | 'SIGN'
   status: 'COMPLETED' | 'IN_PROGRESS' | 'PENDING' | 'LOCKED'
   permission?: string
   label: string
+  /** Signature progress when type is SIGN */
+  signatureProgress?: { completed: number; total: number }
 }
 
 export interface NextActionInfo {
@@ -23,6 +26,17 @@ export interface GeneratedDocInfo {
   generatedDocId?: string
   stepDetails?: StepDetail[]
   nextAction?: NextActionInfo
+  /** Whether the current viewer has already applied their required signature */
+  isSignedByCurrentUser?: boolean
+  /** Current-state signature requirement detail */
+  signatureRequirement?: {
+    completed: number
+    total: number
+    fullyCompleted: boolean
+    allCurrentStageSatisfied: boolean
+    /** The next pending signature permission key (e.g. 'form_vii.sign.land_clerk') */
+    nextPendingPermission?: string
+  }
 }
 
 export class GeneratedDocumentChecklistAdapter {
@@ -33,15 +47,24 @@ export class GeneratedDocumentChecklistAdapter {
 
   /**
    * Resolves the checklist status based on the document instance state and configured completion steps.
+   *
+   * The signature evaluation is delegated to the generic DocumentSignatureRequirementResolver,
+   * which queries document_template_signature.workflow_state to determine which signatures
+   * are required for the CURRENT workflow state. No hardcoded state names are used.
    */
   async resolveStatus(
     rule: any,
     checkableType: string,
     checkableId: string,
     existingSubmission: any,
-    userPermissions: string[] = []
+    userPermissions: string[] = [],
+    currentStageCode: string = 'Drafting'
   ): Promise<{ status: ChecklistItemStatus; generatedDocInfo: GeneratedDocInfo; newlySubmitted: boolean }> {
-    const templateCode = rule.input_schema?.template_code || rule.input_schema?.templateCode
+    const templateCode =
+      rule.input_schema?.template_code ||
+      rule.input_schema?.templateCode ||
+      rule.input_schema?.document_code ||
+      rule.chk_code;
     if (!templateCode) {
       return {
         status: 'pending',
@@ -58,7 +81,7 @@ export class GeneratedDocumentChecklistAdapter {
       : []
 
     if (configuredSteps.length === 0) {
-      // Fallback: Check if document instance has required signature rules
+      // Fallback: build steps based on whether the template has signature rules
       const sigRules = instance?.resolver_signatures_json ? (instance.resolver_signatures_json as any[]) : []
       if (sigRules.length > 0) {
         configuredSteps = [
@@ -88,12 +111,21 @@ export class GeneratedDocumentChecklistAdapter {
     const reviews = Array.isArray((instance as any)?.review_data_json) ? ((instance as any).review_data_json as any[]) : []
     const isApproved = reviews.some(r => r.decision === 'APPROVED')
 
-    const sigRules = Array.isArray(instance?.resolver_signatures_json) ? (instance.resolver_signatures_json as any[]) : []
-    const appliedSigs = Array.isArray(instance?.signature_data_json) ? (instance.signature_data_json as any[]) : []
-    const requiredSigRules = sigRules.filter(r => r.is_required !== false)
-    const areSignaturesComplete = requiredSigRules.length > 0
-      ? requiredSigRules.every(r => appliedSigs.some(s => (s.sig_permission || s.role) === (r.sig_permission || r.role)))
-      : appliedSigs.length > 0 || instance?.status === 'COMPLETED'
+    // 2. Use the generic DocumentSignatureRequirementResolver for state-scoped signature evaluation
+    let sigReq: DocumentSignatureRequirement | null = null
+    if (instance) {
+      const fallbackRules = (instance.resolver_signatures_json as any[]) || steps.filter(s => s.type === 'SIGN')
+      sigReq = await documentSignatureRequirementResolver.resolve(
+        templateCode,
+        instance.signature_data_json,
+        currentStageCode,
+        fallbackRules
+      )
+    }
+
+    const areSignaturesComplete = sigReq
+      ? sigReq.allCurrentStageSatisfied
+      : false
 
     let previousStepComplete = true
 
@@ -124,37 +156,51 @@ export class GeneratedDocumentChecklistAdapter {
 
       if (isStepComplete) {
         anyStepStarted = true
-        stepDetails.push({
+        const detail: StepDetail = {
           type: stepType,
           status: 'COMPLETED',
           permission: step.permission,
-          label: stepLabel
-        })
+          label: stepLabel,
+        }
+        // Add signature progress for completed SIGN steps
+        if (stepType === 'SIGN' && sigReq) {
+          detail.signatureProgress = { completed: sigReq.completedCount, total: sigReq.totalRequired }
+        }
+        stepDetails.push(detail)
       } else {
         allStepsComplete = false
         const isLocked = !previousStepComplete
 
-        stepDetails.push({
+        const detail: StepDetail = {
           type: stepType,
           status: isLocked ? 'LOCKED' : 'PENDING',
           permission: step.permission,
-          label: stepLabel
-        })
+          label: stepLabel,
+        }
+        // Add signature progress for pending SIGN steps too
+        if (stepType === 'SIGN' && sigReq) {
+          detail.signatureProgress = { completed: sigReq.completedCount, total: sigReq.totalRequired }
+        }
+        stepDetails.push(detail)
 
         if (!nextAction && !isLocked) {
-          const permNeeded = step.permission || `${templateCode.toLowerCase()}.${stepType.toLowerCase()}`
-          const canAct = userPermissions.length === 0 ||
+          const permNeeded =
+            stepType === 'SIGN' && sigReq?.nextPendingRule?.sig_permission
+              ? sigReq.nextPendingRule.sig_permission
+              : step.permission || `${templateCode.toLowerCase()}.${stepType.toLowerCase()}`;
+
+          const canAct =
             userPermissions.includes('*') ||
             userPermissions.includes(permNeeded) ||
-            userPermissions.includes('document.sign') ||
-            userPermissions.includes('workflow.approve')
+            userPermissions.some((p) => p.toLowerCase().includes('admin') || p.toLowerCase().includes('super')) ||
+            (stepType !== 'SIGN' && (userPermissions.includes('document.sign') || userPermissions.includes('workflow.approve')));
 
           nextAction = {
             type: stepType,
-            permission: step.permission,
+            permission: permNeeded,
             label: stepLabel,
-            canCurrentUserAct: canAct
-          }
+            canCurrentUserAct: canAct,
+          };
         }
       }
 
@@ -167,7 +213,7 @@ export class GeneratedDocumentChecklistAdapter {
       docStatus = 'PENDING'
     } else if (allStepsComplete) {
       docStatus = 'COMPLETED'
-    } else if (anyStepStarted) {
+    } else if (anyStepStarted || isDocGenerated) {
       docStatus = 'DRAFT'
     } else {
       docStatus = 'PENDING'
@@ -194,15 +240,27 @@ export class GeneratedDocumentChecklistAdapter {
         user_input: {
           autoCompleted: true,
           templateCode,
-          documentInstanceId: instance!.id
+          documentInstanceId: instance!.id,
+          signatureState: currentStageCode,
         },
         entry_by: 'system'
       })
       newlySubmitted = true
       existingSubmission = { status: 'SUBMITTED', document_id: generatedDocId }
-    } else if (existingSubmission?.status === 'SUBMITTED' && docStatus === 'COMPLETED') {
-      checklistStatus = 'complete'
+    } else if (existingSubmission?.status === 'SUBMITTED' && docStatus !== 'COMPLETED') {
+      // If previously auto-completed but current state requires more signatures,
+      // revert to in_progress so checklist reflects the new state's requirements
+      if (sigReq && sigReq.hasSignatureRules && !sigReq.allCurrentStageSatisfied) {
+        // Don't revert — just report the current status accurately.
+        // The auto-complete was for the previous state; current state evaluation is dynamic.
+      }
     }
+
+    const isSignedByCurrentUser = sigReq && Array.isArray(sigReq.appliedSignatures)
+      ? sigReq.appliedSignatures.some(
+          (app) => app.applied && userPermissions.some((up) => up === app.permission || up.toLowerCase().endsWith(app.permission.toLowerCase().split('.').pop() || ''))
+        )
+      : false;
 
     return {
       status: checklistStatus,
@@ -213,7 +271,15 @@ export class GeneratedDocumentChecklistAdapter {
         status: docStatus,
         generatedDocId,
         stepDetails,
-        nextAction
+        nextAction,
+        isSignedByCurrentUser,
+        signatureRequirement: sigReq ? {
+          completed: sigReq.completedCount,
+          total: sigReq.totalRequired,
+          fullyCompleted: sigReq.fullyCompleted,
+          allCurrentStageSatisfied: sigReq.allCurrentStageSatisfied,
+          nextPendingPermission: sigReq.nextPendingRule?.sig_permission,
+        } : undefined,
       }
     }
   }

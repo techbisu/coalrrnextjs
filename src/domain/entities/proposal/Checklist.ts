@@ -50,8 +50,15 @@ export class Checklist extends ValueObject<ChecklistProps> {
 
     const items = [...baseItems, ...(modeSpecificItems[acq_mode_id] ?? [])]
 
+    const modeCodeMap: Record<number, string> = {
+      1: 'CL-1.1',
+      6: 'CL-1.2',
+      2: 'CL-1.3',
+      9: 'CL-1.4',
+    }
+
     return new Checklist({
-      checklistCode: `CL-MODE-${acq_mode_id}`,
+      checklistCode: modeCodeMap[acq_mode_id] ?? `CL-MODE-${acq_mode_id}`,
       items,
     })
   }

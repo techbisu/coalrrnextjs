@@ -69,6 +69,28 @@ export class ManualMilestoneService {
             )
           }
         }
+      } else {
+        // Fallback to static milestoneConfig
+        const { milestoneConfig } = await import('@/core/config/milestone.config')
+        const allDefs = [...milestoneConfig.CBA, ...milestoneConfig.DP]
+        const fallbackDef = allDefs.find(m => m.id === data.milestone_type)
+        if (fallbackDef && (fallbackDef as any).requires && (fallbackDef as any).requires.length > 0) {
+          const existingHistory = await this.getHistory(data.entity_type, data.entity_id)
+          const existingTypes = new Set(
+            existingHistory.isSuccess
+              ? existingHistory.value.map((m: any) => m.milestone_type)
+              : []
+          )
+          const missing = (fallbackDef as any).requires.filter((reqId: string) => !existingTypes.has(reqId))
+          if (missing.length > 0) {
+            const missingLabels = missing
+              .map((reqId: string) => allDefs.find(m => m.id === reqId)?.label || reqId)
+              .join(', ')
+            return Fail(
+              `Cannot record ${fallbackDef.label}. Missing prerequisite milestones: ${missingLabels}`
+            )
+          }
+        }
       }
 
       // ── Persist ─────────────────────────────────────────────────────────
@@ -89,7 +111,7 @@ export class ManualMilestoneService {
       })
 
       Audit.logCustomAction({
-        activity: `[MILESTONE_RECORDED] on MANUAL_MILESTONE (${milestone.id}) | ${JSON.stringify({ milestone: data.milestone_type, entity: data.entity_id, outcome: data.outcome })}`,
+        activity: `[MILESTONE_RECORDED] on MANUAL_MILESTONE (${milestone?.id ?? 'created'}) | ${JSON.stringify({ milestone: data.milestone_type, entity: data.entity_id, outcome: data.outcome })}`,
         userId: data.user_id || 'system'
       }).catch(console.error)
 

@@ -25,7 +25,7 @@ export interface ProposalProps {
   proposedByRole: string
   areaOffice: string
   collieryCode: string
-  adjacentColliery: string
+  adjacentCollieries: string[]
   totalArea: Area
   notificationDate: Date | null
   checklist: Checklist
@@ -55,7 +55,7 @@ export interface CreateProposalProps {
   proposedByRole: string
   areaOffice?: string
   collieryCode: string
-  adjacentColliery?: string
+  adjacentCollieries?: string[]
   notificationDate?: Date
   proposalNo?: string
   proposalType?: string
@@ -76,7 +76,7 @@ export interface UpdateProposalProps {
   proposalTitle?: string
   description?: string
   areaOffice?: string
-  adjacentColliery?: string
+  adjacentCollieries?: string[]
   notificationDate?: Date
 }
 
@@ -130,7 +130,7 @@ export class Proposal extends AggregateRoot<string> {
   private _proposedByRole: string
   private _areaOffice: string
   private _collieryCode: string
-  private _adjacentColliery: string
+  private _adjacentCollieries: string[]
   private _totalArea: Area
   private _notificationDate: Date | null
   private _checklist: Checklist
@@ -162,7 +162,7 @@ export class Proposal extends AggregateRoot<string> {
     this._proposedByRole = props.proposedByRole
     this._areaOffice = props.areaOffice
     this._collieryCode = props.collieryCode
-    this._adjacentColliery = props.adjacentColliery
+    this._adjacentCollieries = props.adjacentCollieries
     this._totalArea = props.totalArea
     this._notificationDate = props.notificationDate
     this._checklist = props.checklist
@@ -230,7 +230,7 @@ export class Proposal extends AggregateRoot<string> {
       proposedByRole: props.proposedByRole,
       areaOffice: props.areaOffice?.trim() ?? '',
       collieryCode: props.collieryCode.trim(),
-      adjacentColliery: props.adjacentColliery?.trim() ?? '',
+      adjacentCollieries: props.adjacentCollieries || [],
       totalArea: Area.zero('ACRES'),
       notificationDate: props.notificationDate ?? null,
       checklist: Checklist.createForMode(acq_mode_id),
@@ -274,7 +274,7 @@ export class Proposal extends AggregateRoot<string> {
     proposedByRole: string
     areaOffice: string
     collieryCode: string
-    adjacentColliery: string
+    adjacentCollieries: string[]
     totalAreaAcres: string
     notificationDate: Date | null
     modeSpecificChecklist: string
@@ -306,7 +306,7 @@ export class Proposal extends AggregateRoot<string> {
       proposedByRole: data.proposedByRole,
       areaOffice: data.areaOffice,
       collieryCode: data.collieryCode,
-      adjacentColliery: data.adjacentColliery,
+      adjacentCollieries: data.adjacentCollieries,
       totalArea: Area.fromAcres(data.totalAreaAcres),
       notificationDate: data.notificationDate,
       checklist: Checklist.fromJSON(data.modeSpecificChecklist),
@@ -354,8 +354,8 @@ export class Proposal extends AggregateRoot<string> {
       this._areaOffice = props.areaOffice.trim()
     }
 
-    if (props.adjacentColliery !== undefined) {
-      this._adjacentColliery = props.adjacentColliery.trim()
+    if (props.adjacentCollieries !== undefined) {
+      this._adjacentCollieries = props.adjacentCollieries
     }
 
     if (props.notificationDate !== undefined) {
@@ -382,6 +382,17 @@ export class Proposal extends AggregateRoot<string> {
       actorId: actorId ?? 'system',
       comments: comments ?? '',
     }))
+
+    // Detect return to Unit (Gap 2.3)
+    if (newState.value === 'UnitSubmitted' && previousState.value === 'CrossCollieryVerification') {
+      this.addDomainEvent(createDomainEvent('PROPOSAL_RETURNED', this.id, {
+        scheduleCode: this._scheduleCode.value,
+        previousState: previousState.value,
+        newState: newState.value,
+        actorId: actorId ?? 'system',
+        reason: comments ?? 'Returned for plot correction',
+      }))
+    }
 
     return { isSuccess: true, isFailure: false, value: undefined, error: null }
   }
@@ -604,8 +615,8 @@ export class Proposal extends AggregateRoot<string> {
     return this._collieryCode
   }
 
-  get adjacentColliery(): string {
-    return this._adjacentColliery
+  get adjacentCollieries(): string[] {
+    return this._adjacentCollieries
   }
 
   get totalArea(): Area {
@@ -665,7 +676,7 @@ export class Proposal extends AggregateRoot<string> {
     proposedByRole: string
     areaOffice: string
     collieryCode: string
-    adjacentColliery: string
+    adjacentCollieries: string[]
     totalAreaAcres: string
     notificationDate: Date | null
     modeSpecificChecklist: string
@@ -696,7 +707,7 @@ export class Proposal extends AggregateRoot<string> {
       proposedByRole: this._proposedByRole,
       areaOffice: this._areaOffice,
       collieryCode: this._collieryCode,
-      adjacentColliery: this._adjacentColliery,
+      adjacentCollieries: this._adjacentCollieries,
       notificationDate: this._notificationDate,
       modeSpecificChecklist: this._checklist.toJSON(),
       proposalType: this._proposalType,

@@ -38,43 +38,7 @@ export function ProposalWorkflowSidebarSection({
     actorRole
   );
 
-  const transitionMutation = useMutation({
-    mutationFn: async ({
-      transition,
-      comments,
-    }: {
-      transition: WorkflowTransitionOption;
-      comments: string;
-    }) => {
-      const res = await fetch(`/api/schedules/${proposalId}/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          actionName: transition.name,
-          role: actorRole,
-          comments,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Transition failed');
-      return data;
-    },
-    onSuccess: (data) => {
-      toast.success(`Transitioned to ${data.newStatusLabel || 'next state'}`);
-      queryClient.invalidateQueries({
-        queryKey: [
-          'workflow-snapshot',
-          MODULE_CODES.LAND_SCHEDULE,
-          CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
-          proposalId,
-        ],
-      });
-      setIsDialogOpen(false);
-    },
-    onError: (err: Error) => {
-      toast.error('Transition blocked', { description: err.message });
-    },
-  });
+
 
   return (
     <div className="space-y-6">
@@ -86,7 +50,6 @@ export function ProposalWorkflowSidebarSection({
             setSelectedTransition(t);
             setIsDialogOpen(true);
           }}
-          isSubmitting={transitionMutation.isPending}
         />
       )}
 

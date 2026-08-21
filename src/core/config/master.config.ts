@@ -259,5 +259,21 @@ export const MASTER_REGISTRY: Record<string, MasterDataConfig> = {
     ],
     labelFormat: (r) => [r.projNm, r.eclProjCd, r.projCd].filter(Boolean).join(' | '),
     searchKeys: ['projNm', 'eclProjCd', 'projCd'],
+  },
+  'user_master': {
+    title: 'User Master',
+    description: 'System users and officials',
+    modelName: 'user',
+    primaryKey: 'id',
+    dbSchema: 'public',
+    columns: [
+      { key: 'id', label: 'User ID', type: 'number', required: true },
+      { key: 'name', label: 'Full Name', type: 'string', required: true },
+      { key: 'email', label: 'Email Address', type: 'string' },
+      { key: 'designation', label: 'Designation / Role', type: 'string' },
+      { key: 'is_active', label: 'Is Active', type: 'boolean' }
+    ],
+    searchKeys: ['name', 'email', 'designation'],
+    labelFormat: (u) => `${u.name} (${u.designation || u.email || 'Official'})`,
   }
 }

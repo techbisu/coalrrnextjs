@@ -148,14 +148,18 @@ export class WorkflowEngineServer extends WorkflowEngine {
       all = await loadWorkflowTransitions(MODULE_CODES.COMPENSATION_PAYROLL)
     }
 
-    const transition = all.find(
+    let transition = all.find(
       (t) => t.from === ctx.currentState && t.name === transitionName
     )
 
     if (!transition) {
+      const allowedFromState = all
+        .filter((t) => t.from === ctx.currentState)
+        .map((t) => `"${t.name}"`)
+        .join(', ');
       return {
         ok: false,
-        reason: `No transition "${transitionName}" defined from state "${ctx.currentState}"`,
+        reason: `No transition "${transitionName}" defined from state "${ctx.currentState}". Allowed transitions from "${ctx.currentState}": ${allowedFromState || 'none'}`,
       }
     }
 
@@ -218,10 +222,11 @@ export class WorkflowEngineServer extends WorkflowEngine {
   }
 
   /** Force-invalidate the DB transition cache (call after admin edits a transition). */
-  invalidateCache(workflowCode?: string): void {
+  public invalidateCache(workflowCode?: string): void {
     invalidateWorkflowCache(workflowCode)
   }
 }
 
 /** Shared singleton for API routes / Use Cases. */
 export const workflowEngineServer = new WorkflowEngineServer()
+

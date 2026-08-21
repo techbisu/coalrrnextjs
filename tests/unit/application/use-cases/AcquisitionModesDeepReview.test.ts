@@ -15,6 +15,12 @@ vi.mock('@/lib/db', () => ({
       create: vi.fn(),
       findMany: vi.fn(),
     },
+    milestone_definition: {
+      findFirst: vi.fn(async () => null),
+    },
+    workflow_reaction: {
+      findMany: vi.fn(async () => []),
+    },
     acq_proposal: {
       findUnique: vi.fn(),
     },
@@ -28,6 +34,15 @@ vi.mock('@/core/notifications/EventBus', () => ({
   EventBus: {
     publish: vi.fn(),
   }
+}))
+
+vi.mock('@/core/workflow/services/WorkflowReactionService', () => ({
+  workflowReactionService: {
+    handleEvent: vi.fn(async () => {}),
+  },
+  WorkflowReactionService: vi.fn().mockImplementation(() => ({
+    handleEvent: vi.fn(async () => {}),
+  })),
 }))
 
 vi.mock('@/infrastructure/di/modules/core.di', () => ({

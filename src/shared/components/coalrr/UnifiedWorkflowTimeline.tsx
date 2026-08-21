@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils'
 import { useWorkflowSnapshot } from '@/shared/hooks/useWorkflowSnapshot'
 import { CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
 
+import { UserInfoBadge } from './UserInfoBadge'
+
 export interface StageStep {
   code: string
   label: string
@@ -321,15 +323,11 @@ export function UnifiedWorkflowTimeline({
 
                 {/* Assigned Official Profile */}
                 <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 dark:bg-slate-900/80 dark:border-slate-800 text-xs flex items-center gap-2.5">
-                  <Avatar className="h-7 w-7 border border-sky-300">
-                    <AvatarFallback className="text-[10px] font-bold bg-sky-600 text-white">
-                      OFF
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <span className="text-muted-foreground">Assigned Official / Role: </span>
-                    <span className="font-semibold text-foreground">Unit Surveyor / Initiating Unit ({userRole})</span>
-                  </div>
+                  <span className="text-muted-foreground font-medium">Assigned Official / Role: </span>
+                  <UserInfoBadge
+                    user={snapshot?.assignments?.[currentIndex]?.assignedUser || snapshot?.assignments?.[0]?.assignedUser}
+                    role={snapshot?.assignments?.[currentIndex]?.assignedRole || userRole}
+                  />
                 </div>
 
                 {/* Simple Pending / Completed Work List */}

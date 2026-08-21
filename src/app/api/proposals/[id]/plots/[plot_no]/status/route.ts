@@ -34,7 +34,7 @@ export async function PATCH(
       return NextResponse.json({ error: `Plot '${rawPlotNo}' not found` }, { status: 404 })
     }
 
-    const { total_poss_area, to_be_acquired_area, remarks } = body
+    const { total_poss_area, to_be_acquired_area, remarks, landTypeAdjustments } = body
 
     const dataToUpdate: any = { acq_status }
     if (total_poss_area !== undefined) dataToUpdate.total_poss_area = Number(total_poss_area)
@@ -47,6 +47,42 @@ export async function PATCH(
       },
       data: dataToUpdate
     })
+
+    // If specific landTypeAdjustments provided (e.g., deducting 2.5 Ac specifically from Forest Area)
+    if (Array.isArray(landTypeAdjustments) && landTypeAdjustments.length > 0) {
+      const ltList = await db.plot_schedule_land_type.findMany({
+        where: { schedule_id: plot.schedule_id },
+        include: { landtype: true }
+      })
+
+      for (const adj of landTypeAdjustments) {
+        const match = ltList.find(lt => lt.landtype?.land_type?.toLowerCase() === adj.land_type_name.toLowerCase())
+        if (match) {
+          await db.plot_schedule_land_type.update({
+            where: { schedule_land_type_id: match.schedule_land_type_id },
+            data: { area_to_acquire: Number(adj.area_to_acquire) }
+          })
+        }
+      }
+    } else if (to_be_acquired_area !== undefined && plot.total_ror_area && Number(plot.total_ror_area) > 0) {
+      // Fallback: Proportional update if specific breakdown was not passed
+      const netArea = Number(to_be_acquired_area)
+      const totalRor = Number(plot.total_ror_area)
+      const ratio = Math.min(1, Math.max(0, netArea / totalRor))
+
+      const ltList = await db.plot_schedule_land_type.findMany({
+        where: { schedule_id: plot.schedule_id }
+      })
+
+      for (const lt of ltList) {
+        const originalArea = Number(lt.area || 0)
+        const updatedLandTypeAreaToAcquire = Number((originalArea * ratio).toFixed(4))
+        await db.plot_schedule_land_type.update({
+          where: { schedule_land_type_id: lt.schedule_land_type_id },
+          data: { area_to_acquire: updatedLandTypeAreaToAcquire }
+        })
+      }
+    }
 
     return NextResponse.json({ success: true, updated })
   } catch (error: any) {

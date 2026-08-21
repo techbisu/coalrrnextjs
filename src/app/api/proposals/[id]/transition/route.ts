@@ -68,7 +68,14 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 }
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const auth = await authorizeApi('proposal.edit')
+  const auth = await authorizeApi([
+    'proposal.edit',
+    'proposal.view',
+    'proposal.approve',
+    'acquisition.view',
+    'acquisition.edit',
+    'acquisition.approve',
+  ])
   if (auth.error) return auth.error
 
   const { id } = await params

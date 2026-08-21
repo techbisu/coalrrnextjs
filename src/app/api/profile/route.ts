@@ -2,7 +2,7 @@ import { ok, badRequest, serverError, readJson } from '@/app/api/_lib'
 import { getCurrentUser } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { z } from 'zod'
-import { createHash } from 'crypto'
+import bcrypt from 'bcrypt'
 
 const updateProfileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -16,8 +16,8 @@ const changePasswordSchema = z.object({
   new_password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
-function hashPassword(password: string): string {
-  return createHash('sha256').update(password).digest('hex')
+async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 12)
 }
 
 export async function GET() {
@@ -98,16 +98,17 @@ export async function PUT(req: Request) {
 
     // Verify current password
     const dbUser = await db.user.findUnique({ where: { id: parseInt(user.id, 10) }, select: { password_hash: true } })
-    if (!dbUser) return badRequest('User not found')
+    if (!dbUser || !dbUser.password_hash) return badRequest('User not found or password not set')
 
-    const currentHash = hashPassword(result.data.current_password)
-    if (dbUser.password_hash !== currentHash) {
+    const isValid = await bcrypt.compare(result.data.current_password, dbUser.password_hash)
+    if (!isValid) {
       return badRequest('Current password is incorrect')
     }
 
+    const newPasswordHash = await hashPassword(result.data.new_password)
     await db.user.update({
       where: { id: parseInt(user.id, 10) },
-      data: { password_hash: hashPassword(result.data.new_password), updt_ts: new Date() }
+      data: { password_hash: newPasswordHash, updt_ts: new Date() }
     })
 
     return ok({ success: true })

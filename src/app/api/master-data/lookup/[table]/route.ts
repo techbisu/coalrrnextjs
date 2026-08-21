@@ -47,8 +47,9 @@ export async function GET(
       }
 
       // Cascade dependency filters (e.g. district_lgd=704 → filter blocks by district)
-      searchParams.forEach((value, key) => {
-        if (key === 'values' || key === 'activeOnly' || key === 'ignore_scope' || !value) return
+      searchParams.forEach((value, rawKey) => {
+        if (rawKey === 'values' || rawKey === 'activeOnly' || rawKey === 'ignore_scope' || !value) return
+        const key = rawKey === 'role' && config.modelName === 'user' ? 'designation' : rawKey
         const colConfig = config.columns.find(c => c.key === key)
         if (!colConfig) return
 
@@ -59,6 +60,8 @@ export async function GET(
             : { in: list }
         } else if (value === 'null') {
           filters[key] = null
+        } else if (colConfig.type === 'string') {
+          filters[key] = { contains: value, mode: 'insensitive' }
         } else {
           filters[key] = colConfig?.type === 'number'
             ? (useBigInt ? BigInt(value) : Number(value))

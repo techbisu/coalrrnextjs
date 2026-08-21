@@ -16,6 +16,10 @@ export interface ProposalDTO {
   total_land_cost_est?: number;
   total_rehab_cost_est?: number;
   total_employment_cost_est?: number;
+  registration_cost_est?: number;
+  mutation_cost_est?: number;
+  other_costs_est?: number;
+  grand_total_cost_est?: number;
   revenue_plan_doc_id?: string;
   current_stage_cd: string;
   overall_status: string;
@@ -69,12 +73,47 @@ export interface PlotScheduleLandTypeDTO {
   use_purpose?: string;
 }
 
+export interface MouzaAbstractRowDTO {
+  mouza_lgd: string;
+  mouza_name: string;
+  jl_no: string;
+  plot_count: number;
+  land_type_areas: Record<string, number>;
+  total_area_acres: number;
+}
+
+export interface MouzaAbstractResultDTO {
+  proposal_id: string;
+  schedule_code: string;
+  land_types: string[];
+  mouza_abstracts: MouzaAbstractRowDTO[];
+  grand_totals: {
+    total_mouzas: number;
+    total_plots: number;
+    land_type_areas: Record<string, number>;
+    total_area_acres: number;
+  };
+}
+
+export interface ProposalCostSheetData {
+  total_land_cost_est?: number;
+  total_rehab_cost_est?: number;
+  total_employment_cost_est?: number;
+  registration_cost_est?: number;
+  mutation_cost_est?: number;
+  other_costs_est?: number;
+  grand_total_cost_est?: number;
+  rate_tenancy_land_with_emp?: number;
+  rate_tenancy_land_no_emp?: number;
+  rate_govt_land?: number;
+  rate_forest_land?: number;
+}
+
 export interface IProposalRepository {
-  // --- DDD Interface ---
-  findById(id: string, tx?: any): Promise<Proposal | null>;
-  save(proposal: Proposal, tx?: any): Promise<void>;
-  
-  isPlotInActiveProposal(plotId: string, excludeProposalId?: string): Promise<boolean>;
+  // --- Rich Domain Model Interface ---
+  save(proposal: Proposal): Promise<void>;
+  findById(id: string): Promise<Proposal | null>;
+  findByProposalNo(proposalNo: string): Promise<Proposal | null>;
   addPlotToProposal(proposalId: string, plotId: string, annexureTag: string): Promise<void>;
   updatePlotAnnexure(proposalId: string, plotId: string, annexureTag: string): Promise<void>;
   removePlotFromProposal(proposalId: string, plotId: string): Promise<void>;
@@ -93,6 +132,8 @@ export interface IProposalRepository {
   getLandTypeDetails(landtIds: (string | number)[]): Promise<any[]>;
   checkDuplicatePlots(plotNos: string[], mouzaLgd: number, excludeProposalId?: string): Promise<boolean>;
   getProposalDetailsWithPlots(proposalId: string): Promise<any>;
+  getMouzaAbstract(proposalId: string): Promise<MouzaAbstractResultDTO | null>;
+  updateProposalCostSheet(proposalId: string, costData: ProposalCostSheetData): Promise<ProposalDTO>;
 
   addPlots(proposalId: string, plots: PlotScheduleDTO[], landTypes: PlotScheduleLandTypeDTO[]): Promise<void>;
   updatePlot(proposalId: string, plotNo: string, plotData: PlotScheduleDTO, landTypesData: PlotScheduleLandTypeDTO[]): Promise<void>;

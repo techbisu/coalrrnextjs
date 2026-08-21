@@ -100,12 +100,19 @@ function DocxPreviewContent({ downloadUrl, setLoading }: { downloadUrl: string; 
     setLoading(true);
 
     fetch(`${downloadUrl}?preview=true`)
-      .then((res) => {
+      .then(async (res) => {
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          throw new Error(text || `Preview unavailable (HTTP ${res.status}). Please click "Generate Document" to create it.`);
+        }
         const contentType = res.headers.get('Content-Type') || '';
         if (contentType.includes('application/pdf')) {
           setUseIframe(true);
           setLoading(false);
           return null;
+        }
+        if (contentType.includes('application/json') || contentType.includes('text/html')) {
+          throw new Error('Document file buffer is invalid or missing. Please click "Generate Document" to regenerate.');
         }
         return res.arrayBuffer();
       })

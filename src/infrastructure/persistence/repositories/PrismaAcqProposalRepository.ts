@@ -1,4 +1,4 @@
-import { IProposalRepository, ProposalDTO, PlotScheduleDTO, PlotScheduleLandTypeDTO } from '@/domain/entities/proposal';
+import { IProposalRepository, ProposalDTO, PlotScheduleDTO, PlotScheduleLandTypeDTO, MouzaAbstractResultDTO, MouzaAbstractRowDTO, ProposalCostSheetData } from '@/domain/entities/proposal';
 import { db } from '@/lib/db';
 import { Proposal, ProposalId, ScheduleCode, ProposalState, Checklist } from '@/domain/entities/proposal';
 import { MODULE_CODES, CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config';
@@ -7,6 +7,14 @@ import { UserScopeService } from '@/core/authorization/services/UserScopeService
 
 export class PrismaAcqProposalRepository implements IProposalRepository {
   constructor() {}
+
+  async findByProposalNo(proposalNo: string): Promise<Proposal | null> {
+    const prop = await db.acq_proposal.findUnique({
+      where: { proposal_no: proposalNo }
+    });
+    if (!prop) return null;
+    return this.findById(prop.proposal_id);
+  }
 
   // --- DDD Interface ---
 
@@ -23,7 +31,7 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
 
     const flags = await (client as any).entity_flag?.findMany({
       where: {
-        entity_type: 'acq_land_schedule',
+        entity_type: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
         entity_id: id,
       }
     }).catch(() => []);
@@ -49,7 +57,7 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
       proposedByRole: 'system',
       areaOffice: prop.area_cd,
       collieryCode: prop.mine_cd,
-      adjacentColliery: '',
+      adjacentCollieries: (prop.cross_colliery_cds as string[]) || [],
       totalAreaAcres: (prop.tot_acq_area || 0).toString(),
       notificationDate: prop.proposal_dt,
       modeSpecificChecklist: '{}',
@@ -97,7 +105,7 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
       update: {
         proposal_no: data.scheduleCode,
         purpose_justification: data.proposalTitle,
-        pr_scheme_ref_no: (data as any).adjacentColliery || (data as any).pr_scheme_ref_no,
+        cross_colliery_cds: data.adjacentCollieries,
         current_stage_cd: data.state.slice(0, 30),
         overall_status: data.state.slice(0, 20),
         tot_acq_area: Number(data.totalAreaAcres),
@@ -118,7 +126,7 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
         proj_cd: data.projectId,
         acq_mode_id: acqModeId,
         purpose_justification: data.proposalTitle,
-        pr_scheme_ref_no: (data as any).adjacentColliery || (data as any).pr_scheme_ref_no,
+        cross_colliery_cds: data.adjacentCollieries,
         is_within_pr_limit: true,
         current_stage_cd: data.state.slice(0, 30),
         overall_status: data.state.slice(0, 20),
@@ -146,14 +154,14 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
       await (client as any).entity_flag?.upsert({
         where: {
           entity_type_entity_id_flag_code: {
-            entity_type: 'acq_land_schedule',
+            entity_type: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
             entity_id: data.id,
             flag_code: f.code,
           },
         },
         update: { flag_value: f.val, updt_ts: new Date() },
         create: {
-          entity_type: 'acq_land_schedule',
+          entity_type: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
           entity_id: data.id,
           flag_code: f.code,
           flag_value: f.val,
@@ -313,14 +321,14 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
         await (tx as any).entity_flag?.upsert({
           where: {
             entity_type_entity_id_flag_code: {
-              entity_type: 'acq_land_schedule',
+              entity_type: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
               entity_id: proposalId,
               flag_code: f.code,
             },
           },
           update: { flag_value: f.val, updt_ts: new Date() },
           create: {
-            entity_type: 'acq_land_schedule',
+            entity_type: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
             entity_id: proposalId,
             flag_code: f.code,
             flag_value: f.val,
@@ -385,7 +393,7 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
     
     const flags = await (db as any).entity_flag?.findMany({
       where: {
-        entity_type: 'acq_land_schedule',
+        entity_type: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
         entity_id: proposalId,
       }
     }).catch(() => []);
@@ -409,6 +417,18 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
       pr_scheme_ref_no: prop.pr_scheme_ref_no ?? undefined,
       is_within_pr_limit: prop.is_within_pr_limit,
       cmd_admin_approval_ref: prop.cmd_admin_approval_ref ?? undefined,
+      total_land_cost_est: prop.total_land_cost_est ? Number(prop.total_land_cost_est) : 0,
+      total_rehab_cost_est: prop.total_rehab_cost_est ? Number(prop.total_rehab_cost_est) : 0,
+      total_employment_cost_est: prop.total_employment_cost_est ? Number(prop.total_employment_cost_est) : 0,
+      registration_cost_est: (prop as any).registration_cost_est ? Number((prop as any).registration_cost_est) : 0,
+      mutation_cost_est: (prop as any).mutation_cost_est ? Number((prop as any).mutation_cost_est) : 0,
+      other_costs_est: (prop as any).other_costs_est ? Number((prop as any).other_costs_est) : 0,
+      grand_total_cost_est: (prop as any).grand_total_cost_est ? Number((prop as any).grand_total_cost_est) : 0,
+      rate_tenancy_land_with_emp: prop.rate_tenancy_land_with_emp ? Number(prop.rate_tenancy_land_with_emp) : 0,
+      rate_tenancy_land_no_emp: prop.rate_tenancy_land_no_emp ? Number(prop.rate_tenancy_land_no_emp) : 0,
+      rate_govt_land: prop.rate_govt_land ? Number(prop.rate_govt_land) : 0,
+      rate_forest_land: prop.rate_forest_land ? Number(prop.rate_forest_land) : 0,
+      employment_proposed_count: prop.employment_proposed_count ?? 0,
       requires_board_approval: flagMap['requires_board_approval'] ?? true,
       has_debottar_land: flagMap['has_debottar_land'] ?? false,
       has_tribal_land: flagMap['has_tribal_land'] ?? false,
@@ -433,15 +453,15 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
 
       if (areaIds.length > 0) {
         orConditions.push({ area_cd: { in: areaIds } });
-        orConditions.push({ pr_scheme_ref_no: { in: areaIds } });
-        const areas = await db.area.findMany({ where: { area_cd: { in: areaIds } } });
-        for (const a of areas) {
-          orConditions.push({ pr_scheme_ref_no: { contains: a.area_en, mode: 'insensitive' } });
+        for (const areaId of areaIds) {
+          orConditions.push({ cross_colliery_cds: { array_contains: areaId } });
         }
       }
       if (mineIds.length > 0) {
         orConditions.push({ mine_cd: { in: mineIds } });
-        orConditions.push({ pr_scheme_ref_no: { in: mineIds } });
+        for (const mineId of mineIds) {
+          orConditions.push({ cross_colliery_cds: { array_contains: mineId } });
+        }
       }
     } else if (scope && (scope.area_cd || scope.mine_cd)) {
       orConditions.push(scope);
@@ -686,6 +706,174 @@ export class PrismaAcqProposalRepository implements IProposalRepository {
           where: { schedule_id: plot.schedule_id }
         });
       }
+    });
+  }
+
+  async getMouzaAbstract(proposalId: string): Promise<MouzaAbstractResultDTO | null> {
+    const prop = await db.acq_proposal.findUnique({
+      where: { proposal_id: proposalId },
+      include: {
+        plot_schedule: {
+          where: {
+            del_ts: null,
+            acq_status: { notIn: ['CANCELLED', 'PURCHASED'] }
+          },
+          include: {
+            mouza: true,
+            plot_schedule_land_type: {
+              include: {
+                landtype: true,
+                sub_landtype: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!prop) return null;
+
+    const mouzaMap = new Map<string, {
+      mouza_lgd: string;
+      mouza_name: string;
+      jl_no: string;
+      plot_count: number;
+      land_type_areas: Record<string, number>;
+      total_area_acres: number;
+    }>();
+
+    const allLandTypeSet = new Set<string>();
+
+    for (const plot of prop.plot_schedule) {
+      const mouzaLgdStr = plot.mouza_lgd.toString();
+      const mouzaName = plot.mouza?.mouza_en || `Mouza LGD: ${mouzaLgdStr}`;
+      const jlNo = plot.jl_no || plot.mouza?.jl_no || '-';
+      const plotAcqArea = Number(plot.to_be_acquired_area || 0);
+
+      if (!mouzaMap.has(mouzaLgdStr)) {
+        mouzaMap.set(mouzaLgdStr, {
+          mouza_lgd: mouzaLgdStr,
+          mouza_name: mouzaName,
+          jl_no: jlNo,
+          plot_count: 0,
+          land_type_areas: {},
+          total_area_acres: 0
+        });
+      }
+
+      const mouzaEntry = mouzaMap.get(mouzaLgdStr)!;
+      mouzaEntry.plot_count += 1;
+      mouzaEntry.total_area_acres += plotAcqArea;
+
+      const ltBreakdowns = plot.plot_schedule_land_type || [];
+      if (ltBreakdowns.length > 0) {
+        for (const lt of ltBreakdowns) {
+          const ltName = lt.landtype?.land_type || 'Tenancy / Rayati';
+          const areaToAcq = Number(lt.area_to_acquire || lt.area || 0);
+          allLandTypeSet.add(ltName);
+          mouzaEntry.land_type_areas[ltName] = (mouzaEntry.land_type_areas[ltName] || 0) + areaToAcq;
+        }
+      } else {
+        const fallbackLt = 'Tenancy / Rayati';
+        allLandTypeSet.add(fallbackLt);
+        mouzaEntry.land_type_areas[fallbackLt] = (mouzaEntry.land_type_areas[fallbackLt] || 0) + plotAcqArea;
+      }
+    }
+
+    const landTypes = Array.from(allLandTypeSet);
+    if (landTypes.length === 0) {
+      landTypes.push('Tenancy / Rayati');
+    }
+
+    const mouzaAbstracts: MouzaAbstractRowDTO[] = Array.from(mouzaMap.values()).map(m => ({
+      mouza_lgd: m.mouza_lgd,
+      mouza_name: m.mouza_name,
+      jl_no: m.jl_no,
+      plot_count: m.plot_count,
+      land_type_areas: m.land_type_areas,
+      total_area_acres: Number(m.total_area_acres.toFixed(4))
+    }));
+
+    const grandLandTypeAreas: Record<string, number> = {};
+    for (const lt of landTypes) {
+      grandLandTypeAreas[lt] = 0;
+    }
+
+    let grandTotalPlots = 0;
+    let grandTotalArea = 0;
+
+    for (const m of mouzaAbstracts) {
+      grandTotalPlots += m.plot_count;
+      grandTotalArea += m.total_area_acres;
+      for (const lt of landTypes) {
+        grandLandTypeAreas[lt] = (grandLandTypeAreas[lt] || 0) + (m.land_type_areas[lt] || 0);
+      }
+    }
+
+    for (const lt of landTypes) {
+      grandLandTypeAreas[lt] = Number(grandLandTypeAreas[lt].toFixed(4));
+    }
+
+    return {
+      proposal_id: prop.proposal_id.toString(),
+      schedule_code: prop.proposal_no,
+      land_types: landTypes,
+      mouza_abstracts: mouzaAbstracts,
+      grand_totals: {
+        total_mouzas: mouzaAbstracts.length,
+        total_plots: grandTotalPlots,
+        land_type_areas: grandLandTypeAreas,
+        total_area_acres: Number(grandTotalArea.toFixed(4))
+      }
+    };
+  }
+
+  async updateProposalCostSheet(proposalId: string, costData: ProposalCostSheetData): Promise<ProposalDTO> {
+    const dataToUpdate: any = {};
+    if (costData.total_land_cost_est !== undefined) dataToUpdate.total_land_cost_est = costData.total_land_cost_est;
+    if (costData.total_rehab_cost_est !== undefined) dataToUpdate.total_rehab_cost_est = costData.total_rehab_cost_est;
+    if (costData.total_employment_cost_est !== undefined) dataToUpdate.total_employment_cost_est = costData.total_employment_cost_est;
+    if (costData.registration_cost_est !== undefined) dataToUpdate.registration_cost_est = costData.registration_cost_est;
+    if (costData.mutation_cost_est !== undefined) dataToUpdate.mutation_cost_est = costData.mutation_cost_est;
+    if (costData.other_costs_est !== undefined) dataToUpdate.other_costs_est = costData.other_costs_est;
+    if (costData.grand_total_cost_est !== undefined) dataToUpdate.grand_total_cost_est = costData.grand_total_cost_est;
+    if (costData.rate_tenancy_land_with_emp !== undefined) dataToUpdate.rate_tenancy_land_with_emp = costData.rate_tenancy_land_with_emp;
+    if (costData.rate_tenancy_land_no_emp !== undefined) dataToUpdate.rate_tenancy_land_no_emp = costData.rate_tenancy_land_no_emp;
+    if (costData.rate_govt_land !== undefined) dataToUpdate.rate_govt_land = costData.rate_govt_land;
+    if (costData.rate_forest_land !== undefined) dataToUpdate.rate_forest_land = costData.rate_forest_land;
+
+    await db.acq_proposal.update({
+      where: { proposal_id: proposalId },
+      data: dataToUpdate
+    });
+
+    const updated = await this.getProposalById(proposalId);
+    if (!updated) throw new Error('Proposal not found post update');
+    return updated;
+  }
+
+  async findAreaNameByCode(codeOrName: string): Promise<string | null> {
+    const area = await db.area.findFirst({
+      where: { OR: [{ area_cd: codeOrName }, { area_en: codeOrName }] }
+    });
+    return area ? area.area_en : null;
+  }
+
+  async createFileAttachments(
+    attachments: Array<{ file_id: string; entity_type: string; entity_id: string; module: string; attached_by: string }>
+  ): Promise<void> {
+    const { randomUUID } = await import('crypto');
+    await db.file_attachment.createMany({
+      skipDuplicates: true,
+      data: attachments.map(a => ({
+        id: randomUUID(),
+        file_id: a.file_id,
+        entity_type: a.entity_type,
+        entity_id: a.entity_id,
+        module: a.module,
+        attached_by: a.attached_by,
+        updt_ts: new Date(),
+      })),
     });
   }
 }

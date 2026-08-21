@@ -32,7 +32,7 @@ export class DocxGeneratorEngine {
       throw new Error(`Template file not found at ${templatePath}`)
     }
     
-    const content = fs.readFileSync(templatePath, 'binary')
+    const content = fs.readFileSync(templatePath)
     const zip = new PizZip(content)
     
     const doc = new Docxtemplater(zip, {

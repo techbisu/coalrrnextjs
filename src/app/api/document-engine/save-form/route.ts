@@ -6,7 +6,14 @@ import { db } from '@/lib/db'
 import { createDynamicZodSchema } from '@/modules/document-engine/application/utils/validation'
 
 export async function POST(req: NextRequest) {
-  const auth = await authorizeApi('project.view')
+  const auth = await authorizeApi([
+    'document.edit',
+    'proposal.edit',
+    'acquisition.edit',
+    'proposal.view',
+    'acquisition.view',
+    'project.view',
+  ])
   if ('error' in auth) {
     return NextResponse.json({ error: auth.error }, { status: 403 })
   }

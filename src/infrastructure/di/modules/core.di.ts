@@ -27,7 +27,9 @@ import { FactResolver } from '@/core/flags/services/FactResolver'
 import { AcqLandScheduleFactAdapter } from '@/core/flags/adapters/AcqLandScheduleFactAdapter'
 import { ProjectFactAdapter } from '@/core/flags/adapters/ProjectFactAdapter'
 import { ConditionContextBuilder } from '@/core/flags/services/ConditionContextBuilder'
-import { db } from '@/lib/db'
+
+import { PrismaWorkflowStateRepository } from '@/infrastructure/persistence/repositories/PrismaWorkflowStateRepository'
+import { DocumentSignatureRequirementResolver } from '@/core/document-requirement/DocumentSignatureRequirementResolver'
 
 import { processRegistry } from '@/core/workflow/ProcessRegistry'
 import { processInstanceService } from '@/core/workflow/services/ProcessInstanceService'
@@ -46,12 +48,15 @@ const globalForCoreDI = globalThis as unknown as {
   getChecklistStatusUseCase: GetChecklistStatusUseCase | undefined
   updateChecklistSubmissionUseCase: UpdateChecklistSubmissionUseCase | undefined
   manualMilestoneService: ManualMilestoneService | undefined
+  workflowStateRepository: PrismaWorkflowStateRepository | undefined
+  documentSignatureRequirementResolver: DocumentSignatureRequirementResolver | undefined
 }
 
 const nomineePoolRepository = new PrismaNomineePoolRepository()
 const documentTemplateRepository = new PrismaDocumentTemplateRepository()
 const documentInstanceRepository = new PrismaDocumentInstanceRepository()
 const notificationStorage = new PrismaNotificationStorage()
+const workflowStateRepository = globalForCoreDI.workflowStateRepository ?? new PrismaWorkflowStateRepository()
 
 // Initialize Global Configs
 NotificationConfig.initialize(notificationStorage)
@@ -73,10 +78,13 @@ checklistRegistry.register(MODULE_CODES.LAND_SCHEDULE, new ProposalChecklistReso
 const checklistRepository = new PrismaChecklistRepository()
 const documentAdapter = new GeneratedDocumentChecklistAdapter(documentInstanceRepository, checklistRepository)
 
+// DocumentSignatureRequirementResolver — injected with the template repository, not using global db
+const documentSignatureRequirementResolver = globalForCoreDI.documentSignatureRequirementResolver ?? new DocumentSignatureRequirementResolver(documentTemplateRepository)
+
 export const getNomineePoolsUseCase = globalForCoreDI.getNomineePoolsUseCase ?? new GetNomineePoolsUseCase(nomineePoolRepository)
 export const getNomineePoolDetailUseCase = globalForCoreDI.getNomineePoolDetailUseCase ?? new GetNomineePoolDetailUseCase(nomineePoolRepository)
 
-export const getChecklistStatusUseCase = globalForCoreDI.getChecklistStatusUseCase ?? new GetChecklistStatusUseCase(checklistRepository, checklistRegistry, documentAdapter)
+export const getChecklistStatusUseCase = globalForCoreDI.getChecklistStatusUseCase ?? new GetChecklistStatusUseCase(checklistRepository, checklistRegistry, documentAdapter, workflowStateRepository)
 export const updateChecklistSubmissionUseCase = globalForCoreDI.updateChecklistSubmissionUseCase ?? new UpdateChecklistSubmissionUseCase(checklistRepository, checklistRegistry)
 export const manualMilestoneService = globalForCoreDI.manualMilestoneService ?? new ManualMilestoneService()
 
@@ -112,6 +120,11 @@ export const Container = {
   factResolver,
   conditionContextBuilder,
   auditQueue,
+  /** Repositories — inject into services instead of using db directly */
+  documentInstanceRepository,
+  documentTemplateRepository,
+  workflowStateRepository,
+  documentSignatureRequirementResolver,
 }
 
 if (process.env.NODE_ENV !== 'production') {
@@ -124,4 +137,6 @@ if (process.env.NODE_ENV !== 'production') {
   globalForCoreDI.getChecklistStatusUseCase = getChecklistStatusUseCase
   globalForCoreDI.updateChecklistSubmissionUseCase = updateChecklistSubmissionUseCase
   globalForCoreDI.manualMilestoneService = manualMilestoneService
+  globalForCoreDI.workflowStateRepository = workflowStateRepository
+  globalForCoreDI.documentSignatureRequirementResolver = documentSignatureRequirementResolver
 }

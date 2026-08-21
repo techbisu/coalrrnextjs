@@ -28,6 +28,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { AreaSelect, MineSelect, UserSelect } from '@/shared/components/coalrr/selects'
+import { CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -71,6 +72,8 @@ export interface WorkflowActionCommandCenterProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   proposalId: string
+  moduleCode?: string
+  entityType?: string
   transition: EnhancedTransitionPayload | null
   onCompleted?: () => void
 }
@@ -79,12 +82,15 @@ export function WorkflowActionCommandCenter({
   open,
   onOpenChange,
   proposalId,
+  moduleCode,
+  entityType,
   transition,
   onCompleted,
 }: WorkflowActionCommandCenterProps) {
   const queryClient = useQueryClient()
   const [areaCd, setAreaCd] = React.useState<string | undefined>()
-  const [mineCd, setMineCd] = React.useState<string | undefined>()
+  const [targetMines, setTargetMines] = React.useState<string[]>([])
+  const [targetRole, setTargetRole] = React.useState<string | undefined>()
   const [targetUserId, setTargetUserId] = React.useState<string | undefined>()
   const [comments, setComments] = React.useState('')
   const [file, setFile] = React.useState<File | null>(null)
@@ -104,7 +110,8 @@ export function WorkflowActionCommandCenter({
   React.useEffect(() => {
     if (open) {
       setAreaCd(undefined)
-      setMineCd(undefined)
+      setTargetMines([])
+      setTargetRole(undefined)
       setTargetUserId(undefined)
       setComments('')
       setFile(null)
@@ -117,7 +124,8 @@ export function WorkflowActionCommandCenter({
   if (!transition) return null
 
   const isReturn = transition.reason?.required ?? (transition.name.toLowerCase().includes('return') || transition.name.toLowerCase().includes('reject'))
-  const isRecipientRequired = transition.recipient?.required ?? false
+  const isIntraStage = transition.name === 'forward_for_signature' || transition.name.includes('handover')
+  const isRecipientRequired = Boolean(transition.recipient?.required || transition.recipient?.selectionType || isIntraStage)
   const canExecute = transition.guards?.canExecute ?? true
   const blockingReasons = transition.guards?.blockingReasons || []
 
@@ -125,13 +133,13 @@ export function WorkflowActionCommandCenter({
   const handleAreaChange = (val: string | string[]) => {
     const selectedArea = typeof val === 'string' ? val : (Array.isArray(val) ? val[0] : undefined)
     setAreaCd(selectedArea)
-    setMineCd(undefined)
+    setTargetMines([])
     setTargetUserId(undefined)
   }
 
   const handleMineChange = (val: string | string[]) => {
-    const selectedMine = typeof val === 'string' ? val : (Array.isArray(val) ? val[0] : undefined)
-    setMineCd(selectedMine)
+    const selectedMines = Array.isArray(val) ? val : (val ? [val] : [])
+    setTargetMines(selectedMines)
     setTargetUserId(undefined)
   }
 
@@ -148,8 +156,8 @@ export function WorkflowActionCommandCenter({
       return
     }
 
-    if (isRecipientRequired && !areaCd && !mineCd) {
-      setError('Please select a target destination (Area / Mine Office) before submitting.')
+    if (transition.recipient?.required && !areaCd && targetMines.length === 0 && !targetUserId) {
+      setError('Please select a target destination (Area / Mine Office or Assigned User) before submitting.')
       return
     }
 
@@ -162,18 +170,39 @@ export function WorkflowActionCommandCenter({
       setIsSubmitting(true)
       setError(null)
 
-      const res = await fetch(`/api/proposals/${proposalId}/transition`, {
+      const transitionEndpoint = moduleCode
+        ? '/api/workflow/transition'
+        : `/api/proposals/${proposalId}/transition`
+
+      const payload = moduleCode
+        ? {
+            moduleCode,
+            entityType: entityType || CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
+            entityId: proposalId,
+            transition: transition.name,
+            role: transition.role || 'unit_office',
+            comments,
+            area_cd: areaCd,
+            target_mines: targetMines.length > 0 ? targetMines : undefined,
+            target_user_id: targetUserId,
+            target_role: targetRole,
+            recommendations: recommendations.length > 0 ? recommendations : undefined,
+          }
+        : {
+            transition: transition.name,
+            role: transition.role || 'unit_office',
+            comments,
+            area_cd: areaCd,
+            target_mines: targetMines.length > 0 ? targetMines : undefined,
+            target_user_id: targetUserId,
+            target_role: targetRole,
+            recommendations: recommendations.length > 0 ? recommendations : undefined,
+          }
+
+      const res = await fetch(transitionEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transition: transition.name,
-          role: transition.role || 'unit_office',
-          comments,
-          area_cd: areaCd,
-          mine_cd: mineCd,
-          target_user_id: targetUserId,
-          recommendations: recommendations.length > 0 ? recommendations : undefined,
-        }),
+        body: JSON.stringify(payload),
       })
 
       const data = await res.json()
@@ -181,7 +210,7 @@ export function WorkflowActionCommandCenter({
         throw new Error(data.error || data.message || 'Workflow transition failed')
       }
 
-      toast.success(data.message || `Proposal transitioned to ${data.newState}`)
+      toast.success(data.message || `State transitioned to ${data.toState || data.newState || 'next stage'}`)
       queryClient.invalidateQueries({ queryKey: ['proposals', proposalId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-snapshot'] })
       queryClient.invalidateQueries({ queryKey: ['checklist'] })
@@ -253,42 +282,81 @@ export function WorkflowActionCommandCenter({
                   Target Recipient Destination <span className="text-rose-500">*</span>
                 </Label>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-[11px] text-muted-foreground block mb-1">Area Office</Label>
-                    <AreaSelect
-                      value={areaCd}
-                      onChange={handleAreaChange}
-                      placeholder="Select Target Area..."
-                      className="bg-white dark:bg-slate-950 text-xs"
-                    />
-                  </div>
+                {isIntraStage ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[11px] text-muted-foreground block mb-1">Target Official Role</Label>
+                      <select
+                        value={targetRole || ''}
+                        onChange={(e) => {
+                          setTargetRole(e.target.value || undefined)
+                          setTargetUserId(undefined)
+                        }}
+                        className="w-full h-9 rounded-md border border-input bg-white dark:bg-slate-950 px-3 py-1 text-xs shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <option value="">All Roles</option>
+                        <option value="Colliery / Project Manager">Colliery / Project Manager</option>
+                        <option value="Colliery Agent">Colliery Agent</option>
+                        <option value="Unit Surveyor">Unit Surveyor</option>
+                        <option value="Area Land Officer">Area Land Officer</option>
+                        <option value="Area General Manager">Area General Manager</option>
+                      </select>
+                    </div>
 
-                  <div>
-                    <Label className="text-[11px] text-muted-foreground block mb-1">Mine / Colliery Office</Label>
-                    <MineSelect
-                      areaCd={areaCd}
-                      value={mineCd}
-                      onChange={handleMineChange}
-                      disabled={!areaCd}
-                      placeholder="Select Target Mine..."
-                      className="bg-white dark:bg-slate-950 text-xs"
-                    />
+                    <div>
+                      <Label className="text-[11px] text-muted-foreground block mb-1">Assigned Official / User</Label>
+                      <UserSelect
+                        roleFilter={targetRole}
+                        ignoreScope={true}
+                        value={targetUserId}
+                        onChange={(val) => setTargetUserId(typeof val === 'string' ? val : (Array.isArray(val) ? val[0] : undefined))}
+                        placeholder="Select Target Official / User..."
+                        className="bg-white dark:bg-slate-950 text-xs"
+                      />
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground block mb-1">Area Office</Label>
+                        <AreaSelect
+                          value={areaCd}
+                          onChange={handleAreaChange}
+                          placeholder="Select Target Area..."
+                          className="bg-white dark:bg-slate-950 text-xs"
+                        />
+                      </div>
 
-                {transition.recipient?.selectionType === 'USER' && (
-                  <div>
-                    <Label className="text-[11px] text-muted-foreground block mb-1">Assigned Official / User</Label>
-                    <UserSelect
-                      areaCd={areaCd}
-                      mineCd={mineCd}
-                      value={targetUserId}
-                      onChange={(val) => setTargetUserId(typeof val === 'string' ? val : (Array.isArray(val) ? val[0] : undefined))}
-                      placeholder="Select Target Official..."
-                      className="bg-white dark:bg-slate-950 text-xs"
-                    />
-                  </div>
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground block mb-1">Mine / Colliery Office</Label>
+                        <MineSelect
+                          areaCd={areaCd}
+                          value={targetMines.length === 1 ? targetMines[0] : targetMines}
+                          onChange={handleMineChange}
+                          disabled={!areaCd}
+                          placeholder={transition.routingType === 'MULTI_TARGET' ? "Select Target Mines..." : "Select Target Mine..."}
+                          className="bg-white dark:bg-slate-950 text-xs"
+                          isMulti={transition.routingType === 'MULTI_TARGET'}
+                        />
+                      </div>
+                    </div>
+
+                    {transition.recipient?.selectionType === 'USER' && (
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground block mb-1">Assigned Official / User</Label>
+                        <UserSelect
+                          areaCd={areaCd}
+                          mineCd={targetMines[0]}
+                          ignoreScope={!areaCd && targetMines.length === 0}
+                          value={targetUserId}
+                          onChange={(val) => setTargetUserId(typeof val === 'string' ? val : (Array.isArray(val) ? val[0] : undefined))}
+                          placeholder="Select Target Official / User..."
+                          className="bg-white dark:bg-slate-950 text-xs"
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

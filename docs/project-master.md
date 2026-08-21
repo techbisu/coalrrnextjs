@@ -32,14 +32,14 @@ The Project Master module manages the creation, configuration, and lifecycle of 
 - **`master.project`** (`proj_cd` PK): Pure project entity storing project code, name, description, tenant ID, land budget (INR), R&R budget (INR), GIS boundary polygon (`boundary`), statutory clearances JSON (`statutory_clearances`), combo project flag (`is_combo_project`), and lock status (`lockedAt`).
 - **`master.project_mine`** (`proj_cd`, `mine_cd` Composite PK): Unified junction table storing project-to-mine relationships for ALL projects (single-mine and multi-mine combo projects).
   - `is_primary`: Flag indicating the primary colliery unit.
-  - **Symmetry & 3NF**: Resolves Area Office automatically via `mine_master.area_cd` with full Foreign Key CASCADE safety.
+  - **Symmetry & 3NF**: Resolves Area Office automatically via `master.mine.area_cd` with full Foreign Key CASCADE safety.
 - **`master.proj_aprv`** (`aprv_cd` PK): Administrative and statutory sanction approvals (EC, FC, Board Sanctions) specifying approved tenancy, government, forest, patta, excavation, OB dump, and infrastructure land area caps, alongside employment sanctions (`emp_sanc`).
-- **`master.proj_aprv_location`** (`aprv_location_code` PK): Civil revenue location breakups mapping approvals to Mouzas (`mouza_lgd` linking to `master.mouza_master`) with specific acreage ceilings. Redundant CIL operational columns (`area_cd`, `mine_cd`) have been purged.
+- **`master.proj_aprv_location`** (`aprv_location_code` PK): Civil revenue location breakups mapping approvals to Mouzas (`mouza_lgd` linking to `master.mouza`) with specific acreage ceilings. Redundant CIL operational columns (`area_cd`, `mine_cd`) have been purged.
 
 ## Master Lookup & Data Integrity
 
 - **Dynamic Master Pickers**: Mine, Area, District, State, Block, and Mouza selections MUST use `<MasterLookup masterName="..." />` connected to `/api/master-data/lookup/[masterName]`.
-- **Zero Hardcoded Master Data**: All demo/legacy tables (`mst_plot`, `mst_mouza`) are purged. All lookups resolve directly against `master.mine_master`, `master.area_master`, and `master.mouza_master`.
+- **Zero Hardcoded Master Data**: All demo/legacy tables (`mst_plot`, `mst_mouza`) are purged. All lookups resolve directly against `master.mine`, `master.area`, and `master.mouza`.
 
 ## Baseline Enforcement & Form-XXII Integration
 

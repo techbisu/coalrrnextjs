@@ -57,11 +57,15 @@ export class ProposalChecklistResolver implements IChecklistContextResolver {
       requires_board_approval: proposal?.requires_board_approval ?? false,
       stage: proposal?.current_stage_cd || 'Drafting',
       current_stage_cd: proposal?.current_stage_cd || 'Drafting',
+      current_state: proposal?.current_stage_cd || 'Drafting',
+      workflowState: proposal?.current_stage_cd || 'Drafting',
       
       has_tribal_land: proposal?.has_tribal_land ?? false,
       has_debottar_land: proposal?.has_debottar_land ?? false,
       has_disputed_land: (proposal as any)?.is_disputed_land ?? false,
       has_formal_negotiation: proposal?.has_formal_negotiation ?? (acqModeId === ACQ_MODE_ID.DIRECT_PURCHASE),
+      has_adjacent_mines: true, // Used interchangeably for reconciliation
+      reconciliation_required: true,
     };
 
     // 5. Merge hierarchy: baseContext < snapshotData < factContext

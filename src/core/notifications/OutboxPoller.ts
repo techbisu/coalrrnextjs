@@ -56,7 +56,7 @@ export class OutboxPoller {
       try {
         // ── 2. Dispatch via the injected fn (dev=immediate, prod=BullMQ)
         const isOtp = (event.payload as any)?.data?.type === 'OTP'
-        await dispatch('processNotificationEvent', event.payload, {
+        await dispatch('processDomainEvent', event.payload, {
           priority: isOtp ? 1 : 3,
         })
 

@@ -67,7 +67,7 @@ export class GetProposalsUseCase implements IUseCase<GetProposalsRequest, any[]>
           proposedByRole: 'Initiator',
           areaOffice: p.area_cd,
           collieryCode: p.mine_cd,
-          adjacentColliery: '', // or a fetched value if available
+          adjacentCollieries: Array.isArray(p.cross_colliery_cds) ? p.cross_colliery_cds : [],
           total_area_acres: totalArea.toString(),
           notificationDate: p.proposal_dt,
           itemSummary: { total, annexure_a: a, annexure_b: b, annexure_c: c },

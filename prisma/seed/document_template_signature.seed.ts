@@ -134,6 +134,34 @@ export async function seedDocumentTemplateSignature(db: PrismaClient) {
       is_required: true,
       display_order: 3,
     },
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // FORM-XVI FIVE-POINT CERTIFICATE SIGNATURE FLOW
+    // ════════════════════════════════════════════════════════════════════════════
+    {
+      template_code: 'FORM_XVI',
+      sig_permission: 'form_xvi.sign.surveyor',
+      workflow_state: 'UnitVerification',
+      placeholders: { placeholder_key: 'SurveyorSignature', label: 'Surveyor' },
+      is_required: true,
+      display_order: 1,
+    },
+    {
+      template_code: 'FORM_XVI',
+      sig_permission: 'form_xvi.sign.manager',
+      workflow_state: 'UnitVerification',
+      placeholders: { placeholder_key: 'ManagerSignature', label: 'Manager' },
+      is_required: true,
+      display_order: 2,
+    },
+    {
+      template_code: 'FORM_XVI',
+      sig_permission: 'form_xvi.sign.agent',
+      workflow_state: 'UnitVerification',
+      placeholders: { placeholder_key: 'ProjectOfficerSignature', label: 'Agent / Project Officer' },
+      is_required: true,
+      display_order: 3,
+    },
   ]
 
   for (const sig of signatures) {
@@ -166,5 +194,5 @@ export async function seedDocumentTemplateSignature(db: PrismaClient) {
     }
   }
 
-  console.log(`✅ Seeded ${signatures.length} document_template_signature rules for Form-VII (6+6=12) and Form-XXII.`)
+  console.log(`✅ Seeded ${signatures.length} document_template_signature rules for Form-VII (6+6=12), Form-XXII, and Form-XVI (3).`)
 }

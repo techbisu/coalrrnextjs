@@ -20,12 +20,16 @@ import { AddPlotsToProposalUseCase } from '@/application/use-cases/proposal/AddP
 import { UpdatePlotUseCase } from '@/application/use-cases/proposal/UpdatePlotUseCase'
 import { DeletePlotUseCase } from '@/application/use-cases/proposal/DeletePlotUseCase'
 import { ApproveBoardDeviationUseCase } from '@/application/use-cases/proposal/ApproveBoardDeviationUseCase'
+import { GetMouzaAbstractUseCase } from '@/application/use-cases/proposal/GetMouzaAbstractUseCase'
+import { UpdateProposalCostSheetUseCase } from '@/application/use-cases/proposal/UpdateProposalCostSheetUseCase'
 import { ProposalDocumentPackageService } from '@/modules/proposal/services/ProposalDocumentPackageService'
 
 const globalForProposalDI = globalThis as unknown as {
   getProposalsUseCase: GetProposalsUseCase | undefined
   createProposalUseCase: CreateProposalUseCase | undefined
   getProposalDetailsUseCase: GetProposalDetailsUseCase | undefined
+  getMouzaAbstractUseCase: GetMouzaAbstractUseCase | undefined
+  updateProposalCostSheetUseCase: UpdateProposalCostSheetUseCase | undefined
   submitProposalUseCase: SubmitProposalUseCase | undefined
   updateProposalUseCase: UpdateProposalUseCase | undefined
   addPlotsToProposalUseCase: AddPlotsToProposalUseCase | undefined
@@ -111,6 +115,10 @@ export const getProposalDetailsUseCase =
   globalForProposalDI.getProposalDetailsUseCase ??
   new GetProposalDetailsUseCase(acqProposalRepository)
 
+export const getMouzaAbstractUseCase =
+  globalForProposalDI.getMouzaAbstractUseCase ??
+  new GetMouzaAbstractUseCase(acqProposalRepository)
+
 export const submitProposalUseCase =
   globalForProposalDI.submitProposalUseCase ??
   new SubmitProposalUseCase(acqProposalRepository, projectRepository, projectLimitService, proposalChecklistStatusUseCase)
@@ -135,6 +143,10 @@ export const approveBoardDeviationUseCase =
   globalForProposalDI.approveBoardDeviationUseCase ??
   new ApproveBoardDeviationUseCase(acqProposalRepository, projectRepository)
 
+export const updateProposalCostSheetUseCase =
+  globalForProposalDI.updateProposalCostSheetUseCase ??
+  new UpdateProposalCostSheetUseCase(acqProposalRepository)
+
 export const proposalDocumentPackageService =
   globalForProposalDI.proposalDocumentPackageService ??
   new ProposalDocumentPackageService()
@@ -143,6 +155,8 @@ if (process.env.NODE_ENV !== 'production') {
   globalForProposalDI.getProposalsUseCase = getProposalsUseCase
   globalForProposalDI.createProposalUseCase = createProposalUseCase
   globalForProposalDI.getProposalDetailsUseCase = getProposalDetailsUseCase
+  globalForProposalDI.getMouzaAbstractUseCase = getMouzaAbstractUseCase
+  globalForProposalDI.updateProposalCostSheetUseCase = updateProposalCostSheetUseCase
   globalForProposalDI.submitProposalUseCase = submitProposalUseCase
   globalForProposalDI.updateProposalUseCase = updateProposalUseCase
   globalForProposalDI.addPlotsToProposalUseCase = addPlotsToProposalUseCase

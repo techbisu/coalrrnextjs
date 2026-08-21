@@ -28,7 +28,16 @@ interface GeneratedDocumentFieldProps {
       label: string;
       canCurrentUserAct?: boolean;
     };
+    /** Current-stage signature progress from DocumentSignatureRequirementResolver */
+    signatureRequirement?: {
+      completed: number;
+      total: number;
+      allCurrentStageSatisfied: boolean;
+      nextPendingPermission?: string;
+    };
   };
+  /** Authoritative satisfaction flag from checklist DTO — use this, not docStatus */
+  isSatisfied?: boolean;
   submission?: {
     status: string;
     documentId?: string;
@@ -48,18 +57,23 @@ export function GeneratedDocumentField({
   generatedDocInfo,
   submission,
   onOpenWorkspace,
-  readonly = false
+  readonly = false,
+  isSatisfied: isSatisfiedProp,
 }: GeneratedDocumentFieldProps) {
-  const templateCode = generatedDocInfo?.templateCode || inputSchema?.template_code || inputSchema?.templateCode || 'FORM_XXII';
+  const templateCode = generatedDocInfo?.templateCode || inputSchema?.template_code || inputSchema?.templateCode || 'UNKNOWN';
   const docStatus = generatedDocInfo?.status || 'PENDING';
   
   const isGenerating = docStatus === 'QUEUED' || docStatus === 'GENERATING';
   const isFailed = docStatus === 'FAILED';
-  const isSatisfied = docStatus === 'COMPLETED' || submission?.status === 'SUBMITTED' || submission?.status === 'AUTO_SATISFIED' || submission?.status === 'APPROVED';
+  // Use the authoritative isSatisfied prop when provided; fall back to local derivation for backward compat
+  const isSatisfied = isSatisfiedProp !== undefined
+    ? isSatisfiedProp
+    : docStatus === 'COMPLETED' || submission?.status === 'SUBMITTED' || submission?.status === 'AUTO_SATISFIED' || submission?.status === 'APPROVED';
   const isDraft = docStatus === 'DRAFT' || docStatus === 'INCOMPLETE';
 
-  const nextAction = generatedDocInfo?.nextAction
-  const stepDetails = generatedDocInfo?.stepDetails || []
+  const nextAction = generatedDocInfo?.nextAction;
+  const stepDetails = generatedDocInfo?.stepDetails || [];
+  const sigReq = generatedDocInfo?.signatureRequirement;
 
   return (
     <div className={`p-4 rounded-xl border transition-all duration-200 ${
@@ -110,6 +124,38 @@ export function GeneratedDocumentField({
             </div>
           )}
 
+          {/* Signature progress indicator — generic, driven by DocumentSignatureRequirementResolver */}
+          {sigReq && sigReq.total > 0 && (
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <PenTool className="w-2.5 h-2.5" />
+                  Current-stage signatures
+                </span>
+                <span className={`font-semibold ${
+                  sigReq.allCurrentStageSatisfied
+                    ? 'text-emerald-700 dark:text-emerald-400'
+                    : 'text-amber-700 dark:text-amber-400'
+                }`}>
+                  {sigReq.completed} / {sigReq.total}
+                </span>
+              </div>
+              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    sigReq.allCurrentStageSatisfied ? 'bg-emerald-500' : 'bg-amber-400'
+                  }`}
+                  style={{ width: `${Math.min(100, Math.round((sigReq.completed / sigReq.total) * 100))}%` }}
+                />
+              </div>
+              {!sigReq.allCurrentStageSatisfied && sigReq.nextPendingPermission && (
+                <p className="text-[10px] text-amber-700 dark:text-amber-400 italic">
+                  Awaiting: {sigReq.nextPendingPermission}
+                </p>
+              )}
+            </div>
+          )}
+
           {description && <p className="text-xs text-muted-foreground leading-relaxed mt-1">{description}</p>}
         </div>
 
@@ -127,9 +173,15 @@ export function GeneratedDocumentField({
               Generation Failed
             </Badge>
           ) : isDraft ? (
-            <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 gap-1 text-xs">
-              <Clock className="w-3.5 h-3.5" /> In Progress
-            </Badge>
+            (generatedDocInfo as any)?.isSignedByCurrentUser ? (
+              <Badge className="bg-emerald-600 text-white gap-1 text-xs">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Signed by You (In Progress)
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 gap-1 text-xs">
+                <Clock className="w-3.5 h-3.5" /> In Progress
+              </Badge>
+            )
           ) : (
             <Badge variant="outline" className="text-muted-foreground text-xs">
               Not Started
@@ -144,8 +196,10 @@ export function GeneratedDocumentField({
           <span>
             {isSatisfied
               ? 'Document compiled, reviewed & signed'
-              : nextAction
+              : nextAction && nextAction.canCurrentUserAct === true
               ? `Next Action Required: ${nextAction.label}`
+              : nextAction
+              ? `Awaiting: ${nextAction.label} (${nextAction.permission?.split('.').pop()?.replace(/[-_]/g, ' ') || 'Next Signatory'})`
               : 'Auto-populates domain fields into official .docx template'}
           </span>
         </div>
@@ -167,8 +221,8 @@ export function GeneratedDocumentField({
             </div>
           ) : (
             <>
-              {/* Direct Next Action Button */}
-              {nextAction && nextAction.canCurrentUserAct !== false && (
+              {/* Direct Next Action Button — only shown when current user is authorized */}
+              {nextAction && nextAction.canCurrentUserAct === true && (
                 <Button
                   size="sm"
                   onClick={() => onOpenWorkspace(templateCode)}

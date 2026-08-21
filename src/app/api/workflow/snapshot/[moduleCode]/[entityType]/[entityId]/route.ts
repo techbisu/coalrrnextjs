@@ -16,19 +16,8 @@ export async function GET(
     const userName = authUser?.name;
     const userEmail = authUser?.email ?? undefined;
 
-    // Fetch area & mine details for entity if needed to hydrate officer location
-    const proposalRow = await (db as any).acq_proposal.findUnique({
-      where: { proposal_id: entityId },
-      select: {
-        area_cd: true,
-        mine_cd: true,
-        area: { select: { area_en: true } },
-        mine: { select: { mine_en: true } },
-      },
-    }).catch(() => null);
-
-    const userAreaName = authUser?.scope?.area_name || proposalRow?.area?.area_en || proposalRow?.area_cd || 'Kenda Area';
-    const userCollieryName = authUser?.scope?.mine_name || proposalRow?.mine?.mine_en || proposalRow?.mine_cd || 'Bahula Colliery';
+    const userAreaName = authUser?.scope?.area_name || authUser?.scope?.area_cd || undefined;
+    const userCollieryName = authUser?.scope?.mine_name || authUser?.scope?.mine_cd || undefined;
 
     const snapshot = await workflowSnapshotQueryService.getSnapshot(
       moduleCode,
@@ -43,9 +32,9 @@ export async function GET(
           ? {
               id: authUser.id,
               name: authUser.name,
-              designation: authUser.designation || 'Unit Nodal Officer',
-              mobile: authUser.mobile || '+91 94311 28901',
-              email: authUser.email || 'nodal.officer@coalindia.in',
+              designation: authUser.designation || undefined,
+              mobile: authUser.mobile || undefined,
+              email: authUser.email || undefined,
               area_name: userAreaName,
               colliery_name: userCollieryName,
             }

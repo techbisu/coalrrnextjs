@@ -29,6 +29,7 @@ $$\text{Resolved Workflow Code} = \text{resolveWorkflowCode}(\text{moduleCode}, 
 ### C. Dynamic Routing Modes (`routing_type`)
 - **`FORCED` Mode**: Pre-determined target state and default role queue. Transition executes immediately on click.
 - **`USER_CHOICE` Mode**: Displays a dynamic UI picker allowing the user to select the specific target unit/colliery (e.g. `Forward for Reconciliation → Select Mine Y Unit Office`).
+- **`MULTI_TARGET` Mode**: Routes the workflow to multiple entities simultaneously (fan-out parallel processing). Controlled by `target_options_source` (e.g., `adjacent_mine_cds` to extract arrays of targets from the entity).
 
 ### D. Polymorphic Rich Timeline Audit Feed (`WorkflowTimelineFeed`)
 Every state transition event persists rich metadata in `public.workflow_action_history` and links attachments in `public.file_attachment`:
@@ -71,72 +72,100 @@ The `ActorRole` union defines the actors permitted to trigger state transitions.
 
 ---
 
-## 5. End-to-End Execution Flow
+## 5. Generic Action Classification & Snapshot Query Service
 
-$$\text{UI Component} \longrightarrow \text{API Route} \longrightarrow \text{WorkflowEngineServer} \longrightarrow \text{WorkflowActionHistoryService} \longrightarrow \text{DB \& Timeline Feed}$$
+The `WorkflowSnapshotQueryService` evaluates the current state, checklist items, standalone documents, reviews, and signature matrices to produce a rich, role-aware snapshot with explicit action classifications.
+This classification delegates strictly to the **`ActionEligibilityResolver`** which maps contexts (transitions, signatures, edits) to correct RBAC or role hierarchies without module-specific string matching.
 
-1. **Client / UI Action**: User selects an action in `ApprovalPanel` ("Actor Role & Approval Chain") or `ActionJustificationDialog`.
-2. **API Delegation**: API route (e.g., `POST /api/schedules/[id]/verify`) invokes `WorkflowEngineServer.attemptTransitionAsync()` directly.
-3. **WorkflowEngineServer**:
-   - Resolves `workflowCode` via `resolveWorkflowCode()`.
-   - Loads transition graph from `workflow_transitions` (or fallback) via `ConfigCacheService`.
-   - Evaluates compliance guards registered in `GUARD_REGISTRY` (e.g. `ChecklistFullySatisfiedGuard`).
-4. **State Mutation & Audit**:
-   - Updates `current_stage_cd` on the target entity.
-   - Inserts audit record directly via `WorkflowActionHistoryService.recordAction()`.
-5. **Timeline Feed UI**: `<WorkflowTimelineFeed moduleCode={MODULE_CODES.LAND_SCHEDULE} entityId={proposalId} />` automatically refetches and renders the updated timeline feed.
+### Action Classifications (`PendingActionClassification`)
+- **`ACTIONABLE_BY_ME`**: The action is pending in the current workflow stage AND the current logged-in user possesses the required permission/role.
+- **`WAITING_ON_ASSIGNEE`**: The action is active and pending, but requires a different role/signatory (e.g. Unit Surveyor signed, waiting for Colliery Manager).
+- **`BLOCKED_BY_PREREQUISITE`**: The action cannot be performed because an earlier prerequisite step (e.g. review approval before signing) has not completed.
+- **`COMPLETED`**: The action or signature requirement has been 100% satisfied.
+- **`NOT_AUTHORIZED`**: The current user lacks permission and the action is not actionable.
 
----
-
-## 6. Reusable Component Usage
-
-Import `<WorkflowTimelineFeed />` in any module UI:
-
-```tsx
-import { WorkflowTimelineFeed } from '@/shared/components/coalrr'
-import { MODULE_CODES } from '@/core/config/module-codes.config'
-
-// Embed in Land Acquisition Proposal Tabs
-<WorkflowTimelineFeed moduleCode={MODULE_CODES.LAND_SCHEDULE} entityId={schedule.id} />
-
-// Embed in Compensation Payroll Page
-<WorkflowTimelineFeed moduleCode={MODULE_CODES.COMPENSATION_PAYROLL} entityId={payroll.id} />
+### Pending Work Summary Counters (`PendingWorkSummary`)
+Every snapshot response provides clear KPI metrics for user dashboards:
+```json
+{
+  "pendingWorkSummary": {
+    "actionableByMeCount": 1,
+    "waitingOnOthersCount": 2,
+    "completedCount": 5,
+    "blockedCount": 0
+  }
+}
 ```
 
 ---
 
-## 7. Statutory Milestone Management (`ManualMilestoneService`)
+## 6. Generic Workflow State Transition Route (`POST /api/workflow/transition`)
 
-Statutory milestones and registrations are tracked by the fully DB-driven `ManualMilestoneService`.
-
-- **Dependencies**: Prerequisites are defined in the `milestone_dependency` database table. The service automatically rejects attempts to record a milestone if required predecessors are missing from `manual_milestone`.
-- **UI Resolution**: The available milestones are fetched dynamically via `GET /api/milestones/definitions?moduleCode=...`, meaning no code changes are required to add a new statutory milestone chain.
-- **Audit & Snapshots**: Every recorded milestone pushes an action to `auditQueue` and creates an entity state snapshot.
+A single, decoupled endpoint handles transitions for all modules and entity types:
+- **Payload**:
+  ```json
+  {
+    "moduleCode": "LAND_SCHEDULE",
+    "entityType": "acq_land_schedule",
+    "entityId": "prop-123",
+    "toState": "AreaReview",
+    "actionName": "FORWARD_TO_AREA",
+    "justification": "All unit-level statutory forms and Form-XVI signatures completed."
+  }
+  ```
+- **Execution Flow**:
+  1. Authenticates session and checks module-level edit permissions.
+  2. Resolves current entity status via `WorkflowTargetResolverRegistry`.
+  3. Validates transition path in `WorkflowEngineServer` against `public.workflow_transitions`.
+  4. Runs all configured guard checks in `WorkflowGuardEvaluator` (e.g. checklist completion, signatures).
+  5. Updates `current_stage_cd` in database repository (which may construct domain events like `PROPOSAL_RETURNED`).
+  6. Records immutable timeline entry via `WorkflowActionHistoryService`.
+  7. Evaluates and publishes all queued Domain Events via `EventBus` to the Outbox (triggering side-effects like background document invalidation).
 
 ---
 
-## 8. Unit Testing Suite (`MilestoneFlow.test.ts` & `ProposalWorkflowState.test.ts`)
+## 7. Reusable Workflow UI Components
 
-- **Milestone Flow Suite** ([`MilestoneFlow.test.ts`](file:///d:/coalrrnextjs/tests/unit/core/workflow/MilestoneFlow.test.ts)):
-  - Enforces prerequisite statutory milestone dependencies (rejecting dependent milestones when prerequisites are missing).
-  - Validates history retrieval ordered chronologically by `sent_at`.
-- **Proposal Workflow Suite** ([`ProposalWorkflowState.test.ts`](file:///d:/coalrrnextjs/tests/unit/application/use-cases/ProposalWorkflowState.test.ts)):
-  - Validates mode-specific proposal creation (`cba_act` $\rightarrow$ `CL-1.1`, `rfctlarr` $\rightarrow$ `CL-1.3`, `direct_purchase` $\rightarrow$ `CL-1.2`).
-  - Validates `SubmitProposalUseCase` checklist gating.
+### A. `<WorkflowActionCommandCenter />` (`src/shared/components/coalrr/workflow/`)
+Provides a unified action center rendering active pending actions, classification badges, and primary transition buttons.
+
+### B. `<WorkflowTimelineFeed />` (`src/shared/components/coalrr/`)
+Renders the complete chronological history feed with real-time badges:
+- `Action Required by You` (pulsing blue badge)
+- `Awaiting <Role>` (amber badge)
+- `Completed` (emerald badge)
+
+```tsx
+import { WorkflowActionCommandCenter, WorkflowTimelineFeed } from '@/shared/components/coalrr'
+import { MODULE_CODES, CHECKABLE_ENTITY_TYPES } from '@/core/config/module-codes.config'
+
+// Command Center
+<WorkflowActionCommandCenter
+  moduleCode={MODULE_CODES.LAND_SCHEDULE}
+  entityType={CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE}
+  entityId={proposalId}
+  onTransitionSuccess={handleRefresh}
+/>
+
+// Timeline Feed
+<WorkflowTimelineFeed 
+  moduleCode={MODULE_CODES.LAND_SCHEDULE} 
+  entityId={proposalId} 
+/>
+```
 
 ---
 
-## 9. Key Files Summary
+## 8. Key Files Summary
 
 | Component | Path | Description |
 | :--- | :--- | :--- |
-| **Module Config** | [module-codes.config.ts](file:///d:/coalrrnextjs/src/core/config/module-codes.config.ts) | Canonical module codes & `resolveWorkflowCode` mode resolver |
-| **Milestone Service** | [ManualMilestoneService.ts](file:///d:/coalrrnextjs/src/core/workflow/services/ManualMilestoneService.ts) | DB-driven milestone recording & dependency validation |
-| **Workflow Types** | [types.ts](file:///d:/coalrrnextjs/src/core/workflow/types.ts) | TypeScript definitions & `GuardContext` interface |
+| **Snapshot Service** | [WorkflowSnapshotQueryService.ts](file:///d:/coalrrnextjs/src/core/workflow/services/WorkflowSnapshotQueryService.ts) | Role-aware action classification & snapshot builder |
+| **Transition Route** | [route.ts](file:///d:/coalrrnextjs/src/app/api/workflow/transition/route.ts) | Generic transition execution endpoint |
+| **Command Center UI**| [WorkflowActionCommandCenter.tsx](file:///d:/coalrrnextjs/src/shared/components/coalrr/workflow/WorkflowActionCommandCenter.tsx) | Unified pending actions and transition execution bar |
+| **Timeline Feed UI** | [WorkflowTimelineFeed.tsx](file:///d:/coalrrnextjs/src/shared/components/coalrr/WorkflowTimelineFeed.tsx) | Reusable timeline feed component with status badges |
 | **Workflow Engine** | [WorkflowEngineServer.ts](file:///d:/coalrrnextjs/src/core/workflow/WorkflowEngineServer.ts) | Server-backed dynamic FSM orchestrator |
-| **Transition Loader** | [WorkflowTransitionLoader.ts](file:///d:/coalrrnextjs/src/core/workflow/WorkflowTransitionLoader.ts) | Multi-tier cached DB transition graph loader with mode fallback |
-| **Guards** | [guards.ts](file:///d:/coalrrnextjs/src/core/workflow/guards.ts) | Extensible transition rules (e.g., checklist completion, budget limits) |
-| **Config Cache Service** | [ConfigCacheService.ts](file:///d:/coalrrnextjs/src/core/config/cache/ConfigCacheService.ts) | Multi-tiered (L1 RAM + L2 Redis) caching layer for DB rules and transitions |
-| **Action History Service** | [WorkflowActionHistoryService.ts](file:///d:/coalrrnextjs/src/core/workflow/services/WorkflowActionHistoryService.ts) | Polymorphic history recorder & timeline data hydrator |
-| **Timeline Feed UI** | [WorkflowTimelineFeed.tsx](file:///d:/coalrrnextjs/src/shared/components/coalrr/WorkflowTimelineFeed.tsx) | Reusable timeline feed component |
-| **Timeline API Route** | [route.ts](file:///d:/coalrrnextjs/src/app/api/workflow/%5BrecordType%5D/%5BrecordId%5D/history/route.ts) | Polymorphic GET route returning timeline history & parallel tasks |
+| **Transition Loader** | [WorkflowTransitionLoader.ts](file:///d:/coalrrnextjs/src/core/workflow/WorkflowTransitionLoader.ts) | Multi-tier cached DB transition graph loader |
+| **Guard Evaluator** | [WorkflowGuardEvaluator.ts](file:///d:/coalrrnextjs/src/core/workflow/services/WorkflowGuardEvaluator.ts) | Centralized guard validator |
+| **Action History Service** | [WorkflowActionHistoryService.ts](file:///d:/coalrrnextjs/src/core/workflow/services/WorkflowActionHistoryService.ts) | Polymorphic history recorder & timeline hydrator |
+

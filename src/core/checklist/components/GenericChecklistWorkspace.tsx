@@ -39,10 +39,12 @@ export function GenericChecklistWorkspace({
 }: GenericChecklistWorkspaceProps) {
   const [docWorkspaceOpen, setDocWorkspaceOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const [selectedContextId, setSelectedContextId] = useState<string | undefined>()
   const [selectedStageCode, setSelectedStageCode] = useState<string | null>(null)
 
-  const openDocWorkspace = (templateCode: string) => {
+  const openDocWorkspace = (templateCode: string, contextId?: string) => {
     setSelectedTemplate(templateCode)
+    setSelectedContextId(contextId)
     setDocWorkspaceOpen(true)
   }
 
@@ -127,36 +129,20 @@ export function GenericChecklistWorkspace({
     : allItems;
 
   // Separate Generated Documents (Docx Engine) from Operational Items
-  const generatedForms = displayedItems.filter((item: any) =>
-    item.inputSchema?.type === 'generated_document' ||
+  const isGeneratedDoc = (item: any) =>
     item.type === 'generated_document' ||
-    item.inputSchema?.template_code ||
-    item.inputSchema?.templateCode
-  );
+    item.type === 'GENERATED_DOCUMENT' ||
+    item.inputSchema?.type === 'generated_document';
 
-  const operationalItems = displayedItems.filter((item: any) =>
-    item.inputSchema?.type !== 'generated_document' &&
-    item.type !== 'generated_document' &&
-    !item.inputSchema?.template_code &&
-    !item.inputSchema?.templateCode
-  );
+  const generatedForms = displayedItems.filter(isGeneratedDoc);
+  const operationalItems = displayedItems.filter((item: any) => !isGeneratedDoc(item));
 
-  // Overall Status Metrics (across all visible items)
+  // Overall Status Metrics — using authoritative `item.isSatisfied` from DTO
   const totalItems = allItems.length;
-  const satisfiedItemsCount = allItems.filter((item: any) =>
-    item.submission?.status === 'SUBMITTED' ||
-    item.submission?.status === 'AUTO_SATISFIED' ||
-    item.submission?.status === 'APPROVED' ||
-    item.generatedDocInfo?.status === 'COMPLETED'
-  ).length;
+  const satisfiedItemsCount = allItems.filter((item: any) => item.isSatisfied === true).length;
 
   const mandatoryItems = allItems.filter((item: any) => item.isMandatory);
-  const satisfiedMandatoryCount = mandatoryItems.filter((item: any) =>
-    item.submission?.status === 'SUBMITTED' ||
-    item.submission?.status === 'AUTO_SATISFIED' ||
-    item.submission?.status === 'APPROVED' ||
-    item.generatedDocInfo?.status === 'COMPLETED'
-  ).length;
+  const satisfiedMandatoryCount = mandatoryItems.filter((item: any) => item.isSatisfied === true).length;
 
   const isComplete = mandatoryItems.length === 0 || satisfiedMandatoryCount === mandatoryItems.length;
 
@@ -244,6 +230,7 @@ export function GenericChecklistWorkspace({
           }}
           templateCode={selectedTemplate}
           businessId={checkableId}
+          contextId={selectedContextId}
         />
       )}
     </SectionCard>

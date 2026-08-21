@@ -552,8 +552,12 @@ model document_instance {
   entry_by                 String?
   updt_by                  String?
   review_data_json         Json?
+  context_id               String?
+  context_type             String?           @default("proposal")
   document_template        document_template @relation(fields: [template_code], references: [template_code])
 
+  @@unique([application_id, template_code, context_id], map: "uq_doc_instance_context")
+  @@index([application_id, context_id], map: "idx_doc_instance_context")
   @@schema("public")
 }
 
@@ -1073,6 +1077,7 @@ model user {
   authResetTokens         auth_reset_token[]
   auth_session            auth_session[]
   otp_sessions            otp_session[]
+  process_step_tracking   process_step_tracking[]
   tenant                  Tenant?                   @relation(fields: [tenant_id], references: [tenantId], map: "fk_user_tenant")
   user_org_scopes         user_org_scope[]
   workflow_action_history workflow_action_history[]
@@ -1333,11 +1338,16 @@ model acq_proposal {
   rate_forest_land           Decimal?        @default(0) @db.Decimal(18, 2)
   employment_proposed_count  Int?            @default(0)
   employment_system          String?         @default("PACKAGE_DEAL") @db.VarChar(30)
+  registration_cost_est      Decimal?        @default(0.00) @db.Decimal(18, 2)
+  mutation_cost_est          Decimal?        @default(0.00) @db.Decimal(18, 2)
+  other_costs_est            Decimal?        @default(0.00) @db.Decimal(18, 2)
+  grand_total_cost_est       Decimal?        @default(0.00) @db.Decimal(18, 2)
   area                       area            @relation(fields: [area_cd], references: [area_cd], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_area")
   mine                       mine            @relation(fields: [mine_cd], references: [mine_cd], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_mine")
   acqu_mode                  acqu_mode       @relation(fields: [acq_mode_id], references: [acq_mode_id], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_mode")
   project                    Project         @relation(fields: [proj_cd], references: [projCd], onDelete: NoAction, onUpdate: NoAction, map: "acq_proposal_fk_proj")
   plot_schedule              plot_schedule[]
+  cross_colliery_cds         Json?           @default("[]")
 
   @@index([acq_mode_id, current_stage_cd, overall_status], map: "idx_acq_proposal_mode_stage")
   @@schema("acquisition")
@@ -1446,6 +1456,12 @@ model workflow_transitions {
   updt_by               String?  @db.VarChar(64)
   routing_type          String?  @default("FORCED") @db.VarChar(30)
   target_options_source String?  @db.VarChar(60)
+  required_step_group   String?  @db.VarChar(80)
+  target_role           String?  @db.VarChar(60)
+  allow_self            Boolean  @default(false)
+  max_recipients        Int      @default(1)
+  require_justification Boolean  @default(false)
+  allow_recommendations Boolean  @default(true)
 
   @@unique([workflow_code, transition_name], map: "uq_workflow_transition")
   @@schema("public")
@@ -1692,21 +1708,22 @@ model process_definition {
 }
 
 model process_instance {
-  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  process_definition_id String             @db.Uuid
-  entity_type           String             @db.VarChar(64)
-  entity_id             String             @db.VarChar(64)
-  current_state         String             @db.VarChar(60)
-  status                String             @default("ACTIVE") @db.VarChar(20)
-  business_context      Json               @default("{}")
-  started_at            DateTime           @default(now()) @db.Timestamptz(6)
-  completed_at          DateTime?          @db.Timestamptz(6)
-  created_by            String             @db.VarChar(64)
-  entry_ts              DateTime           @default(now()) @db.Timestamptz(6)
-  updt_ts               DateTime           @default(now()) @db.Timestamptz(6)
-  entry_by              String?            @default("system") @db.VarChar(64)
-  updt_by               String?            @db.VarChar(64)
-  process_definition    process_definition @relation(fields: [process_definition_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  process_definition_id String                  @db.Uuid
+  entity_type           String                  @db.VarChar(64)
+  entity_id             String                  @db.VarChar(64)
+  current_state         String                  @db.VarChar(60)
+  status                String                  @default("ACTIVE") @db.VarChar(20)
+  business_context      Json                    @default("{}")
+  started_at            DateTime                @default(now()) @db.Timestamptz(6)
+  completed_at          DateTime?               @db.Timestamptz(6)
+  created_by            String                  @db.VarChar(64)
+  entry_ts              DateTime                @default(now()) @db.Timestamptz(6)
+  updt_ts               DateTime                @default(now()) @db.Timestamptz(6)
+  entry_by              String?                 @default("system") @db.VarChar(64)
+  updt_by               String?                 @db.VarChar(64)
+  process_definition    process_definition      @relation(fields: [process_definition_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  process_step_tracking process_step_tracking[]
   timeline_event        timeline_event[]
   workflow_branch       workflow_branch[]
   workflow_cycle        workflow_cycle[]
@@ -1852,6 +1869,70 @@ model app_modules {
   workflow_reaction          workflow_reaction[]
 
   @@schema("master")
+}
+
+model process_step_definition {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  group_id           String             @db.Uuid
+  step_key           String             @db.VarChar(80)
+  step_label         String             @db.VarChar(150)
+  step_order         Int                @default(0)
+  required_role      String             @db.VarChar(60)
+  show_if            Json?
+  is_mandatory       Boolean            @default(true)
+  entry_by           String?            @default("system") @db.VarChar(64)
+  entry_ts           DateTime           @default(now()) @db.Timestamptz(6)
+  updt_by            String?            @db.VarChar(64)
+  updt_ts            DateTime           @default(now()) @db.Timestamptz(6)
+  process_step_group process_step_group @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([group_id, step_key], map: "uq_process_step_def")
+  @@index([group_id, step_order], map: "idx_psd_group")
+  @@schema("public")
+}
+
+model process_step_group {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  process_code            String                    @db.VarChar(80)
+  group_code              String                    @db.VarChar(80)
+  group_label             String                    @db.VarChar(150)
+  required_for_transition String                    @db.VarChar(60)
+  description             String?
+  display_order           Int                       @default(0)
+  is_active               Boolean                   @default(true)
+  entry_by                String?                   @default("system") @db.VarChar(64)
+  entry_ts                DateTime                  @default(now()) @db.Timestamptz(6)
+  updt_by                 String?                   @db.VarChar(64)
+  updt_ts                 DateTime                  @default(now()) @db.Timestamptz(6)
+  process_step_definition process_step_definition[]
+
+  @@unique([process_code, group_code], map: "uq_process_step_group")
+  @@index([process_code, is_active], map: "idx_psg_process")
+  @@schema("public")
+}
+
+model process_step_tracking {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  instance_id      String           @db.Uuid
+  entity_type      String           @db.VarChar(64)
+  entity_id        String           @db.VarChar(64)
+  step_group       String           @db.VarChar(80)
+  step_key         String           @db.VarChar(80)
+  status           String           @default("PENDING") @db.VarChar(30)
+  remarks          String?
+  completed_by     Int?
+  completed_at     DateTime?        @db.Timestamptz(6)
+  entry_by         String?          @default("system") @db.VarChar(64)
+  entry_ts         DateTime         @default(now()) @db.Timestamptz(6)
+  updt_by          String?          @db.VarChar(64)
+  updt_ts          DateTime         @default(now()) @db.Timestamptz(6)
+  user             user?            @relation(fields: [completed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  process_instance process_instance @relation(fields: [instance_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([entity_type, entity_id, step_group, step_key], map: "uq_process_step_tracking")
+  @@index([entity_type, entity_id, status], map: "idx_pst_entity")
+  @@index([instance_id], map: "idx_pst_instance")
+  @@schema("public")
 }
 
 enum ScopeLevel {

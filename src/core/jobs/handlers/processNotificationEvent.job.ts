@@ -5,10 +5,16 @@ import { ChannelRouter } from '../../notifications/services/ChannelRouter'
 import { NotificationConfig } from '../../notifications/NotificationConfig'
 
 export const processNotificationEvent = async (payload: EventPayload): Promise<void> => {
-  console.log(`[processNotificationEvent.job] Processing event: ${payload.event_name}`)
+  const eventName = payload?.event_name || (payload as any)?.eventName || (payload as any)?.data?.event_name;
+  console.log(`[processNotificationEvent.job] Processing event: ${eventName}`)
+  
+  if (!eventName) {
+    console.warn(`[processNotificationEvent.job] Payload missing valid event_name, skipping processing:`, payload);
+    return;
+  }
   
   // 1. Find the event registry via decoupled storage
-  const event = await NotificationConfig.storage.getEventRegistryWithRules(payload.event_name)
+  const event = await NotificationConfig.storage.getEventRegistryWithRules(eventName)
 
   if (!event) {
     console.warn(`[processNotificationEvent.job] No registered event found for ${payload.event_name}`)

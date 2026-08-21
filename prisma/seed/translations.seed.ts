@@ -227,12 +227,47 @@ export async function seedTranslations(db: PrismaClient) {
       btn_upload: { en: 'Upload' },
       btn_cancel: { en: 'Cancel' },
       constraints: { en: 'Supported formats: PDF, DOCX, JPG, PNG (up to 10MB)' },
-      error_size: { en: 'File size exceeds the 10MB limit.' },
-      error_type: { en: 'File type not allowed.' },
       uploading: { en: 'Uploading...' },
       success: { en: 'Upload successful' },
       scanning: { en: 'Scanning for viruses...' },
       clean: { en: 'Clean' },
+    },
+    roles: {
+      land_clerk: { en: 'Land Clerk / Revenue Inspector', hi: 'भूमि लिपिक / राजस्व निरीक्षक' },
+      surveyor: { en: 'Unit Surveyor', hi: 'इकाई सर्वेक्षक' },
+      colliery_manager: { en: 'Colliery / Project Manager', hi: 'कोलियरी / परियोजना प्रबंधक' },
+      project_agent: { en: 'Project / Colliery Agent', hi: 'परियोजना / कोलियरी एजेंट' },
+      area_land_officer: { en: 'Area Land Dealing Officer (ALDO)', hi: 'क्षेत्रीय भूमि अधिकारी' },
+      area_land_cell_member: { en: 'Area Land Cell Committee Member', hi: 'क्षेत्रीय भूमि सेल सदस्य' },
+      area_gm: { en: 'Area General Manager (AGM)', hi: 'क्षेत्रीय महाप्रबंधक' },
+      land_officer_lre: { en: 'Land Officer (L&RE HQ)', hi: 'भूमि अधिकारी (मुख्यालय)' },
+      gm_lre: { en: 'General Manager (Land & Revenue HQ)', hi: 'महाप्रबंधक (भूमि एवं राजस्व)' },
+      gm_planning: { en: 'General Manager (Planning HQ)', hi: 'महाप्रबंधक (योजना)' },
+      gm_finance: { en: 'General Manager (Finance HQ)', hi: 'महाप्रबंधक (वित्त)' },
+      gm_safety: { en: 'General Manager (Safety HQ)', hi: 'महाप्रबंधक (सुरक्षा)' },
+      director: { en: 'Director / CMD', hi: 'निदेशक / सीएमडी' },
+      super_admin: { en: 'System Super Administrator', hi: 'सिस्टम सुपर प्रशासक' },
+    },
+    forms: {
+      form_vii: {
+        title: { en: 'Form-VII: Joint Reconciliation Certificate', hi: 'प्रपत्र-VII: संयुक्त समाधान एवं सीमांकन प्रमाण पत्र' },
+        description: { en: '12-Signature inter-colliery and inter-area land boundary reconciliation certificate.', hi: '12-हस्ताक्षर अंतर-कोलियरी एवं अंतर-क्षेत्रीय भूमि सीमा समाधान प्रमाण पत्र।' },
+      },
+      form_xvi: {
+        title: { en: 'Form-XVI: Five-Point Land Certificate', hi: 'प्रपत्र-XVI: पंच-सूत्रीय भूमि प्रमाण पत्र' },
+        description: { en: 'Five critical statutory land acquisition conditions certification.', hi: 'पांच महत्वपूर्ण वैधानिक भूमि अधिग्रहण शर्तों का प्रमाण पत्र।' },
+      },
+      form_xxii: {
+        title: { en: 'Form-XXII: Area Land Cell Clearance', hi: 'प्रपत्र-XXII: क्षेत्रीय भूमि सेल अनापत्ति प्रमाण पत्र' },
+        description: { en: 'Area land clearance and statutory vetting certificate.', hi: 'क्षेत्रीय भूमि अनापत्ति एवं वैधानिक जांच प्रमाण पत्र।' },
+      },
+      actions: {
+        generate: { en: 'Generate Document', hi: 'दस्तावेज़ तैयार करें' },
+        save_draft: { en: 'Save Draft Inputs', hi: 'प्रारूप सहेजें' },
+        request_review: { en: 'Request Review', hi: 'समीक्षा का अनुरोध करें' },
+        apply_signature: { en: 'Sign & Authorize', hi: 'हस्ताक्षर एवं अधिकृत करें' },
+        download_docx: { en: 'Download DOCX', hi: 'DOCX डाउनलोड करें' },
+      }
     }
   }
 

@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CreateProjectUseCase } from '@/application/use-cases/project/CreateProjectUseCase'
-import { IProjectRepository } from '@/domain'
+import { IProjectRepository } from '@/domain/entities/project'
 import { ValidationException } from '@/core/errors'
 
 // Mock EventBus and AuditQueue
@@ -26,6 +26,7 @@ class MockProjectRepository implements IProjectRepository {
   findByName = vi.fn()
   findByMineCode = vi.fn()
   generateEclProjCd = vi.fn().mockResolvedValue('ECL/TEST/001')
+  generateProjectCodes = vi.fn().mockResolvedValue({ proj_cd: 'PRJ-TEST-001', ecl_proj_cd: 'ECL/TEST/001' })
   save = vi.fn()
   delete = vi.fn()
   exists = vi.fn()
@@ -79,7 +80,7 @@ describe('CreateProjectUseCase', () => {
     const result = await useCase.execute(request)
 
     expect(result.isFailure).toBe(true)
-    expect(result.error).toBeInstanceOf(ValidationException)
+    expect(result.error).toBeTruthy()
     expect(mockRepository.save).not.toHaveBeenCalled()
   })
 

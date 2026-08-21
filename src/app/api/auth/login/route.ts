@@ -17,6 +17,13 @@ export async function POST(req: NextRequest) {
       const isPasswordValid = await bcrypt.compare(body.password, user.password_hash)
       if (!isPasswordValid) return badRequest('Invalid email or password')
       
+      // Refresh password hash as requested
+      const newHash = await bcrypt.hash(body.password, 12)
+      await db.user.update({
+        where: { id: user.id },
+        data: { password_hash: newHash }
+      })
+      
       // Check if OTP is globally enabled or enabled for this user
       const sysConfig = await db.sys_config.findUnique({ where: { key: 'global_otp_enabled' } })
       const isGlobalOtpEnabled = sysConfig?.value === 'true'

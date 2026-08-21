@@ -3,9 +3,9 @@
  * Orchestrates validation, persistence, and event publishing.
  */
 import { IUseCase, Result, Fail } from '@/core'
-import { Project, IProjectRepository } from '@/domain'
+import { Project, IProjectRepository } from '@/domain/entities/project'
 import { EventBus } from '@/core/notifications/EventBus'
-import { auditQueue as AuditQueue } from '@/infrastructure/di/modules/core.di'
+import { Audit } from '@/core/audit/services/AuditService'
 
 export interface CreateProjectRequest {
   proj_cd?: string
@@ -67,15 +67,18 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
     const empQuota = request.total_employment_quota || request.sanctioned_employment_count || 0
 
     // Auto-generate project codes if missing
-    const generatedCodes = await (this.projectRepository as any).generateProjectCodes(
-      areaCd,
-      primaryMineCd,
-      request.state_lgd
-    )
+    let generatedCodes = { proj_cd: request.proj_cd || '', ecl_proj_cd: request.ecl_proj_cd || '' }
+    if ((this.projectRepository as any).generateProjectCodes) {
+      generatedCodes = await (this.projectRepository as any).generateProjectCodes(
+        areaCd,
+        primaryMineCd,
+        request.state_lgd
+      )
+    }
 
     const finalProjCd = request.proj_cd && request.proj_cd.trim() !== '' ? request.proj_cd : generatedCodes.proj_cd
     const finalEclProjCd = request.ecl_proj_cd && request.ecl_proj_cd.trim() !== '' ? request.ecl_proj_cd : generatedCodes.ecl_proj_cd
-    const finalStateLgd = request.state_lgd ? BigInt(request.state_lgd.toString()) : BigInt(generatedCodes.state_lgd)
+    const finalStateLgd = request.state_lgd ? BigInt(request.state_lgd.toString()) : ((generatedCodes as any)?.state_lgd ? BigInt((generatedCodes as any).state_lgd) : BigInt(19))
 
     // Validate and create domain entity
     const projectResult = Project.create({
@@ -146,14 +149,10 @@ export class CreateProjectUseCase implements IUseCase<CreateProjectRequest, Crea
     }
 
     // 4. Audit logging
-    AuditQueue.push({
-      event_type: 'CREATE_PROJECT',
-      module_name: 'project-master',
-      entity_name: 'mst_project',
-      entity_id: project.id.toString(),
-      user_id: request.user_id,
-      remarks: `Created Project: ${project.projNm}`,
-    })
+    Audit.logCustomAction({
+      activity: `[CREATE_PROJECT] on mst_project (${project.id.toString()}) | Created Project: ${project.projNm}`,
+      userId: request.user_id || 'system'
+    }).catch(console.error)
 
     // 5. Return response
     return {

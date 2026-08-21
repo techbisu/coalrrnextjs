@@ -27,6 +27,7 @@ import { seedProposalChecklist } from './proposal_checklist.seed'
 import { seedWorkflowStates } from './workflow_states.seed'
 import { seedWorkflowTransitions } from './workflow_transitions.seed'
 import { seedWorkflowActionHistory } from './workflow_action_history.seed'
+import { seedDocumentTemplate } from './document_template.seed'
 import { seedDocumentTemplateSignature } from './document_template_signature.seed'
 
 const db = new PrismaClient()
@@ -44,6 +45,7 @@ async function main() {
     await seedProposalChecklist(db)
     await seedWorkflowStates(db)
     await seedWorkflowTransitions(db)
+    await seedDocumentTemplate(db)
     await seedDocumentTemplateSignature(db)
     await seedWorkflowActionHistory(db)
     

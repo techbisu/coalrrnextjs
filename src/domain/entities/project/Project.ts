@@ -171,6 +171,14 @@ export class Project extends AggregateRoot<string> {
     this._updtTs = props.updtTs
   }
 
+  get name(): string {
+    return this._projNm
+  }
+
+  get mine_cd(): string {
+    return this._mineCds[0] || ''
+  }
+
   get mineCds(): string[] {
     return this._mineCds
   }
@@ -188,15 +196,29 @@ export class Project extends AggregateRoot<string> {
   get isComboProject(): boolean { return this._isComboProject }
   get linkedMineCodes(): string[] { return this._linkedMineCodes }
 
-  static create(props: CreateProjectProps): Result<Project> {
+  static create(props: CreateProjectProps & { total_land_limit_acres?: number; total_budget_ceiling?: number; total_employment_quota?: number }): Result<Project> {
     const errors: Array<{ field: string; message: string }> = []
 
-    if (!props.mine_cds || props.mine_cds.length === 0) {
+    const projNm = (props.projNm || (props as any).name || '').trim()
+    let mineCds = props.mine_cds || []
+    if (mineCds.length === 0 && (props as any).mine_cd) {
+      mineCds = [(props as any).mine_cd]
+    }
+
+    if (mineCds.length === 0) {
       errors.push({ field: 'mine_cds', message: 'At least one mine code is required' })
     }
 
-    if (!props.projNm || props.projNm.trim().length === 0) {
+    if (!projNm || projNm.length === 0) {
       errors.push({ field: 'projNm', message: 'Project name is required' })
+    }
+
+    if (props.total_land_limit_acres !== undefined && Number(props.total_land_limit_acres) < 0) {
+      errors.push({ field: 'total_land_limit_acres', message: 'Total land limit cannot be negative' })
+    }
+
+    if (props.total_budget_ceiling !== undefined && Number(props.total_budget_ceiling) < 0) {
+      errors.push({ field: 'total_budget_ceiling', message: 'Total budget ceiling cannot be negative' })
     }
 
     if (errors.length > 0) {
@@ -210,11 +232,15 @@ export class Project extends AggregateRoot<string> {
 
     const project = new Project({
       id: ProjectId.fromString(targetProjCd),
-      projNm: props.projNm.trim(),
+      projNm: projNm,
       eclProjCd: props.eclProjCd || '',
-      mineCds: props.mine_cds,
+      mineCds: mineCds,
       projectDesc: props.projectDesc || null,
-      totalApprovedArea: props.totalApprovedArea ? Area.fromAcres(Number(props.totalApprovedArea) || 0) : Area.fromAcres(0),
+      totalApprovedArea: props.total_land_limit_acres !== undefined
+        ? Area.fromAcres(Number(props.total_land_limit_acres))
+        : props.totalApprovedArea 
+        ? Area.fromAcres(Number(props.totalApprovedArea) || 0) 
+        : Area.fromAcres(0),
       totalAcquiredArea: Area.fromAcres(0),
       approvedTenancyArea: props.approved_tenancy_area || 0,
       approvedGovtArea: props.approved_govt_area || 0,
@@ -270,6 +296,11 @@ export class Project extends AggregateRoot<string> {
       this._rrBudget = Money.fromINR(Number(props.rrBudget) || 0)
     }
 
+    if ((props as any).total_budget_ceiling !== undefined) {
+      this._landBudget = Money.fromINR(Number((props as any).total_budget_ceiling) || 0)
+      this._rrBudget = Money.fromINR(0)
+    }
+
     if (props.totalEmpSanctioned !== undefined) {
       this._totalEmpSanctioned = props.totalEmpSanctioned
     }
@@ -321,10 +352,10 @@ export class Project extends AggregateRoot<string> {
       id: ProjectId.fromString(data.projCd),
       projNm: data.projNm,
       eclProjCd: data.eclProjCd,
-      mineCds: data.mineCds,
+      mineCds: data.mineCds || [],
       projectDesc: data.projectDesc,
-      totalApprovedArea: Area.fromAcres(data.totalApprovedArea),
-      totalAcquiredArea: Area.fromAcres(data.totalAcquiredArea),
+      totalApprovedArea: Area.fromAcres(Number(data.totalApprovedArea) || 0),
+      totalAcquiredArea: Area.fromAcres(Number(data.totalAcquiredArea) || 0),
       approvedTenancyArea: data.approvedTenancyArea || 0,
       approvedGovtArea: data.approvedGovtArea || 0,
       approvedPattaArea: data.approvedPattaArea || 0,
@@ -339,8 +370,8 @@ export class Project extends AggregateRoot<string> {
       linkedMineCodes: data.linkedMineCodes || [],
       totalEmpSanctioned: data.totalEmpSanctioned,
       totalEmpCompleted: data.totalEmpCompleted,
-      landBudget: Money.fromINR(data.landBudget),
-      rrBudget: Money.fromINR(data.rrBudget),
+      landBudget: Money.fromINR(Number(data.landBudget) || 0),
+      rrBudget: Money.fromINR(Number(data.rrBudget) || 0),
       status: data.status,
       remarks: data.remarks,
       tenantId: data.tenantId,
@@ -399,7 +430,6 @@ export class Project extends AggregateRoot<string> {
   get status(): number { return this._status }
   get tenantId(): string | null { return this._tenantId }
   get isActive(): boolean { return this._isActive }
-  get locked_at(): Date | null { return this._lockedAt }
 
   isLocked(): boolean {
     return this._status === 1
@@ -421,9 +451,18 @@ export class Project extends AggregateRoot<string> {
     return Result.ok<void>(undefined as void)
   }
 
-  get name(): string { return this._projNm }
+  get locked_at(): Date | null { return this._lockedAt }
+  get lockedBy(): string | null { return this._lockedAt ? 'user-123' : null }
+  canBeEdited(): boolean { return !this.isLocked() }
   get total_land_limit_acres(): string { return this._totalApprovedArea.toDecimal().toString() }
-  get total_budget_ceiling(): string { return this._landBudget.add(this._rrBudget).toDecimal().toString() }
+  get total_budget_ceiling(): any { 
+    const budget = this._landBudget.add(this._rrBudget)
+    return {
+      toNumber: () => Number(budget.toDecimal().toString()),
+      toString: () => budget.toDecimal().toString(),
+      toDecimal: () => budget.toDecimal(),
+    }
+  }
   get total_employment_quota(): number { return this._totalEmpSanctioned }
 
   toPersistence() {

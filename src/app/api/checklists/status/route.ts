@@ -3,17 +3,13 @@ import type { NextRequest } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 import { Container } from '@/infrastructure/di/Container'
-import { authorizeApi } from '@/authorization/middleware/authorize'
+import { authorizeModuleApi } from '@/core/authorization/middleware/authorize'
 import { z } from 'zod'
 import { ChecklistQuerySchema } from '@/core/validation/schemas/checklist.schema'
 
 export async function GET(req: NextRequest) {
   try {
-    // 1. Mandatory Auth Check
-    const auth = await authorizeApi('project.view')
-    if (auth.error) return auth.error
-
-    // 2. Input Validation (Zod)
+    // 1. Input Validation (Zod)
     const { searchParams } = new URL(req.url)
     const query = {
       moduleCode: searchParams.get('moduleCode'),
@@ -27,6 +23,10 @@ export async function GET(req: NextRequest) {
     }
 
     const { moduleCode, checkableType, checkableId } = parseResult.data;
+
+    // 2. Mandatory Auth Check (Dynamic per Module)
+    const auth = await authorizeModuleApi(moduleCode, 'view')
+    if ('error' in auth) return auth.error
 
     // 3. Execute UseCase
     const result = await Container.getChecklistStatusUseCase!.execute({

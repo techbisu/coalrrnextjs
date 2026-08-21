@@ -16,7 +16,7 @@ export interface CreateProposalRequest {
   description?: string
   area_office?: string
   colliery_code?: string
-  adjacent_colliery?: string
+  adjacent_collieries?: string[]
   notification_date?: Date
   proposal_no?: string
   proposal_type?: string
@@ -68,7 +68,7 @@ export class CreateProposalUseCase implements IUseCase<CreateProposalRequest, Cr
       proposedByRole: request.user_role,
       areaOffice: request.area_office || (project as any).area_cd || 'UNK',
       collieryCode: request.colliery_code || project.mineCds[0] || project.id || 'UNK',
-      adjacentColliery: request.adjacent_colliery,
+      adjacentCollieries: request.adjacent_collieries,
       notificationDate: request.notification_date,
       proposalNo: request.proposal_no,
       proposalType: request.proposal_type,

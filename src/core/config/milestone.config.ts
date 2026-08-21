@@ -1,3 +1,5 @@
+import { MODULE_CODES, CHECKABLE_ENTITY_TYPES } from './module-codes.config';
+
 export const milestoneConfig = {
   // Direct Purchase (DP) milestone definitions and their dependencies
   DP: [
@@ -28,20 +30,20 @@ export function getSeedMilestoneDefinitions() {
 
   for (const m of milestoneConfig.DP) {
     definitions.push({
-      moduleCode: 'LAND_SCHEDULE',
+      moduleCode: MODULE_CODES.LAND_SCHEDULE,
       milestoneCode: m.id,
       name: m.label,
-      entityType: 'acq_land_schedule',
+      entityType: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
       requires: [...m.requires],
     });
   }
 
   for (const m of milestoneConfig.CBA) {
     definitions.push({
-      moduleCode: 'LAND_SCHEDULE',
+      moduleCode: MODULE_CODES.LAND_SCHEDULE,
       milestoneCode: m.id,
       name: m.label,
-      entityType: 'acq_land_schedule',
+      entityType: CHECKABLE_ENTITY_TYPES.ACQ_LAND_SCHEDULE,
       requires: [...m.requires],
     });
   }

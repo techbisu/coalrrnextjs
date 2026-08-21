@@ -9,6 +9,7 @@ export interface StartDocumentWorkspaceDTO {
   applicationId: string
   extraData?: Record<string, any>
   userId?: string
+  contextId?: string
 }
 
 export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWorkspaceDTO, any> {
@@ -20,10 +21,10 @@ export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWork
 
   async execute(request: StartDocumentWorkspaceDTO): Promise<Result<any>> {
     try {
-      const { templateCode, applicationId, extraData = {}, userId = 'system' } = request
+      const { templateCode, applicationId, extraData = {}, userId = 'system', contextId } = request
       
       // 1. Check for existing draft and refresh its resolver fields
-      const existingDraft = await this.instanceRepository.findDraft(templateCode, applicationId)
+      const existingDraft = await this.instanceRepository.findDraft(templateCode, applicationId, contextId)
       if (existingDraft) {
         const resolver = this.resolverRegistry.getResolver(templateCode)
         const resolvedData = await resolver.resolve(applicationId, { form_data: existingDraft.form_data || extraData })
@@ -82,7 +83,9 @@ export class StartDocumentWorkspaceUseCase implements IUseCase<StartDocumentWork
         generated_docx_id: null,
         generated_pdf_id: null,
         resolver_signatures_json: pendingSignatures as any,
-        resolver_version: null
+        resolver_version: null,
+        context_id: contextId || null,
+        context_type: contextId ? 'proposal' : null
       })
 
       // 6. Audit Log

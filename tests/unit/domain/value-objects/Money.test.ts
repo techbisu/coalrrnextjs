@@ -34,7 +34,7 @@ describe('Money Value Object', () => {
     it('should fail tryCreate with invalid input', () => {
       const result = Money.tryCreate('invalid', 'INR')
       expect(result.isFailure).toBe(true)
-      expect(result.error).toBeInstanceOf(ValidationException)
+      expect(result.error).toBe('Invalid monetary value')
     })
   })
 
