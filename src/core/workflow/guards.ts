@@ -266,14 +266,23 @@ export class StepsCompletedGuard implements TransitionGuard {
 
 export const GUARD_REGISTRY: Record<string, TransitionGuard> = {
   WithinProjectBaseline:    new WithinProjectBaselineGuard(),
+  within_project_baseline:  new WithinProjectBaselineGuard(),
   BaselineBreached:         new BaselineBreachedGuard(),
+  baseline_breached:        new BaselineBreachedGuard(),
   ChecklistFullySatisfied:  new ChecklistFullySatisfiedGuard("CL-1.1"),
+  checklist_fully_satisfied: new ChecklistFullySatisfiedGuard("CL-1.1"),
   ChecklistContextFreshness: new ChecklistContextFreshnessGuard(),
+  checklist_context_freshness: new ChecklistContextFreshnessGuard(),
   ParallelReviewsCompleted: new ParallelReviewsCompletedGuard(["gm_planning", "gm_safety", "gm_finance", "hod_legal"]),
+  parallel_reviews_completed: new ParallelReviewsCompletedGuard(["gm_planning", "gm_safety", "gm_finance", "hod_legal"]),
   PlotNotAcquired:          new PlotNotAlreadyAcquiredGuard(),
+  plot_not_acquired:        new PlotNotAlreadyAcquiredGuard(),
   ThresholdMet2Ac:          new ThresholdMetGuard(),
+  threshold_met_2ac:        new ThresholdMetGuard(),
   RequiredRecommendationsFulfilled: new RequiredRecommendationsFulfilledGuard(),
+  required_recommendations_fulfilled: new RequiredRecommendationsFulfilledGuard(),
   StepsCompleted:           new StepsCompletedGuard('FORM_VII_SIGNATURES'),
+  steps_completed:          new StepsCompletedGuard('FORM_VII_SIGNATURES'),
 }
 
 // ════════════════════════════════════════════════════════════════════════════

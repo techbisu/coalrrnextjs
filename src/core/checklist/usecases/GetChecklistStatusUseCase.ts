@@ -258,9 +258,16 @@ export class GetChecklistStatusUseCase implements IUseCase<GetChecklistStatusReq
 
           if (isGeneratedDocument && this.documentAdapter) {
             // Support passing contextId to adapter
-            const docResult = await (this.documentAdapter as any).resolveStatusWithContext(
-              vRule, req.checkableType, req.checkableId, vSubmission, (req as any).userPermissions || [], currentStateCode, contextId
-            ).catch(() => this.documentAdapter!.resolveStatus(vRule, req.checkableType, req.checkableId, vSubmission, (req as any).userPermissions || [], currentStateCode));
+            let docResult;
+            if (typeof (this.documentAdapter as any).resolveStatusWithContext === 'function') {
+              docResult = await (this.documentAdapter as any).resolveStatusWithContext(
+                vRule, req.checkableType, req.checkableId, vSubmission, (req as any).userPermissions || [], currentStateCode, contextId
+              );
+            } else {
+              docResult = await this.documentAdapter!.resolveStatus(
+                vRule, req.checkableType, req.checkableId, vSubmission, (req as any).userPermissions || [], currentStateCode
+              );
+            }
             
             if (docResult.newlySubmitted) {
               vSubmission = { status: 'SUBMITTED', document_id: docResult.generatedDocInfo.generatedDocId };

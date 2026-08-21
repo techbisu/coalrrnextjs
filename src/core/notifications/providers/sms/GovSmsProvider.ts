@@ -30,10 +30,18 @@ export class GovSmsProvider implements INotificationProvider {
 
       const requestUrl = `${url}?${queryParams.toString()}`;
       
+      // Short-circuit in development to avoid 10s connection timeouts since the gateway is usually IP-restricted
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[GovSmsProvider] Dev mode: Mocking SMS delivery to', recipient_contact);
+        console.log('[GovSmsProvider] URL would have been:', requestUrl);
+        return { success: true, externalId: 'mock-dev-sms' };
+      }
+
       const response = await fetch(requestUrl, {
         method: 'GET',
         // Next.js handles fetch natively, no extra verify: false needed unless strictly dealing with custom certs
       });
+
 
       const body = await response.text();
       console.log('[GovSmsProvider] API Response:', body);
