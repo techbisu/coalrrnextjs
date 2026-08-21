@@ -1,26 +1,49 @@
 import { z } from 'zod';
 
-export function createDynamicZodSchema(fields: Array<{ field_key: string; is_required: boolean }>) {
+export function createDynamicZodSchema(fields: Array<{ field_key: string; field_type?: string; is_required: boolean }>) {
   const schemaShape: Record<string, z.ZodTypeAny> = {};
   
   fields.forEach(field => {
-    let fieldSchema: z.ZodTypeAny = z.string();
-    if (field.is_required) {
-      fieldSchema = (fieldSchema as z.ZodString).min(1, 'This field is required');
+    if (field.field_type === 'file') {
+      let fileSchema: z.ZodTypeAny = z.any();
+      if (field.is_required) {
+        fileSchema = z.any().refine(val => val != null && val !== '', 'File attachment is required');
+      } else {
+        fileSchema = z.any().optional();
+      }
+      schemaShape[field.field_key] = fileSchema;
     } else {
-      fieldSchema = fieldSchema.optional();
+      let fieldSchema: z.ZodTypeAny = z.string();
+      if (field.is_required) {
+        fieldSchema = (fieldSchema as z.ZodString).min(1, 'This field is required');
+      } else {
+        fieldSchema = fieldSchema.optional();
+      }
+      schemaShape[field.field_key] = fieldSchema;
     }
-    schemaShape[field.field_key] = fieldSchema;
   });
   
   return z.object(schemaShape);
 }
 
-export function evaluateConditions(formData: Record<string, any>, rules: Record<string, any> | null): boolean {
+export function evaluateConditions(formData: Record<string, any>, rules: Record<string, any> | string | null): boolean {
   if (!rules) return true;
+
+  let parsedRules = rules;
+  if (typeof rules === 'string') {
+    try {
+      parsedRules = JSON.parse(rules);
+    } catch (e) {
+      return true;
+    }
+  }
+
+  if (typeof parsedRules !== 'object' || parsedRules === null) return true;
+  const form = formData || {};
   
-  // Basic MongoDB-style condition evaluator
   const evaluate = (rule: any): boolean => {
+    if (typeof rule !== 'object' || rule === null) return true;
+
     if (rule.$and && Array.isArray(rule.$and)) {
       return rule.$and.every((subRule: any) => evaluate(subRule));
     }
@@ -28,15 +51,21 @@ export function evaluateConditions(formData: Record<string, any>, rules: Record<
       return rule.$or.some((subRule: any) => evaluate(subRule));
     }
     
-    // Field-level evaluation e.g. { "ModeGovtTransfer": { "$eq": "1" } }
     for (const [key, condition] of Object.entries(rule)) {
       if (key === '$and' || key === '$or') continue;
       
-      const value = formData[key];
-      const cond = condition as Record<string, any>;
+      const value = form[key];
       
-      if (cond.$eq !== undefined) {
-        if (value !== cond.$eq) return false;
+      // Handle simple string/primitive equality: e.g. { "CompetentApprovalStatus": "Yes" }
+      if (typeof condition !== 'object' || condition === null) {
+        if (value !== condition) return false;
+        continue;
+      }
+      
+      const cond = condition as Record<string, any>;
+      const eqVal = cond.$eq !== undefined ? cond.$eq : cond[''];
+      if (eqVal !== undefined) {
+        if (value !== eqVal) return false;
       }
       if (cond.$neq !== undefined) {
         if (value === cond.$neq) return false;
@@ -64,9 +93,9 @@ export function evaluateConditions(formData: Record<string, any>, rules: Record<
   };
 
   try {
-    return evaluate(rules);
+    return evaluate(parsedRules);
   } catch (e) {
     console.error('Condition evaluation error', e);
-    return true; // default to showing if rules are broken
+    return true;
   }
 }

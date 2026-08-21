@@ -1,5 +1,6 @@
 import { IDocumentResolver } from '../domain/IDocumentResolver'
 import { FormIResolver } from './resolvers/FormIResolver'
+import { FormIIResolver } from './resolvers/FormIIResolver'
 import { FormXXIIResolver } from './resolvers/FormXXIIResolver'
 import { FormVIIResolver } from './resolvers/FormVIIResolver'
 import { IDocumentQueryService } from './queries/IDocumentQueryService'
@@ -12,6 +13,7 @@ export class ResolverRegistry {
     this.queryService = queryService || null
 
     this.resolvers.set('FORM_I', new FormIResolver())
+    this.resolvers.set('FORM_II', new FormIIResolver())
     if (this.queryService) {
       this.resolvers.set('FORM_XXII', new FormXXIIResolver(this.queryService))
       this.resolvers.set('FORM_VII', new FormVIIResolver(this.queryService))
@@ -26,6 +28,8 @@ export class ResolverRegistry {
     switch (templateCode) {
       case 'FORM_I':
         return new FormIResolver()
+      case 'FORM_II':
+        return new FormIIResolver()
       case 'FORM_XXII':
         return this.queryService ? new FormXXIIResolver(this.queryService) : new FormXXIIResolver()
       case 'FORM_VII':

@@ -197,19 +197,19 @@ export function DocumentWorkspaceModal({
         body: JSON.stringify({
           instanceId,
           role: roleToSign,
+          sig_permission: roleToSign,
           signatureText: signText,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(`Document signed as ${roleToSign.replace(/_/g, " ")}`);
-        setAppliedSignatures(data.signatures || []);
-        setSignatureInput("");
-        if (data.fileId) {
-          setFileId(data.fileId);
-        } else {
-          setTimeout(() => pollWorkspace(instanceId), 1000);
+        toast.success("Document signed successfully!");
+        if (Array.isArray(data.signatures) && data.signatures.length > 0) {
+          setAppliedSignatures(data.signatures);
         }
+        setSignatureInput("");
+        // Automatically regenerate document preview with signature stamp applied
+        handleGenerate();
       } else {
         toast.error(data.error || "Failed to sign document");
       }
@@ -375,6 +375,27 @@ export function DocumentWorkspaceModal({
         <div className="flex-1 flex overflow-hidden relative">
           {/* Left Area: Document Preview */}
           <div className="flex-1 h-full overflow-hidden bg-slate-100/50 flex flex-col relative">
+            {fields.length > 0 && (!savedValues || Object.keys(savedValues).length === 0) && (
+              <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-between gap-3 text-amber-900 text-xs shrink-0">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>
+                    <strong>Statutory Information Pending:</strong> Please fill out Questions 3 to 13 in the right panel and click <strong>"Save & Update Document"</strong> to populate Form-II with your answers.
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSidebarOpen(true);
+                    setIsFormCollapsed(false);
+                  }}
+                  className="h-7 text-xs border-amber-300 bg-amber-100 hover:bg-amber-200 text-amber-950 font-semibold cursor-pointer shrink-0"
+                >
+                  Fill Questions Now →
+                </Button>
+              </div>
+            )}
             {loading ? (
               <div className="flex-1 flex items-center justify-center">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -530,11 +551,18 @@ export function DocumentWorkspaceModal({
                       );
 
                       return sortedRules.map((rule: any, index: number) => {
+                        const rulePerm = rule.sig_permission || rule.role;
                         const isSigned = appliedSignatures.some(
-                          (s: any) => s.role === rule.role,
+                          (s: any) =>
+                            (s.sig_permission || s.role) === rulePerm ||
+                            s.role === rule.sig_permission ||
+                            s.sig_permission === rule.role
                         );
                         const signedEntry = appliedSignatures.find(
-                          (s: any) => s.role === rule.role,
+                          (s: any) =>
+                            (s.sig_permission || s.role) === rulePerm ||
+                            s.role === rule.sig_permission ||
+                            s.sig_permission === rule.role
                         );
 
                         // Check if all previous required steps are completed
@@ -580,107 +608,116 @@ export function DocumentWorkspaceModal({
                           <div
                             key={rule.id || rule.role}
                             className={cn(
-                              "p-3.5 rounded-lg border transition-all flex flex-col gap-2",
+                              "rounded-xl border-2 p-3.5 transition-all flex flex-col gap-2.5 overflow-hidden shadow-xs relative",
                               isSigned
-                                ? "border-emerald-200 bg-emerald-50/40"
+                                ? "border-emerald-300 bg-emerald-50/40 shadow-emerald-100/50"
                                 : isUnlocked && canCurrentUserSign
-                                  ? "border-blue-300 bg-blue-50/30 shadow-sm ring-1 ring-blue-400/20"
+                                  ? "border-blue-400 bg-blue-50/40 shadow-blue-100/50 ring-2 ring-blue-500/20"
                                   : isUnlocked
-                                    ? "border-slate-200 bg-slate-50/50"
-                                    : "border-slate-200 bg-slate-100/60 opacity-75",
+                                    ? "border-slate-300 bg-slate-50/60"
+                                    : "border-slate-200 bg-slate-100/70 opacity-75",
                             )}
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 font-mono text-[10px] flex items-center justify-center font-bold">
+                            {/* Card Box Header */}
+                            <div className="flex items-center justify-between border-b pb-2 gap-2 border-slate-200/80">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className={cn(
+                                    "w-5 h-5 rounded-full font-mono text-[10px] flex items-center justify-center font-bold shrink-0",
+                                    isSigned
+                                      ? "bg-emerald-600 text-white"
+                                      : "bg-slate-700 text-white",
+                                  )}
+                                >
                                   {index + 1}
                                 </span>
-                                <span className="font-semibold text-xs text-slate-800 uppercase tracking-wide">
+                                <span className="font-bold text-xs text-slate-900 truncate uppercase tracking-wide">
                                   {labelText}
                                 </span>
                               </div>
 
                               {isSigned ? (
-                                <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[10px] gap-1 font-normal border border-emerald-200">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />{" "}
-                                  Signed
+                                <Badge className="bg-emerald-600 text-white hover:bg-emerald-600 text-[10px] gap-1 font-semibold shrink-0 shadow-2xs">
+                                  <CheckCircle2 className="w-3 h-3" /> Signed
                                 </Badge>
                               ) : !isUnlocked ? (
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px] text-slate-500 border-slate-300 bg-slate-200/50 font-normal"
+                                  className="text-[10px] text-slate-500 border-slate-300 bg-slate-200/60 shrink-0 font-normal"
                                 >
-                                  Locked (Step {index} Pending)
+                                  Step {index} Pending
                                 </Badge>
                               ) : canCurrentUserSign ? (
-                                <Badge className="bg-blue-600 text-white text-[10px] font-normal animate-pulse">
+                                <Badge className="bg-blue-600 text-white text-[10px] font-semibold animate-pulse shrink-0">
                                   Action Required
                                 </Badge>
                               ) : (
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px] text-amber-700 border-amber-300 bg-amber-50 font-normal"
+                                  className="text-[10px] text-amber-800 border-amber-300 bg-amber-50 shrink-0 font-normal"
                                 >
                                   Awaiting Signee
                                 </Badge>
                               )}
                             </div>
 
-                            {/* Status Body */}
+                            {/* Card Box Content Body */}
                             {isSigned && signedEntry ? (
-                              <div className="text-[11px] text-slate-600 bg-white/80 p-2.5 rounded border border-emerald-100 mt-1">
-                                <div className="font-medium text-slate-900">
-                                  <span className="text-slate-500 font-normal">
-                                    Signed by:
-                                  </span>{" "}
-                                  {signedEntry.signatureText ||
-                                    signedEntry.userName}
+                              <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs space-y-1 overflow-hidden">
+                                <div className="flex items-center justify-between text-xs gap-2">
+                                  <span className="text-slate-500 text-[11px] font-medium shrink-0">
+                                    Signed By:
+                                  </span>
+                                  <span className="font-bold text-slate-900 truncate text-right">
+                                    {signedEntry.signatureText ||
+                                      signedEntry.userName}
+                                  </span>
                                 </div>
-                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                  Timestamp:{" "}
-                                  {new Date(
-                                    signedEntry.signedAt,
-                                  ).toLocaleString("en-IN")}
+                                <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-slate-100 gap-2">
+                                  <span className="shrink-0">Timestamp:</span>
+                                  <span className="font-mono font-medium text-emerald-800 truncate">
+                                    {new Date(
+                                      signedEntry.signedAt,
+                                    ).toLocaleString("en-IN")}
+                                  </span>
                                 </div>
                               </div>
                             ) : !isUnlocked ? (
-                              <p className="text-[11px] text-slate-500 italic mt-0.5 flex items-center gap-1">
-                                <span>
-                                  🔒 Unlocks after step {index} signature.
-                                </span>
-                              </p>
+                              <div className="p-2 rounded bg-slate-200/50 text-[11px] text-slate-600 italic flex items-center gap-1">
+                                <span>🔒 Unlocks after Step {index} signature completion.</span>
+                              </div>
                             ) : canCurrentUserSign ? (
-                              <div className="space-y-2 mt-1 pt-2 border-t border-blue-200/60">
-                                <div className="text-[11px] text-slate-600 bg-blue-50/70 p-2 rounded border border-blue-200/60 flex items-center justify-between">
-                                  <span className="text-slate-500 text-[10px]">
+                              <div className="space-y-2">
+                                <div className="text-[11px] bg-white p-2 rounded border border-blue-200 flex items-center justify-between gap-2">
+                                  <span className="text-slate-500 text-[10px] shrink-0">
                                     Authenticated Signee:
                                   </span>
-                                  <span className="font-medium text-slate-900 text-xs">
+                                  <span className="font-bold text-slate-900 text-xs truncate">
                                     {userName}
                                   </span>
                                 </div>
                                 <Button
                                   size="sm"
-                                  className="w-full text-xs bg-blue-700 hover:bg-blue-800 text-white h-8 shadow-sm font-medium"
+                                  className="w-full text-xs bg-blue-700 hover:bg-blue-800 text-white h-8 shadow-xs font-bold cursor-pointer gap-1.5"
                                   disabled={isSigning}
                                   onClick={() => handleSignDocument(rule.role)}
                                 >
                                   {isSigning ? (
-                                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
                                   ) : (
-                                    <PenTool className="w-3.5 h-3.5 mr-1.5" />
+                                    <PenTool className="w-3.5 h-3.5 shrink-0" />
                                   )}
                                   Sign Document as {labelText}
                                 </Button>
                               </div>
                             ) : (
-                              <p className="text-[11px] text-slate-500 italic mt-0.5">
+                              <div className="p-2 rounded bg-amber-50/90 border border-amber-200 text-[11px] text-amber-900">
                                 Requires permission{" "}
-                                <code className="bg-slate-200/80 px-1 py-0.5 rounded font-mono text-[10px] text-slate-700">
+                                <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[10px] font-bold">
                                   {permName}
                                 </code>{" "}
                                 to sign this step.
-                              </p>
+                              </div>
                             )}
                           </div>
                         );

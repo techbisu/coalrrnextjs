@@ -18,7 +18,7 @@ export default async function MasterDataPage({ params }: { params: Promise<{ tab
   console.log('DEBUG: config found:', !!config)
 
   if (!config) {
-    throw new Error(`Table not found in registry. Requested: "${tableName}". Available keys: ${Object.keys(MASTER_REGISTRY).join(', ')}`)
+    notFound()
   }
 
   const result = await getMasterDataUseCase.execute(config.modelName)

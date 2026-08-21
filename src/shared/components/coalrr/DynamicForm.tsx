@@ -8,6 +8,8 @@ import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { z } from 'zod'
 
+import { DocumentUploader, UploadedDoc } from '@/shared/components/coalrr/DocumentUploader'
+
 interface DynamicFormProps {
   instanceId: string;
   fields: Array<{
@@ -25,16 +27,28 @@ export function DynamicForm({ instanceId, fields, onSuccess, defaultValues = {} 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Generate Zod schema dynamically
-  const schema = createDynamicZodSchema(fields)
-  type FormData = z.infer<typeof schema>
-
-  const form = useForm<FormData>({
-    resolver: zodResolver(schema),
+  const form = useForm({
     mode: 'onTouched',
     reValidateMode: 'onChange',
     defaultValues
   })
+
+  // Watch all values to re-evaluate conditions
+  const watchedValues = useWatch({ control: form.control })
+
+  // Dynamically filter schema to visible fields only
+  const visibleFields = fields.filter(field => evaluateConditions(watchedValues, field.show_if || null))
+  const visibleSchema = createDynamicZodSchema(visibleFields)
+
+  // Clear errors for fields that are currently hidden
+  useEffect(() => {
+    fields.forEach(field => {
+      const shouldShow = evaluateConditions(watchedValues, field.show_if || null);
+      if (!shouldShow && form.formState.errors[field.field_key]) {
+        form.clearErrors(field.field_key);
+      }
+    });
+  }, [JSON.stringify(watchedValues)]);
 
   // Reset form when saved values arrive from the server (async)
   useEffect(() => {
@@ -43,18 +57,28 @@ export function DynamicForm({ instanceId, fields, onSuccess, defaultValues = {} 
     }
   }, [JSON.stringify(defaultValues)])
 
-  // Watch all values to re-evaluate conditions
-  const watchedValues = useWatch({ control: form.control })
-
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: Record<string, any>) => {
     setIsSubmitting(true)
     setError(null)
+
+    // Manual parse with visibleSchema to only validate shown fields
+    const parseResult = visibleSchema.safeParse(data)
+    if (!parseResult.success) {
+      setIsSubmitting(false)
+      const firstError = parseResult.error.issues[0]?.message || 'Please fill in all required fields'
+      setError(firstError)
+      parseResult.error.issues.forEach(issue => {
+        const path = issue.path[0] as string
+        if (path) form.setError(path, { message: issue.message })
+      })
+      return
+    }
 
     try {
       const response = await fetch('/api/document-engine/save-form', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceId, formData: data })
+        body: JSON.stringify({ instanceId, formData: parseResult.data })
       });
       const result = await response.json();
       
@@ -82,6 +106,42 @@ export function DynamicForm({ instanceId, fields, onSuccess, defaultValues = {} 
 
         const isSelect = field.field_type === 'select';
         const isTextarea = field.field_type === 'textarea';
+        const isFile = field.field_type === 'file';
+
+        if (isFile) {
+          const currentVal = form.watch(field.field_key)
+          const docs: UploadedDoc[] = currentVal
+            ? (Array.isArray(currentVal) ? currentVal : [currentVal])
+            : []
+
+          return (
+            <div key={field.field_key} className="flex flex-col space-y-1">
+              <label className="text-xs font-semibold text-slate-700">
+                {field.label} {field.is_required && <span className="text-rose-500">*</span>}
+              </label>
+              <DocumentUploader
+                checklist_item_key={field.field_key}
+                label={`Upload ${field.label}`}
+                mode="single"
+                documents={docs}
+                entity_type="document_instance"
+                entity_id={instanceId}
+                module="document_workspace"
+                onChange={(uploaded) => {
+                  form.setValue(field.field_key, uploaded as any, { shouldValidate: true })
+                }}
+                onRemove={() => {
+                  form.setValue(field.field_key, null as any, { shouldValidate: true })
+                }}
+              />
+              {form.formState.errors[field.field_key] && (
+                <span className="text-rose-500 text-xs font-medium">
+                  {form.formState.errors[field.field_key]?.message as string}
+                </span>
+              )}
+            </div>
+          )
+        }
 
         return (
           <div key={field.field_key} className="flex flex-col space-y-1">

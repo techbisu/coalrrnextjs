@@ -82,6 +82,23 @@ export async function POST(req: NextRequest) {
         { id: 'f22_4', field_key: 'MeetingsHeld', field_type: 'text', label: 'Meetings with Landowners / Villagers Held?', options: null, show_if: null, is_required: false, display_order: 4 },
         { id: 'f22_5', field_key: 'LandownersReady', field_type: 'text', label: 'Landowners Ready to Accept Proposed Rate?', options: null, show_if: null, is_required: false, display_order: 5 }
       ];
+    } else if (parsedFields.length === 0 && templateCode === 'FORM_II') {
+      parsedFields = [
+        { id: 'f2_3', field_key: 'PurposeOfPossession', field_type: 'text', label: '3. *The purpose for which the land is to be taken in possession', options: null, show_if: null, is_required: true, display_order: 1 },
+        { id: 'f2_4', field_key: 'OwnershipBeforeUse', field_type: 'select', label: '4. *Whether the Date of ownership gained by the concerned landowner is prior to the date of use of the same by the Company?', options: ['Yes', 'No'], show_if: null, is_required: true, display_order: 2 },
+        { id: 'f2_5', field_key: 'WithinApprovedWorkingArea', field_type: 'select', label: '5. *Whether the said lands lie in/ over the authorized working area/ approved Project Area?', options: ['Yes', 'No'], show_if: null, is_required: true, display_order: 3 },
+        { id: 'f2_6', field_key: 'CompetentApprovalStatus', field_type: 'select', label: '6. *Whether the said lands are included in schedule of land approved by Competent Authority of the Company?', options: ['Yes', 'No'], show_if: null, is_required: true, display_order: 4 },
+        { id: 'f2_6_doc', field_key: 'CompetentApprovalDocId', field_type: 'file', label: '6(a). *Attach Approval Copy (Browse File):', options: null, show_if: { CompetentApprovalStatus: { '$eq': 'Yes' } }, is_required: true, display_order: 5 },
+        { id: 'f2_6_ref', field_key: 'CompetentApprovalRefNo', field_type: 'text', label: '6(b). *If Yes, enter Approval Reference Number:', options: null, show_if: { CompetentApprovalStatus: { '$eq': 'Yes' } }, is_required: true, display_order: 6 },
+        { id: 'f2_7', field_key: 'PreviouslyAcquiredStatus', field_type: 'select', label: '7. *Whether the said land has never been acquired/purchased by ECL before or it belongs to ECL by any means:', options: ['Yes', 'No'], show_if: null, is_required: true, display_order: 7 },
+        { id: 'f2_8', field_key: 'ErstwhileManagementStatus', field_type: 'select', label: '8. *Whether the said lands was/were acquired/purchased by erstwhile management before Nationalization of mine:', options: ['Yes', 'No'], show_if: null, is_required: true, display_order: 8 },
+        { id: 'f2_9', field_key: 'PreNationalizationDamageStatus', field_type: 'select', label: '9. *Whether the said lands have been affected/damaged before nationalization:', options: ['Yes', 'No'], show_if: null, is_required: true, display_order: 9 },
+        { id: 'f2_10', field_key: 'GovernmentLandStatus', field_type: 'select', label: '10. *Whether the said lands are vested in the State Govt/ Forest Department or any other Govt. entity:', options: ['Yes', 'No'], show_if: null, is_required: true, display_order: 10 },
+        { id: 'f2_11', field_key: 'PreviousCompensationStatus', field_type: 'select', label: '11. *Whether any compensation or benefit has been provided earlier against the scheduled land:', options: ['Yes', 'No'], show_if: null, is_required: true, display_order: 11 },
+        { id: 'f2_12', field_key: 'MasterPlanStatus', field_type: 'select', label: '12. *Whether these plots are included in ‘Raniganj Master Plan’ or any such prevalent plan approved by the Central/ State Government:', options: ['Yes', 'No'], show_if: null, is_required: true, display_order: 12 },
+        { id: 'f2_13', field_key: 'RevenuePlanAttachment', field_type: 'select', label: '13. *A revenue plan showing scheduled plots, year wise program of use mentioning purpose is attached:', options: ['Yes', 'No'], show_if: null, is_required: true, display_order: 13 },
+        { id: 'f2_13_doc', field_key: 'RevenuePlanDocId', field_type: 'file', label: '13(a). *Attach Revenue Plan Map / Drawing (Browse File):', options: null, show_if: { RevenuePlanAttachment: { '$eq': 'Yes' } }, is_required: true, display_order: 14 }
+      ];
     } else {
       // Inject dynamic options for AdjacentCollieryName & AdjacentAreaName if present
       parsedFields = parsedFields.map((f: any) => {
@@ -96,10 +113,62 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch signature rules for template via Prisma ORM
-    const sigRules = await db.document_template_signature.findMany({
+    let sigRules = await db.document_template_signature.findMany({
       where: { template_code: templateCode },
       orderBy: { display_order: 'asc' }
     });
+
+    if ((!sigRules || sigRules.length === 0) && templateCode === 'FORM_II') {
+      const defaultFormIISigs = [
+        {
+          template_code: 'FORM_II',
+          sig_permission: 'form_ii.sign.land_clerk',
+          workflow_state: 'VerificationPending',
+          placeholders: { placeholder_key: 'LandClerkSignature', label: 'Land Clerk / Amin / Rev.Inspector' },
+          is_required: true,
+          display_order: 1,
+        },
+        {
+          template_code: 'FORM_II',
+          sig_permission: 'form_ii.sign.survey_officer',
+          workflow_state: 'VerificationPending',
+          placeholders: { placeholder_key: 'SurveyOfficerSignature', label: 'Surveyor / Survey Officer' },
+          is_required: true,
+          display_order: 2,
+        },
+        {
+          template_code: 'FORM_II',
+          sig_permission: 'form_ii.sign.manager',
+          workflow_state: 'VerificationPending',
+          placeholders: { placeholder_key: 'ManagerSignature', label: 'Colliery / Project Manager' },
+          is_required: true,
+          display_order: 3,
+        },
+        {
+          template_code: 'FORM_II',
+          sig_permission: 'form_ii.sign.project_officer',
+          workflow_state: 'VerificationPending',
+          placeholders: { placeholder_key: 'ProjectOfficerSignature', label: 'Project Officer / Agent' },
+          is_required: true,
+          display_order: 4,
+        },
+      ];
+
+      for (const sig of defaultFormIISigs) {
+        await db.document_template_signature.create({
+          data: {
+            ...sig,
+            entry_ts: new Date(),
+            updt_ts: new Date(),
+          }
+        }).catch(console.error);
+      }
+
+      sigRules = await db.document_template_signature.findMany({
+        where: { template_code: templateCode },
+        orderBy: { display_order: 'asc' }
+      });
+    }
 
     const pendingSignatures = (sigRules || []).map((s: any) => ({
       id: s.id,

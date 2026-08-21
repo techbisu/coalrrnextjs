@@ -5,6 +5,7 @@ import { IDocumentTemplateRepository } from '../../domain/IDocumentTemplateRepos
 import { ResolverRegistry } from '../ResolverRegistry'
 import { DocxGeneratorEngine } from '@/lib/engines'
 import { uploadFileUseCase, deleteFileUseCase } from '@/infrastructure/di/Container'
+import { db } from '@/lib/db'
 
 export interface GenerateDocumentDTO {
   instanceId: string
@@ -33,29 +34,60 @@ export class GenerateDocumentUseCase implements IUseCase<GenerateDocumentDTO, an
       
       // 2. Inject Signatures into resolvedData.fields
       const signatures = Array.isArray(instance.signature_data_json) ? instance.signature_data_json : []
-      const pendingQueue = Array.isArray(instance.resolver_signatures_json) ? instance.resolver_signatures_json : []
+      let pendingQueue = Array.isArray(instance.resolver_signatures_json) ? instance.resolver_signatures_json : []
       
-      for (const sig of signatures as { role?: string; sig_permission?: string; signatureText: string; signedAt?: string }[]) {
+      if (pendingQueue.length === 0) {
+        const dbSigRules = await db.document_template_signature.findMany({
+          where: { template_code: template.template_code },
+          orderBy: { display_order: 'asc' }
+        })
+        pendingQueue = dbSigRules.map((s: any) => ({
+          sig_permission: s.sig_permission,
+          role: s.sig_permission,
+          placeholders: s.placeholders
+        }))
+      }
+      
+      for (const sig of signatures as { role?: string; sig_permission?: string; signatureText: string; signedAt?: string; userName?: string }[]) {
         const sigPerm = sig.sig_permission || sig.role
-        const rule = pendingQueue.find((q: any) => (q.sig_permission || q.role) === sigPerm) as any
+        const rule = pendingQueue.find((q: any) => (q.sig_permission || q.role) === sigPerm || q.role === sig.role || q.sig_permission === sig.sig_permission) as any
+        const dateStr = sig.signedAt ? new Date(sig.signedAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')
+        const signeeName = sig.signatureText || sig.userName || 'Authorized Signee'
+        const sigStamp = `[ ✓ DIGITALLY SIGNED & VERIFIED ]\nSignee: ${signeeName}\nDate: ${dateStr}\nRef: SEAL-${instanceId.slice(0, 8).toUpperCase()}`
+
         if (rule && rule.placeholders) {
           if (Array.isArray(rule.placeholders)) {
             for (const placeholder of rule.placeholders) {
               const cleanKey = String(placeholder).replace(/[\{\}]/g, '').trim()
-              ;(resolvedData.fields as any)[cleanKey] = sig.signatureText
+              ;(resolvedData.fields as any)[cleanKey] = sigStamp
             }
           } else if (typeof rule.placeholders === 'object') {
             for (const [k, ph] of Object.entries(rule.placeholders)) {
               if (typeof ph === 'string') {
                 const cleanKey = ph.replace(/[\{\}]/g, '').trim()
                 if (k.toLowerCase().includes('date')) {
-                  (resolvedData.fields as any)[cleanKey] = sig.signedAt ? new Date(sig.signedAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')
+                  (resolvedData.fields as any)[cleanKey] = dateStr
                 } else {
-                  (resolvedData.fields as any)[cleanKey] = sig.signatureText
+                  (resolvedData.fields as any)[cleanKey] = sigStamp
                 }
               }
             }
           }
+        }
+
+        // Direct injection for standard Form-II / Form-I signature tags
+        if (sigPerm && sigPerm.includes('land_clerk')) {
+          ;(resolvedData.fields as any)['LandClerkSignature'] = sigStamp;
+          ;(resolvedData.fields as any)['LandClerkSig'] = sigStamp;
+        } else if (sigPerm && sigPerm.includes('survey_officer')) {
+          ;(resolvedData.fields as any)['SurveyOfficerSignature'] = sigStamp;
+          ;(resolvedData.fields as any)['SurveyOfficerSig'] = sigStamp;
+        } else if (sigPerm && sigPerm.includes('manager')) {
+          ;(resolvedData.fields as any)['ManagerSignature'] = sigStamp;
+          ;(resolvedData.fields as any)['ManagerSig'] = sigStamp;
+        } else if (sigPerm && sigPerm.includes('project_officer')) {
+          ;(resolvedData.fields as any)['ProjectOfficerSignature'] = sigStamp;
+          ;(resolvedData.fields as any)['ProjectOfficerSig'] = sigStamp;
         }
       }
 

@@ -134,6 +134,42 @@ export async function seedDocumentTemplateSignature(db: PrismaClient) {
       is_required: true,
       display_order: 3,
     },
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // FORM-II STATUTORY AWARD & VERIFICATION SIGNATURE FLOW
+    // ════════════════════════════════════════════════════════════════════════════
+    {
+      template_code: 'FORM_II',
+      sig_permission: 'form_ii.sign.land_clerk',
+      workflow_state: 'VerificationPending',
+      placeholders: { placeholder_key: 'LandClerkSignature', label: 'Land Clerk / Amin / Rev.Inspector' },
+      is_required: true,
+      display_order: 1,
+    },
+    {
+      template_code: 'FORM_II',
+      sig_permission: 'form_ii.sign.survey_officer',
+      workflow_state: 'VerificationPending',
+      placeholders: { placeholder_key: 'SurveyOfficerSignature', label: 'Surveyor / Survey Officer' },
+      is_required: true,
+      display_order: 2,
+    },
+    {
+      template_code: 'FORM_II',
+      sig_permission: 'form_ii.sign.manager',
+      workflow_state: 'VerificationPending',
+      placeholders: { placeholder_key: 'ManagerSignature', label: 'Colliery / Project Manager' },
+      is_required: true,
+      display_order: 3,
+    },
+    {
+      template_code: 'FORM_II',
+      sig_permission: 'form_ii.sign.project_officer',
+      workflow_state: 'VerificationPending',
+      placeholders: { placeholder_key: 'ProjectOfficerSignature', label: 'Project Officer / Agent' },
+      is_required: true,
+      display_order: 4,
+    },
   ]
 
   for (const sig of signatures) {

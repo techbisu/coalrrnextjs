@@ -298,6 +298,7 @@ export function FormIWizardView() {
   const [workspaceClaimId, setWorkspaceClaimId] = React.useState<string | null>(
     null,
   );
+  const [workspaceTemplateCode, setWorkspaceTemplateCode] = React.useState<string>("FORM_I");
   const [isWorkspaceOpen, setIsWorkspaceOpen] = React.useState(false);
 
   const { data: claims, isLoading } = useQuery({
@@ -338,6 +339,11 @@ export function FormIWizardView() {
           setEditingClaim(viewingClaim);
           setViewingClaim(null);
           setMode("wizard");
+        }}
+        onOpenForm2={(claimId) => {
+          setWorkspaceTemplateCode("FORM_II");
+          setWorkspaceClaimId(claimId);
+          setIsWorkspaceOpen(true);
         }}
       />
     );
@@ -548,13 +554,31 @@ export function FormIWizardView() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
+                          setWorkspaceTemplateCode("FORM_I");
                           setWorkspaceClaimId(r.id);
                           setIsWorkspaceOpen(true);
                         }}
-                        className="h-8 gap-1.5 text-xs border-blue-600 text-blue-700 hover:bg-blue-50 shadow-xs"
+                        className="h-8 gap-1.5 text-xs border-blue-600 text-blue-700 hover:bg-blue-50 shadow-xs font-medium"
+                        title="Form 1 Document Engine Workspace"
                       >
-                        <PenTool className="h-3.5 w-3.5" /> Workspace
+                        <PenTool className="h-3.5 w-3.5" /> Form 1
                       </Button>
+
+                      {(r.ecl_approval_status === "APPROVED" || r.state === "APPROVED") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setWorkspaceTemplateCode("FORM_II");
+                            setWorkspaceClaimId(r.id);
+                            setIsWorkspaceOpen(true);
+                          }}
+                          className="h-8 gap-1.5 text-xs border-teal-600 text-teal-700 hover:bg-teal-50 shadow-xs font-medium"
+                          title="Form 2 Document Engine Workspace (Award & Verification)"
+                        >
+                          <FileText className="h-3.5 w-3.5" /> Form 2
+                        </Button>
+                      )}
                     </div>
                   );
                 },
@@ -588,12 +612,12 @@ export function FormIWizardView() {
         onClose={() => setEditingClaim(null)}
       />
 
-      {/* Full-Screen Document Engine Workspace for Form-I Preview, Editing & Vetting Signatures */}
+      {/* Full-Screen Document Engine Workspace for Form-I / Form-II Preview, Editing & Vetting Signatures */}
       {workspaceClaimId && (
         <DocumentWorkspaceModal
           isOpen={isWorkspaceOpen}
           onOpenChange={setIsWorkspaceOpen}
-          templateCode="FORM_I"
+          templateCode={workspaceTemplateCode}
           businessId={workspaceClaimId}
         />
       )}
@@ -1445,10 +1469,12 @@ function ClaimECLView({
   claim,
   onDone,
   onEdit,
+  onOpenForm2,
 }: {
   claim: Claim;
   onDone: () => void;
   onEdit: () => void;
+  onOpenForm2?: (claimId: string) => void;
 }) {
   const qc = useQueryClient();
   const [selectedPlotIds, setSelectedPlotIds] = React.useState<string[]>([]);
@@ -1457,6 +1483,8 @@ function ClaimECLView({
   const [remarks, setRemarks] = React.useState("");
   const [legalSearchingDocs, setLegalSearchingDocs] = React.useState<UploadedDoc[]>([]);
   const [savingCert, setSavingCert] = React.useState(false);
+  const [isWorkspaceOpen, setIsWorkspaceOpen] = React.useState(false);
+  const [workspaceTemplateCode, setWorkspaceTemplateCode] = React.useState("FORM_II");
 
   const initialPlotsList = React.useMemo(() => {
     return Array.isArray(claim.plots) && claim.plots.length > 0
@@ -2183,9 +2211,21 @@ function ClaimECLView({
 
           <div className="flex items-center gap-3">
             {claimApproved ? (
-              <Badge variant="outline" className="bg-emerald-100 text-emerald-950 border-emerald-300 font-bold px-3 py-1.5 text-xs gap-1.5 shadow-2xs">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Form-I Claim Approved
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-emerald-100 text-emerald-950 border-emerald-300 font-bold px-3 py-1.5 text-xs gap-1.5 shadow-2xs">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Form-I Claim Approved
+                </Badge>
+                <Button
+                  onClick={() => {
+                    setWorkspaceTemplateCode("FORM_II");
+                    setIsWorkspaceOpen(true);
+                  }}
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs gap-1.5 px-3 py-1.5 shadow-xs cursor-pointer"
+                  title="Open Form 2 Document Engine Workspace"
+                >
+                  <FileText className="h-3.5 w-3.5" /> Open Form 2 Workspace
+                </Button>
+              </div>
             ) : allPlotsApproved ? (
               <Button
                 onClick={handleApproveEntireClaim}
@@ -2210,6 +2250,14 @@ function ClaimECLView({
           </div>
         </div>
       </div>
+
+      {/* Document Engine Workspace Modal inside ECL View */}
+      <DocumentWorkspaceModal
+        isOpen={isWorkspaceOpen}
+        onOpenChange={setIsWorkspaceOpen}
+        templateCode={workspaceTemplateCode}
+        businessId={claim.id}
+      />
     </div>
   );
 }

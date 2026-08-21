@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client'
 import { withAuditExtension } from '@/core/audit/extensions/PrismaAuditExtension'
 
+process.env.TZ = 'Asia/Kolkata'
+
 if (!(BigInt.prototype as any).toJSON) {
   (BigInt.prototype as any).toJSON = function () {
     return this.toString();
